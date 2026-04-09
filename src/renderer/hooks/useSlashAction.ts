@@ -64,6 +64,10 @@ export const useSlashAction = (): SlashActionResult => {
       case 'agent':
         setPanel((p) => (p === 'agent' ? null : 'agent'))
         return true
+      case 'settings':
+        useTaskStore.getState().setSettingsOpen(true)
+        setPanel(null)
+        return true
       case 'plan':
         switchMode('kiro_planner', 'Plan')
         setPanel(null)

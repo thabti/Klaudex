@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useCallback, useEffect, type KeyboardEvent, type ChangeEvent } from 'react'
+import { memo, useMemo, useState, useRef, useCallback, useEffect, type KeyboardEvent, type ChangeEvent } from 'react'
 import { ChevronDown, ShieldCheck, ShieldOff } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -284,8 +284,20 @@ export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messa
   const [mentionTrigger, setMentionTrigger] = useState<{ start: number; query: string } | null>(null)
   const [mentionedFiles, setMentionedFiles] = useState<ProjectFile[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const commands = useSettingsStore((s) => s.availableCommands)
+  const backendCommands = useSettingsStore((s) => s.availableCommands)
   const { panel, dismissPanel, execute } = useSlashAction()
+
+  // Merge backend commands with client-only commands (deduplicated)
+  const commands = useMemo(() => {
+    const clientOnly: Array<{ name: string; description?: string }> = [
+      { name: 'settings', description: 'Open application settings' },
+    ]
+    const names = new Set(backendCommands.map((c) => c.name.replace(/^\/+/, '')))
+    return [
+      ...backendCommands,
+      ...clientOnly.filter((c) => !names.has(c.name)),
+    ]
+  }, [backendCommands])
 
   const isSlash = value.startsWith('/')
   const slashQuery = isSlash ? value.slice(1) : ''
