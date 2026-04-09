@@ -290,7 +290,7 @@ const ProjectItem = memo(function ProjectItem({
   }, [editValue, name, onRenameProject])
 
   return (
-    <li className="group/menu-item relative min-w-0 overflow-hidden rounded-md">
+    <li className="group/menu-item relative min-w-0 rounded-md">
       <div className="group/project-header relative">
         <button
           type="button"
@@ -399,7 +399,7 @@ const ProjectItem = memo(function ProjectItem({
 
       {expanded && tasks.length > 0 && (
         <ul
-          className="flex min-w-0 flex-col border-l mx-1 my-0 gap-0.5 overflow-hidden px-1.5 py-0"
+          className="flex min-w-0 flex-col border-l mx-1 my-0 gap-0.5 px-1.5 py-0"
           style={{ borderColor: 'var(--border)' }}
         >
           {tasks.map((task) => (

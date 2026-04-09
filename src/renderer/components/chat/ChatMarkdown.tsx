@@ -5,6 +5,7 @@ import { CheckIcon, CopyIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { QuestionCards, hasQuestionBlocks, stripQuestionBlocks } from './QuestionCards'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useDiffStore } from '@/stores/diffStore'
 
 interface ChatMarkdownProps {
   text: string
@@ -74,7 +75,10 @@ function stabilizeStreamingMarkdown(text: string): string {
 }
 
 /** Single source of prose styling — all typography lives here, nothing in tailwind.css */
-const PROSE_CLASSES = 'chat-markdown w-full min-w-0 text-sm leading-relaxed text-foreground/90'
+const PROSE_CLASSES = 'chat-markdown w-full min-w-0 text-[14px] leading-[1.6] text-foreground'
+
+/** Matches strings that look like file paths (contain / or \ and end with a file extension) */
+const FILE_PATH_RE = /^(?:\.{0,2}[\\/])?(?:[\w.@-]+[\\/])*[\w.@-]+\.\w{1,10}$/
 
 function ChatMarkdown({ text, isStreaming = false }: ChatMarkdownProps) {
   const isPlanMode = useSettingsStore((s) => s.currentModeId === 'kiro_planner')
@@ -101,6 +105,23 @@ function ChatMarkdown({ text, isStreaming = false }: ChatMarkdownProps) {
     },
     code({ node, className, children, ...props }) {
       if (className?.startsWith('language-')) return <code className={className} {...props}>{children}</code>
+      // Detect file paths in inline code and make them clickable
+      const text = nodeToPlainText(children)
+      if (!className && FILE_PATH_RE.test(text)) {
+        return (
+          <code
+            role="button"
+            tabIndex={0}
+            onClick={() => useDiffStore.getState().openToFile(text)}
+            onKeyDown={(e) => e.key === 'Enter' && useDiffStore.getState().openToFile(text)}
+            className="cursor-pointer rounded-md border border-border/50 bg-muted px-1.5 py-0.5 text-[12.5px] text-primary underline decoration-primary/30 underline-offset-2 transition-colors hover:bg-accent hover:decoration-primary/60"
+            title={`Open diff for ${text}`}
+            {...props}
+          >
+            {children}
+          </code>
+        )
+      }
       return (
         <code
           className="rounded-md border border-border/50 bg-muted px-1.5 py-0.5 text-[12.5px] text-foreground"

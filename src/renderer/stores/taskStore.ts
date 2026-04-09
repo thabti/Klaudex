@@ -20,6 +20,8 @@ interface TaskStore {
   thinkingChunks: Record<string, string>
   /** Live tool calls for the current turn (by taskId) */
   liveToolCalls: Record<string, ToolCall[]>
+  /** Queued messages per task — typed while agent is running, sent on turn end */
+  queuedMessages: Record<string, string[]>
   activityFeed: ActivityEntry[]
   connected: boolean
   terminalOpen: boolean
@@ -38,6 +40,9 @@ interface TaskStore {
   updatePlan: (taskId: string, plan: PlanStep[]) => void
   updateUsage: (taskId: string, used: number, size: number) => void
   clearTurn: (taskId: string) => void
+  enqueueMessage: (taskId: string, message: string) => void
+  dequeueMessages: (taskId: string) => string[]
+  removeQueuedMessage: (taskId: string, index: number) => void
   createDraftThread: (workspace: string) => string
   setPendingWorkspace: (workspace: string | null) => void
   renameTask: (taskId: string, name: string) => void
@@ -60,6 +65,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   streamingChunks: {},
   thinkingChunks: {},
   liveToolCalls: {},
+  queuedMessages: {},
   activityFeed: [],
   connected: false,
   terminalOpen: false,
@@ -227,6 +233,36 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       }
     }),
 
+  enqueueMessage: (taskId, message) =>
+    set((state) => ({
+      queuedMessages: {
+        ...state.queuedMessages,
+        [taskId]: [...(state.queuedMessages[taskId] ?? []), message],
+      },
+    })),
+
+  dequeueMessages: (taskId) => {
+    const msgs = get().queuedMessages[taskId] ?? []
+    if (msgs.length > 0) {
+      set((state) => ({
+        queuedMessages: { ...state.queuedMessages, [taskId]: [] },
+      }))
+    }
+    return msgs
+  },
+
+  removeQueuedMessage: (taskId, index) =>
+    set((state) => {
+      const queue = state.queuedMessages[taskId] ?? []
+      if (index < 0 || index >= queue.length) return state
+      return {
+        queuedMessages: {
+          ...state.queuedMessages,
+          [taskId]: queue.filter((_, i) => i !== index),
+        },
+      }
+    }),
+
   createDraftThread: (workspace) => {
     const id = crypto.randomUUID()
     const name = `Thread ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
@@ -384,6 +420,36 @@ export function initTaskListeners(): () => void {
         liveToolCalls: { ...s.liveToolCalls, [taskId]: [] },
       }
     })
+
+    // Auto-send the first queued message if any exist
+    const state = useTaskStore.getState()
+    const queue = state.queuedMessages[taskId] ?? []
+    if (queue.length > 0) {
+      const nextMsg = queue[0]
+      // Remove the first message from the queue
+      useTaskStore.setState((s) => ({
+        queuedMessages: {
+          ...s.queuedMessages,
+          [taskId]: (s.queuedMessages[taskId] ?? []).slice(1),
+        },
+      }))
+      // Send it — add as user message and dispatch to backend
+      const task = useTaskStore.getState().tasks[taskId]
+      if (task) {
+        const userMsg: import('@/types').TaskMessage = {
+          role: 'user' as const,
+          content: nextMsg,
+          timestamp: new Date().toISOString(),
+        }
+        useTaskStore.getState().upsertTask({
+          ...task,
+          status: 'running',
+          messages: [...task.messages, userMsg],
+        })
+        useTaskStore.getState().clearTurn(taskId)
+        ipc.sendMessage(taskId, nextMsg)
+      }
+    }
   })
 
   const unsub9 = ipc.onDebugLog((entry) => {

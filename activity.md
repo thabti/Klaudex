@@ -1,5 +1,58 @@
 # Activity Log
 
+
+## 2026-04-10 00:46 GST (Dubai, UTC+4)
+
+### Clickable file paths in chat markdown
+
+File paths rendered as inline code in chat messages (e.g. `src/renderer/components/sidebar/TaskSidebar.tsx`) are now clickable. Clicking a file path opens the diff panel focused on that file, using `useDiffStore.openToFile()`.
+
+**Changes:**
+- Added `FILE_PATH_RE` regex to detect file path patterns in inline `<code>` elements
+- Modified the inline `code` renderer to check for file paths and render them as clickable elements styled with primary color + underline
+- Clicking calls `useDiffStore.getState().openToFile(path)` which opens the diff panel and scrolls to the matching file
+
+**Modified files:**
+- `src/renderer/components/chat/ChatMarkdown.tsx`
+
+
+## 2026-04-10 00:43 GST (Dubai, UTC+4)
+
+### Fix sidebar thread list: overflow clipping action buttons
+
+Thread names in the sidebar were overflowing and hiding the "New Thread" and "Delete" action buttons on hover. Fixed by removing `overflow-hidden` from two parent containers that were clipping absolutely-positioned and opacity-transitioned action buttons.
+
+The thread name `<span>` already had Tailwind's `truncate` class (ellipsis), but the parent `<ul>` and `<li>` containers had `overflow-hidden` which clipped the hover-revealed action buttons.
+
+**Changes:**
+- Removed `overflow-hidden` from the thread list `<ul>` so the delete button on `ThreadItem` is visible on hover
+- Removed `overflow-hidden` from the `ProjectItem` `<li>` so the new-thread and delete-project buttons are visible on hover
+
+**Modified files:**
+- `src/renderer/components/sidebar/TaskSidebar.tsx`
+
+## 2026-04-10 00:18 GST (Dubai, UTC+4)
+
+### Message queue: type and stack messages while agent is running
+
+Users can now type and send messages while the agent is running. Messages queue up and display above the chat input. When the agent finishes its turn, the first queued message auto-sends.
+
+**Changes:**
+
+1. **taskStore.ts**: Added `queuedMessages: Record<string, string[]>` state with three actions: `enqueueMessage`, `dequeueMessages`, `removeQueuedMessage`. Updated `onTurnEnd` listener to auto-send the first queued message after a turn completes.
+
+2. **QueuedMessages.tsx** (new): Displays queued message count and each message with an X button to remove. Animated slide-in.
+
+3. **ChatPanel.tsx**: `handleSendMessage` now enqueues when `task.status === 'running'` instead of sending directly. Extracted `sendMessageDirect` helper. Renders `QueuedMessages` above `ChatInput`.
+
+4. **ChatInput.tsx**: Shows both a queue/send button (muted style) and the pause button when `isRunning`. Users can type and press Enter or click the send button to queue messages while the agent runs.
+
+**Modified files:**
+- `src/renderer/stores/taskStore.ts`
+- `src/renderer/components/chat/QueuedMessages.tsx` (new)
+- `src/renderer/components/chat/ChatPanel.tsx`
+- `src/renderer/components/chat/ChatInput.tsx`
+
 ## 2026-04-09 23:40 GST (Dubai, UTC+4)
 
 ### Updated UI copy from "new project" to "import" language and bumped version to 0.6.0

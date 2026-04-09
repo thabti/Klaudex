@@ -135,14 +135,9 @@ export function deriveTimeline(
     })
   }
 
-  // Show "Working..." indicator when running but no content yet,
-  // or when running and there's activity (appears at the very bottom)
-  if (isRunning && !hasLiveActivity) {
-    // Waiting for first response
-    const lastMsg = messages[messages.length - 1]
-    if (!lastMsg || lastMsg.role === 'user') {
-      rows.push({ kind: 'working', id: 'working' })
-    }
+  // Show "Working..." indicator whenever the agent is running
+  if (isRunning) {
+    rows.push({ kind: 'working', id: 'working' })
   }
 
   return rows

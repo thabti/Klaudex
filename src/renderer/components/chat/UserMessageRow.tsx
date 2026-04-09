@@ -1,5 +1,5 @@
-import { memo, useState, useRef, useCallback } from 'react'
-import { Copy, Check } from 'lucide-react'
+import { memo, useState, useRef, useCallback, useMemo } from 'react'
+import { Copy, Check, Image, FileText, File } from 'lucide-react'
 import {
   Tooltip,
   TooltipContent,
@@ -7,6 +7,53 @@ import {
 } from '@/components/ui/tooltip'
 import { CollapsedAnswers } from './CollapsedAnswers'
 import type { UserMessageRow as UserMessageRowData } from '@/lib/timeline'
+
+/** Parse attachment blocks out of the message, return clean text + attachment metadata */
+function parseAttachments(content: string): { text: string; attachments: Array<{ name: string; type: 'image' | 'file'; src?: string }> } {
+  const attachments: Array<{ name: string; type: 'image' | 'file'; src?: string }> = []
+  // Extract image attachments: [Attached image: name (...)] + <image src="..." />
+  let cleaned = content.replace(
+    /\[Attached image: ([^\]]+)\]\n?<image src="(data:[^"]+)" \/>/g,
+    (_, name, src) => { attachments.push({ name: name.split(' (')[0], type: 'image', src }); return '' }
+  )
+  // Extract file attachments with code blocks: [Attached file: name]\n```...\n```
+  cleaned = cleaned.replace(
+    /\[Attached file: ([^\]]+)\]\n```[\s\S]*?```/g,
+    (_, name) => { attachments.push({ name, type: 'file' }); return '' }
+  )
+  // Extract file attachments with path: [Attached file: name at path]
+  cleaned = cleaned.replace(
+    /\[Attached file: ([^\]]+) at ([^\]]+)\]/g,
+    (_, name) => { attachments.push({ name, type: 'file' }); return '' }
+  )
+  // Extract binary file attachments: [Attached file: name (size bytes, binary)]
+  cleaned = cleaned.replace(
+    /\[Attached file: ([^\]]+)\]/g,
+    (_, name) => { attachments.push({ name: name.split(' (')[0], type: 'file' }); return '' }
+  )
+  return { text: cleaned.trim(), attachments }
+}
+
+const AttachmentPill = memo(function AttachmentPill({ name, type, src }: { name: string; type: 'image' | 'file'; src?: string }) {
+  const [showPreview, setShowPreview] = useState(false)
+  const Icon = type === 'image' ? Image : name.match(/\.(ts|js|tsx|jsx|py|rs|go|rb|java|c|cpp|h|css|html|json|yaml|yml|toml|xml|md|sql|sh)$/i) ? FileText : File
+
+  return (
+    <div className="inline-flex flex-col gap-1">
+      <button
+        type="button"
+        onClick={() => type === 'image' && src && setShowPreview((v) => !v)}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border/50 bg-background/50 px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent/30"
+      >
+        <Icon className="size-3 shrink-0" />
+        <span className="max-w-[200px] truncate">{name}</span>
+      </button>
+      {showPreview && src && (
+        <img src={src} alt={name} className="max-h-48 max-w-[280px] rounded-lg border border-border/30 object-contain" />
+      )}
+    </div>
+  )
+})
 
 export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserMessageRowData }) {
   const [copied, setCopied] = useState(false)
@@ -24,6 +71,8 @@ export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserM
     ? new Date(row.timestamp).toLocaleTimeString()
     : ''
 
+  const { text: cleanText, attachments: parsedAttachments } = useMemo(() => parseAttachments(row.content), [row.content])
+
   return (
     <div data-testid="user-message-row" className="pb-3" data-timeline-row-kind="user-message">
       <div className="flex justify-end">
@@ -32,9 +81,20 @@ export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserM
             {row.questionAnswers?.length ? (
               <CollapsedAnswers questionAnswers={row.questionAnswers} />
             ) : (
-              <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-foreground">
-                {row.content}
-              </p>
+              <div className="space-y-2">
+                {cleanText && (
+                  <p className="whitespace-pre-wrap break-words text-[14px] leading-[1.6] text-foreground">
+                    {cleanText}
+                  </p>
+                )}
+                {parsedAttachments.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {parsedAttachments.map((a, i) => (
+                      <AttachmentPill key={i} name={a.name} type={a.type} src={a.src} />
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
           <div className="mt-1 flex items-center justify-end gap-1.5 px-1">
