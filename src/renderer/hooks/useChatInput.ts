@@ -7,10 +7,12 @@ import { buildAttachmentMessage } from '@/components/chat/attachment-utils'
 
 interface UseChatInputOptions {
   disabled?: boolean
+  isRunning?: boolean
   onSendMessage: (message: string) => void
+  onPause?: () => void
 }
 
-export function useChatInput({ disabled, onSendMessage }: UseChatInputOptions) {
+export function useChatInput({ disabled, isRunning, onSendMessage, onPause }: UseChatInputOptions) {
   const [value, setValue] = useState('')
   const [slashIndex, setSlashIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -115,11 +117,12 @@ export function useChatInput({ disabled, onSendMessage }: UseChatInputOptions) {
       }
       if (e.key === 'Escape') { e.preventDefault(); setValue(''); return }
     }
+    if (e.key === 'Escape' && isRunning && onPause) { e.preventDefault(); onPause(); return }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
     }
-  }, [panel, dismissPanel, showFilePicker, mentionBag, showPicker, filteredCmds, slashIndex, handleSend, handleSelectCommand])
+  }, [panel, dismissPanel, showFilePicker, mentionBag, showPicker, filteredCmds, slashIndex, handleSend, handleSelectCommand, isRunning, onPause])
 
   const handleSelect = useCallback(() => {
     if (showPicker || showFilePicker) return

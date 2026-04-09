@@ -673,3 +673,17 @@ Added drag-and-drop, paste, and file picker support for attaching files and imag
 
 ## 2026-04-09 23:57 (Dubai)
 - Added joke to README.md footer: "Why did the AI agent refuse to use `unwrap()`? It didn't want to panic in production."
+
+## 2026-04-10 00:07 GST (Dubai, UTC+4)
+
+### Escape key pauses running agent from ChatInput
+
+Added Escape key handler so pressing Esc while the agent is running pauses it (same as clicking the pause button). After pausing, the user can type a follow-up message to resume with a new steering direction.
+
+- Passed `isRunning` and `onPause` into `useChatInput` hook
+- Added Escape check at end of `handleKeyDown` (after panel/picker dismissals)
+- Resume flow already worked via `ipc.sendMessage` — no changes needed
+
+**Build:** `tsc --noEmit` ✓
+
+**Modified:** `src/renderer/hooks/useChatInput.ts`, `src/renderer/components/chat/ChatInput.tsx`

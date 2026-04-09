@@ -36,7 +36,7 @@ export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messa
     attachments, isDragOver, fileInputRef,
     handleRemoveAttachment, handlePaste, handleFilePickerClick, handleFileInputChange,
     handleChange, handleSend, handleKeyDown, handleSelect,
-  } = useChatInput({ disabled, onSendMessage })
+  } = useChatInput({ disabled, isRunning, onSendMessage, onPause })
 
   return (
     <div data-testid="chat-input" className="px-4 pt-1.5 pb-3 sm:px-6 sm:pt-2 sm:pb-4">
