@@ -108,6 +108,11 @@ export const ChatPanel = memo(function ChatPanel() {
     await sendMessageDirect(msg)
   }, [])
 
+  const handleReorderQueued = useCallback((from: number, to: number) => {
+    const id = useTaskStore.getState().selectedTaskId
+    if (id) useTaskStore.getState().reorderQueuedMessage(id, from, to)
+  }, [])
+
   const handlePermissionSelect = useCallback((optionId: string) => {
     const state = useTaskStore.getState()
     const id = state.selectedTaskId
@@ -156,7 +161,7 @@ export const ChatPanel = memo(function ChatPanel() {
           />
         )}
 
-        <QueuedMessages messages={queuedMessages} onRemove={handleRemoveQueued} onSteer={isRunning ? handleSteer : undefined} />
+        <QueuedMessages messages={queuedMessages} onRemove={handleRemoveQueued} onReorder={handleReorderQueued} onSteer={isRunning ? handleSteer : undefined} />
 
         <ChatInput
           disabled={inputDisabled}

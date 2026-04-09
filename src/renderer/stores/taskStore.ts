@@ -43,6 +43,7 @@ interface TaskStore {
   enqueueMessage: (taskId: string, message: string) => void
   dequeueMessages: (taskId: string) => string[]
   removeQueuedMessage: (taskId: string, index: number) => void
+  reorderQueuedMessage: (taskId: string, from: number, to: number) => void
   createDraftThread: (workspace: string) => string
   setPendingWorkspace: (workspace: string | null) => void
   renameTask: (taskId: string, name: string) => void
@@ -261,6 +262,15 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           [taskId]: queue.filter((_, i) => i !== index),
         },
       }
+    }),
+
+  reorderQueuedMessage: (taskId, from, to) =>
+    set((state) => {
+      const queue = [...(state.queuedMessages[taskId] ?? [])]
+      if (from < 0 || from >= queue.length || to < 0 || to >= queue.length) return state
+      const [item] = queue.splice(from, 1)
+      queue.splice(to, 0, item)
+      return { queuedMessages: { ...state.queuedMessages, [taskId]: queue } }
     }),
 
   createDraftThread: (workspace) => {

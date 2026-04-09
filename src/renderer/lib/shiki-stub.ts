@@ -7,7 +7,16 @@
 const noopLang = { default: { name: 'text', patterns: [], scopeName: 'source.text' } }
 export const bundledLanguages = new Proxy({} as Record<string, () => Promise<unknown>>, {
   has: () => true,
-  get: (_target, _prop) => () => Promise.resolve(noopLang),
+  get: (_target, prop) => {
+    if (typeof prop === 'string') return () => Promise.resolve(noopLang)
+    return undefined
+  },
+  getOwnPropertyDescriptor: (_target, _prop) => ({
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value: () => Promise.resolve(noopLang),
+  }),
 })
 export const bundledThemes = {}
 
