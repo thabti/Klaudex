@@ -8,8 +8,7 @@
 
 A native macOS desktop client for [Kiro CLI](https://kiro.dev) AI coding agents, built with [Tauri v2](https://v2.tauri.app) (Rust) and React 19 (TypeScript).
 
-<!-- TODO: add screenshot or GIF of the app here -->
-<!-- Example: ![Kirodex screenshot](assets/screenshot.png) -->
+![Kirodex screenshot](assets/chat-mode-task-progress.png)
 
 ## Features
 

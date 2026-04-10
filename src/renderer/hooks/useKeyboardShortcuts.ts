@@ -38,6 +38,18 @@ function getOrderedThreadIds(): string[] {
 export function useKeyboardShortcuts() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // ── Escape → Stop running agent ────────────────────────
+      if (e.key === 'Escape') {
+        const state = useTaskStore.getState()
+        const id = state.selectedTaskId
+        const task = id ? state.tasks[id] : null
+        if (task?.status === 'running') {
+          e.preventDefault()
+          ipc.pauseTask(task.id)
+          return
+        }
+      }
+
       const mod = e.metaKey || e.ctrlKey
       if (!mod) return
 

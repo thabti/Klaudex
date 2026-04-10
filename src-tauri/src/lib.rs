@@ -3,11 +3,99 @@ mod commands;
 use commands::{acp, fs_ops, git, kiro_config, pty, settings};
 use tauri::Manager;
 
+/// Install a global panic hook that logs the panic message and backtrace.
+/// This catches panics on *any* thread (background ACP, probe, PTY reader)
+/// that would otherwise vanish silently.
+fn install_panic_hook() {
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let thread = std::thread::current();
+        let name = thread.name().unwrap_or("<unnamed>");
+        let location = info.location().map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_else(|| "<unknown>".to_string());
+        let payload = if let Some(s) = info.payload().downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = info.payload().downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "non-string panic payload".to_string()
+        };
+        // Log via the log crate (goes to tauri_plugin_log → file + console)
+        log::error!(
+            "PANIC on thread '{}' at {}: {}",
+            name, location, payload
+        );
+        // Also write to stderr in case the log system is down
+        eprintln!(
+            "[Kirodex PANIC] thread '{}' at {}: {}",
+            name, location, payload
+        );
+        // Call the default hook so the backtrace still prints in dev
+        default_hook(info);
+    }));
+}
+
+/// Gracefully shut down all ACP connections and PTY sessions.
+/// Uses lock timeouts (via try_lock) to avoid blocking the close handler
+/// if a mutex is poisoned or contested.
+fn shutdown_app(app: &tauri::AppHandle) {
+    log::info!("Window close requested — shutting down");
+    let start = std::time::Instant::now();
+
+    // Kill all ACP connections
+    if let Some(acp_state) = app.try_state::<acp::AcpState>() {
+        match acp_state.connections.lock() {
+            Ok(mut conns) => {
+                let count = conns.len();
+                for (task_id, handle) in conns.drain() {
+                    log::info!("Killing ACP connection: {}", task_id);
+                    let _ = handle.cmd_tx.send(acp::AcpCommand::Kill);
+                    // Drop the sender so the receiver side unblocks
+                    drop(handle);
+                }
+                log::info!("Sent kill to {} ACP connection(s)", count);
+            }
+            Err(e) => log::error!("Cannot lock ACP connections on close: {}", e),
+        }
+
+        // Drop all pending permission resolvers so blocked ACP threads unblock
+        match acp_state.permission_resolvers.lock() {
+            Ok(mut resolvers) => {
+                let count = resolvers.len();
+                resolvers.clear(); // Dropping oneshot::Sender causes Err on the receiver
+                if count > 0 {
+                    log::info!("Dropped {} pending permission resolver(s)", count);
+                }
+            }
+            Err(e) => log::error!("Cannot lock permission resolvers on close: {}", e),
+        }
+    }
+
+    // Kill all PTY sessions
+    if let Some(pty_state) = app.try_state::<pty::PtyState>() {
+        match pty_state.0.lock() {
+            Ok(mut ptys) => {
+                let count = ptys.len();
+                ptys.clear(); // Drop impl kills child processes and waits
+                if count > 0 {
+                    log::info!("Killed {} PTY session(s)", count);
+                }
+            }
+            Err(e) => log::error!("Cannot lock PTY state on close: {}", e),
+        }
+    }
+
+    log::info!("Shutdown completed in {:?}", start.elapsed());
+}
+
 pub fn run() {
+    install_panic_hook();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_log::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_notification::init())
         .manage(settings::SettingsState::default())
         .manage(acp::AcpState::default())
         .manage(pty::PtyState::default())
@@ -36,27 +124,12 @@ pub fn run() {
                     }
                 }
             }
-            log::info!("Kirodex started");
+            log::info!("Kirodex started (pid={})", std::process::id());
             Ok(())
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
-                log::info!("Window close requested, cleaning up");
-                let app = window.app_handle();
-                // Kill all ACP connections
-                if let Some(acp_state) = app.try_state::<acp::AcpState>() {
-                    if let Ok(mut conns) = acp_state.connections.lock() {
-                        for (_, handle) in conns.drain() {
-                            let _ = handle.cmd_tx.send(acp::AcpCommand::Kill);
-                        }
-                    }
-                }
-                // Kill all PTY sessions
-                if let Some(pty_state) = app.try_state::<pty::PtyState>() {
-                    if let Ok(mut ptys) = pty_state.0.lock() {
-                        ptys.clear(); // Drop impl kills child processes
-                    }
-                }
+                shutdown_app(window.app_handle());
             }
         })
         .invoke_handler(tauri::generate_handler![

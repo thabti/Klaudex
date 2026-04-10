@@ -26,6 +26,7 @@
     "@pierre/diffs": "^1.1.12",
     "@tabler/icons-react": "^3.41.1",
     "@tanstack/react-virtual": "^3.13.23",
+    "@tauri-apps/plugin-notification": "^2.3.3",
     "@tauri-apps/plugin-store": "^2.4.2",
     "@xterm/addon-fit": "^0.11.0",
     "diff": "^8.0.4",

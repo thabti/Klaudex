@@ -1,3 +1,74 @@
+## 2026-04-11 01:48 GST (Dubai)
+
+### Chore: Rename asset screenshots to descriptive names
+
+Renamed 6 macOS screenshot files in `assets/` from timestamp-based names to descriptive kebab-case names based on their content:
+
+| Old name | New name |
+|----------|----------|
+| Screenshot 2026-04-10 at 20.30.06.png | plan-mode-notifications.png |
+| Screenshot 2026-04-10 at 20.30.12.png | settings-general.png |
+| Screenshot 2026-04-10 at 20.30.16.png | settings-keyboard-shortcuts.png |
+| Screenshot 2026-04-10 at 20.32.23.png | chat-mode-task-progress.png |
+| Screenshot 2026-04-10 at 20.37.43.png | chat-mode-acp-analysis.png |
+| Screenshot 2026-04-10 at 20.43.35.png | plan-mode-questions.png |
+
+No code references to update (screenshots weren't referenced anywhere yet). `lastline-logo.png` and `lastline-logo.svg` left unchanged.
+
+## 2026-04-11 01:40 GST (Dubai)
+
+### Infra: Improve crash handler and shutdown resilience
+
+Rewrote the Tauri close handler into a dedicated `shutdown_app()` function with structured logging: logs each ACP kill by task ID, drops pending permission resolvers (unblocking ACP threads stuck on `reply_rx.await`), counts PTY teardowns, and reports total shutdown time. Added `install_panic_hook()` at startup that catches panics on all threads (ACP, probe, PTY reader) and routes them to both `log::error!` (goes to file via tauri_plugin_log) and stderr. Frontend error fallback now filters Vite internal stack frames, and the HTML fallback gained a "Copy Error" button for easy bug reporting.
+
+**Modified:** src-tauri/src/lib.rs, src-tauri/src/main.rs, src/renderer/main.tsx, index.html
+
+## 2026-04-11 01:15 GST (Dubai)
+
+### Fix: Crash on diff viewer load + hang prevention + listener cleanup
+
+Fixed `t.getTheme is not a function` crash that prevented the app from loading — the shiki stub was missing `getTheme()` which `@pierre/diffs` calls internally. Added 30s timeout to `list_models` blocking `recv()`, 5-minute timeout to permission `reply_rx.await`, and `catch_unwind` guards on all 3 spawned OS threads (ACP connection, probe, list_models) to prevent silent thread death from orphaning channels or permanently locking `probe_running`. Fixed Tauri event listener double-unregister race in `ipc.ts` with a shared `unlistened` guard.
+
+**Modified:** src/renderer/lib/shiki-stub.ts, src/renderer/lib/ipc.ts, src-tauri/src/commands/acp.rs
+
+## 2026-04-11 00:28 GST (Dubai)
+
+### Feature: Native notifications on agent end_turn
+
+Added Tauri notification plugin so users get a native macOS notification when the agent finishes its turn (stopReason: "end_turn"). This lets users tab away and get pulled back when the agent is done.
+
+Backend:
+- Added `tauri-plugin-notification = "2"` to Cargo.toml
+- Registered `tauri_plugin_notification::init()` in lib.rs
+- Added `notification:default` to capabilities/default.json
+- In `acp.rs` `run_acp_connection()`, after parsing `stopReason`, fires `app.notification().builder().title("Kirodex").body("Agent has finished its turn").show()` when stop_reason == "end_turn"
+
+Frontend:
+- Installed `@tauri-apps/plugin-notification` npm package
+- Added permission request in App.tsx initialization useEffect using `isPermissionGranted()` + `requestPermission()` pattern
+
+Both `cargo check` and `tsc --noEmit` pass clean.
+
+**Modified:** `src-tauri/Cargo.toml`, `src-tauri/src/lib.rs`, `src-tauri/capabilities/default.json`, `src-tauri/src/commands/acp.rs`, `src/renderer/App.tsx`, `package.json`, `bun.lock`
+
+## 2026-04-10 20:29 GST (Dubai)
+
+### Feature: Global Escape key stops running agent
+
+Added a global `keydown` listener for the Escape key in `useKeyboardShortcuts.ts`. When the selected task is running, pressing Escape calls `ipc.pauseTask()` which sends `AcpCommand::Cancel` to the ACP connection and sets the task to "paused". The user can then type a new message to steer the agent. No backend changes needed; the existing `task_pause` flow already supports this.
+
+**Modified:** `src/renderer/hooks/useKeyboardShortcuts.ts`
+
+## 2026-04-10 20:24 GST (Dubai)
+
+### Git: Commit and push all changes to remote
+
+Committed and pushed two commits to `origin/main`:
+1. `a325bc5` — vitest test suite (30+ tests), Rust backend hardening (memory, PTY, kiro config, git push/revert), UI fixes
+2. `f558d7b` — inject project rules into ACP initial prompt, add steering rule, update CLAUDE.md
+
+Both commits include the Kirodex co-author trailer.
+
 ## 2026-04-10 20:21 GST (Dubai)
 
 ### ACP: Inject Kirodex project rules into initial prompt

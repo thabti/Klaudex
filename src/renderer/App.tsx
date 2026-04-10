@@ -199,6 +199,12 @@ export function App() {
     useSettingsStore.getState().checkAuth();
     // Pre-warm ACP to get models/modes before user creates a thread
     ipc.probeCapabilities().catch(() => {});
+    // Request notification permission so end_turn alerts work
+    import("@tauri-apps/plugin-notification").then(({ isPermissionGranted, requestPermission }) => {
+      isPermissionGranted().then((granted) => {
+        if (!granted) requestPermission();
+      });
+    }).catch(() => {});
     const cleanupTask = initTaskListeners();
     const cleanupKiro = initKiroListeners();
     return () => {

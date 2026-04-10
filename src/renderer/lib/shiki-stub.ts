@@ -20,11 +20,23 @@ export const bundledLanguages = new Proxy({} as Record<string, () => Promise<unk
 })
 export const bundledThemes = {}
 
+// Minimal theme object returned by getTheme — satisfies @pierre/diffs internal calls.
+const NOOP_THEME = {
+  name: 'noop',
+  type: 'dark',
+  bg: '#111114',
+  fg: '#eeeeee',
+  settings: [],
+  colors: {},
+}
+
 export function createHighlighter() {
   return Promise.resolve({
-    codeToTokens: () => ({ tokens: [], bg: '', fg: '', themeName: '' }),
+    codeToTokens: () => ({ tokens: [], bg: '#111114', fg: '#eeeeee', themeName: 'noop' }),
+    codeToHtml: (code: string) => `<pre><code>${code}</code></pre>`,
     getLoadedLanguages: () => [],
-    getLoadedThemes: () => [],
+    getLoadedThemes: () => ['noop'],
+    getTheme: () => NOOP_THEME,
     loadLanguage: () => Promise.resolve(),
     loadTheme: () => Promise.resolve(),
   })

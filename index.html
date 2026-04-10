@@ -81,21 +81,36 @@
                     white-space: pre-wrap;
                 "
             ></p>
-            <button
-                id="reload-btn"
-                style="
-                    margin-top: 8px;
-                    padding: 8px 20px;
-                    background: #238636;
-                    color: #fff;
-                    border: none;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    font-size: 13px;
-                "
-            >
-                Reload
-            </button>
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                <button
+                    id="reload-btn"
+                    style="
+                        padding: 8px 20px;
+                        background: #238636;
+                        color: #fff;
+                        border: none;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 13px;
+                    "
+                >
+                    Reload
+                </button>
+                <button
+                    id="copy-error-btn"
+                    style="
+                        padding: 8px 20px;
+                        background: #30363d;
+                        color: #8b949e;
+                        border: 1px solid #484f58;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 13px;
+                    "
+                >
+                    Copy Error
+                </button>
+            </div>
         </div>
         <script type="module" src="/src/renderer/main.tsx"></script>
     </body>

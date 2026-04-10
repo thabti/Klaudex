@@ -13,11 +13,21 @@ function showError(err: unknown) {
   const root = document.getElementById('root')
   if (fallback) fallback.style.display = 'flex'
   if (root) root.style.display = 'none'
-  const text = err instanceof Error
-    ? `${err.message}\n\n${err.stack ?? ''}`
-    : String(err)
+
+  let text: string
+  if (err instanceof Error) {
+    // Clean up Vite/Tauri internal frames to surface the actual error
+    const stack = (err.stack ?? '')
+      .split('\n')
+      .filter((l) => !l.includes('node_modules/.vite/'))
+      .slice(0, 15)
+      .join('\n')
+    text = `${err.name}: ${err.message}\n\n${stack}`
+  } else {
+    text = String(err)
+  }
   if (msg) msg.textContent = text
-  console.error('[App Error]', err)
+  console.error('[Kirodex crash]', err)
 }
 
 class ErrorBoundary extends React.Component<
@@ -33,9 +43,16 @@ class ErrorBoundary extends React.Component<
 window.addEventListener('unhandledrejection', (e) => showError(e.reason))
 window.addEventListener('error', (e) => showError(e.error ?? e.message))
 
-// Wire up error fallback reload button
+// Wire up error fallback buttons
 document.getElementById('reload-btn')?.addEventListener('click', () => {
   window.location.reload()
+})
+document.getElementById('copy-error-btn')?.addEventListener('click', () => {
+  const msg = document.getElementById('error-message')?.textContent ?? ''
+  navigator.clipboard.writeText(msg).then(() => {
+    const btn = document.getElementById('copy-error-btn')
+    if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy Error' }, 2000) }
+  }).catch(() => {})
 })
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

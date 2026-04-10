@@ -7,10 +7,16 @@ type UnsubscribeFn = () => void
 const tauriListen = <T>(event: string, cb: (payload: T) => void): UnsubscribeFn => {
   let unlisten: (() => void) | null = null
   let cleaned = false
+  let unlistened = false
+  const safeUnlisten = (fn: () => void) => {
+    if (unlistened) return
+    unlistened = true
+    try { fn() } catch { /* listener already removed by Tauri */ }
+  }
   const ready = listen<T>(event, (e) => { if (!cleaned) cb(e.payload) })
   ready.then((fn) => {
     if (cleaned) {
-      try { fn() } catch { /* already unregistered */ }
+      safeUnlisten(fn)
     } else {
       unlisten = fn
     }
@@ -21,9 +27,9 @@ const tauriListen = <T>(event: string, cb: (payload: T) => void): UnsubscribeFn 
     if (cleaned) return
     cleaned = true
     if (unlisten) {
-      try { unlisten() } catch { /* already unregistered */ }
+      safeUnlisten(unlisten)
     } else {
-      ready.then((fn) => { try { fn() } catch { /* noop */ } }).catch(() => {})
+      ready.then((fn) => safeUnlisten(fn)).catch(() => {})
     }
   }
 }

@@ -287,16 +287,17 @@ impl acp::Client for KirodexClient {
         let request_id = format!("perm-{}", now_millis());
         let _ = self.perm_tx.send((request_id.clone(), args, reply_tx));
 
-        // Wait for user response
-        match reply_rx.await {
-            Ok(reply) => {
+        // Wait for user response (5 min timeout to prevent indefinite hang)
+        match tokio::time::timeout(std::time::Duration::from_secs(300), reply_rx).await {
+            Ok(Ok(reply)) => {
                 Ok(acp::RequestPermissionResponse::new(
                     acp::RequestPermissionOutcome::Selected(
                         acp::SelectedPermissionOutcome::new(reply.option_id),
                     ),
                 ))
             }
-            Err(_) => {
+            Ok(Err(_)) | Err(_) => {
+                log::warn!("[ACP] Permission request {} timed out or was dropped", request_id);
                 Ok(acp::RequestPermissionResponse::new(
                     acp::RequestPermissionOutcome::Cancelled,
                 ))
@@ -448,32 +449,40 @@ fn spawn_connection(
         }
     });
 
-    // Spawn the ACP connection on a dedicated OS thread with its own single-threaded runtime
+    // Spawn the ACP connection on a dedicated OS thread with its own single-threaded runtime.
+    // Wrapped in catch_unwind to prevent silent thread death from orphaning channels.
     let app3 = app.clone();
     let tid3 = task_id.clone();
+    let alive_for_panic = alive.clone();
     std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("Failed to create tokio runtime for ACP");
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("Failed to create tokio runtime for ACP");
 
-        let local = tokio::task::LocalSet::new();
-        local.block_on(&rt, async move {
-            let result = run_acp_connection(
-                tid3.clone(), workspace, kiro_bin, auto_approve,
-                app3.clone(), perm_tx, &mut cmd_rx,
-            ).await;
+            let local = tokio::task::LocalSet::new();
+            local.block_on(&rt, async move {
+                let result = run_acp_connection(
+                    tid3.clone(), workspace, kiro_bin, auto_approve,
+                    app3.clone(), perm_tx, &mut cmd_rx,
+                ).await;
 
-            alive_clone.store(false, std::sync::atomic::Ordering::SeqCst);
+                alive_clone.store(false, std::sync::atomic::Ordering::SeqCst);
 
-            if let Err(e) = result {
-                use tauri::Emitter;
-                let _ = app3.emit("debug_log", serde_json::json!({
-                    "direction": "in", "category": "error", "type": "connection-error",
-                    "taskId": tid3, "summary": e, "payload": { "error": e }, "isError": true
-                }));
-            }
-        });
+                if let Err(e) = result {
+                    use tauri::Emitter;
+                    let _ = app3.emit("debug_log", serde_json::json!({
+                        "direction": "in", "category": "error", "type": "connection-error",
+                        "taskId": tid3, "summary": e, "payload": { "error": e }, "isError": true
+                    }));
+                }
+            });
+        }));
+        if result.is_err() {
+            log::error!("[ACP] Connection thread panicked");
+            alive_for_panic.store(false, std::sync::atomic::Ordering::SeqCst);
+        }
     });
 
     Ok(ConnectionHandle { cmd_tx, alive })
@@ -611,6 +620,15 @@ async fn run_acp_connection(
                             "taskId": task_id, "summary": format!("turn ended: {stop_reason}"),
                             "payload": result_val, "isError": false
                         }));
+                        // Send native notification when agent finishes
+                        if stop_reason == "end_turn" {
+                            use tauri_plugin_notification::NotificationExt;
+                            let _ = app.notification()
+                                .builder()
+                                .title("Kirodex")
+                                .body("Agent has finished its turn")
+                                .show();
+                        }
                     }
                     Err(e) => {
                         use tauri::Emitter;
@@ -966,59 +984,65 @@ pub fn list_models(
     let _app_clone = app.clone();
 
     std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        let local = tokio::task::LocalSet::new();
-        let result = local.block_on(&rt, async {
-            let mut child = tokio::process::Command::new(&bin)
-                .arg("acp")
-                .stdin(std::process::Stdio::piped())
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::null())
-                .env("PATH", format!("/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}", std::env::var("PATH").unwrap_or_default()))
-                .spawn()
-                .map_err(|e| format!("Failed to spawn: {e}"))?;
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("Failed to create tokio runtime for list_models");
+            let local = tokio::task::LocalSet::new();
+            local.block_on(&rt, async {
+                let mut child = tokio::process::Command::new(&bin)
+                    .arg("acp")
+                    .stdin(std::process::Stdio::piped())
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::null())
+                    .env("PATH", format!("/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}", std::env::var("PATH").unwrap_or_default()))
+                    .spawn()
+                    .map_err(|e| format!("Failed to spawn: {e}"))?;
 
-            let stdin = child.stdin.take().ok_or("No stdin")?;
-            let stdout = child.stdout.take().ok_or("No stdout")?;
+                let stdin = child.stdin.take().ok_or("No stdin")?;
+                let stdout = child.stdout.take().ok_or("No stdout")?;
 
-            struct MinimalClient;
-            #[async_trait::async_trait(?Send)]
-            impl acp::Client for MinimalClient {
-                async fn session_notification(&self, _: acp::SessionNotification) -> acp::Result<()> { Ok(()) }
-                async fn request_permission(&self, _: acp::RequestPermissionRequest) -> acp::Result<acp::RequestPermissionResponse> {
-                    Ok(acp::RequestPermissionResponse::new(acp::RequestPermissionOutcome::Cancelled))
+                struct MinimalClient;
+                #[async_trait::async_trait(?Send)]
+                impl acp::Client for MinimalClient {
+                    async fn session_notification(&self, _: acp::SessionNotification) -> acp::Result<()> { Ok(()) }
+                    async fn request_permission(&self, _: acp::RequestPermissionRequest) -> acp::Result<acp::RequestPermissionResponse> {
+                        Ok(acp::RequestPermissionResponse::new(acp::RequestPermissionOutcome::Cancelled))
+                    }
+                    async fn ext_notification(&self, _: acp::ExtNotification) -> acp::Result<()> { Ok(()) }
                 }
-                async fn ext_notification(&self, _: acp::ExtNotification) -> acp::Result<()> { Ok(()) }
-            }
 
-            let (conn, io_future) = acp::ClientSideConnection::new(
-                MinimalClient, stdin.compat_write(), stdout.compat(),
-                |fut| { tokio::task::spawn_local(fut); },
-            );
-            tokio::task::spawn_local(async { let _ = io_future.await; });
+                let (conn, io_future) = acp::ClientSideConnection::new(
+                    MinimalClient, stdin.compat_write(), stdout.compat(),
+                    |fut| { tokio::task::spawn_local(fut); },
+                );
+                tokio::task::spawn_local(async { let _ = io_future.await; });
 
-            conn.initialize(
-                acp::InitializeRequest::new(acp::ProtocolVersion::V1)
-                    .client_info(acp::Implementation::new("kirodex", "0.1.0"))
-            ).await.map_err(|e| format!("Init failed: {e}"))?;
+                conn.initialize(
+                    acp::InitializeRequest::new(acp::ProtocolVersion::V1)
+                        .client_info(acp::Implementation::new("kirodex", "0.1.0"))
+                ).await.map_err(|e| format!("Init failed: {e}"))?;
 
-            let session = conn.new_session(
-                acp::NewSessionRequest::new(std::env::current_dir().unwrap_or_default())
-            ).await.map_err(|e| format!("Session failed: {e}"))?;
+                let session = conn.new_session(
+                    acp::NewSessionRequest::new(std::env::current_dir().unwrap_or_default())
+                ).await.map_err(|e| format!("Session failed: {e}"))?;
 
-            let session_val = serde_json::to_value(&session).unwrap_or_default();
-            let models = session_val.get("models").cloned().unwrap_or(Value::Null);
+                let session_val = serde_json::to_value(&session).unwrap_or_default();
+                let models = session_val.get("models").cloned().unwrap_or(Value::Null);
 
-            let _ = child.kill().await;
-            Ok::<Value, String>(models)
-        });
-        let _ = tx.send(result);
+                let _ = child.kill().await;
+                Ok::<Value, String>(models)
+            })
+        }));
+        match result {
+            Ok(inner) => { let _ = tx.send(inner); }
+            Err(_) => { let _ = tx.send(Err("list_models thread panicked".to_string())); }
+        }
     });
 
-    rx.recv().map_err(|e| e.to_string())?.map(|models| {
+    rx.recv_timeout(std::time::Duration::from_secs(30))
+        .map_err(|e| format!("list_models timed out or channel closed: {e}"))?.map(|models| {
         serde_json::json!({
             "availableModels": models.get("availableModels").unwrap_or(&Value::Array(vec![])),
             "currentModelId": models.get("currentModelId")
@@ -1051,84 +1075,87 @@ pub fn probe_capabilities(
     let app_clone = app.clone();
 
     std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("Failed to create tokio runtime for probe");
-        let local = tokio::task::LocalSet::new();
-        let result = local.block_on(&rt, async {
-            let mut child = tokio::process::Command::new(&bin)
-                .arg("acp")
-                .stdin(std::process::Stdio::piped())
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::null())
-                .env("PATH", format!("/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}", std::env::var("PATH").unwrap_or_default()))
-                .spawn()
-                .map_err(|e| format!("Failed to spawn: {e}"))?;
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("Failed to create tokio runtime for probe");
+            let local = tokio::task::LocalSet::new();
+            local.block_on(&rt, async {
+                let mut child = tokio::process::Command::new(&bin)
+                    .arg("acp")
+                    .stdin(std::process::Stdio::piped())
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::null())
+                    .env("PATH", format!("/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}", std::env::var("PATH").unwrap_or_default()))
+                    .spawn()
+                    .map_err(|e| format!("Failed to spawn: {e}"))?;
 
-            let stdin = child.stdin.take().ok_or("No stdin")?;
-            let stdout = child.stdout.take().ok_or("No stdout")?;
+                let stdin = child.stdin.take().ok_or("No stdin")?;
+                let stdout = child.stdout.take().ok_or("No stdout")?;
 
-            struct ProbeClient;
-            #[async_trait::async_trait(?Send)]
-            impl acp::Client for ProbeClient {
-                async fn session_notification(&self, _: acp::SessionNotification) -> acp::Result<()> { Ok(()) }
-                async fn request_permission(&self, _: acp::RequestPermissionRequest) -> acp::Result<acp::RequestPermissionResponse> {
-                    Ok(acp::RequestPermissionResponse::new(acp::RequestPermissionOutcome::Cancelled))
+                struct ProbeClient;
+                #[async_trait::async_trait(?Send)]
+                impl acp::Client for ProbeClient {
+                    async fn session_notification(&self, _: acp::SessionNotification) -> acp::Result<()> { Ok(()) }
+                    async fn request_permission(&self, _: acp::RequestPermissionRequest) -> acp::Result<acp::RequestPermissionResponse> {
+                        Ok(acp::RequestPermissionResponse::new(acp::RequestPermissionOutcome::Cancelled))
+                    }
+                    async fn ext_notification(&self, _: acp::ExtNotification) -> acp::Result<()> { Ok(()) }
                 }
-                async fn ext_notification(&self, _: acp::ExtNotification) -> acp::Result<()> { Ok(()) }
-            }
 
-            let (conn, io_future) = acp::ClientSideConnection::new(
-                ProbeClient, stdin.compat_write(), stdout.compat(),
-                |fut| { tokio::task::spawn_local(fut); },
-            );
-            tokio::task::spawn_local(async { let _ = io_future.await; });
+                let (conn, io_future) = acp::ClientSideConnection::new(
+                    ProbeClient, stdin.compat_write(), stdout.compat(),
+                    |fut| { tokio::task::spawn_local(fut); },
+                );
+                tokio::task::spawn_local(async { let _ = io_future.await; });
 
-            conn.initialize(
-                acp::InitializeRequest::new(acp::ProtocolVersion::V1)
-                    .client_info(acp::Implementation::new("kirodex", "0.1.0"))
-            ).await.map_err(|e| format!("Init failed: {e}"))?;
+                conn.initialize(
+                    acp::InitializeRequest::new(acp::ProtocolVersion::V1)
+                        .client_info(acp::Implementation::new("kirodex", "0.1.0"))
+                ).await.map_err(|e| format!("Init failed: {e}"))?;
 
-            let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-            let session = conn.new_session(
-                acp::NewSessionRequest::new(std::path::PathBuf::from(&home))
-            ).await.map_err(|e| format!("Session failed: {e}"))?;
+                let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+                let session = conn.new_session(
+                    acp::NewSessionRequest::new(std::path::PathBuf::from(&home))
+                ).await.map_err(|e| format!("Session failed: {e}"))?;
 
-            let session_val = serde_json::to_value(&session).unwrap_or_default();
+                let session_val = serde_json::to_value(&session).unwrap_or_default();
 
-            let model_count = session_val.get("models")
-                .and_then(|m| m.get("availableModels"))
-                .and_then(|a| a.as_array())
-                .map(|a| a.len())
-                .unwrap_or(0);
-            let current_model = session_val.get("models")
-                .and_then(|m| m.get("currentModelId"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("none");
-            log::info!("[ACP] probe session_init: {} models (current={})", model_count, current_model);
+                let model_count = session_val.get("models")
+                    .and_then(|m| m.get("availableModels"))
+                    .and_then(|a| a.as_array())
+                    .map(|a| a.len())
+                    .unwrap_or(0);
+                let current_model = session_val.get("models")
+                    .and_then(|m| m.get("currentModelId"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("none");
+                log::info!("[ACP] probe session_init: {} models (current={})", model_count, current_model);
 
-            use tauri::Emitter;
-            let _ = app_clone.emit("session_init", serde_json::json!({
-                "taskId": "__probe__",
-                "models": session_val.get("models"),
-                "modes": session_val.get("modes"),
-                "configOptions": session_val.get("configOptions"),
-            }));
+                use tauri::Emitter;
+                let _ = app_clone.emit("session_init", serde_json::json!({
+                    "taskId": "__probe__",
+                    "models": session_val.get("models"),
+                    "modes": session_val.get("modes"),
+                    "configOptions": session_val.get("configOptions"),
+                }));
 
-            let _ = child.kill().await;
-            Ok::<(), String>(())
-        });
+                let _ = child.kill().await;
+                Ok::<(), String>(())
+            })
+        }));
 
-        // ALWAYS reset the probe guard when the thread exits
+        // ALWAYS reset the probe guard when the thread exits (even on panic)
         use tauri::Manager;
         if let Some(acp_state) = app_for_flag.try_state::<AcpState>() {
             acp_state.probe_running.store(false, std::sync::atomic::Ordering::SeqCst);
         }
 
         match result {
-            Ok(()) => log::info!("[ACP] probe_capabilities succeeded"),
-            Err(e) => log::warn!("[ACP] probe_capabilities failed: {}", e),
+            Ok(Ok(())) => log::info!("[ACP] probe_capabilities succeeded"),
+            Ok(Err(e)) => log::warn!("[ACP] probe_capabilities failed: {}", e),
+            Err(_) => log::error!("[ACP] probe_capabilities thread panicked"),
         }
     });
 
