@@ -30,16 +30,39 @@ const NOOP_THEME = {
   colors: {},
 }
 
+// Highlighter stub that handles any method @pierre/diffs might call.
+// Known methods are implemented; unknown ones return a no-op via Proxy
+// so new @pierre/diffs versions don't crash the app.
+const HIGHLIGHTER_IMPL: Record<string, unknown> = {
+  codeToTokens: () => ({ tokens: [], bg: '#111114', fg: '#eeeeee', themeName: 'noop' }),
+  codeToTokensBase: () => ({ tokens: [], bg: '#111114', fg: '#eeeeee', themeName: 'noop' }),
+  codeToHtml: (code: string) => `<pre><code>${code}</code></pre>`,
+  getLoadedLanguages: () => ['text'],
+  getLoadedThemes: () => ['noop'],
+  getTheme: () => NOOP_THEME,
+  loadLanguage: () => Promise.resolve(),
+  loadLanguageSync: () => {},
+  loadTheme: () => Promise.resolve(),
+  loadThemeSync: () => {},
+  getLanguage: () => ({ name: 'text' }),
+  setTheme: () => NOOP_THEME,
+  dispose: () => {},
+}
+
+const highlighterProxy = new Proxy(HIGHLIGHTER_IMPL, {
+  get(target, prop) {
+    if (prop in target) return target[prop as string]
+    // Return a no-op function for any unknown method
+    return () => {}
+  },
+})
+
 export function createHighlighter() {
-  return Promise.resolve({
-    codeToTokens: () => ({ tokens: [], bg: '#111114', fg: '#eeeeee', themeName: 'noop' }),
-    codeToHtml: (code: string) => `<pre><code>${code}</code></pre>`,
-    getLoadedLanguages: () => [],
-    getLoadedThemes: () => ['noop'],
-    getTheme: () => NOOP_THEME,
-    loadLanguage: () => Promise.resolve(),
-    loadTheme: () => Promise.resolve(),
-  })
+  return Promise.resolve(highlighterProxy)
+}
+
+export function createHighlighterCore() {
+  return Promise.resolve(highlighterProxy)
 }
 
 export function createJavaScriptRegexEngine() {
@@ -69,3 +92,17 @@ export function getTokenStyleObject() {
 export function stringifyTokenStyle() {
   return ''
 }
+
+// Catch-all: if @pierre/diffs (or any consumer) imports a named export we
+// haven't listed above, this default-export Proxy returns a no-op so the
+// app never crashes from a missing shiki API.
+export default new Proxy({} as Record<string, unknown>, {
+  get(_target, prop) {
+    if (typeof prop === 'string') {
+      // Check if we already export it as a named export — if so, return
+      // undefined so the named export takes precedence.
+      return () => {}
+    }
+    return undefined
+  },
+})

@@ -324,6 +324,13 @@ export function SettingsPanel() {
                       label="Respect .gitignore"
                       description="Hide gitignored files from @ mentions file picker"
                     />
+                    <div className="border-t border-border/30" />
+                    <Toggle
+                      checked={draft.notifications ?? true}
+                      onChange={() => setDraft({ ...draft, notifications: !(draft.notifications ?? true) })}
+                      label="Desktop notifications"
+                      description="Notify when the agent finishes a turn while the window is in the background"
+                    />
                   </Card>
                 </>
               )}

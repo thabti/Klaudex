@@ -547,8 +547,8 @@ export function initTaskListeners(): () => void {
     // Persist history after turn ends
     useTaskStore.getState().persistHistory()
 
-    // Send a native notification when the window is not focused
-    if (!document.hasFocus()) {
+    // Send a native notification when the window is not focused and notifications are enabled
+    if (!document.hasFocus() && (useSettingsStore.getState().settings.notifications ?? true)) {
       const task = useTaskStore.getState().tasks[taskId]
       const title = task?.name ?? 'Agent finished'
       import('@tauri-apps/plugin-notification').then(({ isPermissionGranted, sendNotification }) => {

@@ -16,19 +16,28 @@ Inspired by [OpenAI Codex](https://openai.com/codex/) and [T3 Code](https://gith
 
 **Chat and agents**
 - Chat interface via the [Agent Client Protocol](https://github.com/anthropics/agent-client-protocol) SDK
+- Threaded agentic development — each conversation runs as an independent agent thread with its own context, tool calls, and execution history
 - Slash commands (`/clear`, `/model`, `/agent`, `/plan`, `/chat`) with inline model picker and MCP server panels
 - Task management: create, pause, resume, cancel, delete
+- Question cards — agents can ask multi-choice questions; pick an option and reply inline
+- Kiro config sidebar — browse agents (grouped by stack), skills, steering rules, and MCP servers from `.kiro/`
 
 **Code and diffs**
 - Syntax-highlighted inline and side-by-side diff views ([Shiki](https://shiki.style))
 - Click a file operation in chat to jump to that file
+- Changed files summary with per-file +/- stats and one-click stage/revert
 
 **Git**
-- Branch, stage, commit, push, revert through [git2](https://crates.io/crates/git2) (no shell commands)
+- Branch, stage, commit, push, pull, fetch through [git2](https://crates.io/crates/git2) with SSH + HTTPS credential support (no shell commands)
+- Live diff stats in the header bar, always visible when a project is open
+
+**Notifications**
+- Native macOS notifications when the agent finishes a turn while the app is in the background
+- Configurable — toggle on/off in Settings > General > Permissions
 
 **Terminal and settings**
 - Integrated PTY terminal (xterm.js)
-- Settings panel for kiro-cli path, models, and per-project preferences
+- Full-screen settings panel: CLI path, default model, auto-approve, font size, keyboard shortcuts, git integration, and notification preferences
 
 ## Getting started
 
