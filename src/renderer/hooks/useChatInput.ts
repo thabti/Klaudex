@@ -1,10 +1,31 @@
-import { useState, useRef, useMemo, useCallback, type KeyboardEvent, type ChangeEvent } from 'react'
+import { useState, useRef, useMemo, useCallback, type KeyboardEvent, type ChangeEvent, type ClipboardEvent } from 'react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { useSlashAction } from '@/hooks/useSlashAction'
 import { useAttachments } from '@/hooks/useAttachments'
 import { useFileMention } from '@/hooks/useFileMention'
 import { buildAttachmentMessage } from '@/components/chat/attachment-utils'
+
+export interface PastedChunk {
+  id: number
+  text: string
+  lines: number
+  chars: number
+}
+
+const PASTE_WORD_THRESHOLD = 4
+const PASTE_LINE_THRESHOLD = 1
+
+function isLargePaste(text: string): boolean {
+  if (text.split('\n').length > PASTE_LINE_THRESHOLD) return true
+  if (text.trim().split(/\s+/).length > PASTE_WORD_THRESHOLD) return true
+  return false
+}
+
+function makePlaceholder(id: number, lines: number, chars: number): string {
+  const detail = lines > 1 ? `${lines} lines` : `${chars} chars`
+  return `[Pasted text #${id} +${detail}]`
+}
 
 interface UseChatInputOptions {
   disabled?: boolean
@@ -22,6 +43,61 @@ export function useChatInput({ disabled, isRunning, onSendMessage, onPause }: Us
 
   const attachmentsBag = useAttachments()
   const mentionBag = useFileMention({ textareaRef, value, setValue })
+
+  // ── Pasted text chunks ─────────────────────────────────────────
+  const [pastedChunks, setPastedChunks] = useState<PastedChunk[]>([])
+  const chunkCounterRef = useRef(0)
+
+  const handleTextPaste = useCallback((e: ClipboardEvent) => {
+    const text = e.clipboardData.getData('text/plain')
+    if (!text || !isLargePaste(text)) return
+    // Let image pastes pass through to useAttachments
+    const hasImages = Array.from(e.clipboardData.items).some((i) => i.type.startsWith('image/'))
+    if (hasImages) return
+    e.preventDefault()
+    const id = ++chunkCounterRef.current
+    const lines = text.split('\n').length
+    const chars = text.length
+    setPastedChunks((prev) => [...prev, { id, text, lines, chars }])
+    const placeholder = makePlaceholder(id, lines, chars)
+    const el = textareaRef.current
+    if (el) {
+      const start = el.selectionStart
+      const end = el.selectionEnd
+      const before = value.slice(0, start)
+      const after = value.slice(end)
+      const newValue = before + placeholder + after
+      setValue(newValue)
+      requestAnimationFrame(() => {
+        el.selectionStart = el.selectionEnd = start + placeholder.length
+        el.style.height = 'auto'
+        el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+      })
+    } else {
+      setValue((v) => v + placeholder)
+    }
+  }, [value])
+
+  const handleRemoveChunk = useCallback((id: number) => {
+    setPastedChunks((prev) => {
+      const chunk = prev.find((c) => c.id === id)
+      if (chunk) {
+        const placeholder = makePlaceholder(chunk.id, chunk.lines, chunk.chars)
+        setValue((v) => v.replace(placeholder, ''))
+      }
+      return prev.filter((c) => c.id !== id)
+    })
+  }, [])
+
+  // Expand placeholders back to full text
+  const expandChunks = useCallback((text: string): string => {
+    let result = text
+    for (const chunk of pastedChunks) {
+      const placeholder = makePlaceholder(chunk.id, chunk.lines, chunk.chars)
+      result = result.replace(placeholder, chunk.text)
+    }
+    return result
+  }, [pastedChunks])
 
   // ── Message history cycling (ArrowUp/Down) ─────────────────────
   // -1 = composing new message, 0 = most recent, 1 = second most recent, etc.
@@ -69,7 +145,7 @@ export function useChatInput({ disabled, isRunning, onSendMessage, onPause }: Us
     const hasAttachments = attachmentsBag.attachments.length > 0
     if ((!trimmed && !hasAttachments) || disabled) return
     dismissPanel()
-    let message = trimmed
+    let message = expandChunks(trimmed)
     if (mentionBag.mentionedFiles.length > 0) {
       const missingRefs = mentionBag.mentionedFiles.filter((f) => !message.includes(`@${f.path}`))
       if (missingRefs.length > 0) {
@@ -82,12 +158,13 @@ export function useChatInput({ disabled, isRunning, onSendMessage, onPause }: Us
     }
     setValue('')
     setSlashIndex(0)
+    setPastedChunks([])
     mentionBag.clearMentions()
     attachmentsBag.clearAttachments()
     onSendMessage(message)
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     textareaRef.current?.focus()
-  }, [value, disabled, onSendMessage, dismissPanel, mentionBag, attachmentsBag])
+  }, [value, disabled, onSendMessage, dismissPanel, mentionBag, attachmentsBag, expandChunks])
 
   const handleSelectCommand = useCallback((cmd: { name: string }) => {
     if (execute(cmd.name)) {
@@ -175,6 +252,12 @@ export function useChatInput({ disabled, isRunning, onSendMessage, onPause }: Us
 
   const canSend = !disabled && (value.trim().length > 0 || attachmentsBag.attachments.length > 0)
 
+  // Combined paste: intercept large text first, then fall through to image handler
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    handleTextPaste(e)
+    if (!e.defaultPrevented) attachmentsBag.handlePaste(e)
+  }, [handleTextPaste, attachmentsBag.handlePaste])
+
   return {
     // Text state
     value,
@@ -193,8 +276,18 @@ export function useChatInput({ disabled, isRunning, onSendMessage, onPause }: Us
     // File mentions
     showFilePicker,
     ...mentionBag,
-    // Attachments
-    ...attachmentsBag,
+    // Attachments (spread but override handlePaste)
+    attachments: attachmentsBag.attachments,
+    isDragOver: attachmentsBag.isDragOver,
+    fileInputRef: attachmentsBag.fileInputRef,
+    handleRemoveAttachment: attachmentsBag.handleRemoveAttachment,
+    handleFilePickerClick: attachmentsBag.handleFilePickerClick,
+    handleFileInputChange: attachmentsBag.handleFileInputChange,
+    clearAttachments: attachmentsBag.clearAttachments,
+    handlePaste,
+    // Pasted chunks
+    pastedChunks,
+    handleRemoveChunk,
     // Handlers
     handleChange,
     handleSend,

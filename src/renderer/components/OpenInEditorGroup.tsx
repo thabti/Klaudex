@@ -26,9 +26,11 @@ const CursorIcon = () => (
 
 const EDITOR_MAP: Record<string, Omit<EditorInfo, 'bin'>> = {
   cursor: { label: 'Cursor', icon: <CursorIcon /> },
+  kiro: { label: 'Kiro', icon: <IconCode className="size-3.5" /> },
+  trae: { label: 'Trae', icon: <IconCode className="size-3.5" /> },
   code: { label: 'VS Code', icon: <IconCode className="size-3.5" /> },
   zed: { label: 'Zed', icon: <ZedIcon /> },
-  windsurf: { label: 'Windsurf', icon: <IconCode className="size-3.5" /> },
+  vim: { label: 'Vim', icon: <IconCode className="size-3.5" /> },
 }
 
 let cachedEditors: EditorInfo[] | null = null

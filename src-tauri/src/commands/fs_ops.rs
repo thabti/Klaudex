@@ -47,6 +47,42 @@ pub async fn pick_folder(app: tauri::AppHandle) -> Option<String> {
 
 #[tauri::command]
 pub fn open_in_editor(path: String, editor: String) -> Result<(), AppError> {
+    const TERMINAL_EDITORS: &[&str] = &["vim", "vi", "nvim", "nano", "emacs"];
+    let is_terminal = TERMINAL_EDITORS.iter().any(|&e| editor == e);
+    if is_terminal {
+        // macOS: open in default Terminal.app
+        #[cfg(target_os = "macos")]
+        {
+            std::process::Command::new("open")
+                .arg("-a")
+                .arg("Terminal")
+                .arg("--args")
+                .spawn()
+                .map_err(|e| AppError::Other(format!("Failed to open Terminal: {}", e)))?;
+            // Use AppleScript to run the editor in the opened terminal
+            std::process::Command::new("osascript")
+                .arg("-e")
+                .arg(format!(
+                    "tell application \"Terminal\" to do script \"{} '{}'\"",
+                    editor,
+                    path.replace('\'', "'\\''")
+                ))
+                .spawn()
+                .map_err(|e| AppError::Other(format!("Failed to launch {} in Terminal: {}", editor, e)))?;
+            return Ok(());
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            // Fallback: try xterm
+            std::process::Command::new("xterm")
+                .arg("-e")
+                .arg(&editor)
+                .arg(&path)
+                .spawn()
+                .map_err(|e| AppError::Other(format!("Failed to open {}: {}", editor, e)))?;
+            return Ok(());
+        }
+    }
     std::process::Command::new(&editor)
         .arg(&path)
         .spawn()
@@ -58,7 +94,7 @@ pub fn open_in_editor(path: String, editor: String) -> Result<(), AppError> {
 #[tauri::command]
 pub fn detect_editors() -> Vec<String> {
     // (binary, display-order priority)
-    let candidates = ["cursor", "code", "zed", "windsurf"];
+    let candidates = ["cursor", "kiro", "trae", "code", "zed", "vim"];
     candidates.iter()
         .filter(|bin| which::which(bin).is_ok())
         .map(|s| s.to_string())

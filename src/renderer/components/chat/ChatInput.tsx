@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { IconPaperclip } from '@tabler/icons-react'
+import { IconPaperclip, IconClipboard, IconX } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { SlashCommandPicker } from './SlashCommandPicker'
@@ -44,6 +44,7 @@ export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messa
     handleSelectFile, handleRemoveMention,
     attachments, isDragOver, fileInputRef,
     handleRemoveAttachment, handlePaste, handleFilePickerClick, handleFileInputChange,
+    pastedChunks, handleRemoveChunk,
     handleChange, handleSend, handleKeyDown, handleSelect,
   } = useChatInput({ disabled, isRunning, onSendMessage, onPause })
 
@@ -69,8 +70,13 @@ export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messa
         )}>
           {isDragOver && <DragOverlay />}
 
+          {contextRingNode && (
+            <div className="absolute top-2.5 right-3 z-20 sm:right-4">
+              {contextRingNode}
+            </div>
+          )}
+
           <div className="relative px-3 pb-2 pt-3.5 sm:px-4 sm:pt-4" style={{ isolation: 'isolate' }}>
-            <AttachmentPreview attachments={attachments} onRemove={handleRemoveAttachment} />
             {showPicker && (
               <SlashCommandPicker
                 query={slashQuery}
@@ -90,10 +96,34 @@ export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messa
               />
             )}
             {panel && <SlashActionPanel panel={panel} onDismiss={dismissPanel} />}
-            {mentionedFiles.length > 0 && (
+            {(mentionedFiles.length > 0 || pastedChunks.length > 0 || attachments.length > 0) && (
               <div className="flex flex-wrap items-center gap-1 mb-1.5">
                 {mentionedFiles.map((f) => (
                   <FileMentionPill key={f.path} path={f.path} onRemove={() => handleRemoveMention(f.path)} />
+                ))}
+                {attachments.length > 0 && (
+                  <AttachmentPreview attachments={attachments} onRemove={handleRemoveAttachment} />
+                )}
+                {pastedChunks.map((chunk) => (
+                  <span
+                    key={chunk.id}
+                    data-testid="pasted-chunk-pill"
+                    className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground"
+                  >
+                    <IconClipboard className="size-3 shrink-0 text-muted-foreground/50" aria-hidden />
+                    <span>Pasted text #{chunk.id}</span>
+                    <span className="text-muted-foreground/40">
+                      +{chunk.lines > 1 ? `${chunk.lines} lines` : `${chunk.chars} chars`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveChunk(chunk.id)}
+                      aria-label={`Remove pasted text #${chunk.id}`}
+                      className="ml-0.5 rounded p-0.5 text-muted-foreground/40 transition-colors hover:bg-accent hover:text-foreground"
+                    >
+                      <IconX className="size-2.5" aria-hidden />
+                    </button>
+                  </span>
                 ))}
               </div>
             )}
@@ -146,7 +176,6 @@ export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messa
                 <BranchSelector workspace={workspace ?? null} />
                 {disabled && <span className="ml-1 text-[11px] text-muted-foreground/40">Task ended</span>}
               </div>
-              {contextRingNode}
               <input
                 ref={fileInputRef}
                 type="file"

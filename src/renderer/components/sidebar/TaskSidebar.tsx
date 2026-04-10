@@ -139,8 +139,8 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize }: TaskSi
           </Tooltip>
         </div>
       </div>
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="px-3 pb-2">
+      <ScrollArea className="min-h-0 flex-1 px-2">
+        <div className="pb-2">
           <div className="relative flex w-full min-w-0 flex-col">
             <ul className="flex w-full min-w-0 flex-col gap-1">
               {projectList.length === 0 && (

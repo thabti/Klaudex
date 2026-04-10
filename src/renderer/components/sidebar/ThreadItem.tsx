@@ -123,6 +123,14 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
           {relativeTime(task.createdAt)}
         </span>
       </div>
+      <button
+        type="button"
+        aria-label="Delete thread"
+        onClick={(e) => { e.stopPropagation(); onDelete() }}
+        className="absolute right-1 top-1/2 z-10 hidden size-5 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-destructive/15 hover:text-destructive group-hover/thread:flex"
+      >
+        <IconTrash className="size-3" />
+      </button>
 
       {ctxMenu && (
         <div

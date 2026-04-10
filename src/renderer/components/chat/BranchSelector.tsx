@@ -166,6 +166,7 @@ export const BranchSelector = memo(function BranchSelector({ workspace }: Branch
       {/* Trigger */}
       <button
         type="button"
+        data-testid="branch-selector-button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
           'flex items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium transition-colors',
@@ -180,7 +181,7 @@ export const BranchSelector = memo(function BranchSelector({ workspace }: Branch
 
       {/* Popup */}
       {open && (
-        <div className="absolute bottom-full left-0 z-[200] mb-2 w-80 overflow-hidden rounded-xl border border-border bg-popover shadow-xl">
+        <div data-testid="branch-selector-popup" className="absolute bottom-full left-0 z-[200] mb-2 w-80 overflow-hidden rounded-xl border border-border bg-popover shadow-xl">
           {/* Search input */}
           <div className="border-b border-border p-2">
             <div className="flex items-center gap-2 rounded-lg bg-background/50 px-2.5 py-1.5">
@@ -188,6 +189,7 @@ export const BranchSelector = memo(function BranchSelector({ workspace }: Branch
               <input
                 ref={inputRef}
                 type="text"
+                data-testid="branch-search-input"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => {

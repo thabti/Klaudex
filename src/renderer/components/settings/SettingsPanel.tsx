@@ -40,6 +40,7 @@ const KEYMAP: KeymapEntry[] = [
   { group: 'Panels', command: 'Open settings', keys: `${MOD}+,` },
   { group: 'Actions', command: 'New project', keys: `${MOD}+O` },
   { group: 'Actions', command: 'New thread', keys: `${MOD}+N` },
+  { group: 'Actions', command: 'Close thread', keys: `${MOD}+W` },
   { group: 'Chat', command: 'Send message', keys: 'Enter' },
   { group: 'Chat', command: 'New line', keys: `${SHIFT}+Enter` },
   { group: 'Chat', command: 'Previous message', keys: '\u2191 (at start)' },

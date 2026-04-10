@@ -122,13 +122,7 @@ function AppHeaderInner({ sidePanelOpen, onToggleSidePanel, isSidebarCollapsed, 
           </>
         ) : null}
 
-        {/* Status dot in header */}
-        {task && task.status === 'running' && (
-          <span className="size-2 shrink-0 animate-pulse rounded-full bg-emerald-400" />
-        )}
-        {task && task.status === 'pending_permission' && (
-          <span className="size-2 shrink-0 rounded-full bg-amber-400" />
-        )}
+
       </nav>
 
       {/* Actions (right) — show editor when any workspace is active, task actions when task exists */}

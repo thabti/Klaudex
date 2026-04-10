@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useDiffStore } from '@/stores/diffStore'
+import { ipc } from '@/lib/ipc'
 
 /**
  * Returns a flat, ordered list of all thread IDs across all projects.
@@ -85,6 +86,21 @@ export function useKeyboardShortcuts() {
         if (workspace) {
           state.setPendingWorkspace(workspace)
         }
+        return
+      }
+
+      // ── Cmd+W → Close thread/project (no preventDefault — let native close happen too)
+      if (key === 'w' && !e.shiftKey) {
+        const state = useTaskStore.getState()
+        const taskId = state.selectedTaskId
+        if (taskId) {
+          void ipc.cancelTask(taskId).catch(() => {})
+          state.removeTask(taskId)
+          void ipc.deleteTask(taskId)
+        } else if (state.pendingWorkspace) {
+          state.setPendingWorkspace(null)
+        }
+        // Don't preventDefault — native Cmd+W still works
         return
       }
 

@@ -1,3 +1,43 @@
+## 2026-04-10 13:47 GST (Dubai)
+
+### Steering: Add activity log rule for Claude and Kiro
+
+Added `alwaysApply` steering rule at `.kiro/steering/activity-log.md` and appended the same rule to `CLAUDE.md`. Both AI agents are now required to update `activity.md` with a timestamped entry after every task.
+
+**Modified:** `.kiro/steering/activity-log.md`, `CLAUDE.md`
+
+## 2026-04-10 13:37 GST (Dubai)
+
+### ChatInput: Pasted text placeholder pills
+
+Large pasted text (>4 words or >1 line) is now collapsed into `[Pasted text #N +lines/chars]` placeholder pills in the textarea. Users can paste multiple chunks; each gets a numbered pill with a remove button. On send, placeholders are expanded back to the original full text before sending to the agent.
+
+No message size limits found in kiro-cli or the ACP protocol; the practical limit is the LLM context window (already tracked by contextUsage).
+
+**Modified:** `src/renderer/hooks/useChatInput.ts`, `src/renderer/components/chat/ChatInput.tsx`
+
+### Frontend: Add data-testid attributes to high-level components
+
+Added unique `data-testid` attributes to all high-level frontend components for QA automation:
+- App.tsx: `app-container`, `main-content`, `empty-state`
+- AppHeader: `app-header-breadcrumb`, `toggle-sidebar-button`, `toggle-diff-button`, `toggle-terminal-button`, `header-pause-button`, `header-resume-button`, `header-cancel-button`
+- Onboarding: `onboarding-section`, `onboarding-heading`, `onboarding-terminal`, `onboarding-path-input`, `onboarding-retry-button`, `onboarding-submit-button`
+- ErrorBoundary: `error-boundary-section`, `error-boundary-message`, `error-boundary-retry-button`
+- ChatPanel: `chat-archived-banner`
+- ChatInput: `chat-textarea`, `attach-files-button`
+- MessageList: `scroll-to-bottom-button`
+- MessageItem: `message-item-system`, `message-item-user`, `message-item-assistant`
+- TaskSidebar: `task-sidebar`, `add-project-button`
+- Dashboard: `dashboard-section`, `dashboard-heading`, `dashboard-new-thread-button`, `dashboard-task-grid`
+- TaskCard: `task-card`
+- SettingsPanel: `settings-panel`, `settings-nav`, `settings-save-button`, `settings-cli-path-input`, `settings-close-button`
+- DiffPanel: `diff-panel`, `diff-refresh-button`, `diff-close-button`, `diff-stage-button`, `diff-revert-button`
+- TerminalDrawer: `terminal-drawer`, `terminal-split-button`, `terminal-new-button`, `terminal-close-button`
+- GitActionsGroup: `git-actions-group`, `git-commit-button`, `git-options-button`, `git-commit-message-input`
+- BranchSelector: `branch-selector-button`, `branch-selector-popup`, `branch-search-input`
+
+**Modified:** 16 component files across the frontend
+
 ## 2026-04-10 13:26 GST (Dubai)
 
 ### ChatInput: Move AutoApproveToggle into the mode/model pill
@@ -1162,3 +1202,24 @@ Build: TS ✓, Vite ✓, Cargo ✓
   - Custom icons for Zed and Cursor; IconCode fallback for others
 
 Build: TS ✓, Vite ✓, Cargo ✓
+
+## 2026-04-10 13:39 (Dubai)
+- Removed status indicator dots (green animate-pulse for running, amber for pending_permission) from `AppHeader.tsx` header nav. Dots kept in project/thread area per user request.
+
+## 2026-04-10 13:41 GST (Dubai)
+
+### ChatInput: Move context counter to top right
+
+Moved the `ContextRing` from the footer toolbar (bottom-right, next to send button) to the top-right corner of the chat input card using absolute positioning. Removed it from the footer `div`.
+
+## 2026-04-10 13:42 GST (Dubai)
+
+### TaskSidebar: Add padding to project panel for thread name truncation
+
+Moved `px` padding from the inner content div to the `ScrollArea` wrapper (`px-2`) so the viewport constrains width properly, allowing thread names to truncate with ellipsis instead of overflowing.
+
+## 2026-04-10 13:45 GST (Dubai)
+
+### ThreadItem: Add delete icon on hover
+
+Added a trash/bin icon button that appears on hover (`group-hover/thread:flex`) positioned at the right side of each thread row. The relative timestamp hides on hover to make room. Clicking the icon triggers `onDelete`. Styled with destructive hover colors.

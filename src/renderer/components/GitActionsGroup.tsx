@@ -51,7 +51,7 @@ export function GitActionsGroup({ taskId, workspace }: { taskId: string; workspa
         <TooltipContent side="bottom">Git commit</TooltipContent>
       </Tooltip>
       <div className="pointer-events-none relative z-[2] w-px bg-input dark:bg-input/32" />
-      <button type="button" aria-label="Git options" onClick={() => setMenuOpen((v) => !v)}
+      <button type="button" aria-label="Git options" data-testid="git-options-button" onClick={() => setMenuOpen((v) => !v)}
         className="inline-flex h-6 w-6 items-center justify-center rounded-r-md border border-input bg-popover text-foreground shadow-xs/5 transition-colors hover:bg-accent/50 dark:bg-input/32">
         <IconChevronDown className="size-3.5" aria-hidden />
       </button>
@@ -59,7 +59,7 @@ export function GitActionsGroup({ taskId, workspace }: { taskId: string; workspa
       {showCommitInput && (
         <div className="absolute right-0 top-7 z-[200] w-72 rounded-lg border border-border bg-popover p-3 shadow-lg">
           <p className="mb-2 text-[11px] font-medium text-muted-foreground">Commit message</p>
-          <input autoFocus value={commitMsg} onChange={(e) => setCommitMsg(e.target.value)}
+          <input autoFocus data-testid="git-commit-message-input" value={commitMsg} onChange={(e) => setCommitMsg(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') void handleCommit() }}
             placeholder="feat: ..."
             className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus:border-ring" />
