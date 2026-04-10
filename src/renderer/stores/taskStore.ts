@@ -502,6 +502,15 @@ export function initTaskListeners(): () => void {
   })
 
   const unsub8 = ipc.onTurnEnd(({ taskId }) => {
+    // Flush any pending rAF-buffered chunks synchronously so turn_end sees them
+    if (chunkBuf[taskId] || Object.keys(chunkBuf).length > 0) {
+      if (chunkRaf) { cancelAnimationFrame(chunkRaf); chunkRaf = null }
+      flushChunks()
+    }
+    if (thinkBuf[taskId] || Object.keys(thinkBuf).length > 0) {
+      if (thinkRaf) { cancelAnimationFrame(thinkRaf); thinkRaf = null }
+      flushThinking()
+    }
     // Use a single setState to avoid stale reads between getState() calls
     useTaskStore.setState((s) => {
       const chunk = s.streamingChunks[taskId] ?? ''

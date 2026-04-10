@@ -6,8 +6,6 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_log::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(settings::SettingsState::default())
@@ -27,6 +25,9 @@ pub fn run() {
                     use cocoa::appkit::{NSColor, NSWindow};
                     use cocoa::base::{id, nil};
                     let ns_window = window.ns_window().unwrap() as id;
+                    // SAFETY: ns_window is valid for the lifetime of setup() — the window
+                    // was just retrieved above. setBackgroundColor_ is a standard NSWindow
+                    // message that does not violate aliasing or lifetime rules.
                     unsafe {
                         let bg = NSColor::colorWithRed_green_blue_alpha_(
                             nil, 12.0 / 255.0, 12.0 / 255.0, 12.0 / 255.0, 1.0,
@@ -44,15 +45,17 @@ pub fn run() {
                 let app = window.app_handle();
                 // Kill all ACP connections
                 if let Some(acp_state) = app.try_state::<acp::AcpState>() {
-                    let mut conns = acp_state.connections.lock().unwrap();
-                    for (_, handle) in conns.drain() {
-                        let _ = handle.cmd_tx.send(acp::AcpCommand::Kill);
+                    if let Ok(mut conns) = acp_state.connections.lock() {
+                        for (_, handle) in conns.drain() {
+                            let _ = handle.cmd_tx.send(acp::AcpCommand::Kill);
+                        }
                     }
                 }
                 // Kill all PTY sessions
                 if let Some(pty_state) = app.try_state::<pty::PtyState>() {
-                    let mut ptys = pty_state.0.lock().unwrap();
-                    ptys.clear();
+                    if let Ok(mut ptys) = pty_state.0.lock() {
+                        ptys.clear(); // Drop impl kills child processes
+                    }
                 }
             }
         })

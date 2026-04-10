@@ -67,10 +67,13 @@ fn parse_steering_frontmatter(content: &str) -> (bool, String) {
         if let Some(end_idx) = content[3..].find("\n---") {
             let fm = &content[3..3 + end_idx];
             body = &content[3 + end_idx + 4..];
-            if let Ok(parsed) = serde_yaml::from_str::<serde_yaml::Value>(fm) {
-                always_apply = parsed.get("alwaysApply")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
+            for line in fm.lines() {
+                let line = line.trim();
+                if line.starts_with("alwaysApply") {
+                    if let Some(val) = line.split(':').nth(1) {
+                        always_apply = val.trim() == "true";
+                    }
+                }
             }
         }
     }
@@ -293,6 +296,132 @@ mod tests {
     fn parse_frontmatter_empty_body() {
         let input = "---\nalwaysApply: true\n---\n";
         let (always_apply, excerpt) = parse_steering_frontmatter(input);
+        assert!(always_apply);
+        assert_eq!(excerpt, "");
+    }
+
+    #[test]
+    fn source_str_global() {
+        assert_eq!(super::source_str(true), "global");
+    }
+
+    #[test]
+    fn source_str_local() {
+        assert_eq!(super::source_str(false), "local");
+    }
+
+    #[test]
+    fn scan_agents_nonexistent_dir_returns_empty() {
+        let tmp = std::env::temp_dir().join("kirodex_test_nonexistent_agents");
+        assert!(super::scan_agents(&tmp, true).is_empty());
+    }
+
+    #[test]
+    fn scan_skills_nonexistent_dir_returns_empty() {
+        let tmp = std::env::temp_dir().join("kirodex_test_nonexistent_skills");
+        assert!(super::scan_skills(&tmp, false).is_empty());
+    }
+
+    #[test]
+    fn scan_steering_nonexistent_dir_returns_empty() {
+        let tmp = std::env::temp_dir().join("kirodex_test_nonexistent_steering");
+        assert!(super::scan_steering(&tmp, true).is_empty());
+    }
+
+    #[test]
+    fn scan_agents_reads_json_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        let agents_dir = tmp.path().join("agents");
+        std::fs::create_dir_all(&agents_dir).unwrap();
+        std::fs::write(
+            agents_dir.join("test-agent.json"),
+            r#"{"name": "Test Agent", "description": "A test", "tools": ["tool1", "tool2"]}"#,
+        ).unwrap();
+        std::fs::write(agents_dir.join(".hidden.json"), r#"{"name": "Hidden"}"#).unwrap();
+        let result = super::scan_agents(tmp.path(), true);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "Test Agent");
+        assert_eq!(result[0].tools, vec!["tool1", "tool2"]);
+        assert_eq!(result[0].source, "global");
+    }
+
+    #[test]
+    fn scan_steering_reads_md_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("steering");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("my-rule.md"), "---\nalwaysApply: true\n---\n# Rule\nDo this thing").unwrap();
+        let result = super::scan_steering(tmp.path(), false);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "my-rule");
+        assert!(result[0].always_apply);
+        assert_eq!(result[0].source, "local");
+        assert_eq!(result[0].excerpt, "Do this thing");
+    }
+
+    #[test]
+    fn load_mcp_file_parses_stdio_server() {
+        let tmp = tempfile::tempdir().unwrap();
+        let f = tmp.path().join("mcp.json");
+        std::fs::write(&f, r#"{"mcpServers": {"slack": {"command": "slack-mcp", "args": ["--token", "abc"]}}}"#).unwrap();
+        let mut servers = Vec::new();
+        super::load_mcp_file(&f, true, &mut servers);
+        assert_eq!(servers.len(), 1);
+        assert_eq!(servers[0].name, "slack");
+        assert!(servers[0].enabled);
+        assert_eq!(servers[0].transport, "stdio");
+        assert!(servers[0].error.is_none());
+    }
+
+    #[test]
+    fn load_mcp_file_parses_http_server() {
+        let tmp = tempfile::tempdir().unwrap();
+        let f = tmp.path().join("mcp.json");
+        std::fs::write(&f, r#"{"mcpServers": {"gh": {"url": "https://gh.mcp"}}}"#).unwrap();
+        let mut servers = Vec::new();
+        super::load_mcp_file(&f, false, &mut servers);
+        assert_eq!(servers[0].transport, "http");
+        assert!(!servers[0].enabled);
+    }
+
+    #[test]
+    fn load_mcp_file_flags_missing_command_and_url() {
+        let tmp = tempfile::tempdir().unwrap();
+        let f = tmp.path().join("mcp.json");
+        std::fs::write(&f, r#"{"mcpServers": {"broken": {}}}"#).unwrap();
+        let mut servers = Vec::new();
+        super::load_mcp_file(&f, true, &mut servers);
+        assert_eq!(servers[0].error.as_deref(), Some("Missing command or url"));
+    }
+
+    #[test]
+    fn load_mcp_file_flags_invalid_url() {
+        let tmp = tempfile::tempdir().unwrap();
+        let f = tmp.path().join("mcp.json");
+        std::fs::write(&f, r#"{"mcpServers": {"bad": {"url": "not-a-url"}}}"#).unwrap();
+        let mut servers = Vec::new();
+        super::load_mcp_file(&f, true, &mut servers);
+        assert_eq!(servers[0].error.as_deref(), Some("Invalid url"));
+    }
+
+    #[test]
+    fn load_mcp_file_nonexistent_is_noop() {
+        let mut servers = Vec::new();
+        super::load_mcp_file(std::path::Path::new("/nonexistent/mcp.json"), true, &mut servers);
+        assert!(servers.is_empty());
+    }
+
+    #[test]
+    fn kiro_config_default_is_empty() {
+        let config = super::KiroConfig::default();
+        assert!(config.agents.is_empty());
+        assert!(config.mcp_servers.is_empty());
+    }
+
+    #[test]
+    fn parse_frontmatter_only_whitespace_body() {
+        let input = "---\nalwaysApply: true\n---\n   \n  \n";
+        let (always_apply, excerpt) = super::parse_steering_frontmatter(input);
         assert!(always_apply);
         assert_eq!(excerpt, "");
     }

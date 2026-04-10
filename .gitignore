@@ -3,3 +3,6 @@ dist
 dist-electron
 *.tsbuildinfo
 src-tauri/target
+coverage
+*.lcov
+.DS_Store

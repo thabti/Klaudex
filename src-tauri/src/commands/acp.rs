@@ -1,7 +1,41 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use chrono::Utc;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+fn now_millis() -> u128 {
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis()
+}
+
+fn now_rfc3339() -> String {
+    // Produce a UTC timestamp like 2024-01-15T12:30:45Z
+    let d = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+    let secs = d.as_secs();
+    // Days/hours/minutes/seconds from epoch
+    let days = secs / 86400;
+    let time_of_day = secs % 86400;
+    let h = time_of_day / 3600;
+    let m = (time_of_day % 3600) / 60;
+    let s = time_of_day % 60;
+    // Date from days since epoch (simplified Gregorian)
+    let (y, mo, day) = days_to_ymd(days);
+    format!("{y:04}-{mo:02}-{day:02}T{h:02}:{m:02}:{s:02}Z")
+}
+
+fn days_to_ymd(mut days: u64) -> (u64, u64, u64) {
+    // Algorithm from Howard Hinnant's chrono-compatible date library
+    days += 719468;
+    let era = days / 146097;
+    let doe = days - era * 146097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    (y, m, d)
+}
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::{mpsc, oneshot};
@@ -250,7 +284,7 @@ impl acp::Client for KirodexClient {
 
         // Send to main thread for UI handling
         let (reply_tx, reply_rx) = oneshot::channel();
-        let request_id = format!("perm-{}", chrono::Utc::now().timestamp_millis());
+        let request_id = format!("perm-{}", now_millis());
         let _ = self.perm_tx.send((request_id.clone(), args, reply_tx));
 
         // Wait for user response
@@ -635,7 +669,7 @@ pub fn task_create(
     params: CreateTaskParams,
 ) -> Result<Task, String> {
     let id = Uuid::new_v4().to_string();
-    let now = Utc::now().to_rfc3339();
+    let now = now_rfc3339();
     let settings = settings_state.0.lock().map_err(|e| e.to_string())?;
     let auto_approve = params.auto_approve.unwrap_or(settings.settings.auto_approve);
     let kiro_bin = settings.settings.kiro_bin.clone();
@@ -705,7 +739,7 @@ pub fn task_send_message(
         task.messages.push(TaskMessage {
             role: "user".to_string(),
             content: message.clone(),
-            timestamp: Utc::now().to_rfc3339(),
+            timestamp: now_rfc3339(),
             tool_calls: None,
             thinking: None,
         });

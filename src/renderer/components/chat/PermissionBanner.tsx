@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { IconShieldExclamation, IconCheck, IconX } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 
@@ -44,7 +44,7 @@ export const PermissionBanner = memo(function PermissionBanner({
   const displayName = formatToolName(toolName)
 
   const ORDER = ['allow_once', 'allow_always', 'reject_once', 'reject_always']
-  const sorted = [...options].sort((a, b) => ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind))
+  const sorted = useMemo(() => [...options].sort((a, b) => ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind)), [options])
 
   return (
     <div data-testid="permission-banner" className="mx-auto w-full max-w-2xl shrink-0 px-4 pb-2 sm:px-6 lg:max-w-3xl xl:max-w-4xl">

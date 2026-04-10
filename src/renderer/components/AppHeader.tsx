@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useRef } from 'react'
+import { useEffect, useCallback, useState, useRef, memo } from 'react'
 import {
   IconPlayerPause, IconPlayerPlay, IconCircleX, IconGitCompare, IconTerminal2,
   IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand,
@@ -43,16 +43,18 @@ interface AppHeaderProps {
   onToggleSidebar: () => void
 }
 
-function AppHeaderInner({ sidePanelOpen, onToggleSidePanel, isSidebarCollapsed, onToggleSidebar }: AppHeaderProps) {
+const AppHeaderInner = memo(function AppHeaderInner({ sidePanelOpen, onToggleSidePanel, isSidebarCollapsed, onToggleSidebar }: AppHeaderProps) {
   const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
-  const task = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId] : null)
+  const taskStatus = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.status : null) as TaskStatus | null
+  const taskName = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.name : null)
+  const taskWorkspace = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.workspace : null)
+  const taskUserPaused = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.userPaused : undefined)
   const pendingWorkspace = useTaskStore((s) => s.pendingWorkspace)
-  const taskStatus = task?.status
   const terminalOpen = useTaskStore((s) => selectedTaskId ? s.terminalOpenTasks.has(selectedTaskId) : false)
   const toggleTerminal = useTaskStore((s) => s.toggleTerminal)
 
   // Workspace-level diff stats (reactive to workspace changes)
-  const workspace = task?.workspace ?? pendingWorkspace
+  const workspace = taskWorkspace ?? pendingWorkspace
   const [diffStats, setDiffStats] = useState({ additions: 0, deletions: 0, fileCount: 0 })
 
   useEffect(() => {
@@ -62,15 +64,15 @@ function AppHeaderInner({ sidePanelOpen, onToggleSidePanel, isSidebarCollapsed, 
     return () => { stale = true }
   }, [workspace, taskStatus])
 
-  const handlePause = useCallback(() => { if (task) ipc.pauseTask(task.id) }, [task?.id])
-  const handleResume = useCallback(() => { if (task) ipc.resumeTask(task.id) }, [task?.id])
-  const handleCancel = useCallback(() => { if (task) ipc.cancelTask(task.id) }, [task?.id])
+  const handlePause = useCallback(() => { if (selectedTaskId) ipc.pauseTask(selectedTaskId) }, [selectedTaskId])
+  const handleResume = useCallback(() => { if (selectedTaskId) ipc.resumeTask(selectedTaskId) }, [selectedTaskId])
+  const handleCancel = useCallback(() => { if (selectedTaskId) ipc.cancelTask(selectedTaskId) }, [selectedTaskId])
 
   // Show workspace from task or from pendingWorkspace (before first message)
   const projectName = workspace?.split('/').pop() ?? null
-  const canPause = task?.status === 'running'
-  const canResume = task?.status === 'paused' && !!task.userPaused
-  const canCancel = task?.status === 'running' || (task?.status === 'paused' && !!task?.userPaused)
+  const canPause = taskStatus === 'running'
+  const canResume = taskStatus === 'paused' && !!taskUserPaused
+  const canCancel = taskStatus === 'running' || (taskStatus === 'paused' && !!taskUserPaused)
   const hasStats = diffStats.additions > 0 || diffStats.deletions > 0
 
   return (
@@ -113,11 +115,11 @@ function AppHeaderInner({ sidePanelOpen, onToggleSidePanel, isSidebarCollapsed, 
         )}
 
         {/* Thread */}
-        {task ? (
+        {taskName ? (
           <>
             <Sep />
-            <span data-tauri-drag-region className="min-w-0 max-w-[200px] truncate text-[13px] font-medium text-foreground" title={task.name}>
-              {task.name}
+            <span data-tauri-drag-region className="min-w-0 max-w-[200px] truncate text-[13px] font-medium text-foreground" title={taskName}>
+              {taskName}
             </span>
           </>
         ) : pendingWorkspace ? (
@@ -149,7 +151,7 @@ function AppHeaderInner({ sidePanelOpen, onToggleSidePanel, isSidebarCollapsed, 
                   onClick={onToggleSidePanel}
                   className={cn(
                     'inline-flex h-6 items-center gap-1.5 px-1.5 text-xs shadow-xs/5 transition-colors border border-input',
-                    task ? 'rounded-l-md' : 'rounded-md',
+                    selectedTaskId ? 'rounded-l-md' : 'rounded-md',
                     sidePanelOpen ? 'bg-input/64 dark:bg-input text-foreground' : 'bg-popover hover:bg-accent/50 dark:bg-input/32 text-muted-foreground',
                   )}
                 >
@@ -167,9 +169,9 @@ function AppHeaderInner({ sidePanelOpen, onToggleSidePanel, isSidebarCollapsed, 
               </TooltipTrigger>
               <TooltipContent side="bottom">Files changed</TooltipContent>
             </Tooltip>
-            {task && (
+            {selectedTaskId && taskWorkspace && (
               <ErrorBoundary fallback={null}>
-                <GitActionsGroup workspace={task.workspace} />
+                <GitActionsGroup workspace={taskWorkspace} />
               </ErrorBoundary>
             )}
           </div>
@@ -224,11 +226,11 @@ function AppHeaderInner({ sidePanelOpen, onToggleSidePanel, isSidebarCollapsed, 
       <UserMenu />
     </header>
   )
-}
+})
 
 // ── User menu ────────────────────────────────────────────────────
 
-function UserMenu() {
+const UserMenu = memo(function UserMenu() {
   const [open, setOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -321,7 +323,7 @@ function UserMenu() {
       )}
     </div>
   )
-}
+})
 
 const HeaderFallback = () => (
   <header data-tauri-drag-region className="drag-region flex h-[44px] shrink-0 items-center gap-3 border-b border-border bg-card px-4 pl-[76px]">

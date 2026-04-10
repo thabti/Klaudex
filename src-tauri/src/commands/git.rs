@@ -364,3 +364,58 @@ pub fn git_diff_file(
 
     Ok(output)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn local_branch_serializes_camel_case() {
+        let b = LocalBranch { name: "main".to_string(), current: true };
+        let json = serde_json::to_string(&b).unwrap();
+        assert!(json.contains("\"name\":\"main\""));
+        assert!(json.contains("\"current\":true"));
+    }
+
+    #[test]
+    fn remote_branch_serializes_camel_case() {
+        let b = RemoteBranch { name: "main".to_string(), full_ref: "origin/main".to_string() };
+        let json = serde_json::to_string(&b).unwrap();
+        assert!(json.contains("\"fullRef\":\"origin/main\""));
+    }
+
+    #[test]
+    fn branch_info_serializes_camel_case() {
+        let info = BranchInfo {
+            local: vec![LocalBranch { name: "main".to_string(), current: true }],
+            remotes: HashMap::new(),
+            current_branch: "main".to_string(),
+        };
+        let json = serde_json::to_string(&info).unwrap();
+        assert!(json.contains("\"currentBranch\":\"main\""));
+    }
+
+    #[test]
+    fn branch_result_serializes() {
+        let r = BranchResult { branch: "feature".to_string() };
+        assert_eq!(serde_json::to_string(&r).unwrap(), r#"{"branch":"feature"}"#);
+    }
+
+    #[test]
+    fn git_diff_stats_serializes_camel_case() {
+        let s = GitDiffStats { additions: 10, deletions: 5, file_count: 3 };
+        let json = serde_json::to_string(&s).unwrap();
+        assert!(json.contains("\"fileCount\":3"));
+        assert!(json.contains("\"additions\":10"));
+    }
+
+    #[test]
+    fn git_detect_false_for_nonexistent() {
+        assert!(!git_detect("/nonexistent/path".to_string()));
+    }
+
+    #[test]
+    fn git_detect_true_for_real_repo() {
+        assert!(git_detect(env!("CARGO_MANIFEST_DIR").to_string()));
+    }
+}

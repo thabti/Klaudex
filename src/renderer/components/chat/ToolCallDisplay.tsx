@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useState, useMemo } from 'react'
 import {
   IconChevronDown, IconChevronRight, IconCheck, IconLoader2, IconX, IconBolt,
 } from '@tabler/icons-react'
@@ -17,9 +17,15 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls }: Tool
 
   if (!toolCalls.length) return null
 
-  const completedCount = toolCalls.filter((tc) => tc.status === 'completed').length
-  const runningCount = toolCalls.filter((tc) => tc.status === 'in_progress').length
-  const failedCount = toolCalls.filter((tc) => tc.status === 'failed').length
+  const { completedCount, runningCount, failedCount } = useMemo(() => {
+    let completed = 0, running = 0, failed = 0
+    for (const tc of toolCalls) {
+      if (tc.status === 'completed') completed++
+      else if (tc.status === 'in_progress') running++
+      else if (tc.status === 'failed') failed++
+    }
+    return { completedCount: completed, runningCount: running, failedCount: failed }
+  }, [toolCalls])
 
   const visibleCalls = showAll ? toolCalls : toolCalls.slice(0, MAX_VISIBLE_DEFAULT)
   const hasMore = toolCalls.length > MAX_VISIBLE_DEFAULT

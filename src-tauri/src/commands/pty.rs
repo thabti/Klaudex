@@ -1,8 +1,9 @@
-use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
+use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::Mutex;
+use std::thread::JoinHandle;
 use tauri::Emitter;
 
 use super::error::AppError;
@@ -21,6 +22,15 @@ struct PtyExitPayload {
 pub struct PtyInstance {
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
+    child: Box<dyn Child + Send + Sync>,
+    _reader_thread: JoinHandle<()>,
+}
+
+impl Drop for PtyInstance {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
 }
 
 pub struct PtyState(pub Mutex<HashMap<String, PtyInstance>>);
@@ -54,11 +64,11 @@ pub fn pty_create(
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
     let mut cmd = CommandBuilder::new(&shell);
     cmd.cwd(&cwd);
-    let _child = pair.slave.spawn_command(cmd).map_err(|e| AppError::Other(e.to_string()))?;
+    let child = pair.slave.spawn_command(cmd).map_err(|e| AppError::Other(e.to_string()))?;
     let mut reader = pair.master.try_clone_reader().map_err(|e| AppError::Other(e.to_string()))?;
     let writer = pair.master.take_writer().map_err(|e| AppError::Other(e.to_string()))?;
     let event_id = id.clone();
-    std::thread::spawn(move || {
+    let reader_thread = std::thread::spawn(move || {
         let mut buf = [0u8; 4096];
         loop {
             match reader.read(&mut buf) {
@@ -83,6 +93,8 @@ pub fn pty_create(
     let instance = PtyInstance {
         master: pair.master,
         writer,
+        child,
+        _reader_thread: reader_thread,
     };
     let mut ptys = state.0.lock().map_err(|_| AppError::LockPoisoned)?;
     ptys.insert(id, instance);
@@ -93,8 +105,8 @@ pub fn pty_create(
 pub fn pty_write(state: tauri::State<'_, PtyState>, id: String, data: String) -> Result<(), AppError> {
     let mut ptys = state.0.lock().map_err(|_| AppError::LockPoisoned)?;
     let instance = ptys.get_mut(&id).ok_or_else(|| AppError::Other("PTY not found".to_string()))?;
-    let _ = instance.writer.write_all(data.as_bytes());
-    let _ = instance.writer.flush();
+    instance.writer.write_all(data.as_bytes()).map_err(|e| AppError::Io(e))?;
+    instance.writer.flush().map_err(|e| AppError::Io(e))?;
     Ok(())
 }
 
@@ -107,12 +119,12 @@ pub fn pty_resize(
 ) -> Result<(), AppError> {
     let ptys = state.0.lock().map_err(|_| AppError::LockPoisoned)?;
     let instance = ptys.get(&id).ok_or_else(|| AppError::Other("PTY not found".to_string()))?;
-    let _ = instance.master.resize(PtySize {
+    instance.master.resize(PtySize {
         rows,
         cols,
         pixel_width: 0,
         pixel_height: 0,
-    });
+    }).map_err(|e| AppError::Other(e.to_string()))?;
     Ok(())
 }
 
@@ -120,5 +132,6 @@ pub fn pty_resize(
 pub fn pty_kill(state: tauri::State<'_, PtyState>, id: String) -> Result<(), AppError> {
     let mut ptys = state.0.lock().map_err(|_| AppError::LockPoisoned)?;
     ptys.remove(&id).ok_or_else(|| AppError::Other("PTY not found".to_string()))?;
+    // Drop impl kills the child process and waits for it
     Ok(())
 }
