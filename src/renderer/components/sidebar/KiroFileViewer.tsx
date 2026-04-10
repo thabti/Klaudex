@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { IconX, IconExternalLink } from '@tabler/icons-react'
 import { ipc } from '@/lib/ipc'
+import { getPreferredEditor } from '@/components/OpenInEditorGroup'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
@@ -41,7 +42,7 @@ export const KiroFileViewer = memo(function KiroFileViewer({ filePath, title, on
             <TooltipTrigger asChild>
               <button
                 type="button"
-                onClick={() => ipc.openInEditor(filePath, 'zed')}
+                onClick={() => ipc.openInEditor(filePath, getPreferredEditor()).catch(() => {})}
                 className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-accent hover:text-foreground transition-colors"
               >
                 <IconExternalLink className="size-3.5" />

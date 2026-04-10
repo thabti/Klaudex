@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { IconChevronDown, IconCode } from '@tabler/icons-react'
+import { toast } from 'sonner'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ipc } from '@/lib/ipc'
 
@@ -35,6 +36,11 @@ const EDITOR_MAP: Record<string, Omit<EditorInfo, 'bin'>> = {
 
 let cachedEditors: EditorInfo[] | null = null
 
+/** Returns the first detected editor binary name, or 'code' as fallback. */
+export function getPreferredEditor(): string {
+  return cachedEditors?.[0]?.bin ?? 'code'
+}
+
 export function OpenInEditorGroup({ workspace }: { workspace: string }) {
   const [editors, setEditors] = useState<EditorInfo[]>(cachedEditors ?? [])
   const [menuOpen, setMenuOpen] = useState(false)
@@ -57,7 +63,12 @@ export function OpenInEditorGroup({ workspace }: { workspace: string }) {
     return () => document.removeEventListener('mousedown', h)
   }, [menuOpen])
 
-  const open = (bin: string) => { void ipc.openInEditor(workspace, bin); setMenuOpen(false) }
+  const open = (bin: string) => {
+    ipc.openInEditor(workspace, bin).catch((e) => {
+      toast.error(`Failed to open ${bin}`, { description: e instanceof Error ? e.message : String(e) })
+    })
+    setMenuOpen(false)
+  }
 
   if (editors.length === 0) return null
 

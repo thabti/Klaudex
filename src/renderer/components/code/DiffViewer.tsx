@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
 import { useDiffStore } from '@/stores/diffStore'
 import { useResizeHandle } from '@/hooks/useResizeHandle'
+import { getPreferredEditor } from '@/components/OpenInEditorGroup'
 
 // ── Theme CSS overrides to integrate @pierre/diffs with our design system ──
 
@@ -252,7 +253,7 @@ export function DiffViewer({ diff, taskId, workspace, onRefreshDiff }: DiffViewe
 
   const handleOpenInEditor = useCallback((filePath: string) => {
     if (!workspace) return
-    ipc.openInEditor(`${workspace}/${filePath}`, 'zed')
+    ipc.openInEditor(`${workspace}/${filePath}`, getPreferredEditor()).catch(() => {})
   }, [workspace])
 
   if (!diff.trim() || parsedFiles.length === 0) {
