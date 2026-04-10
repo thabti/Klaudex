@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useCallback, useMemo } from 'react'
+import { memo, useState, useRef, useCallback, useMemo, type ReactNode } from 'react'
 import { Copy, Check, Image, FileText, File } from 'lucide-react'
 import {
   Tooltip,
@@ -6,7 +6,37 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { CollapsedAnswers } from './CollapsedAnswers'
+import { useDiffStore } from '@/stores/diffStore'
 import type { UserMessageRow as UserMessageRowData } from '@/lib/timeline'
+
+/** Match @-prefixed file paths like @src/foo/Bar.tsx */
+const FILE_MENTION_RE = /@((?:\.{0,2}[\\/])?(?:[\w.@-]+[\\/])*[\w.@-]+\.\w{1,10})/g
+
+/** Split text into plain strings and file-mention pill elements */
+function renderWithFileMentions(text: string): ReactNode {
+  const parts: ReactNode[] = []
+  let last = 0
+  for (const m of text.matchAll(FILE_MENTION_RE)) {
+    const idx = m.index!
+    if (idx > last) parts.push(text.slice(last, idx))
+    const filePath = m[1]
+    parts.push(
+      <button
+        key={idx}
+        type="button"
+        onClick={() => useDiffStore.getState().openToFile(filePath)}
+        className="mx-0.5 inline-flex items-center gap-1 rounded-md bg-accent/50 px-1.5 py-0.5 align-baseline font-mono text-[12px] text-primary transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
+      >
+        <FileText className="size-3 shrink-0" />
+        {filePath}
+      </button>
+    )
+    last = idx + m[0].length
+  }
+  if (last === 0) return text
+  if (last < text.length) parts.push(text.slice(last))
+  return parts
+}
 
 /** Parse attachment blocks out of the message, return clean text + attachment metadata */
 function parseAttachments(content: string): { text: string; attachments: Array<{ name: string; type: 'image' | 'file'; src?: string }> } {
@@ -84,7 +114,7 @@ export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserM
               <div className="space-y-2">
                 {cleanText && (
                   <p className="whitespace-pre-wrap break-words text-[14px] leading-[1.6] text-foreground">
-                    {cleanText}
+                    {renderWithFileMentions(cleanText)}
                   </p>
                 )}
                 {parsedAttachments.length > 0 && (

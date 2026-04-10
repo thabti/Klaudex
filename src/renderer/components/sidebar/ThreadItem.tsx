@@ -1,6 +1,5 @@
 import { memo, useState, useRef, useEffect, useCallback } from 'react'
-import { Trash2 } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Pencil, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SidebarTask } from '@/hooks/useSidebarTasks'
 
@@ -32,12 +31,27 @@ interface ThreadItemProps {
 export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, onDelete, onRename }: ThreadItemProps) {
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(task.name)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const ctxRef = useRef<HTMLDivElement>(null)
   const dot = STATUS_DOT[task.status]
 
   useEffect(() => {
     if (editing) inputRef.current?.select()
   }, [editing])
+
+  useEffect(() => {
+    if (!ctxMenu) return
+    const handler = (e: MouseEvent) => {
+      if (ctxRef.current && !ctxRef.current.contains(e.target as Node)) {
+        setCtxMenu(null)
+        setConfirmDelete(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [ctxMenu])
 
   const commitRename = useCallback(() => {
     const trimmed = editValue.trim()
@@ -45,11 +59,33 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
     setEditing(false)
   }, [editValue, task.name, onRename])
 
-  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
+    setCtxMenu({ x: e.clientX, y: e.clientY })
+    setConfirmDelete(false)
+  }, [])
+
+  const handleRenameClick = useCallback(() => {
     setEditValue(task.name)
     setEditing(true)
+    setCtxMenu(null)
+    setConfirmDelete(false)
   }, [task.name])
+
+  const handleDeleteClick = useCallback(() => {
+    setConfirmDelete(true)
+  }, [])
+
+  const handleConfirmDelete = useCallback(() => {
+    setCtxMenu(null)
+    setConfirmDelete(false)
+    onDelete()
+  }, [onDelete])
+
+  const handleCancelDelete = useCallback(() => {
+    setConfirmDelete(false)
+    setCtxMenu(null)
+  }, [])
 
   return (
     <li className="group/thread relative min-w-0">
@@ -57,7 +93,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
         role="button"
         tabIndex={0}
         onClick={onSelect}
-        onDoubleClick={handleDoubleClick}
+        onContextMenu={handleContextMenu}
         onKeyDown={(e) => e.key === 'Enter' && onSelect()}
         className={cn(
           'flex min-w-0 h-7 w-full cursor-pointer items-center gap-1.5 overflow-hidden rounded-lg px-2 pr-6 text-xs select-none',
@@ -87,19 +123,54 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
           {relativeTime(task.createdAt)}
         </span>
       </div>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            aria-label="Delete thread"
-            onClick={(e) => { e.stopPropagation(); onDelete() }}
-            className="absolute right-1 top-0.5 hidden group-hover/thread:flex size-5 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-destructive/20 hover:text-destructive transition-colors"
-          >
-            <Trash2 className="size-3" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right">Delete</TooltipContent>
-      </Tooltip>
+
+      {ctxMenu && (
+        <div
+          ref={ctxRef}
+          className="fixed z-[300] min-w-[160px] rounded-lg border border-border bg-popover py-1 shadow-lg"
+          style={{ left: ctxMenu.x, top: ctxMenu.y }}
+        >
+          {confirmDelete ? (
+            <>
+              <p className="px-3 py-1.5 text-xs text-muted-foreground">Delete this thread?</p>
+              <div className="flex gap-1 px-2 pb-1.5">
+                <button
+                  type="button"
+                  className="flex-1 rounded-md bg-destructive/90 px-2 py-1 text-xs font-medium text-destructive-foreground hover:bg-destructive transition-colors"
+                  onClick={handleConfirmDelete}
+                >
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-accent transition-colors"
+                  onClick={handleCancelDelete}
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
+                onClick={handleRenameClick}
+              >
+                <Pencil className="size-3.5" /> Rename
+              </button>
+              <div className="my-1 border-t border-border/50" />
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10"
+                onClick={handleDeleteClick}
+              >
+                <Trash2 className="size-3.5" /> Delete
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </li>
   )
 })

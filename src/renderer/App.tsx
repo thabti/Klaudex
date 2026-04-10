@@ -7,9 +7,6 @@ import { TaskSidebar } from "@/components/sidebar/TaskSidebar";
 const ChatPanel = lazy(() =>
   import("@/components/chat/ChatPanel").then((m) => ({ default: m.ChatPanel })),
 );
-const Playground = lazy(() =>
-  import("@/components/Playground").then((m) => ({ default: m.Playground })),
-);
 import { PendingChat } from "@/components/chat/PendingChat";
 import { NewProjectSheet } from "@/components/task/NewProjectSheet";
 import { ipc } from "@/lib/ipc";
@@ -216,8 +213,6 @@ export function App() {
   const closeSidePanel = useCallback(() => setSidePanelOpen(false), []);
   const toggleSidebar = useCallback(() => setIsSidebarCollapsed((v) => !v), []);
 
-  const showPlayground = view === "playground";
-
   if (settingsLoaded && !hasOnboarded)
     return (
       <Suspense>
@@ -247,9 +242,7 @@ export function App() {
             <ErrorBoundary>
               <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                 <Suspense>
-                  {showPlayground ? (
-                    <Playground />
-                  ) : selectedTaskId ? (
+                  {selectedTaskId ? (
                     <ChatPanel />
                   ) : pendingWorkspace ? (
                     <PendingChat workspace={pendingWorkspace} />
@@ -259,7 +252,7 @@ export function App() {
                 </Suspense>
               </div>
             </ErrorBoundary>
-            {sidePanelOpen && selectedTaskId && !showPlayground && (
+            {sidePanelOpen && selectedTaskId && (
               <ErrorBoundary>
                 <Suspense>
                   <CodePanel onClose={closeSidePanel} />

@@ -4,6 +4,7 @@ import { Terminal } from 'xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ipc } from '@/lib/ipc'
+import { useResizeHandle } from '@/hooks/useResizeHandle'
 import 'xterm/css/xterm.css'
 
 interface TerminalDrawerProps {
@@ -25,15 +26,11 @@ export const TerminalDrawer = memo(function TerminalDrawer({ cwd }: TerminalDraw
   const [activeId, setActiveId] = useState<string | null>(null)
   const [height, setHeight] = useState(280)
   const drawerRef = useRef<HTMLElement>(null)
-  const dragStartY = useRef<number | null>(null)
-  const dragStartH = useRef(280)
   const readyPtys = useRef<Set<string>>(new Set())
   const instancesRef = useRef<TermInstance[]>([])
-  const heightRef = useRef(280)
 
   // Keep refs in sync
   instancesRef.current = instances
-  heightRef.current = height
 
   const createTerminal = useCallback(async () => {
     const id = nextId()
@@ -156,22 +153,9 @@ export const TerminalDrawer = memo(function TerminalDrawer({ cwd }: TerminalDraw
   }, [activeId, instances])
 
   // Use ref for height to avoid re-creating drag handler on every height change
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
-    dragStartY.current = e.clientY
-    dragStartH.current = heightRef.current
-    const onMove = (ev: MouseEvent) => {
-      if (dragStartY.current === null) return
-      const delta = dragStartY.current - ev.clientY
-      setHeight(Math.max(120, Math.min(600, dragStartH.current + delta)))
-    }
-    const onUp = () => {
-      dragStartY.current = null
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }, [])
+  const handleDragStart = useResizeHandle({
+    axis: 'vertical', size: height, onResize: setHeight, min: 120, max: 600, reverse: true,
+  })
 
   const handleClose = useCallback((id: string) => {
     const inst = instancesRef.current.find((i) => i.id === id)

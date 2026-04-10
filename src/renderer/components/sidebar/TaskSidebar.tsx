@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
 import { useSidebarTasks, type SortKey } from '@/hooks/useSidebarTasks'
+import { useResizeHandle } from '@/hooks/useResizeHandle'
 import { ProjectItem } from './ProjectItem'
 import { SidebarFooter } from './SidebarFooter'
 
@@ -58,9 +59,10 @@ interface TaskSidebarProps {
 export const TaskSidebar = memo(function TaskSidebar({ width, onResize }: TaskSidebarProps) {
   const [sort, setSort] = useState<SortKey>('recent')
   const projectList = useSidebarTasks(sort)
-  const isDragging = useRef(false)
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+  const dragSrcIdx = useRef<number | null>(null)
 
-  const { selectedTaskId, setSelectedTask, setView, setNewProjectOpen, removeTask, removeProject, archiveThreads, renameProject, renameTask } = useTaskStore(
+  const { selectedTaskId, setSelectedTask, setView, setNewProjectOpen, removeTask, removeProject, archiveThreads, renameProject, renameTask, reorderProject } = useTaskStore(
     useShallow((s) => ({
       selectedTaskId: s.selectedTaskId,
       setSelectedTask: s.setSelectedTask,
@@ -71,6 +73,7 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize }: TaskSi
       archiveThreads: s.archiveThreads,
       renameProject: s.renameProject,
       renameTask: s.renameTask,
+      reorderProject: s.reorderProject,
     }))
   )
 
@@ -78,37 +81,34 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize }: TaskSi
   const handleDeleteTask = useCallback((id: string) => { void ipc.cancelTask(id).catch(() => {}); removeTask(id); void ipc.deleteTask(id) }, [removeTask])
   const handleNewThread = useCallback((workspace: string) => { useTaskStore.getState().setPendingWorkspace(workspace) }, [])
 
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
+  // Project drag-to-reorder handlers
+  const handleProjectDragStart = useCallback((idx: number) => { dragSrcIdx.current = idx }, [])
+  const handleProjectDragOver = useCallback((e: React.DragEvent, idx: number) => {
     e.preventDefault()
-    isDragging.current = true
-    const startX = e.clientX
-    const startWidth = width
-    const handleMouseMove = (ev: MouseEvent) => {
-      const newWidth = Math.max(180, Math.min(startWidth + (ev.clientX - startX), window.innerWidth * 0.2))
-      onResize(newWidth)
-    }
-    const handleMouseUp = () => {
-      isDragging.current = false
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-  }, [width, onResize])
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverIdx(idx)
+  }, [])
+  const handleProjectDrop = useCallback((idx: number) => {
+    const from = dragSrcIdx.current
+    if (from !== null && from !== idx) reorderProject(from, idx)
+    dragSrcIdx.current = null
+    setDragOverIdx(null)
+  }, [reorderProject])
+  const handleProjectDragEnd = useCallback(() => { dragSrcIdx.current = null; setDragOverIdx(null) }, [])
+
+  // Sidebar edge resize
+  const handleResizeStart = useResizeHandle({
+    axis: 'horizontal', size: width, onResize, min: 180, max: Math.round(window.innerWidth * 0.2),
+  })
 
   return (
     <div className="relative flex h-full min-h-0 shrink-0 flex-col border-r bg-card pl-1 text-foreground" style={{ width }}>
-      {/* Drag handle */}
       <div
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize sidebar"
         tabIndex={0}
-        onMouseDown={handleDragStart}
+        onMouseDown={handleResizeStart}
         className="absolute right-0 top-0 z-10 h-full w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-colors"
       />
       <ScrollArea className="min-h-0 flex-1">
@@ -129,18 +129,18 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize }: TaskSi
                 </Tooltip>
               </div>
             </div>
-
             <ul className="flex w-full min-w-0 flex-col gap-1">
               {projectList.length === 0 && (
                 <p className="px-3 py-6 text-center text-[11px] text-muted-foreground">No projects yet — click + to import a folder</p>
               )}
-              {projectList.map((project) => (
+              {projectList.map((project, idx) => (
                 <ProjectItem
                   key={project.cwd}
                   name={project.name}
                   cwd={project.cwd}
                   tasks={project.tasks}
                   selectedTaskId={selectedTaskId}
+                  isDragOver={dragOverIdx === idx && dragSrcIdx.current !== idx}
                   onSelectTask={handleSelectTask}
                   onNewThread={() => handleNewThread(project.cwd)}
                   onDeleteTask={handleDeleteTask}
@@ -148,6 +148,10 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize }: TaskSi
                   onRemoveProject={() => removeProject(project.cwd)}
                   onArchiveThreads={() => archiveThreads(project.cwd)}
                   onRenameProject={(n) => renameProject(project.cwd, n)}
+                  onDragStart={() => handleProjectDragStart(idx)}
+                  onDragOver={(e) => handleProjectDragOver(e, idx)}
+                  onDrop={() => handleProjectDrop(idx)}
+                  onDragEnd={handleProjectDragEnd}
                 />
               ))}
             </ul>

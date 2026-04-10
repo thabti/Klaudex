@@ -5,6 +5,7 @@ import { Columns2, Rows2, WrapText, FileCode, ChevronDown, ChevronRight, Plus, U
 import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
 import { useDiffStore } from '@/stores/diffStore'
+import { useResizeHandle } from '@/hooks/useResizeHandle'
 
 // ── Theme CSS overrides to integrate @pierre/diffs with our design system ──
 
@@ -175,33 +176,14 @@ export function DiffViewer({ diff, taskId, workspace, onRefreshDiff }: DiffViewe
   const [revertIdx, setRevertIdx] = useState<number | null>(null)
   const [sidebarWidth, setSidebarWidth] = useState(176)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true)
-  const sidebarDragRef = useRef<{ startX: number; startW: number } | null>(null)
 
   const MIN_SIDEBAR = 100
-  const COLLAPSE_THRESHOLD = 60
 
-  const handleSidebarDragStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    sidebarDragRef.current = { startX: e.clientX, startW: sidebarWidth }
-    const onMove = (ev: MouseEvent) => {
-      if (!sidebarDragRef.current) return
-      const delta = ev.clientX - sidebarDragRef.current.startX
-      const newWidth = sidebarDragRef.current.startW + delta
-      if (newWidth < COLLAPSE_THRESHOLD) {
-        setIsSidebarCollapsed(true)
-      } else {
-        setIsSidebarCollapsed(false)
-        setSidebarWidth(Math.max(MIN_SIDEBAR, Math.min(320, newWidth)))
-      }
-    }
-    const onUp = () => {
-      sidebarDragRef.current = null
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }, [sidebarWidth])
+  const handleSidebarDragStart = useResizeHandle({
+    axis: 'horizontal', size: sidebarWidth, onResize: (w) => {
+      if (w < 60) { setIsSidebarCollapsed(true) } else { setIsSidebarCollapsed(false); setSidebarWidth(w) }
+    }, min: 0, max: 320,
+  })
 
   // Parse the unified diff into FileDiffMetadata[]
   const parsedFiles = useMemo(() => {

@@ -1,5 +1,5 @@
 import { memo, useState, useCallback, useRef, useEffect } from "react";
-import { Copy, Check, Circle, Key } from "lucide-react";
+import { Copy, Check } from "lucide-react";
 import type { TaskMessage, ToolCall } from "@/types";
 import { cn } from "@/lib/utils";
 import {
@@ -8,7 +8,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useKiroStore } from "@/stores/kiroStore";
-import { ipc } from "@/lib/ipc";
 import ChatMarkdown from "./ChatMarkdown";
 import { ToolCallDisplay } from "./ToolCallDisplay";
 import { ThinkingDisplay } from "./ThinkingDisplay";
@@ -26,102 +25,21 @@ const LOADING_WORDS = [
   "Crafting",
 ];
 
-
-function McpStatusLines() {
+function McpErrorLines() {
   const mcpServers = useKiroStore((s) => s.config.mcpServers ?? []);
-  const active = mcpServers.filter((m) => m.enabled && m.status);
-
-  if (active.length === 0) return null;
-
-  const needsAction = active.filter(
-    (m) => m.status === "needs-auth" || m.status === "error",
+  const failed = mcpServers.filter(
+    (m) => m.enabled && (m.status === "needs-auth" || m.status === "error"),
   );
-  const others = active.filter(
-    (m) => m.status !== "needs-auth" && m.status !== "error",
-  );
-
+  if (failed.length === 0) return null;
   return (
-    <div className="mt-2 space-y-1.5">
-      {needsAction.map((m) => (
-        <McpActionBanner key={m.name} server={m} />
+    <div className="mt-1.5 space-y-0.5">
+      {failed.map((m) => (
+        <p key={m.name} className="text-[10px] text-red-400/70">
+          {m.name} — {m.status === "needs-auth" ? "auth required" : "failed"}
+        </p>
       ))}
-
-      {others.length > 0 && (
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-          {others.map((m) => {
-            const isReady = m.status === "ready";
-            const isConnecting = m.status === "connecting";
-            return (
-              <span
-                key={m.name}
-                className="flex items-center gap-1 text-[10px] text-muted-foreground/40"
-              >
-                {isConnecting ? (
-                  <span className="size-1.5 shrink-0 rounded-full border border-sky-400 border-t-transparent animate-spin" />
-                ) : (
-                  <Circle
-                    className={cn(
-                      "size-1.5 shrink-0 fill-current",
-                      isReady ? "text-emerald-400" : "text-muted-foreground/30",
-                    )}
-                  />
-                )}
-                {isConnecting ? `${m.name}\u2026` : m.name}
-              </span>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
-}
-
-function McpActionBanner({
-  server,
-}: {
-  server: { name: string; status?: string; error?: string; oauthUrl?: string };
-}) {
-  const needsAuth = server.status === "needs-auth";
-  const hasError = server.status === "error";
-
-  if (needsAuth) {
-    return (
-      <div className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.04] px-2.5 py-1.5">
-        <Key className="size-3 shrink-0 text-amber-500" />
-        <div className="min-w-0 flex-1">
-          <span className="text-[11px] font-medium text-foreground">
-            {server.name}
-          </span>
-          <span className="ml-1 text-[10px] text-muted-foreground">
-            — OAuth setup needed. Configure in <code className="rounded bg-muted px-1 text-[10px]">~/.kiro/settings/mcp.json</code>
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  if (hasError) {
-    return (
-      <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.04] px-2.5 py-1.5">
-        <Circle className="size-2 shrink-0 fill-current text-red-400" />
-        <div className="min-w-0 flex-1">
-          <span className="text-[11px] font-medium text-foreground">
-            {server.name}
-          </span>
-          <span className="ml-1 text-[10px] text-red-400/70">
-            failed to connect
-          </span>
-          {server.error && (
-            <p className="mt-0.5 truncate text-[9px] font-mono text-red-400/50">
-              {server.error}
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  return null;
 }
 
 function GeneratingIndicator() {
@@ -146,13 +64,13 @@ function GeneratingIndicator() {
     <div className="py-1 select-none">
       <div className="flex items-center gap-2">
         <span
-          className="text-xs text-muted-foreground/50 transition-opacity duration-300"
+          className="text-xs text-muted-foreground/20 transition-opacity duration-300"
           style={{ opacity: visible ? 1 : 0 }}
         >
           {LOADING_WORDS[idx]}&hellip;
         </span>
       </div>
-      <McpStatusLines />
+      <McpErrorLines />
     </div>
   );
 }
@@ -187,7 +105,10 @@ export const MessageItem = memo(function MessageItem({
     : "";
 
   if (message.role === "system") {
-    const isError = message.content.startsWith("\u26a0") || message.content.toLowerCase().startsWith("error") || message.content.toLowerCase().startsWith("failed");
+    const isError =
+      message.content.startsWith("\u26a0") ||
+      message.content.toLowerCase().startsWith("error") ||
+      message.content.toLowerCase().startsWith("failed");
     return (
       <div
         className="pb-3 px-1"
@@ -197,9 +118,16 @@ export const MessageItem = memo(function MessageItem({
         {isError ? (
           <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-[13px] text-destructive/80">
             <svg
-              width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              className="mt-0.5 shrink-0" aria-hidden
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="mt-0.5 shrink-0"
+              aria-hidden
             >
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="8" x2="12" y2="12" />
@@ -210,7 +138,9 @@ export const MessageItem = memo(function MessageItem({
         ) : (
           <div className="flex items-center gap-2 py-1">
             <div className="h-px flex-1 bg-border/40" />
-            <span className="text-xs text-muted-foreground/40 select-none">{message.content}</span>
+            <span className="text-xs text-muted-foreground/40 select-none">
+              {message.content}
+            </span>
             <div className="h-px flex-1 bg-border/40" />
           </div>
         )}

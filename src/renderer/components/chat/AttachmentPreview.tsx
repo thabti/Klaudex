@@ -35,7 +35,7 @@ export const AttachmentPreview = memo(function AttachmentPreview({
 
   return (
     <div
-      className="flex gap-2 overflow-x-auto px-3 pt-3 pb-1 sm:px-4"
+      className="flex flex-wrap gap-2 pb-2"
       role="list"
       aria-label="Attached files"
     >

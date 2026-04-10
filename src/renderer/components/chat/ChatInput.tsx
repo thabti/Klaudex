@@ -49,9 +49,9 @@ export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messa
 
   const currentModeId = useSettingsStore((s) => s.currentModeId)
   const isPlanMode = currentModeId === 'kiro_planner'
-  const borderFocus = isPlanMode ? 'focus-within:border-red-500/60' : 'focus-within:border-violet-500/60'
-  const borderIdle = isPlanMode ? 'border-red-500/25' : 'border-border'
-  const buttonBg = isPlanMode ? 'bg-red-500/90 hover:bg-red-500' : 'bg-violet-500/90 hover:bg-violet-500'
+  const borderFocus = isPlanMode ? 'focus-within:border-teal-500/60' : 'focus-within:border-violet-500/60'
+  const borderIdle = isPlanMode ? 'border-teal-500/25' : 'border-border'
+  const buttonBg = isPlanMode ? 'bg-teal-500/90 hover:bg-teal-500' : 'bg-violet-500/90 hover:bg-violet-500'
 
   const contextRingNode = (contextUsage && contextUsage.size > 0)
     ? <ContextRing used={contextUsage.used} size={contextUsage.size} />
@@ -69,9 +69,8 @@ export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messa
         )}>
           {isDragOver && <DragOverlay />}
 
-          <AttachmentPreview attachments={attachments} onRemove={handleRemoveAttachment} />
-
           <div className="relative px-3 pb-2 pt-3.5 sm:px-4 sm:pt-4" style={{ isolation: 'isolate' }}>
+            <AttachmentPreview attachments={attachments} onRemove={handleRemoveAttachment} />
             {showPicker && (
               <SlashCommandPicker
                 query={slashQuery}

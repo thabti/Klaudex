@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { X, FileCode, Maximize2, Minimize2 } from 'lucide-react'
 import { useTaskStore } from '@/stores/taskStore'
 import { ipc } from '@/lib/ipc'
+import { useResizeHandle } from '@/hooks/useResizeHandle'
 import { DiffViewer } from './DiffViewer'
 
 interface CodePanelProps {
@@ -12,9 +13,6 @@ export function CodePanel({ onClose }: CodePanelProps) {
   const [width, setWidth] = useState(380)
   const [diff, setDiff] = useState('')
   const [isExpanded, setIsExpanded] = useState(false)
-  const resizingRef = useRef(false)
-  const widthRef = useRef(width)
-  widthRef.current = width
 
   const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
   const taskWorkspace = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.workspace : undefined)
@@ -32,26 +30,9 @@ export function CodePanel({ onClose }: CodePanelProps) {
   useEffect(() => { fetchDiff() }, [fetchDiff, taskStatus])
 
   // Resize drag
-  const onMouseDown = useCallback((e: React.MouseEvent) => {
-    if (isExpanded) return
-    e.preventDefault()
-    resizingRef.current = true
-    const startX = e.clientX
-    const startW = widthRef.current
-
-    const onMove = (ev: MouseEvent) => {
-      if (!resizingRef.current) return
-      const delta = startX - ev.clientX
-      setWidth(Math.max(240, Math.min(800, startW + delta)))
-    }
-    const onUp = () => {
-      resizingRef.current = false
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }, [isExpanded])
+  const handleResizeStart = useResizeHandle({
+    axis: 'horizontal', size: width, onResize: setWidth, min: 240, max: 800, reverse: true,
+  })
 
   return (
     <div
@@ -61,7 +42,7 @@ export function CodePanel({ onClose }: CodePanelProps) {
       {/* Resize handle */}
       {!isExpanded && (
         <div
-          onMouseDown={onMouseDown}
+          onMouseDown={handleResizeStart}
           className="w-1 cursor-col-resize hover:bg-accent/40 shrink-0"
         />
       )}

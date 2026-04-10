@@ -237,27 +237,44 @@ const SteeringRow = memo(function SteeringRow({ rule, onOpen }: { rule: KiroStee
 // ── MCP server row ───────────────────────────────────────────────
 
 const McpRow = memo(function McpRow({ server, onOpen }: { server: KiroMcpServer; onOpen: (v: ViewerState) => void }) {
-  const dotClass = server.enabled
-    ? 'fill-emerald-400 text-emerald-400'
-    : 'fill-muted-foreground/20 text-muted-foreground/20'
+  const dotClass = !server.enabled
+    ? 'fill-muted-foreground/20 text-muted-foreground/20'
+    : server.status === 'error' || server.status === 'needs-auth'
+      ? 'fill-red-500 text-red-500'
+      : 'fill-emerald-400 text-emerald-400'
 
   return (
-    <li
-      role="button"
-      tabIndex={0}
-      onClick={() => server.filePath && onOpen({ filePath: server.filePath, title: `MCP: ${server.name}` })}
-      onKeyDown={(e) => e.key === 'Enter' && server.filePath && onOpen({ filePath: server.filePath, title: `MCP: ${server.name}` })}
-      className={cn(
-        'flex h-6 min-w-0 w-full items-center gap-1.5 rounded-md px-1.5 text-[11px] cursor-pointer',
-        'text-muted-foreground/80 hover:bg-accent/50 hover:text-foreground transition-colors',
-      )}
-    >
-      <Circle className={cn('size-2 shrink-0', dotClass)} aria-hidden />
-      <span className="min-w-0 flex-1 truncate">{server.name}</span>
-      <span className="shrink-0 text-[9px] text-muted-foreground/40">
-        {server.transport}
-      </span>
-    </li>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <li
+          role="button"
+          tabIndex={0}
+          onClick={() => server.filePath && onOpen({ filePath: server.filePath, title: `MCP: ${server.name}` })}
+          onKeyDown={(e) => e.key === 'Enter' && server.filePath && onOpen({ filePath: server.filePath, title: `MCP: ${server.name}` })}
+          className={cn(
+            'flex h-6 min-w-0 w-full items-center gap-1.5 rounded-md px-1.5 text-[11px] cursor-pointer',
+            'text-muted-foreground/80 hover:bg-accent/50 hover:text-foreground transition-colors',
+          )}
+        >
+          <Circle className={cn('size-2 shrink-0', dotClass)} aria-hidden />
+          <span className="min-w-0 flex-1 truncate">{server.name}</span>
+          <span className="shrink-0 text-[9px] text-muted-foreground/40">
+            {server.transport}
+          </span>
+        </li>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="max-w-[220px]">
+        <p className="text-[11px] font-medium">{server.name}</p>
+        {(server.status === 'error' || server.status === 'needs-auth') && (
+          <p className="mt-0.5 text-[10px] text-red-400">
+            {server.status === 'needs-auth' ? 'Auth required' : 'Failed to connect'}
+          </p>
+        )}
+        {server.error && (
+          <p className="mt-0.5 text-[9px] text-muted-foreground/50 font-mono truncate">{server.error}</p>
+        )}
+      </TooltipContent>
+    </Tooltip>
   )
 })
 
@@ -339,6 +356,7 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
     [mcpServers, lowerSearch])
 
   const totalAgents = agentGroups.reduce((n, [, a]) => n + a.length, 0)
+  const mcpErrorCount = filteredMcp.filter((m) => m.status === 'error' || m.status === 'needs-auth').length
   const openViewer = useCallback((v: ViewerState) => setViewer(v), [])
   const closeViewer = useCallback(() => setViewer(null), [])
 
@@ -422,7 +440,7 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
 
             {/* MCP */}
             {mcpServers.length > 0 && (filteredMcp.length > 0 || !search) && (
-              <SectionToggle icon={Plug} iconColor="text-sky-400" label="MCP" count={filteredMcp.length} expanded={mcpOpen} onToggle={() => setMcpOpen((v) => !v)} />
+              <SectionToggle icon={Plug} iconColor="text-sky-400" label="MCP" count={filteredMcp.length} errorCount={mcpErrorCount} expanded={mcpOpen} onToggle={() => setMcpOpen((v) => !v)} />
             )}
             {mcpOpen && filteredMcp.length > 0 && (
               <ul className="flex min-w-0 flex-col gap-px border-l mx-1 px-1.5 py-px" style={{ borderColor: 'var(--border)' }}>

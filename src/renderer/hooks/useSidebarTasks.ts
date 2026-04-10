@@ -18,8 +18,8 @@ export interface SidebarProject {
   readonly tasks: readonly SidebarTask[]
 }
 
-function sortTasks(tasks: SidebarTask[], sort: SortKey): SidebarTask[] {
-  return tasks.sort((a, b) => {
+function sortTasks(tasks: readonly SidebarTask[], sort: SortKey): SidebarTask[] {
+  return [...tasks].sort((a, b) => {
     if (sort === 'name-asc') return a.name.localeCompare(b.name)
     if (sort === 'name-desc') return b.name.localeCompare(a.name)
     if (sort === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -38,42 +38,64 @@ export function useSidebarTasks(sort: SortKey): readonly SidebarProject[] {
   const projectNames = useTaskStore((s) => s.projectNames)
 
   // Extract only sidebar-relevant fields and memoize with structural sharing
-  const prevRef = useRef<SidebarTask[]>([])
+  const prevRef = useRef<Map<string, SidebarTask>>(new Map())
 
   const sidebarTasks = useMemo(() => {
-    const next: SidebarTask[] = []
-    for (const t of Object.values(tasks)) {
-      next.push({ id: t.id, name: t.name, workspace: t.workspace, createdAt: t.createdAt, status: t.status })
-    }
-    // Structural sharing: if nothing sidebar-relevant changed, return previous reference
     const prev = prevRef.current
-    if (prev.length === next.length && prev.every((p, i) =>
-      p.id === next[i].id && p.name === next[i].name && p.status === next[i].status && p.createdAt === next[i].createdAt
-    )) {
-      return prev
+    const next = new Map<string, SidebarTask>()
+    let changed = prev.size !== Object.keys(tasks).length
+    for (const t of Object.values(tasks)) {
+      const p = prev.get(t.id)
+      if (p && p.name === t.name && p.status === t.status && p.createdAt === t.createdAt && p.workspace === t.workspace) {
+        next.set(t.id, p)
+      } else {
+        changed = true
+        next.set(t.id, { id: t.id, name: t.name, workspace: t.workspace, createdAt: t.createdAt, status: t.status })
+      }
     }
+    if (!changed) return prev
     prevRef.current = next
     return next
   }, [tasks])
 
   return useMemo(() => {
-    const sorted = sortTasks([...sidebarTasks], sort)
-    const map = new Map<string, { name: string; cwd: string; tasks: SidebarTask[] }>()
-    for (const task of sorted) {
+    // Group tasks by workspace
+    const grouped = new Map<string, SidebarTask[]>()
+    for (const task of sidebarTasks.values()) {
       const cwd = task.workspace
-      if (!map.has(cwd)) {
-        map.set(cwd, { name: projectNames[cwd] ?? cwd.split('/').pop() ?? cwd, cwd, tasks: [] })
-      }
-      map.get(cwd)!.tasks.push(task)
+      if (!grouped.has(cwd)) grouped.set(cwd, [])
+      grouped.get(cwd)!.push(task)
     }
-    // Add empty projects
+
+    // Sort tasks within each group
+    for (const [cwd, tasks] of grouped) {
+      grouped.set(cwd, sortTasks(tasks, sort))
+    }
+
+    // Build project list in the order of the projects array (user-controlled)
+    const result: SidebarProject[] = []
+    const seen = new Set<string>()
+
     for (const ws of projects) {
-      if (!map.has(ws)) {
-        map.set(ws, { name: projectNames[ws] ?? ws.split('/').pop() ?? ws, cwd: ws, tasks: [] })
-      } else if (projectNames[ws]) {
-        map.get(ws)!.name = projectNames[ws]
-      }
+      seen.add(ws)
+      const tasks = grouped.get(ws) ?? []
+      result.push({
+        name: projectNames[ws] ?? ws.split('/').pop() ?? ws,
+        cwd: ws,
+        tasks,
+      })
     }
-    return Array.from(map.values()) as readonly SidebarProject[]
+
+    // Add any projects that have tasks but aren't in the projects array
+    for (const [cwd, tasks] of grouped) {
+      if (seen.has(cwd)) continue
+      result.push({
+        name: projectNames[cwd] ?? cwd.split('/').pop() ?? cwd,
+        cwd,
+        tasks,
+      })
+    }
+
+    return result as readonly SidebarProject[]
   }, [sidebarTasks, sort, projects, projectNames])
 }

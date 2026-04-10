@@ -11,6 +11,7 @@ interface ProjectItemProps {
   cwd: string
   tasks: readonly SidebarTask[]
   selectedTaskId: string | null
+  isDragOver: boolean
   onSelectTask: (id: string) => void
   onNewThread: () => void
   onDeleteTask: (id: string) => void
@@ -18,12 +19,17 @@ interface ProjectItemProps {
   onRemoveProject: () => void
   onArchiveThreads: () => void
   onRenameProject: (name: string) => void
+  onDragStart: () => void
+  onDragOver: (e: React.DragEvent) => void
+  onDrop: () => void
+  onDragEnd: () => void
 }
 
 export const ProjectItem = memo(function ProjectItem({
-  name, cwd, tasks, selectedTaskId,
+  name, cwd, tasks, selectedTaskId, isDragOver,
   onSelectTask, onNewThread, onDeleteTask, onRenameTask,
   onRemoveProject, onArchiveThreads, onRenameProject,
+  onDragStart, onDragOver, onDrop, onDragEnd,
 }: ProjectItemProps) {
   const [expanded, setExpanded] = useState(true)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
@@ -52,20 +58,34 @@ export const ProjectItem = memo(function ProjectItem({
   }, [editValue, name, onRenameProject])
 
   return (
-    <li className="group/menu-item relative min-w-0 rounded-md">
+    <li
+      className={cn(
+        'group/menu-item relative min-w-0 rounded-md transition-colors',
+        isDragOver && 'ring-1 ring-primary/40 bg-primary/5',
+      )}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', cwd)
+        onDragStart()
+      }}
+      onDragOver={onDragOver}
+      onDrop={(e) => { e.preventDefault(); onDrop() }}
+      onDragEnd={onDragEnd}
+    >
       <div className="group/project-header relative">
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
           onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY }) }}
           className={cn(
-            'peer/menu-button flex w-full h-7 cursor-pointer items-center gap-2 overflow-hidden rounded-lg px-2 py-1.5 text-xs text-left',
+            'peer/menu-button flex w-full h-7 cursor-pointer items-center gap-1.5 overflow-hidden rounded-lg px-1.5 py-1.5 text-xs text-left',
             'outline-none focus-visible:ring-2 focus-visible:ring-ring',
             'hover:bg-accent hover:text-foreground group-hover/project-header:bg-accent group-hover/project-header:text-foreground transition-colors',
           )}
         >
           <ChevronRight
-            className={cn('-ml-0.5 size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-150', expanded && 'rotate-90')}
+            className={cn('size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-150', expanded && 'rotate-90')}
             aria-hidden
           />
           <span className="size-3.5 shrink-0 rounded-sm bg-muted-foreground/20 flex items-center justify-center text-[8px] font-bold text-muted-foreground/60 uppercase">

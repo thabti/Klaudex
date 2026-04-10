@@ -7,18 +7,19 @@ export function NewProjectSheet() {
   const open = useTaskStore((s) => s.isNewProjectOpen)
   const setOpen = useTaskStore((s) => s.setNewProjectOpen)
   const addProject = useTaskStore((s) => s.addProject)
+  const setPendingWorkspace = useTaskStore((s) => s.setPendingWorkspace)
   const didPickRef = useRef(false)
 
   useEffect(() => {
     if (!open || didPickRef.current) return
     didPickRef.current = true
     void ipc.pickFolder().then((folder) => {
-      if (folder) addProject(folder)
+      if (folder) { addProject(folder); setPendingWorkspace(folder) }
     }).finally(() => {
       setOpen(false)
       didPickRef.current = false
     })
-  }, [open, addProject, setOpen])
+  }, [open, addProject, setOpen, setPendingWorkspace])
 
   return null
 }
