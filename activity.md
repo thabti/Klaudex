@@ -1,3 +1,21 @@
+## 2026-04-11 02:41 GST (Dubai)
+
+### Docs: Add feature requests table to README
+
+Added a "Feature requests (PRs welcomed)" section to README.md with a table listing five open features: Git worktree, Agent library, Skills library, UI improvements, and Windows testing.
+
+**Modified:** README.md
+
+## 2026-04-11 02:29 GST (Dubai)
+
+### Docs: Replace ASCII art with Mermaid diagrams in architecture
+
+- Replaced the ASCII box diagram in `docs/architecture.md` with two Mermaid diagrams
+- System overview: graph showing Frontend (React/Zustand) → Tauri IPC → Backend modules (acp, pty, git, settings, fs_ops, kiro_config) → external processes
+- Data flow: sequence diagram showing the message lifecycle from UI through Zustand, IPC, acp.rs, to kiro-cli and back
+
+**Modified:** docs/architecture.md
+
 ## 2026-04-11 02:21 GST (Dubai)
 
 ### Docs: README improvements and architecture extraction
