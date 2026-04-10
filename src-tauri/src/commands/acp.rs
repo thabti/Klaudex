@@ -580,13 +580,19 @@ async fn run_acp_connection(
                     }
                     Err(e) => {
                         use tauri::Emitter;
+                        let err_str = e.to_string();
+                        let message = if err_str.contains("ValidationException") {
+                            format!("{err_str}\n\nTip: This often means the prompt is too large or too many concurrent requests are active. Try closing unused sessions or trimming alwaysApply context rules to reduce per-request token usage.")
+                        } else {
+                            err_str.clone()
+                        };
                         let _ = app.emit("task_error", serde_json::json!({
-                            "taskId": task_id, "message": e.to_string()
+                            "taskId": task_id, "message": message
                         }));
                         let _ = app.emit("debug_log", serde_json::json!({
                             "direction": "in", "category": "error", "type": "prompt-error",
-                            "taskId": task_id, "summary": e.to_string(),
-                            "payload": { "error": e.to_string() }, "isError": true
+                            "taskId": task_id, "summary": err_str,
+                            "payload": { "error": err_str }, "isError": true
                         }));
                     }
                 }

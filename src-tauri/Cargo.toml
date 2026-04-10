@@ -37,6 +37,7 @@ git2 = "0.20"
 thiserror = "2"
 which = "7"
 confy = "0.6"
+tauri-plugin-store = "2"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
