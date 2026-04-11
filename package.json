@@ -23,7 +23,8 @@
     "bump": "bash scripts/bump-version.sh",
     "bump:patch": "bash scripts/bump-version.sh patch",
     "bump:minor": "bash scripts/bump-version.sh minor",
-    "bump:major": "bash scripts/bump-version.sh major"
+    "bump:major": "bash scripts/bump-version.sh major",
+    "release": "bash scripts/release.sh"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.2.8",
