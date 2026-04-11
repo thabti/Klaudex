@@ -78,3 +78,12 @@
 ## 2026-04-11 20:37 (Dubai)
 - Fixed Send button appearing grey/invisible when disabled — changed `disabled:opacity-30` to `disabled:opacity-50` in `ChatInput.tsx` so the button stays visibly blue
 - Changed Pause button color from purple (`rgba(139,92,246)`) to blue (`rgba(59,130,246)`) to match the Send button
+
+## 2026-04-11 20:41 (Dubai)
+- Fixed two bugs with task list (checklist) display inside tool calls:
+  1. **Checklists now collapse** — `TaskListDisplay.tsx` got its own collapsible header with chevron toggle (expanded by default)
+  2. **Checklists now show correct checked state** — Instead of reading tasks from a single tool call's `rawOutput` (which only has a snapshot from that specific `create`/`complete`/`add` call), the component now aggregates the latest task state across ALL sibling task-list tool calls. Only the last task-list tool call in a group renders the checklist (avoids duplicates).
+- Modified files:
+  - `src/renderer/components/chat/TaskListDisplay.tsx` — added collapse toggle, `aggregateLatestTasks()`, `isLastTaskListToolCall()`
+  - `src/renderer/components/chat/ToolCallEntry.tsx` — accepts `allToolCalls` prop, passes it to `TaskListDisplay`
+  - `src/renderer/components/chat/ToolCallDisplay.tsx` — passes `toolCalls` array down to each `ToolCallEntry`
