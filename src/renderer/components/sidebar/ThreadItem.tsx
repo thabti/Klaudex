@@ -1,5 +1,6 @@
 import { memo, useState, useRef, useEffect, useCallback } from 'react'
 import { IconPencil, IconTrash, IconArchive } from '@tabler/icons-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { SidebarTask } from '@/hooks/useSidebarTasks'
 
@@ -106,6 +107,9 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
         {dot && (
           <span className={cn('size-1.5 shrink-0 rounded-full', dot.color, dot.pulse && 'animate-pulse')} />
         )}
+        {task.isArchived && (
+          <IconArchive className="size-3 shrink-0 text-muted-foreground/50" aria-label="View-only thread" />
+        )}
         {editing ? (
           <input
             ref={inputRef}
@@ -117,10 +121,12 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
             className="min-w-0 flex-1 truncate bg-transparent text-xs outline-none"
           />
         ) : (
-          <span className="min-w-0 flex-1 truncate text-xs">{task.name}</span>
-        )}
-        {task.isArchived && (
-          <IconArchive className="size-3 shrink-0 text-muted-foreground/50" aria-label="View-only thread" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="min-w-0 flex-1 truncate text-xs">{task.name}</span>
+            </TooltipTrigger>
+            <TooltipContent side="right" align="start">{task.name}</TooltipContent>
+          </Tooltip>
         )}
         <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground/40 group-hover/thread:hidden">
           {relativeTime(task.createdAt)}

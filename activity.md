@@ -71,3 +71,10 @@
 - Added tooltip to thread items in project panel sidebar showing full title on hover
   - `ThreadItem.tsx`: Imported `Tooltip`, `TooltipTrigger`, `TooltipContent` from shadcn; wrapped the truncated thread name `<span>` with a tooltip that displays `task.name` on the right side
   - TypeScript compiles clean
+
+## 2026-04-11 20:39 (Dubai)
+- Fixed squashed message bubbles by widening container max-width breakpoints from `max-w-2xl/3xl/4xl` to `max-w-3xl/4xl/5xl` across five chat components: `MessageList.tsx`, `ChatInput.tsx`, `ChatPanel.tsx`, `QueuedMessages.tsx`, `PermissionBanner.tsx`
+
+## 2026-04-11 20:37 (Dubai)
+- Fixed Send button appearing grey/invisible when disabled — changed `disabled:opacity-30` to `disabled:opacity-50` in `ChatInput.tsx` so the button stays visibly blue
+- Changed Pause button color from purple (`rgba(139,92,246)`) to blue (`rgba(59,130,246)`) to match the Send button

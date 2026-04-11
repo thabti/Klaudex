@@ -431,7 +431,7 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
 
             {/* Agents */}
             {agents.length > 0 && (totalAgents > 0 || !search) && (
-              <SectionToggle icon={IconRobot} iconColor="text-blue-400" label="Agents" count={totalAgents} expanded={agentsOpen} onToggle={() => setAgentsOpen((v) => !v)} />
+              <SectionToggle icon={IconRobot} iconColor="text-violet-400" label="Agents" count={totalAgents} expanded={agentsOpen} onToggle={() => setAgentsOpen((v) => !v)} />
             )}
             {agentsOpen && totalAgents > 0 && (
               <ul className="flex min-w-0 flex-col gap-px border-l mx-1 px-1.5 py-px" style={{ borderColor: 'var(--border)' }}>
