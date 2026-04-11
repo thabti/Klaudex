@@ -4,7 +4,6 @@ import {
   IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand,
   IconUser, IconLogin, IconLogout, IconRefresh, IconShieldCheck,
 } from '@tabler/icons-react'
-import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { Button } from '@/components/ui/button'
@@ -12,25 +11,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { OpenInEditorGroup } from '@/components/OpenInEditorGroup'
 import { GitActionsGroup } from '@/components/GitActionsGroup'
+import { UnifiedTitleBar } from '@/components/unified-title-bar'
 import { ipc } from '@/lib/ipc'
 import { cn } from '@/lib/utils'
 import type { TaskStatus } from '@/types'
-
-// ── Window drag handler ──────────────────────────────────────
-// Belt-and-suspenders: data-tauri-drag-region (+ CSS app-region: drag)
-// handles native drag when focused; startDragging() JS API covers edge
-// cases where the attribute alone fails (known Tauri issue #4316).
-const INTERACTIVE = 'button, a, input, textarea, select, [role="button"], [data-no-drag]'
-
-const handleHeaderMouseDown = (e: React.MouseEvent<HTMLElement>) => {
-  if (e.button !== 0) return
-  if ((e.target as HTMLElement).closest(INTERACTIVE)) return
-  if (e.detail === 2) {
-    getCurrentWindow().toggleMaximize()
-  } else {
-    getCurrentWindow().startDragging()
-  }
-}
 
 // ── Breadcrumb separator ──────────────────────────────────────────────
 const Sep = () => <span className="text-muted-foreground/25 select-none">/</span>
@@ -79,16 +63,16 @@ const AppHeaderInner = memo(function AppHeaderInner({ sidePanelOpen, onToggleSid
   const hasStats = diffStats.additions > 0 || diffStats.deletions > 0
 
   return (
-    <header data-testid="app-header" data-tauri-drag-region onMouseDown={handleHeaderMouseDown} className="flex h-[44px] shrink-0 items-center gap-3 border-b border-border bg-card px-4 pl-[90px] select-none [-webkit-user-select:none]">
-      {/* Breadcrumb left */}
-      <nav data-testid="app-header-breadcrumb" data-tauri-drag-region className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-        {/* Logo / app name */}
-        <span data-tauri-drag-region className="shrink-0 text-sm font-medium tracking-tight text-muted-foreground">
-          Kirodex
-        </span>
-        <span data-tauri-drag-region className="shrink-0 rounded-full bg-muted/50 px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-[0.18em] text-muted-foreground/50">
-          Beta
-        </span>
+    <div data-testid="app-header" className="shrink-0 border-b border-border bg-card select-none [-webkit-user-select:none]">
+      <UnifiedTitleBar>
+        <nav data-testid="app-header-breadcrumb" data-tauri-drag-region className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden px-2">
+          {/* Logo / app name */}
+          <span data-tauri-drag-region className="shrink-0 text-sm font-medium tracking-tight text-muted-foreground">
+            Kirodex
+          </span>
+          <span data-tauri-drag-region className="shrink-0 rounded-full bg-muted/50 px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-[0.18em] text-muted-foreground/50">
+            Beta
+          </span>
 
         {/* Toggle sidebar */}
         <Tooltip>
@@ -227,7 +211,8 @@ const AppHeaderInner = memo(function AppHeaderInner({ sidePanelOpen, onToggleSid
 
       {/* User menu — always visible */}
       <UserMenu />
-    </header>
+      </UnifiedTitleBar>
+    </div>
   )
 })
 
@@ -329,9 +314,11 @@ const UserMenu = memo(function UserMenu() {
 })
 
 const HeaderFallback = () => (
-  <header data-tauri-drag-region className="drag-region flex h-[44px] shrink-0 items-center gap-3 border-b border-border bg-card px-4 pl-[76px]">
-    <span className="text-sm font-medium tracking-tight text-muted-foreground">Kirodex</span>
-  </header>
+  <div className="shrink-0 border-b border-border bg-card">
+    <div data-tauri-drag-region className="flex h-[44px] w-full items-center gap-3 px-4">
+      <span className="text-sm font-medium tracking-tight text-muted-foreground">Kirodex</span>
+    </div>
+  </div>
 )
 
 export function AppHeader(props: AppHeaderProps) {

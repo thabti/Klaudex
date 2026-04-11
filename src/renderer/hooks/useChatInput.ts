@@ -275,6 +275,22 @@ export function useChatInput({ disabled, isRunning, onSendMessage, onPause }: Us
     mentionBag.detectMentionTrigger(el.value, el.selectionStart ?? el.value.length)
   }, [showPicker, showFilePicker, mentionBag.detectMentionTrigger])
 
+  // ── Auto-insert [Image filename] when images are added ───────
+  const prevAttachmentCountRef = useRef(0)
+  useEffect(() => {
+    const images = attachmentsBag.attachments.filter((a) => a.type === 'image')
+    if (images.length > prevAttachmentCountRef.current) {
+      const newImages = images.slice(prevAttachmentCountRef.current)
+      const tags = newImages.map((a) => `[Image ${a.name}]`).join(' ')
+      setValue((v) => {
+        const trimmed = v.trimEnd()
+        return trimmed ? `${trimmed} ${tags}` : tags
+      })
+      requestAnimationFrame(resize)
+    }
+    prevAttachmentCountRef.current = images.length
+  }, [attachmentsBag.attachments]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const canSend = !disabled && (value.trim().length > 0 || attachmentsBag.attachments.length > 0)
 
   // Combined paste: intercept large text first, then fall through to image handler
@@ -301,11 +317,19 @@ export function useChatInput({ disabled, isRunning, onSendMessage, onPause }: Us
     // File mentions
     showFilePicker,
     ...mentionBag,
-    // Attachments (spread but override handlePaste)
+    // Attachments (spread but override handlePaste + handleRemoveAttachment)
     attachments: attachmentsBag.attachments,
     isDragOver: attachmentsBag.isDragOver,
     fileInputRef: attachmentsBag.fileInputRef,
-    handleRemoveAttachment: attachmentsBag.handleRemoveAttachment,
+    handleRemoveAttachment: useCallback((id: string) => {
+      const att = attachmentsBag.attachments.find((a) => a.id === id)
+      if (att?.type === 'image') {
+        const tag = `[Image ${att.name}]`
+        setValue((v) => v.replace(tag, '').replace(/  +/g, ' ').trim())
+        prevAttachmentCountRef.current = Math.max(0, prevAttachmentCountRef.current - 1)
+      }
+      attachmentsBag.handleRemoveAttachment(id)
+    }, [attachmentsBag.attachments, attachmentsBag.handleRemoveAttachment]),
     handleFilePickerClick: attachmentsBag.handleFilePickerClick,
     handleFileInputChange: attachmentsBag.handleFileInputChange,
     clearAttachments: attachmentsBag.clearAttachments,

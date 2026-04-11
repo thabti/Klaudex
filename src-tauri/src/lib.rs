@@ -110,24 +110,7 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             {
                 use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
-                let _ = apply_vibrancy(&_window, NSVisualEffectMaterial::Sidebar, None, None);
-
-                // Set title bar background to match header (--card dark: ~#0c0c0c)
-                #[allow(deprecated)]
-                {
-                    use cocoa::appkit::{NSColor, NSWindow};
-                    use cocoa::base::{id, nil};
-                    let ns_window = _window.ns_window().unwrap() as id;
-                    // SAFETY: ns_window is valid for the lifetime of setup() — the window
-                    // was just retrieved above. setBackgroundColor_ is a standard NSWindow
-                    // message that does not violate aliasing or lifetime rules.
-                    unsafe {
-                        let bg = NSColor::colorWithRed_green_blue_alpha_(
-                            nil, 12.0 / 255.0, 12.0 / 255.0, 12.0 / 255.0, 1.0,
-                        );
-                        ns_window.setBackgroundColor_(bg);
-                    }
-                }
+                let _ = apply_vibrancy(&_window, NSVisualEffectMaterial::HudWindow, None, Some(12.0));
             }
             log::info!("Kirodex started (pid={})", std::process::id());
             Ok(())
