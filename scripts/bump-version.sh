@@ -1,42 +1,55 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: ./scripts/bump-version.sh <version>
-# Example: ./scripts/bump-version.sh 0.8.0
-#
-# Updates version in:
-#   - package.json
-#   - src-tauri/Cargo.toml
-#   - src-tauri/tauri.conf.json
+# Usage: ./scripts/bump-version.sh <major|minor|patch|x.y.z>
+# Examples:
+#   ./scripts/bump-version.sh patch   → 0.7.0 → 0.7.1
+#   ./scripts/bump-version.sh minor   → 0.7.0 → 0.8.0
+#   ./scripts/bump-version.sh major   → 0.7.0 → 1.0.0
+#   ./scripts/bump-version.sh 1.2.3   → sets to 1.2.3 exactly
 
-VERSION="${1:-}"
+CURRENT=$(grep '"version"' package.json | head -1 | sed 's/.*"\([0-9]*\.[0-9]*\.[0-9]*\)".*/\1/')
+IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
 
-if [ -z "$VERSION" ]; then
-  echo "Usage: $0 <version>"
-  echo "Example: $0 0.8.0"
-  exit 1
+case "${1:-}" in
+  major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+  minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+  patch) PATCH=$((PATCH + 1)) ;;
+  [0-9]*.[0-9]*.[0-9]*) IFS='.' read -r MAJOR MINOR PATCH <<< "$1" ;;
+  *)
+    echo "Usage: $0 <major|minor|patch|x.y.z>"
+    echo "Current version: $CURRENT"
+    exit 1
+    ;;
+esac
+
+NEW="$MAJOR.$MINOR.$PATCH"
+
+if [ "$NEW" = "$CURRENT" ]; then
+  echo "Already at $CURRENT"
+  exit 0
 fi
 
-if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-  echo "Error: version must be semver (e.g. 0.8.0)"
-  exit 1
-fi
+echo "Bumping $CURRENT → $NEW"
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# 1. package.json
+sed -i '' "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW\"/" package.json
 
-# package.json
-sed -i.bak -E "s/\"version\": \"[0-9]+\.[0-9]+\.[0-9]+\"/\"version\": \"$VERSION\"/" "$ROOT/package.json"
-rm -f "$ROOT/package.json.bak"
+# 2. src-tauri/Cargo.toml (only the first version line)
+sed -i '' "0,/^version = \"$CURRENT\"/s//version = \"$NEW\"/" src-tauri/Cargo.toml
 
-# src-tauri/Cargo.toml (only the package version, not dependency versions)
-sed -i.bak -E "0,/^version = \"[0-9]+\.[0-9]+\.[0-9]+\"/s//version = \"$VERSION\"/" "$ROOT/src-tauri/Cargo.toml"
-rm -f "$ROOT/src-tauri/Cargo.toml.bak"
+# 3. src-tauri/tauri.conf.json
+sed -i '' "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW\"/" src-tauri/tauri.conf.json
 
-# src-tauri/tauri.conf.json
-sed -i.bak -E "s/\"version\": \"[0-9]+\.[0-9]+\.[0-9]+\"/\"version\": \"$VERSION\"/" "$ROOT/src-tauri/tauri.conf.json"
-rm -f "$ROOT/src-tauri/tauri.conf.json.bak"
+# 4. Update Cargo.lock
+(cd src-tauri && cargo update -p kirodex 2>/dev/null || true)
 
-echo "Bumped to $VERSION in:"
-echo "  - package.json"
-echo "  - src-tauri/Cargo.toml"
-echo "  - src-tauri/tauri.conf.json"
+echo ""
+echo "Updated:"
+echo "  package.json          → $NEW"
+echo "  src-tauri/Cargo.toml  → $NEW"
+echo "  src-tauri/tauri.conf.json → $NEW"
+echo ""
+echo "Next steps:"
+echo "  git add -A && git commit -m \"chore: bump version to $NEW\""
+echo "  git tag v$NEW && git push origin main --tags"

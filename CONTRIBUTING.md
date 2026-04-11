@@ -109,3 +109,79 @@ Open an issue with:
 - Include a description of what changed and why
 - Make sure `bun run check:ts` and `bun run check:rust` pass
 - Screenshots for UI changes are appreciated
+
+## Releasing
+
+### Version bump
+
+The version lives in three files that must stay in sync. Use the bump script:
+
+```bash
+# Bump patch (0.7.0 → 0.7.1)
+bun run bump:patch
+
+# Bump minor (0.7.0 → 0.8.0)
+bun run bump:minor
+
+# Bump major (0.7.0 → 1.0.0)
+bun run bump:major
+
+# Set exact version
+bash scripts/bump-version.sh 1.2.3
+```
+
+This updates `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
+
+### Creating a release
+
+```bash
+# 1. Bump the version
+bun run bump:patch
+
+# 2. Commit the version bump
+git add -A && git commit -m "chore: bump version to $(grep '"version"' package.json | head -1 | sed 's/.*"\([0-9]*\.[0-9]*\.[0-9]*\)".*/\1/')"
+
+# 3. Tag and push (triggers the release workflow)
+VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"\([0-9]*\.[0-9]*\.[0-9]*\)".*/\1/')
+git tag "v$VERSION"
+git push origin main --tags
+```
+
+The `v*` tag push triggers `.github/workflows/release.yml` which:
+
+1. Builds for **macOS** (Apple Silicon), **Linux** (x86_64), and **Windows** (x86_64)
+2. Signs and notarizes the macOS `.dmg` using Apple Developer ID
+3. Creates a draft GitHub release with all platform artifacts
+4. Updates the Homebrew tap (if `thabti/homebrew-tap` exists)
+
+### Manual trigger
+
+You can also trigger a release from the GitHub Actions UI:
+
+1. Go to Actions → Release → Run workflow
+2. Choose draft: `true` or `false`
+
+### Code signing secrets
+
+These GitHub secrets are required for macOS code signing and notarization:
+
+| Secret | Description |
+|--------|-------------|
+| `APPLE_CERTIFICATE` | Base64-encoded `.p12` (Developer ID Application) |
+| `APPLE_CERTIFICATE_PASSWORD` | Password for the `.p12` export |
+| `APPLE_SIGNING_IDENTITY` | e.g., `Developer ID Application: Name (TEAM_ID)` |
+| `APPLE_ID` | Apple ID email for notarization |
+| `APPLE_PASSWORD` | App-specific password from appleid.apple.com |
+| `TEAM_ID` | Apple Developer Team ID |
+| `KEYCHAIN_PASSWORD` | Arbitrary password for the CI temporary keychain |
+
+To export the certificate:
+
+```bash
+security find-identity -v -p codesigning  # find your identity
+security export -k ~/Library/Keychains/login.keychain-db -t identities -f pkcs12 -o cert.p12 -P "password"
+base64 -i cert.p12 | gh secret set APPLE_CERTIFICATE
+rm cert.p12
+```
+
+Without these secrets, the workflow still builds unsigned artifacts for all platforms.

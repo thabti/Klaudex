@@ -19,7 +19,11 @@
     "build:rust": "cd src-tauri && cargo build",
     "build:rust:release": "cd src-tauri && cargo build --release",
     "package": "cargo tauri build",
-    "clean": "rm -rf dist && cd src-tauri && cargo clean"
+    "clean": "rm -rf dist && cd src-tauri && cargo clean",
+    "bump": "bash scripts/bump-version.sh",
+    "bump:patch": "bash scripts/bump-version.sh patch",
+    "bump:minor": "bash scripts/bump-version.sh minor",
+    "bump:major": "bash scripts/bump-version.sh major"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.2.8",
