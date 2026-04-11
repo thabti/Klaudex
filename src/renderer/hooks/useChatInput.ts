@@ -4,7 +4,7 @@ import { useTaskStore } from '@/stores/taskStore'
 import { useSlashAction } from '@/hooks/useSlashAction'
 import { useAttachments } from '@/hooks/useAttachments'
 import { useFileMention } from '@/hooks/useFileMention'
-import { buildAttachmentMessage } from '@/components/chat/attachment-utils'
+import { buildMessageWithInlineImages } from '@/components/chat/attachment-utils'
 
 export interface PastedChunk {
   id: number
@@ -178,8 +178,7 @@ export function useChatInput({ disabled, isRunning, onSendMessage, onPause }: Us
       }
     }
     if (hasAttachments) {
-      const attachmentBlock = buildAttachmentMessage(attachmentsBag.attachments)
-      message = message ? `${message}\n\n${attachmentBlock}` : attachmentBlock
+      message = buildMessageWithInlineImages(message, attachmentsBag.attachments)
     }
     setValue('')
     setSlashIndex(0)

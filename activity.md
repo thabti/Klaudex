@@ -1,5 +1,35 @@
 # Kirodex Tauri Activity Log
 
+## 2026-04-12 03:23 GST (Dubai)
+
+### Chat: Inline image embedding in message context
+
+Changed image handling so `[Image filename.png]` tags are replaced in-place with base64 `<image>` tags instead of being appended as a disconnected block at the end of the message. Added `buildMessageWithInlineImages` to attachment-utils.ts and updated useChatInput.ts to use it. Non-image attachments and images without inline tags still get appended normally.
+
+**Modified:** src/renderer/components/chat/attachment-utils.ts, src/renderer/hooks/useChatInput.ts
+
+## 2026-04-12 03:17 GST (Dubai)
+
+### AppHeader: Redesign UserMenu dropdown with About section and inline update check
+
+Redesigned the UserMenu dropdown to be wider (w-64), with three clear sections: account info at top, actions in the middle (refresh/sign out/settings), and an About footer with version number, copyright, and an inline "Check for updates" button. The update button shows a spinner while checking, highlights in primary when an update is available, and stays subtle otherwise. Also fixed the fetch models button in SettingsPanel to show spinner + "Loading…" text during loading.
+
+**Modified:** src/renderer/components/AppHeader.tsx, src/renderer/components/settings/SettingsPanel.tsx
+
+## 2026-04-12 03:18 GST (Dubai)
+
+### Shiki stub: Fix diff viewer losing red/green line coloring
+
+The shiki stub's `codeToTokens` was changed (in `6093545`) to return actual tokens per line instead of empty tokens. This caused `@pierre/diffs` to use those tokens for rendering instead of falling back to its own diff-aware line coloring (addition/deletion backgrounds). Reverted `codeToTokens` and `codeToTokensBase` to return `tokens: []` so the diff viewer shows proper red/green line highlighting again.
+
+**Modified:** `src/renderer/lib/shiki-stub.ts`
+
+### ToolCallEntry: Fall back to content-based diff when git diff is empty
+
+When a tool call's file changes were already committed, `gitDiffFile` returned an empty string and the inline diff never rendered. Now generates a unified diff from the tool call's `oldText`/`newText` content using the `diff` library as a fallback.
+
+**Modified:** `src/renderer/components/chat/ToolCallEntry.tsx`
+
 ## 2026-04-12 03:03 GST (Dubai)
 
 ### App: Redesign EmptyState to minimal focused layout
