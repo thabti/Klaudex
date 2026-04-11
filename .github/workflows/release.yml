@@ -85,7 +85,7 @@ jobs:
 
             **Homebrew:** `brew install --cask thabti/tap/kirodex`
 
-            > Requires [kiro-cli](https://kiro.dev). Unsigned builds: `xattr -cr Kirodex.app`
+            > Requires [kiro-cli](https://kiro.dev)
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
