@@ -20,7 +20,9 @@
         "height": 900,
         "minWidth": 800,
         "minHeight": 600,
-        "decorations": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "decorations": true,
         "transparent": false,
         "zoomHotkeysEnabled": true
       }
@@ -33,7 +35,6 @@
     "active": true,
     "targets": "all",
     "icon": ["icons/icon.png", "icons/icon.icns", "icons/icon.ico"],
-    "createUpdaterArtifacts": true,
     "macOS": {
       "minimumSystemVersion": "11.0",
       "signingIdentity": null,
