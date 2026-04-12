@@ -45,6 +45,8 @@ pub struct AppSettings {
     pub co_author_json_report: bool,
     #[serde(default = "default_true")]
     pub notifications: bool,
+    #[serde(default = "default_true")]
+    pub sound_notifications: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub project_prefs: Option<std::collections::HashMap<String, ProjectPrefs>>,
     #[serde(default)]
@@ -65,8 +67,9 @@ impl Default for AppSettings {
             auto_approve: false,
             respect_gitignore: true,
             co_author: true,
-            co_author_json_report: false,
+            co_author_json_report: true,
             notifications: true,
+            sound_notifications: true,
             project_prefs: None,
             has_onboarded: false,
         }
