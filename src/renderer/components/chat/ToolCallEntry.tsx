@@ -112,7 +112,7 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall, allToolCall
       {isTaskList && <TaskListDisplay toolCall={toolCall} allToolCalls={allToolCalls} />}
 
       {expanded && hasContent && !isTaskList && (
-        <div className="ml-6 mr-2 mb-1.5 mt-1 rounded-md border border-border/30 bg-background/50 px-3 py-2.5 text-[13px] space-y-2">
+        <div className="ml-6 mr-2 mb-1.5 mt-1 min-w-0 rounded-md border border-border/30 bg-background/50 px-3 py-2.5 text-[13px] space-y-2">
           {toolCall.content?.map((item, i) => (
             <div key={i}>
               {item.type === 'diff' && item.path && (

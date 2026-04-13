@@ -23,6 +23,17 @@ const ROW_ESTIMATES: Record<TimelineRow['kind'], number> = {
   'changed-files': 160,
 }
 
+/** Minimum heights prevent rows from collapsing to 0 during re-measurement,
+ *  which would cause subsequent rows to overlap until the next layout pass. */
+const ROW_MIN_HEIGHTS: Record<TimelineRow['kind'], number> = {
+  'user-message': 48,
+  'system-message': 48,
+  'assistant-text': 32,
+  'work': 40,
+  'working': 40,
+  'changed-files': 48,
+}
+
 interface MessageListProps {
   messages: TaskMessage[]
   streamingChunk?: string
@@ -102,28 +113,34 @@ export const MessageList = memo(function MessageList({
   }
 
   return (
-    <div ref={parentRef} data-testid="message-list" className="relative min-h-0 flex-1 overflow-auto overscroll-y-contain px-0 pt-4 pb-6 sm:pt-6 sm:pb-8">
-      <div
-        className="relative w-full"
-        style={{ height: `${virtualizer.getTotalSize()}px` }}
-      >
-        {virtualizer.getVirtualItems().map((virtualRow) => {
-          const row = timelineRows[virtualRow.index]
-          if (!row) return null
-          return (
-            <div
-              key={virtualRow.key}
-              data-index={virtualRow.index}
-              ref={virtualizer.measureElement}
-              className="absolute left-0 top-0 w-full"
-              style={{ transform: `translateY(${virtualRow.start}px)` }}
-            >
-              <div className="mx-auto w-full min-w-0 max-w-3xl overflow-x-hidden px-5 sm:px-8 lg:max-w-4xl xl:max-w-5xl">
-                <TimelineRowRenderer row={row} />
+    <div className="relative min-h-0 flex-1">
+      <div ref={parentRef} data-testid="message-list" className="h-full overflow-auto overscroll-y-contain px-0 pt-4 pb-6 sm:pt-6 sm:pb-8">
+        <div
+          className="relative w-full"
+          style={{ height: `${virtualizer.getTotalSize()}px` }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const row = timelineRows[virtualRow.index]
+            if (!row) return null
+            return (
+              <div
+                key={virtualRow.key}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                className="absolute left-0 top-0 w-full"
+                style={{
+                  transform: `translateY(${virtualRow.start}px)`,
+                  contain: 'layout',
+                  minHeight: ROW_MIN_HEIGHTS[row.kind],
+                }}
+              >
+                <div className="mx-auto w-full min-w-0 max-w-3xl overflow-x-auto overflow-y-hidden px-5 sm:px-8 lg:max-w-4xl xl:max-w-5xl">
+                  <TimelineRowRenderer row={row} />
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
 
       {showScrollBtn && (
@@ -131,7 +148,7 @@ export const MessageList = memo(function MessageList({
           type="button"
           onClick={scrollToBottom}
           data-testid="scroll-to-bottom-button"
-          className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-[13px] text-muted-foreground shadow-lg transition-colors hover:bg-secondary"
+          className="absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-[13px] text-muted-foreground shadow-lg transition-colors hover:border-primary hover:text-foreground"
         >
           <IconArrowDown className="size-3" />
           Scroll to bottom

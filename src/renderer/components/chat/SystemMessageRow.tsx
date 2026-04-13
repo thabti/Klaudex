@@ -21,7 +21,7 @@ export const SystemMessageRow = memo(function SystemMessageRow({ row }: { row: S
           <line x1="12" y1="8" x2="12" y2="12" />
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
-        <span>{row.content.replace(/^\u26a0\ufe0f\s*/, '')}</span>
+        <span className="break-words">{row.content.replace(/^\u26a0\ufe0f\s*/, '')}</span>
       </div>
     </div>
   )

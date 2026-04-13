@@ -32,7 +32,7 @@ export const ThinkingDisplay = memo(function ThinkingDisplay({ text, isActive }:
         style={{ gridTemplateRows: expanded && hasContent ? '1fr' : '0fr' }}
       >
         <div className="overflow-hidden">
-          <p className="px-4 pb-3 text-[15px] italic text-muted-foreground/70 whitespace-pre-wrap">
+          <p className="px-4 pb-3 text-[15px] italic text-muted-foreground/70 whitespace-pre-wrap break-words">
             {text}
           </p>
         </div>

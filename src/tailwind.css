@@ -235,6 +235,11 @@ input[type="search"] {
     word-break: break-word;
 }
 
+.chat-markdown pre {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
 /* Remove outer margins so the first / last block sits flush */
 .chat-markdown > :first-child {
     margin-top: 0;
