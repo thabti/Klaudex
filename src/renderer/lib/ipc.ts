@@ -149,7 +149,7 @@ export const ipc = {
     tauriListen('plan_update', cb),
   onUsageUpdate: (cb: (data: { taskId: string; used: number; size: number }) => void): UnsubscribeFn =>
     tauriListen('usage_update', cb),
-  onTurnEnd: (cb: (data: { taskId: string }) => void): UnsubscribeFn =>
+  onTurnEnd: (cb: (data: { taskId: string; stopReason?: string }) => void): UnsubscribeFn =>
     tauriListen('turn_end', cb),
   onDebugLog: (cb: (entry: DebugLogEntry) => void): UnsubscribeFn =>
     tauriListen('debug_log', cb),
@@ -163,4 +163,6 @@ export const ipc = {
     tauriListen('commands_update', cb),
   onTaskError: (cb: (data: { taskId: string; message: string }) => void): UnsubscribeFn =>
     tauriListen('task_error', cb),
+  onSubagentUpdate: (cb: (data: { taskId: string; subagents: unknown[]; pendingStages: unknown[] }) => void): UnsubscribeFn =>
+    tauriListen('subagent_update', cb),
 }

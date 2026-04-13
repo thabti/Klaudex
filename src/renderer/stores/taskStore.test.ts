@@ -28,7 +28,7 @@ vi.mock('./kiroStore', () => ({
   useKiroStore: { getState: () => ({ setMcpError: vi.fn() }) },
 }))
 
-import { useTaskStore } from './taskStore'
+import { useTaskStore, applyTurnEnd } from './taskStore'
 import type { AgentTask } from '@/types'
 
 const makeTask = (overrides?: Partial<AgentTask>): AgentTask => ({
@@ -266,5 +266,83 @@ describe('simple setters', () => {
     useTaskStore.getState().upsertTask(makeTask())
     useTaskStore.getState().updateUsage('task-1', 5000, 10000)
     expect(useTaskStore.getState().tasks['task-1'].contextUsage).toEqual({ used: 5000, size: 10000 })
+  })
+})
+
+describe('applyTurnEnd', () => {
+  const baseState = (overrides?: Partial<Parameters<typeof applyTurnEnd>[0]>) => ({
+    tasks: { 't1': makeTask({ id: 't1', status: 'running' }) },
+    streamingChunks: {} as Record<string, string>,
+    thinkingChunks: {} as Record<string, string>,
+    liveToolCalls: {} as Record<string, import('@/types').ToolCall[]>,
+    ...overrides,
+  })
+
+  it('sets status to paused on normal end_turn', () => {
+    const result = applyTurnEnd(baseState(), 't1', 'end_turn')
+    expect(result.tasks?.['t1'].status).toBe('paused')
+  })
+
+  it('sets status to error on refusal', () => {
+    const result = applyTurnEnd(baseState(), 't1', 'refusal')
+    expect(result.tasks?.['t1'].status).toBe('error')
+  })
+
+  it('appends system error message on refusal', () => {
+    const result = applyTurnEnd(baseState(), 't1', 'refusal')
+    const messages = result.tasks?.['t1'].messages ?? []
+    const systemMsg = messages.find((m) => m.role === 'system')
+    expect(systemMsg).toBeDefined()
+    expect(systemMsg?.content).toContain('refused to continue')
+  })
+
+  it('does not append system message on normal end_turn', () => {
+    const result = applyTurnEnd(baseState(), 't1', 'end_turn')
+    const messages = result.tasks?.['t1'].messages ?? []
+    expect(messages.find((m) => m.role === 'system')).toBeUndefined()
+  })
+
+  it('marks incomplete tool calls as failed on refusal', () => {
+    const state = baseState({
+      liveToolCalls: { t1: [{ toolCallId: 'tc1', title: 'subagent', status: 'in_progress' }] },
+    })
+    const result = applyTurnEnd(state, 't1', 'refusal')
+    const assistantMsg = result.tasks?.['t1'].messages.find((m) => m.role === 'assistant')
+    expect(assistantMsg?.toolCalls?.[0].status).toBe('failed')
+  })
+
+  it('marks incomplete tool calls as completed on normal end', () => {
+    const state = baseState({
+      liveToolCalls: { t1: [{ toolCallId: 'tc1', title: 'read', status: 'in_progress' }] },
+    })
+    const result = applyTurnEnd(state, 't1', 'end_turn')
+    const assistantMsg = result.tasks?.['t1'].messages.find((m) => m.role === 'assistant')
+    expect(assistantMsg?.toolCalls?.[0].status).toBe('completed')
+  })
+
+  it('preserves already-completed tool call status', () => {
+    const state = baseState({
+      liveToolCalls: { t1: [{ toolCallId: 'tc1', title: 'read', status: 'completed' }] },
+    })
+    const result = applyTurnEnd(state, 't1', 'refusal')
+    const assistantMsg = result.tasks?.['t1'].messages.find((m) => m.role === 'assistant')
+    expect(assistantMsg?.toolCalls?.[0].status).toBe('completed')
+  })
+
+  it('clears streaming state', () => {
+    const state = baseState({
+      streamingChunks: { t1: 'partial text' },
+      thinkingChunks: { t1: 'thinking...' },
+      liveToolCalls: { t1: [{ toolCallId: 'tc1', title: 'x', status: 'in_progress' }] },
+    })
+    const result = applyTurnEnd(state, 't1', 'end_turn')
+    expect(result.streamingChunks?.['t1']).toBe('')
+    expect(result.thinkingChunks?.['t1']).toBe('')
+    expect(result.liveToolCalls?.['t1']).toEqual([])
+  })
+
+  it('returns empty object for unknown task', () => {
+    const result = applyTurnEnd(baseState(), 'unknown', 'end_turn')
+    expect(result).toEqual({})
   })
 })

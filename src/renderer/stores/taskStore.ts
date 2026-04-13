@@ -34,6 +34,8 @@ interface TaskStore {
   drafts: Record<string, string>
   /** One-shot guard: workspace whose next setDraft call should be suppressed */
   _suppressDraftSave: string | null
+  /** Task ID from the last desktop notification, cleared after navigation */
+  lastNotifiedTaskId: string | null
   setSelectedTask: (id: string | null) => void
   setView: (view: 'chat' | 'dashboard') => void
   setNewProjectOpen: (open: boolean) => void
@@ -88,6 +90,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   terminalOpenTasks: new Set<string>(),
   drafts: {},
   _suppressDraftSave: null,
+  lastNotifiedTaskId: null,
 
   setSelectedTask: (id) => {
     if (get().selectedTaskId === id) return
@@ -498,6 +501,52 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 }))
 
+/** Pure state reducer for turn_end — exported for testing. */
+export const applyTurnEnd = (
+  s: Pick<TaskStore, 'tasks' | 'streamingChunks' | 'thinkingChunks' | 'liveToolCalls'>,
+  taskId: string,
+  stopReason?: string,
+): Partial<TaskStore> => {
+  const chunk = s.streamingChunks[taskId] ?? ''
+  const thinking = s.thinkingChunks[taskId] ?? ''
+  const liveTools = s.liveToolCalls[taskId] ?? []
+  const task = s.tasks[taskId]
+  if (!task) return {}
+  const fallbackStatus = stopReason === 'refusal' ? 'failed' as const : 'completed' as const
+  const finalizedTools = liveTools.map((tc) =>
+    tc.status === 'completed' || tc.status === 'failed' ? tc : { ...tc, status: fallbackStatus },
+  )
+  const newMessages = [...task.messages]
+  if (chunk || finalizedTools.length > 0) {
+    newMessages.push({
+      role: 'assistant' as const,
+      content: chunk,
+      timestamp: new Date().toISOString(),
+      ...(thinking ? { thinking } : {}),
+      ...(finalizedTools.length > 0 ? { toolCalls: finalizedTools } : {}),
+    })
+  }
+  if (stopReason === 'refusal') {
+    newMessages.push({
+      role: 'system' as const,
+      content: '\u26a0\ufe0f The agent refused to continue. This can happen when the request conflicts with safety guidelines or the agent cannot proceed.',
+      timestamp: new Date().toISOString(),
+    })
+  }
+  const updatedTask: AgentTask = {
+    ...task,
+    status: stopReason === 'refusal' ? 'error' : 'paused',
+    messages: newMessages,
+    pendingPermission: undefined,
+  }
+  return {
+    tasks: { ...s.tasks, [taskId]: updatedTask },
+    streamingChunks: { ...s.streamingChunks, [taskId]: '' },
+    thinkingChunks: { ...s.thinkingChunks, [taskId]: '' },
+    liveToolCalls: { ...s.liveToolCalls, [taskId]: [] },
+  }
+}
+
 export function initTaskListeners(): () => void {
   useTaskStore.getState().setConnected(true)
 
@@ -570,7 +619,7 @@ export function initTaskListeners(): () => void {
     useTaskStore.getState().updateUsage(taskId, used, size)
   })
 
-  const unsub8 = ipc.onTurnEnd(({ taskId }) => {
+  const unsub8 = ipc.onTurnEnd(({ taskId, stopReason }) => {
     // Flush any pending rAF-buffered chunks synchronously so turn_end sees them
     if (chunkBuf[taskId] || Object.keys(chunkBuf).length > 0) {
       if (chunkRaf) { cancelAnimationFrame(chunkRaf); chunkRaf = null }
@@ -581,37 +630,7 @@ export function initTaskListeners(): () => void {
       flushThinking()
     }
     // Use a single setState to avoid stale reads between getState() calls
-    useTaskStore.setState((s) => {
-      const chunk = s.streamingChunks[taskId] ?? ''
-      const thinking = s.thinkingChunks[taskId] ?? ''
-      const liveTools = s.liveToolCalls[taskId] ?? []
-      const task = s.tasks[taskId]
-      if (!task) return s
-      let updatedTask: AgentTask
-      if (chunk || liveTools.length > 0) {
-        const assistantMsg: import('@/types').TaskMessage = {
-          role: 'assistant' as const,
-          content: chunk,
-          timestamp: new Date().toISOString(),
-          ...(thinking ? { thinking } : {}),
-          ...(liveTools.length > 0 ? { toolCalls: liveTools } : {}),
-        }
-        updatedTask = {
-          ...task,
-          status: 'paused',
-          messages: [...task.messages, assistantMsg],
-          pendingPermission: undefined,
-        }
-      } else {
-        updatedTask = { ...task, status: 'paused' }
-      }
-      return {
-        tasks: { ...s.tasks, [taskId]: updatedTask },
-        streamingChunks: { ...s.streamingChunks, [taskId]: '' },
-        thinkingChunks: { ...s.thinkingChunks, [taskId]: '' },
-        liveToolCalls: { ...s.liveToolCalls, [taskId]: [] },
-      }
-    })
+    useTaskStore.setState((s) => applyTurnEnd(s, taskId, stopReason))
 
     // Persist history after turn ends
     useTaskStore.getState().persistHistory()
@@ -629,9 +648,10 @@ export function initTaskListeners(): () => void {
           ? lastAssistantMsg.slice(0, MAX_BODY_LENGTH) + '…'
           : lastAssistantMsg
         : taskName
+      useTaskStore.setState({ lastNotifiedTaskId: taskId })
       import('@tauri-apps/plugin-notification').then(({ isPermissionGranted, sendNotification }) => {
         isPermissionGranted().then((ok) => {
-          if (ok) sendNotification({ title: 'Kirodex', body })
+          if (ok) sendNotification({ title: 'Kirodex', body, extra: { taskId } })
         })
       }).catch(() => {})
     }

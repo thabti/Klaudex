@@ -338,6 +338,14 @@ impl acp::Client for KirodexClient {
                 "mcpServers": params.get("mcpServers").cloned().unwrap_or(Value::Array(vec![]))
             }));
         }
+        // Subagent lifecycle — forward so the frontend can track subagent sessions
+        if method_normalized == "kiro.dev/subagent/list_update" {
+            let _ = self.app.emit("subagent_update", serde_json::json!({
+                "taskId": self.task_id,
+                "subagents": params.get("subagents").cloned().unwrap_or(Value::Array(vec![])),
+                "pendingStages": params.get("pendingStages").cloned().unwrap_or(Value::Array(vec![]))
+            }));
+        }
 
         // Skip noisy empty notifications from debug log
         if method.is_empty() && params.is_null() {
@@ -623,21 +631,12 @@ async fn run_acp_connection(
                             .unwrap_or("end_turn")
                             .to_string();
                         use tauri::Emitter;
-                        let _ = app.emit("turn_end", serde_json::json!({ "taskId": task_id }));
+                        let _ = app.emit("turn_end", serde_json::json!({ "taskId": task_id, "stopReason": stop_reason }));
                         let _ = app.emit("debug_log", serde_json::json!({
                             "direction": "in", "category": "response", "type": "turn-end",
                             "taskId": task_id, "summary": format!("turn ended: {stop_reason}"),
                             "payload": result_val, "isError": false
                         }));
-                        // Send native notification when agent finishes
-                        if stop_reason == "end_turn" {
-                            use tauri_plugin_notification::NotificationExt;
-                            let _ = app.notification()
-                                .builder()
-                                .title("Kirodex")
-                                .body("Agent has finished its turn")
-                                .show();
-                        }
                     }
                     Err(e) => {
                         use tauri::Emitter;
