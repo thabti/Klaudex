@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { IconPaperclip, IconClipboard, IconX } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -25,19 +25,26 @@ const ToolbarGroup = ({ children, className }: { children: React.ReactNode; clas
 /** Thin dot separator within a group */
 const Dot = () => <span className="mx-0.5 size-[3px] shrink-0 rounded-full bg-border" aria-hidden />
 
+/** Detect macOS for keyboard shortcut labels */
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent)
+const MOD_KEY = IS_MAC ? '⌘' : 'Ctrl'
+
 interface ChatInputProps {
   disabled?: boolean
+  disabledReason?: string
   contextUsage?: { used: number; size: number } | null
   messageCount?: number
   isRunning?: boolean
   initialValue?: string
+  autoFocus?: boolean
+  hasQueuedMessages?: boolean
   onSendMessage: (message: string) => void
   onPause?: () => void
   onDraftChange?: (value: string) => void
   workspace?: string | null
 }
 
-export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messageCount = 0, isRunning, initialValue, onSendMessage, onPause, onDraftChange, workspace }: ChatInputProps) {
+export const ChatInput = memo(function ChatInput({ disabled, disabledReason, contextUsage, messageCount = 0, isRunning, initialValue, autoFocus, hasQueuedMessages, onSendMessage, onPause, onDraftChange, workspace }: ChatInputProps) {
   const {
     value, setValue, textareaRef, canSend,
     slashIndex, slashQuery, commands, filteredCmds, showPicker,
@@ -62,6 +69,41 @@ export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messa
     return () => document.removeEventListener('slash-upload', h)
   }, [fileInputRef])
 
+  // Auto-focus textarea when requested (e.g. new thread)
+  useEffect(() => {
+    if (autoFocus && textareaRef.current) {
+      textareaRef.current.focus()
+    }
+  }, [autoFocus, textareaRef])
+
+  // ── Cmd+L global shortcut to focus the chat input ──
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
+        e.preventDefault()
+        textareaRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [textareaRef])
+
+  // ── Scroll shadow: detect when textarea content overflows at top ──
+  const [hasScrollShadow, setHasScrollShadow] = useState(false)
+  const handleTextareaScroll = useCallback((e: React.UIEvent<HTMLTextAreaElement>) => {
+    setHasScrollShadow(e.currentTarget.scrollTop > 0)
+  }, [])
+  // Reset shadow when value changes and textarea is at top
+  const scrollCheckRef = useRef<number>(0)
+  useEffect(() => {
+    cancelAnimationFrame(scrollCheckRef.current)
+    scrollCheckRef.current = requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        setHasScrollShadow(textareaRef.current.scrollTop > 0)
+      }
+    })
+  }, [value, textareaRef])
+
   const isPlanMode = currentModeId === 'kiro_planner'
   const borderFocus = isPlanMode ? 'focus-within:border-teal-500/60' : 'focus-within:border-blue-500/60'
   const borderIdle = isPlanMode ? 'border-teal-500/25' : 'border-border'
@@ -73,6 +115,10 @@ export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messa
       ? <ContextRing used={Math.min(messageCount * 3, 95)} size={100} />
       : null
 
+  const placeholderText = disabled
+    ? (disabledReason ?? 'Task ended')
+    : 'Ask anything, @ to mention files, / for commands — Shift+Enter for newline'
+
   return (
     <div data-testid="chat-input" className="px-4 pt-1.5 pb-4 sm:px-6 sm:pt-2 sm:pb-5">
       <div className="mx-auto w-full min-w-0 max-w-3xl lg:max-w-4xl xl:max-w-5xl">
@@ -81,7 +127,7 @@ export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messa
           borderIdle, borderFocus,
           isDragOver && 'border-primary/50',
         )}>
-          {isDragOver && <DragOverlay />}
+          <DragOverlay visible={isDragOver} />
 
           {contextRingNode && (
             <div className="absolute top-2.5 right-3 z-20 sm:right-4">
@@ -162,6 +208,15 @@ export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messa
                 ))}
               </div>
             )}
+            {/* Scroll shadow at top of textarea when content overflows */}
+            <div
+              className={cn(
+                'pointer-events-none absolute left-3 right-3 h-6 bg-gradient-to-b from-card to-transparent transition-opacity duration-200 sm:left-4 sm:right-4',
+                hasScrollShadow ? 'opacity-100' : 'opacity-0',
+              )}
+              style={{ top: 'calc(0.875rem)' }}
+              aria-hidden
+            />
             <textarea
               ref={textareaRef}
               data-testid="chat-textarea"
@@ -170,10 +225,14 @@ export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messa
               onKeyDown={handleKeyDown}
               onSelect={handleSelect}
               onPaste={handlePaste}
-              placeholder="Ask anything, @ to mention files, / for commands"
+              onScroll={handleTextareaScroll}
+              placeholder={placeholderText}
               disabled={disabled}
               rows={1}
-              className="block max-h-[200px] min-h-[70px] w-full resize-none bg-transparent leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground/35"
+              className={cn(
+                'block max-h-[200px] min-h-[70px] w-full resize-none bg-transparent leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground/35',
+                disabled && 'cursor-not-allowed opacity-50',
+              )}
               style={{ overflow: 'auto', fontFamily: 'inherit', caretColor: 'var(--foreground)' }}
             />
           </div>
@@ -209,7 +268,6 @@ export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messa
             <div className="flex shrink-0 items-center gap-1.5">
               <div className="flex min-w-0 items-center gap-1.5">
                 <BranchSelector workspace={workspace ?? null} />
-                {disabled && <span className="ml-1 text-[11px] text-muted-foreground/40">Task ended</span>}
               </div>
               <input
                 ref={fileInputRef}
@@ -220,37 +278,58 @@ export const ChatInput = memo(function ChatInput({ disabled, contextUsage, messa
                 tabIndex={-1}
                 aria-hidden
               />
+              {/* Focus hint */}
+              <kbd className="hidden text-[10px] text-muted-foreground/25 sm:inline">{MOD_KEY}L</kbd>
               {isRunning ? (
-                <button
-                  type="button"
-                  onClick={onPause}
-                  aria-label="Pause agent"
-                  data-testid="pause-button"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-white transition-all duration-150 hover:scale-105"
-                  style={{ backgroundColor: isPlanMode ? 'rgba(20,184,166,0.9)' : 'rgba(59,130,246,0.9)' }}
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
-                    <rect x="1.5" y="1" width="3" height="10" rx="1" />
-                    <rect x="7.5" y="1" width="3" height="10" rx="1" />
-                  </svg>
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={onPause}
+                      aria-label="Pause agent (Escape)"
+                      data-testid="pause-button"
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-white transition-all duration-150 hover:scale-105"
+                      style={{ backgroundColor: isPlanMode ? 'rgba(20,184,166,0.9)' : 'rgba(59,130,246,0.9)' }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+                        <rect x="1.5" y="1" width="3" height="10" rx="1" />
+                        <rect x="7.5" y="1" width="3" height="10" rx="1" />
+                      </svg>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-[11px]">
+                    Pause agent <kbd className="ml-1 rounded bg-muted px-1 py-0.5 text-[10px]">Esc</kbd>
+                  </TooltipContent>
+                </Tooltip>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleSend}
-                  disabled={!canSend}
-                  aria-label="Send message"
-                  data-testid="send-button"
-                  className={cn(
-                    'flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150',
-                    buttonBg, 'text-white hover:scale-105',
-                    'disabled:pointer-events-none disabled:opacity-50 disabled:hover:scale-100',
-                  )}
-                >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                    <path d="M7 11.5V2.5M7 2.5L3 6.5M7 2.5L11 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={handleSend}
+                      disabled={!canSend}
+                      aria-label={isRunning ? 'Queue message (Enter)' : 'Send message (Enter)'}
+                      data-testid="send-button"
+                      className={cn(
+                        'relative flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150',
+                        buttonBg, 'text-white hover:scale-105',
+                        'disabled:pointer-events-none disabled:opacity-50 disabled:hover:scale-100',
+                      )}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                        <path d="M7 11.5V2.5M7 2.5L3 6.5M7 2.5L11 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      {hasQueuedMessages && (
+                        <span className="absolute -top-1 -right-1 flex size-3 items-center justify-center rounded-full bg-amber-500" aria-label="Messages queued">
+                          <span className="size-1.5 rounded-full bg-white" />
+                        </span>
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-[11px]">
+                    Send message <kbd className="ml-1 rounded bg-muted px-1 py-0.5 text-[10px]">⏎</kbd>
+                  </TooltipContent>
+                </Tooltip>
               )}
             </div>
           </div>

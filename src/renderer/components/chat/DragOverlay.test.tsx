@@ -4,11 +4,11 @@ import { DragOverlay } from './DragOverlay'
 
 describe('DragOverlay', () => {
   it('renders drop text', () => {
-    render(<DragOverlay />)
+    render(<DragOverlay visible />)
     expect(screen.getByText('Drop files here')).toBeInTheDocument()
   })
   it('renders file type hint', () => {
-    render(<DragOverlay />)
+    render(<DragOverlay visible />)
     expect(screen.getByText('Images, code, documents')).toBeInTheDocument()
   })
 })

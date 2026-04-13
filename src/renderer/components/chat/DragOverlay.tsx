@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { cn } from '@/lib/utils'
 
 /**
  * Cute cat SVG that appears during drag-over.
@@ -44,9 +45,19 @@ const CuteCat = () => (
   </svg>
 )
 
-export const DragOverlay = memo(function DragOverlay() {
+interface DragOverlayProps {
+  visible: boolean
+}
+
+export const DragOverlay = memo(function DragOverlay({ visible }: DragOverlayProps) {
   return (
-    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-2 rounded-[20px] bg-background/80 backdrop-blur-sm">
+    <div
+      className={cn(
+        'absolute inset-0 z-50 flex flex-col items-center justify-center gap-2 rounded-[20px] bg-background/80 backdrop-blur-sm transition-opacity duration-200',
+        visible ? 'opacity-100' : 'pointer-events-none opacity-0',
+      )}
+      aria-hidden={!visible}
+    >
       {/* Animated dashed border */}
       <svg
         className="pointer-events-none absolute inset-0 h-full w-full"
@@ -65,7 +76,7 @@ export const DragOverlay = memo(function DragOverlay() {
           strokeDasharray="8 6"
           className="text-primary/40"
           style={{
-            animation: 'dash-march 0.6s linear infinite',
+            animation: visible ? 'dash-march 0.6s linear infinite' : 'none',
           }}
         />
       </svg>

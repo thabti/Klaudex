@@ -202,9 +202,11 @@ export const ChatPanel = memo(function ChatPanel() {
         ) : (
           <ChatInput
             disabled={inputDisabled}
+            disabledReason={isArchived ? 'Previous session — view only' : taskStatus === 'cancelled' ? 'Task was cancelled' : undefined}
             contextUsage={contextUsage}
             messageCount={messageCount}
             isRunning={isRunning}
+            hasQueuedMessages={queuedMessages.length > 0}
             onSendMessage={handleSendMessage}
             onPause={handlePause}
             workspace={taskWorkspace}
