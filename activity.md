@@ -1,3 +1,43 @@
+## 2026-04-13 14:58 GST (Dubai)
+
+### Chat: Improve scroll-to-bottom button hover UX
+
+Changed hover effect from `hover:bg-secondary` (which gave a washed-out/transparent look) to `hover:border-primary hover:text-foreground` for a solid, clear highlight. Bumped position from `bottom-4` to `bottom-6` for better spacing above the chat input.
+
+**Modified:** `src/renderer/components/chat/MessageList.tsx`
+
+## 2026-04-13 14:52 GST (Dubai)
+
+### Chat: Fix scroll-to-bottom button positioning in MessageList
+
+Moved the scroll-to-bottom button outside the scrollable `overflow-auto` container into a new outer `relative` wrapper. Previously the button used `absolute` positioning inside the scrollable div, which caused it to anchor relative to the full scroll content height rather than the visible viewport. Now the outer div is `relative min-h-0 flex-1`, the inner scrollable div is `h-full overflow-auto`, and the button sits as a sibling, correctly anchored to the visible bottom.
+
+**Modified:** `src/renderer/components/chat/MessageList.tsx`
+
+## 2026-04-13 16:02 GST (Dubai)
+
+### Chat: Fix remaining text overflow in ThinkingDisplay, SystemMessageRow, CollapsedAnswers
+
+Added `break-words` to three components that rendered dynamic text without word-break protection: the thinking text paragraph in `ThinkingDisplay`, the error content span in `SystemMessageRow`, and the question/answer paragraphs in `CollapsedAnswers`. Long unbroken strings (URLs, paths, base64) now wrap instead of overflowing their containers.
+
+**Modified:** `src/renderer/components/chat/ThinkingDisplay.tsx`, `src/renderer/components/chat/SystemMessageRow.tsx`, `src/renderer/components/chat/CollapsedAnswers.tsx`
+
+## 2026-04-13 14:46 GST (Dubai)
+
+### Chat: Fix message area layout overlap when multiple messages accumulate
+
+Hardened the virtualized message list to prevent content overlap and layout instability. Added min-height constraints per row type to stop rows collapsing during re-measurement. Changed row content wrapper from `overflow-x-hidden` to `overflow-x-auto` so wide content scrolls instead of being invisibly clipped. Added `contain:layout` to virtual row containers for paint isolation. Hardened `<pre>` blocks in CSS and ToolCallEntry to stay within bounds. Made user message bubbles content-adaptive with `w-fit` so short messages get compact bubbles.
+
+**Modified:** `src/renderer/components/chat/MessageList.tsx`, `src/renderer/components/chat/ToolCallEntry.tsx`, `src/renderer/components/chat/UserMessageRow.tsx`, `src/tailwind.css`
+
+## 2026-04-13 14:49 GST (Dubai)
+
+### Settings: Default analyticsEnabled to true
+
+Changed the anonymous usage data toggle to default to `true` across all four locations: Rust backend (`settings.rs`), frontend default settings (`settingsStore.ts`), the settings panel switch fallback (`SettingsPanel.tsx`), and the analytics init guard (`App.tsx`). New installs now opt in by default; users can still toggle it off in Settings > Advanced > Privacy.
+
+**Modified:** `src-tauri/src/commands/settings.rs`, `src/renderer/stores/settingsStore.ts`, `src/renderer/components/settings/SettingsPanel.tsx`, `src/renderer/App.tsx`
+
 ## 2026-04-13 11:56 GST (Dubai)
 
 ### AppHeader: Replace shield icon with user-check for auth indicator
