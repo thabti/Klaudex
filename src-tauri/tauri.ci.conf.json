@@ -1,4 +1,5 @@
 {
+  "productName": "Kirodex",
   "bundle": {
     "createUpdaterArtifacts": "v1Compatible",
     "icon": ["icons/prod/icon.png", "icons/prod/icon.icns", "icons/prod/icon.ico"]

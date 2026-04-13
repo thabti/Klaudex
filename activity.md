@@ -1,3 +1,11 @@
+## 2026-04-13 10:27 GST (Dubai)
+
+### Build: Fix CI productName to "Kirodex" instead of "Kirodex-dev"
+
+Added `"productName": "Kirodex"` to `tauri.ci.conf.json` so release builds produce an app named "Kirodex". The base `tauri.conf.json` uses "Kirodex-dev" for local development, and the CI config (merged on top via `--config`) wasn't overriding it.
+
+**Modified:** `src-tauri/tauri.ci.conf.json`
+
 ## 2026-04-13 09:45 GST (Dubai)
 
 ### CSS: Fix bottom margin gap in production builds

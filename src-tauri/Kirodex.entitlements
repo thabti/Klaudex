@@ -2,32 +2,21 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Hardened runtime (required for notarization) -->
+    <!-- Disable sandbox: required because Kirodex spawns kiro-cli subprocesses,
+         uses portable-pty, and needs unrestricted file access to project folders. -->
     <key>com.apple.security.app-sandbox</key>
     <false/>
 
-    <!-- Allow loading unsigned frameworks (WebView, portable-pty) -->
+    <!-- Hardened runtime exceptions for Tauri WebView -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
     <key>com.apple.security.cs.disable-library-validation</key>
     <true/>
 
-    <!-- Allow JIT for WebKit JavaScript (Tauri WebView) -->
-    <key>com.apple.security.cs.allow-jit</key>
-    <true/>
-
-    <!-- Allow unsigned executable memory (WebKit requirement) -->
-    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-    <true/>
-
-    <!-- Network access for ACP subprocess communication -->
+    <!-- Network access for ACP subprocess communication and updater -->
     <key>com.apple.security.network.client</key>
-    <true/>
-
-    <!-- File access for project folders -->
-    <key>com.apple.security.files.user-selected.read-write</key>
-    <true/>
-
-    <!-- Process execution for kiro-cli, git, terminal -->
-    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
     <true/>
 </dict>
 </plist>

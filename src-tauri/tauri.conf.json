@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-config-schema/schema.json",
-  "productName": "Kirodex",
+  "productName": "Kirodex-dev",
   "version": "0.8.9",
   "identifier": "com.kirodex.app",
   "build": {
