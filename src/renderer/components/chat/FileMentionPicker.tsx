@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState, useCallback } from 'react'
-import { IconRobot, IconTool, IconCode, IconListCheck } from '@tabler/icons-react'
+import { IconRobot, IconTool, IconCode, IconListCheck, IconX } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -365,6 +365,15 @@ export const FileMentionPicker = memo(function FileMentionPicker({
       role="listbox"
       aria-label="File mentions"
     >
+      <button
+        type="button"
+        aria-label="Close panel"
+        tabIndex={0}
+        onMouseDown={(e) => { e.preventDefault(); onDismiss() }}
+        className="absolute right-2 top-2 z-10 flex size-5 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-accent/50 hover:text-foreground"
+      >
+        <IconX className="size-3" />
+      </button>
       <ul ref={listRef} className="max-h-[280px] overflow-y-auto py-1">
         {kiroItems.map((item, i) => {
           const isActive = i === activeIndex % totalItems

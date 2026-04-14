@@ -137,7 +137,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
     slashIndex, slashQuery, commands, filteredCmds, showPicker,
     panel, dismissPanel, handleSelectCommand,
     showFilePicker, mentionTrigger, mentionIndex, mentionedFiles,
-    handleSelectFile, handleRemoveMention, detectMentionTrigger,
+    handleSelectFile, handleRemoveMention, detectMentionTrigger, dismissMention,
     attachments, isDragOver, fileInputRef,
     handleRemoveAttachment, handlePaste, handleFilePickerClick, handleFileInputChange,
     pastedChunks, handleRemoveChunk,
@@ -255,7 +255,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
                 query={mentionTrigger?.query ?? ''}
                 workspace={workspace ?? null}
                 onSelect={handleSelectFile}
-                onDismiss={() => {}}
+                onDismiss={dismissMention}
                 activeIndex={mentionIndex}
               />
             )}
