@@ -1,3 +1,11 @@
+## 2026-04-14 19:11 GST (Dubai)
+
+### ChatInput: Remove inner textarea focus ring
+
+Removed the `focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-2 ring-offset-card` classes from the textarea inside `ChatInput`. The outer container already applies a `focus-within:border-blue-500/60` border, so the inner ring was redundant and looked bad on the new thread screen.
+
+**Modified:** `src/renderer/components/chat/ChatInput.tsx`
+
 ## 2026-04-14 15:10 GST (Dubai)
 
 ### ACP: Scope question format preprompt to plan mode only

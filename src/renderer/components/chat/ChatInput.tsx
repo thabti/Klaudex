@@ -298,7 +298,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
               disabled={disabled}
               rows={1}
               className={cn(
-                'block max-h-[200px] min-h-[70px] w-full resize-none rounded-lg bg-transparent leading-[1.6] text-foreground outline-none ring-offset-card focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-2 placeholder:text-muted-foreground/35',
+                'block max-h-[200px] min-h-[70px] w-full resize-none rounded-lg bg-transparent leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground/35',
                 disabled && 'cursor-not-allowed opacity-50',
               )}
               style={{ overflow: 'auto', fontFamily: 'inherit', caretColor: 'var(--foreground)' }}
