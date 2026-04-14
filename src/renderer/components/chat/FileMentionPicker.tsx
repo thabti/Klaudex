@@ -152,39 +152,7 @@ const formatRelativeTime = (epochSecs: number): string => {
   return `${mo}mo ago`
 }
 
-// ── Fuzzy search scoring (t3code-acp inspired) ──────────────────────
-const fuzzyScore = (query: string, target: string): number | null => {
-  const q = query.toLowerCase()
-  const t = target.toLowerCase()
-
-  // Exact match
-  if (t === q) return 0
-  // Starts with
-  if (t.startsWith(q)) return 1
-  // Contains
-  const containsIdx = t.indexOf(q)
-  if (containsIdx >= 0) return 2 + containsIdx
-
-  // Subsequence match
-  let qi = 0
-  let firstMatch = -1
-  let gaps = 0
-  let lastMatch = -1
-
-  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
-    if (t[ti] === q[qi]) {
-      if (firstMatch === -1) firstMatch = ti
-      if (lastMatch >= 0 && ti - lastMatch > 1) gaps += ti - lastMatch - 1
-      lastMatch = ti
-      qi++
-    }
-  }
-
-  if (qi < q.length) return null // no match
-
-  const span = lastMatch - firstMatch + 1
-  return 100 + firstMatch * 2 + gaps * 3 + span
-}
+import { fuzzyScore } from '@/lib/fuzzy-search'
 
 const searchFiles = (files: ProjectFile[], query: string, limit: number = 50): ProjectFile[] => {
   const q = query.replace(/^[@./]+/, '').trim()
@@ -302,23 +270,45 @@ export const FileMentionPicker = memo(function FileMentionPicker({
   }, [workspace, respectGitignore])
 
   // Build kiro items filtered by query — built-in agents first, then .kiro agents, then skills
-  const q = (query ?? '').replace(/^[@./]+/, '').trim().toLowerCase()
-  const kiroItems: Array<{ type: 'agent' | 'skill'; name: string; description?: string; builtinIcon?: typeof IconRobot; builtinColor?: string; builtinBgCls?: string }> = []
+  const q = (query ?? '').replace(/^[@./]+/, '').trim()
+  type KiroItem = { type: 'agent' | 'skill'; name: string; description?: string; builtinIcon?: typeof IconRobot; builtinColor?: string; builtinBgCls?: string }
+  const scoredKiroItems: Array<{ item: KiroItem; score: number }> = []
   for (const b of BUILT_IN_MENTION_AGENTS) {
-    if (!q || b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q)) {
-      kiroItems.push({ type: 'agent', name: b.id, description: b.description, builtinIcon: b.icon, builtinColor: b.color, builtinBgCls: b.bgCls })
+    if (!q) {
+      scoredKiroItems.push({ item: { type: 'agent', name: b.id, description: b.description, builtinIcon: b.icon, builtinColor: b.color, builtinBgCls: b.bgCls }, score: 0 })
+    } else {
+      const nameScore = fuzzyScore(q, b.name)
+      const idScore = fuzzyScore(q, b.id)
+      const best = nameScore !== null && idScore !== null ? Math.min(nameScore, idScore) : nameScore ?? idScore
+      if (best !== null) {
+        scoredKiroItems.push({ item: { type: 'agent', name: b.id, description: b.description, builtinIcon: b.icon, builtinColor: b.color, builtinBgCls: b.bgCls }, score: best })
+      }
     }
   }
   for (const a of agents) {
-    if (!q || a.name.toLowerCase().includes(q) || a.description.toLowerCase().includes(q)) {
-      kiroItems.push({ type: 'agent', name: a.name, description: a.description })
+    if (!q) {
+      scoredKiroItems.push({ item: { type: 'agent', name: a.name, description: a.description }, score: 0 })
+    } else {
+      const nameScore = fuzzyScore(q, a.name)
+      const descScore = fuzzyScore(q, a.description)
+      const best = nameScore !== null && descScore !== null ? Math.min(nameScore, descScore + 50) : nameScore ?? (descScore !== null ? descScore + 50 : null)
+      if (best !== null) {
+        scoredKiroItems.push({ item: { type: 'agent', name: a.name, description: a.description }, score: best })
+      }
     }
   }
   for (const s of skills) {
-    if (!q || s.name.toLowerCase().includes(q)) {
-      kiroItems.push({ type: 'skill', name: s.name })
+    if (!q) {
+      scoredKiroItems.push({ item: { type: 'skill', name: s.name }, score: 0 })
+    } else {
+      const score = fuzzyScore(q, s.name)
+      if (score !== null) {
+        scoredKiroItems.push({ item: { type: 'skill', name: s.name }, score })
+      }
     }
   }
+  if (q) scoredKiroItems.sort((a, b) => a.score - b.score)
+  const kiroItems = scoredKiroItems.map((s) => s.item)
 
   // Update filtered results when query changes
   const filtered = query ? searchFiles(filesRef.current, query) : filesRef.current.slice(0, 50)
