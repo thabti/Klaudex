@@ -162,12 +162,28 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
     return [...backendCommands, ...clientCommands.filter((c) => !names.has(c.name))]
   }, [backendCommands])
 
-  const isSlash = value.startsWith('/')
-  const slashQuery = isSlash ? value.slice(1) : ''
-  const filteredCmds = isSlash
+  // ── Cursor-based slash trigger (mirrors mention detection) ───
+  const [slashTrigger, setSlashTrigger] = useState<{ start: number; query: string } | null>(null)
+
+  const detectSlashTrigger = useCallback((text: string, cursorPos: number) => {
+    let i = cursorPos - 1
+    while (i >= 0 && text[i] !== '/' && text[i] !== '\n' && text[i] !== ' ') i--
+    if (i >= 0 && text[i] === '/' && (i === 0 || /\s/.test(text[i - 1]))) {
+      const query = text.slice(i + 1, cursorPos)
+      if (!query.includes(' ')) {
+        setSlashTrigger({ start: i, query })
+        setSlashIndex(0)
+        return
+      }
+    }
+    setSlashTrigger(null)
+  }, [])
+
+  const slashQuery = slashTrigger?.query ?? ''
+  const filteredCmds = slashTrigger
     ? (slashQuery ? commands.filter((c) => c.name.replace(/^\/+/, '').toLowerCase().startsWith(slashQuery.toLowerCase())) : commands)
     : []
-  const showPicker = isSlash && filteredCmds.length > 0 && !panel
+  const showPicker = slashTrigger !== null && filteredCmds.length > 0 && !panel
   const showFilePicker = mentionBag.mentionTrigger !== null && !showPicker && !panel
 
   const resize = useCallback(() => {
@@ -179,11 +195,13 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
 
   const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value
+    const cursor = e.target.selectionStart ?? newValue.length
     setValue(newValue)
     historyIndexRef.current = -1
     resize()
-    mentionBag.detectMentionTrigger(newValue, e.target.selectionStart ?? newValue.length)
-  }, [resize, mentionBag.detectMentionTrigger])
+    detectSlashTrigger(newValue, cursor)
+    mentionBag.detectMentionTrigger(newValue, cursor)
+  }, [resize, detectSlashTrigger, mentionBag.detectMentionTrigger])
 
   const handleSend = useCallback(() => {
     const trimmed = value.trim()
@@ -211,16 +229,36 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
   }, [value, disabled, onSendMessage, dismissPanel, mentionBag, attachmentsBag, expandChunks])
 
   const handleSelectCommand = useCallback((cmd: { name: string }) => {
-    if (execute(cmd.name)) {
-      setValue('')
+    const name = cmd.name.replace(/^\/+/, '')
+    if (execute(name)) {
+      // Client-handled command: remove the /trigger from the text
+      if (slashTrigger) {
+        const before = value.slice(0, slashTrigger.start)
+        const after = value.slice(slashTrigger.start + 1 + slashTrigger.query.length)
+        setValue((before + after).trim())
+      } else {
+        setValue('')
+      }
+      setSlashTrigger(null)
       setSlashIndex(0)
       textareaRef.current?.focus()
       return
     }
-    setValue(`/${cmd.name} `)
+    // Pass-through command: replace the /trigger with /command + space
+    if (slashTrigger) {
+      const before = value.slice(0, slashTrigger.start)
+      const after = value.slice(slashTrigger.start + 1 + slashTrigger.query.length)
+      const newValue = `${before}/${name} ${after}`
+      setValue(newValue)
+      const cursorPos = before.length + name.length + 2
+      requestAnimationFrame(() => textareaRef.current?.setSelectionRange(cursorPos, cursorPos))
+    } else {
+      setValue(`/${name} `)
+    }
+    setSlashTrigger(null)
     setSlashIndex(0)
     textareaRef.current?.focus()
-  }, [execute])
+  }, [execute, slashTrigger, value])
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (panel && e.key === 'Escape') { e.preventDefault(); dismissPanel(); return }
@@ -243,7 +281,7 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
         if (cmd) handleSelectCommand(cmd)
         return
       }
-      if (e.key === 'Escape') { e.preventDefault(); setValue(''); return }
+      if (e.key === 'Escape') { e.preventDefault(); setSlashTrigger(null); return }
     }
 
     // ── Message history cycling ──────────────────────────────────
@@ -291,8 +329,10 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
     if (showPicker || showFilePicker) return
     const el = textareaRef.current
     if (!el) return
-    mentionBag.detectMentionTrigger(el.value, el.selectionStart ?? el.value.length)
-  }, [showPicker, showFilePicker, mentionBag.detectMentionTrigger])
+    const cursor = el.selectionStart ?? el.value.length
+    detectSlashTrigger(el.value, cursor)
+    mentionBag.detectMentionTrigger(el.value, cursor)
+  }, [showPicker, showFilePicker, detectSlashTrigger, mentionBag.detectMentionTrigger])
 
   // ── Auto-insert [Image filename] when images are added ───────
   const prevAttachmentCountRef = useRef(0)

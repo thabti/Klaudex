@@ -3,6 +3,7 @@ import { ipc } from '@/lib/ipc'
 import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { ChatInput } from './ChatInput'
+import { EmptyThreadSplash } from './EmptyThreadSplash'
 
 interface PendingChatProps {
   workspace: string
@@ -64,7 +65,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
             </button>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground/60 select-none">New thread</p>
+          <EmptyThreadSplash />
         )}
       </div>
       <ChatInput autoFocus disabled={isLoggedOut} initialValue={draft} onDraftChange={handleDraftChange} onSendMessage={handleSend} workspace={workspace} />

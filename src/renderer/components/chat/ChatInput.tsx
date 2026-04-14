@@ -137,7 +137,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
     slashIndex, slashQuery, commands, filteredCmds, showPicker,
     panel, dismissPanel, handleSelectCommand,
     showFilePicker, mentionTrigger, mentionIndex, mentionedFiles,
-    handleSelectFile, handleRemoveMention,
+    handleSelectFile, handleRemoveMention, detectMentionTrigger,
     attachments, isDragOver, fileInputRef,
     handleRemoveAttachment, handlePaste, handleFilePickerClick, handleFileInputChange,
     pastedChunks, handleRemoveChunk,
@@ -155,6 +155,24 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
     document.addEventListener('slash-upload', h)
     return () => document.removeEventListener('slash-upload', h)
   }, [fileInputRef])
+
+  // Listen for splash-insert (EmptyThreadSplash click)
+  useEffect(() => {
+    const h = (e: Event) => {
+      const text = (e as CustomEvent<string>).detail
+      if (!text) return
+      setValue(text)
+      requestAnimationFrame(() => {
+        const el = textareaRef.current
+        if (!el) return
+        el.focus()
+        el.setSelectionRange(text.length, text.length)
+        detectMentionTrigger(text, text.length)
+      })
+    }
+    document.addEventListener('splash-insert', h)
+    return () => document.removeEventListener('splash-insert', h)
+  }, [setValue, textareaRef, detectMentionTrigger])
 
   // Auto-focus textarea when requested (e.g. new thread)
   useEffect(() => {

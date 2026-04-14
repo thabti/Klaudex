@@ -1,5 +1,45 @@
 # Activity Log
 
+## 2026-04-14 17:28 GST (Dubai)
+
+### ChatInput: Support mid-sentence slash commands and @ mentions
+
+Refactored slash command detection from `value.startsWith('/')` to a cursor-position-based `slashTrigger` state that scans backwards from the cursor for `/` preceded by whitespace or start-of-input. This mirrors the existing `@` mention detection pattern. `handleSelectCommand` now replaces only the `/trigger` portion, preserving surrounding text. Escape dismisses the picker without clearing the input.
+
+**Modified:** `src/renderer/hooks/useChatInput.ts`
+
+## 2026-04-14 17:26 GST (Dubai)
+
+### EmptyThreadSplash: Add per-command icon colors
+
+Each splash command icon now has a distinct color: `/plan` teal, `/model` amber, `/agent` purple, `/clear` red, `/compact` sky, `/context` blue, `/tools` orange, `/usage` emerald, `@file` cyan, `@folder` indigo.
+
+**Modified:** `src/renderer/components/chat/EmptyThreadSplash.tsx`
+
+## 2026-04-14 17:13 GST (Dubai)
+
+### EmptyThreadSplash: Open pickers on click
+
+Clicking a splash `/` command now inserts the text into the input and opens the slash command picker. Clicking an `@` command inserts `@` and opens the file mention picker. The `splash-insert` event handler uses `requestAnimationFrame` to set cursor position and calls `detectMentionTrigger` so the mention picker activates immediately.
+
+**Modified:** `src/renderer/components/chat/ChatInput.tsx`
+
+## 2026-04-14 17:09 GST (Dubai)
+
+### EmptyThreadSplash: Make items clickable with hover states
+
+Converted splash items from static divs to interactive buttons with `hover:bg-muted/50`, `active:bg-muted/70`, and `focus-visible:ring` states. Clicking a slash command inserts it into the chat input via a `splash-insert` custom event; clicking an @ command inserts `@` to trigger the file mention picker. Added the corresponding event listener in `ChatInput.tsx`.
+
+**Modified:** `src/renderer/components/chat/EmptyThreadSplash.tsx`, `src/renderer/components/chat/ChatInput.tsx`
+
+## 2026-04-14 17:04 GST (Dubai)
+
+### PendingChat: Replace empty state with splash screen
+
+Replaced the plain "New thread" text in the pending chat view with a rich EmptyThreadSplash component. The splash shows eight slash commands (/plan, /model, /agent, /clear, /compact, /context, /tools, /usage) and two @ mention commands (@file, @folder) in a two-column grid with icons and descriptions.
+
+**Modified:** `src/renderer/components/chat/EmptyThreadSplash.tsx`, `src/renderer/components/chat/PendingChat.tsx`
+
 ## 2026-04-14 16:49 GST (Dubai)
 
 ### BranchSelector: Refresh branch name on window focus
