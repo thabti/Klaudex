@@ -1,5 +1,21 @@
 # Activity Log
 
+## 2026-04-14 16:31 GST (Dubai)
+
+### ACP: Fix undefined `question_format` compile error
+
+Removed stale `{question_format}` placeholder from the `full_prompt` format string in `acp.rs`. The structured questions content had already been merged into the `system_prefix` concat block, so the variable reference was a leftover causing `E0425`.
+
+**Modified:** `src-tauri/src/commands/acp.rs`
+
+## 2026-04-14 16:30 GST (Dubai)
+
+### SlashPanels: add built-in agents to /agent panel with selection
+
+The /agent panel now shows Default (IconCode, blue) and Planner (IconListCheck, teal) agents at the top with active state indicator. Selecting an agent calls `/agent <id>` via sendMessage, sets the mode, and dismisses the panel. MCP servers listed below a separator.
+
+**Modified:** `src/renderer/components/chat/SlashPanels.tsx`
+
 ## 2026-04-14 16:07 GST (Dubai)
 
 ### TaskStore: Per-thread plan mode
