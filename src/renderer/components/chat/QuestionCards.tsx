@@ -53,6 +53,7 @@ export const QuestionCards = memo(function QuestionCards({
       return;
     }
     // All answered — submit
+    if (!isAllAnswered) return;
     const state = useTaskStore.getState();
     const id = state.selectedTaskId;
     const task = id ? state.tasks[id] : null;
@@ -110,7 +111,9 @@ export const QuestionCards = memo(function QuestionCards({
         handleDismiss();
         return;
       }
-      if (e.key === "Enter" && !e.shiftKey && hasAnyInput) {
+      if (e.key === "Enter" && !e.shiftKey) {
+        const canSubmit = isAllAnswered || (!isLastPage && hasAnyInput);
+        if (!canSubmit) return;
         e.preventDefault();
         handleContinue();
         return;
@@ -250,10 +253,10 @@ export const QuestionCards = memo(function QuestionCards({
         <button
           type="button"
           onClick={handleContinue}
-          disabled={!hasAnyInput}
+          disabled={isLastPage || isAllAnswered ? !isAllAnswered : !hasAnyInput}
           className={cn(
             "flex items-center gap-1.5 rounded-lg px-4 py-2 text-[12px] font-medium transition-all",
-            hasAnyInput
+            (isLastPage || isAllAnswered ? isAllAnswered : hasAnyInput)
               ? "bg-primary text-primary-foreground hover:bg-primary/90"
               : "bg-muted text-muted-foreground/70 cursor-not-allowed",
           )}

@@ -11,7 +11,7 @@ interface CollapsedAnswersProps {
 }
 
 export const CollapsedAnswers = memo(function CollapsedAnswers({ questionAnswers }: CollapsedAnswersProps) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(true)
   if (!questionAnswers.length) return null
   return (
     <div className="rounded-lg border border-border/30 bg-card/20">
