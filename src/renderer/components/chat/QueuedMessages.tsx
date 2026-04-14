@@ -18,30 +18,30 @@ export const QueuedMessages = memo(function QueuedMessages({ messages, onRemove,
   return (
     <div className="mx-auto w-full max-w-3xl lg:max-w-4xl xl:max-w-5xl px-4 sm:px-6">
       <div className="flex flex-col gap-1 pb-2">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
           Queued ({messages.length})
         </span>
         {messages.map((msg, i) => (
           <div
             key={i}
             className={cn(
-              'group flex items-center gap-2 rounded-xl border border-border/40 bg-muted/20 px-3 py-1.5',
+              'group flex items-center gap-2 rounded-xl border border-border/60 bg-muted/40 px-3 py-1.5',
               'animate-in slide-in-from-bottom-2 fade-in duration-200',
             )}
           >
             {canReorder && (
               <div className="flex shrink-0 flex-col -my-0.5">
                 <button type="button" disabled={i === 0} onClick={() => onReorder!(i, i - 1)}
-                  className="text-muted-foreground/30 hover:text-foreground disabled:opacity-0 transition-colors" aria-label="Move up">
+                  className="text-muted-foreground/60 hover:text-foreground disabled:opacity-0 transition-colors" aria-label="Move up">
                   <IconChevronUp className="size-3" />
                 </button>
                 <button type="button" disabled={i === messages.length - 1} onClick={() => onReorder!(i, i + 1)}
-                  className="text-muted-foreground/30 hover:text-foreground disabled:opacity-0 transition-colors" aria-label="Move down">
+                  className="text-muted-foreground/60 hover:text-foreground disabled:opacity-0 transition-colors" aria-label="Move down">
                   <IconChevronDown className="size-3" />
                 </button>
               </div>
             )}
-            <span className="flex-1 truncate text-[13px] text-foreground/70">{msg}</span>
+            <span className="flex-1 truncate text-[13px] text-foreground/85">{msg}</span>
             {onSteer && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -57,7 +57,7 @@ export const QueuedMessages = memo(function QueuedMessages({ messages, onRemove,
               <TooltipTrigger asChild>
                 <button type="button" onClick={() => onRemove(i)}
                   aria-label={`Remove queued message ${i + 1}`}
-                  className="shrink-0 rounded p-0.5 text-muted-foreground/30 transition-colors hover:text-destructive">
+                  className="shrink-0 rounded p-0.5 text-muted-foreground/60 transition-colors hover:text-destructive">
                   <IconTrash className="size-3" />
                 </button>
               </TooltipTrigger>

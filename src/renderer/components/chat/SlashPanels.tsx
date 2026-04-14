@@ -28,14 +28,14 @@ const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { onDismi
 
   if (models.length === 0) return (
     <PanelShell>
-      <p className="px-3 py-3 text-xs text-muted-foreground/50">No models available</p>
+      <p className="px-3 py-3 text-xs text-muted-foreground/70">No models available</p>
     </PanelShell>
   )
 
   return (
     <PanelShell>
       <div className="px-3 pt-2 pb-1">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40">Models</span>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">Models</span>
       </div>
       <ul className="max-h-[200px] overflow-y-auto pb-1">
         {models.map((m) => {
@@ -68,17 +68,17 @@ const AgentListPanel = memo(function AgentListPanel() {
 
   if (servers.length === 0) return (
     <PanelShell>
-      <p className="px-3 py-3 text-xs text-muted-foreground/50">No MCP servers connected</p>
+      <p className="px-3 py-3 text-xs text-muted-foreground/70">No MCP servers connected</p>
     </PanelShell>
   )
 
   return (
     <PanelShell>
       <div className="px-3 pt-2 pb-1">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40">MCP Servers</span>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">MCP Servers</span>
       </div>
       <div className="max-h-[200px] overflow-y-auto pb-1">
-        <div className="grid grid-cols-[1fr_80px_70px] gap-2 px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/30">
+        <div className="grid grid-cols-[1fr_80px_70px] gap-2 px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
           <span>Name</span>
           <span>Status</span>
           <span className="text-right">Tools</span>
@@ -95,7 +95,7 @@ const AgentListPanel = memo(function AgentListPanel() {
                 <span className={cn('size-1.5 shrink-0 rounded-full', dot.cls)} />
                 <span className="text-[11px]">{dot.label}</span>
               </span>
-              <span className="text-right text-[11px] text-muted-foreground/50">
+              <span className="text-right text-[11px] text-muted-foreground/70">
                 {server.toolCount > 0 ? `${server.toolCount} tools` : '—'}
               </span>
             </div>

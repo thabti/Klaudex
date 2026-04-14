@@ -8,7 +8,7 @@ interface ExecutionPlanProps {
 }
 
 const stepIcons = {
-  pending: <IconCircle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/40" />,
+  pending: <IconCircle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/70" />,
   in_progress: <IconLoader2 className="mt-0.5 size-3.5 shrink-0 animate-spin text-primary" />,
   completed: <IconCheck className="mt-0.5 size-3.5 shrink-0 text-emerald-400" />,
 } as const

@@ -67,26 +67,26 @@ const SettingRow = ({ label, description, children, className }: SettingRowProps
   <div className={cn('flex items-center justify-between gap-4 py-2.5', className)}>
     <div className="min-w-0 flex-1">
       <p className="text-[13px] font-medium text-foreground/90">{label}</p>
-      <p className="text-[11px] text-muted-foreground/50">{description}</p>
+      <p className="text-[11px] text-muted-foreground/70">{description}</p>
     </div>
     <div className="shrink-0">{children}</div>
   </div>
 )
 
 const SectionLabel = ({ title }: { title: string }) => (
-  <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/50">{title}</p>
+  <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">{title}</p>
 )
 
 const SettingsCard = ({ children, className }: { children: React.ReactNode; className?: string }) => (
   <div className={cn(
-    'rounded-xl border border-border/40 bg-card/30 px-5 py-1 transition-colors',
+    'rounded-xl border border-border/60 bg-card/60 px-5 py-1 transition-colors',
     className,
   )}>
     {children}
   </div>
 )
 
-const Divider = () => <div className="border-t border-border/30" />
+const Divider = () => <div className="border-t border-border/60" />
 
 // ── Updates card ─────────────────────────────────────────────────
 
@@ -270,10 +270,10 @@ export const SettingsPanel = () => {
 
       <div className="relative z-10 flex w-full">
         {/* ── Sidebar ── */}
-        <nav data-testid="settings-nav" className="flex w-56 shrink-0 flex-col border-r border-border/40 px-3 pt-16 pb-4">
+        <nav data-testid="settings-nav" className="flex w-56 shrink-0 flex-col border-r border-border/60 px-3 pt-16 pb-4">
           <div className="mb-6 px-3">
             <h2 className="text-lg font-semibold text-foreground">Settings</h2>
-            <p className="mt-0.5 text-[11px] text-muted-foreground/50">Configure Kirodex</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground/70">Configure Kirodex</p>
           </div>
 
           <div className="flex flex-1 flex-col gap-0.5">
@@ -304,7 +304,7 @@ export const SettingsPanel = () => {
             ))}
           </div>
 
-          <div className="mt-auto px-3 pt-4 border-t border-border/30 space-y-3">
+          <div className="mt-auto px-3 pt-4 border-t border-border/60 space-y-3">
             <button
               onClick={() => setOpen(false)}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
@@ -314,8 +314,8 @@ export const SettingsPanel = () => {
             </button>
             <div className="flex items-center justify-between px-3">
               <div>
-                <p className="text-[10px] text-muted-foreground/30">Kirodex {appVersion ? `v${appVersion}` : ''}</p>
-                <p className="text-[10px] text-muted-foreground/30">Copyright © 2026 Thabti</p>
+                <p className="text-[10px] text-muted-foreground/60">Kirodex {appVersion ? `v${appVersion}` : ''}</p>
+                <p className="text-[10px] text-muted-foreground/60">Copyright © 2026 Thabti</p>
               </div>
               <a
                 href="https://github.com/thabti/kirodex"
@@ -323,7 +323,7 @@ export const SettingsPanel = () => {
                 rel="noopener noreferrer"
                 aria-label="Kirodex on GitHub"
                 tabIndex={0}
-                className="text-muted-foreground/30 transition-colors hover:text-foreground"
+                className="text-muted-foreground/60 transition-colors hover:text-foreground"
               >
                 <IconBrandGithub className="size-4" />
               </a>
@@ -355,7 +355,7 @@ export const SettingsPanel = () => {
                   <button
                     onClick={() => setOpen(false)}
                     data-testid="settings-close-button"
-                    className="ml-1 flex size-7 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
+                    className="ml-1 flex size-7 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
                   >
                     <IconX className="size-4" />
                   </button>
@@ -422,7 +422,7 @@ export const SettingsPanel = () => {
                             data-testid="settings-cli-path-input"
                             onChange={(e) => updateDraft({ kiroBin: e.target.value })}
                             placeholder="kiro-cli"
-                            className="flex h-8 w-full flex-1 rounded-lg border border-input bg-background/50 px-3 font-mono text-sm placeholder:text-muted-foreground/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            className="flex h-8 w-full flex-1 rounded-lg border border-input bg-background/50 px-3 font-mono text-sm placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                           />
                           <button onClick={browseCli} className="shrink-0 rounded-lg border border-input px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent">Browse</button>
                           <button
@@ -459,7 +459,7 @@ export const SettingsPanel = () => {
                               {modelsLoading && <option value="">Loading…</option>}
                               {availableModels.map((m) => <option key={m.modelId} value={m.modelId}>{m.name}</option>)}
                             </select>
-                            <IconChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/40" />
+                            <IconChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
                           </div>
                           <button
                             onClick={() => fetchModels(draft.kiroBin)}
@@ -529,7 +529,7 @@ export const SettingsPanel = () => {
                               'flex-1 rounded-lg border px-4 py-3 text-center text-xs font-medium transition-colors',
                               theme === 'Dark'
                                 ? 'border-primary bg-primary/10 text-primary'
-                                : 'cursor-not-allowed border-border/30 text-muted-foreground/25',
+                                : 'cursor-not-allowed border-border/60 text-muted-foreground/50',
                             )}
                           >
                             {theme}
@@ -552,14 +552,14 @@ export const SettingsPanel = () => {
                               'flex-1 rounded-lg border py-2.5 text-center text-sm font-medium transition-colors',
                               draft.fontSize === s
                                 ? 'border-primary bg-primary/10 text-primary'
-                                : 'border-border/40 text-muted-foreground/60 hover:bg-accent hover:text-foreground',
+                                : 'border-border/60 text-muted-foreground/60 hover:bg-accent hover:text-foreground',
                             )}
                           >
                             {s}
                           </button>
                         ))}
                       </div>
-                      <p className="mt-3 text-[12px] text-muted-foreground/40">
+                      <p className="mt-3 text-[12px] text-muted-foreground/70">
                         Preview: <span style={{ fontSize: draft.fontSize }}>The quick brown fox jumps over the lazy dog</span>
                       </p>
                     </SettingsCard>
@@ -578,7 +578,7 @@ export const SettingsPanel = () => {
                               'flex-1 rounded-lg border py-2.5 text-center text-xs font-medium capitalize transition-colors',
                               (draft.sidebarPosition ?? 'left') === pos
                                 ? 'border-primary bg-primary/10 text-primary'
-                                : 'border-border/40 text-muted-foreground/60 hover:bg-accent hover:text-foreground',
+                                : 'border-border/60 text-muted-foreground/60 hover:bg-accent hover:text-foreground',
                             )}
                           >
                             {pos}
@@ -603,33 +603,33 @@ export const SettingsPanel = () => {
                     <SectionLabel title="Keyboard shortcuts" />
 
                     <div className="relative">
-                      <IconSearch className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/30" />
+                      <IconSearch className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60" />
                       <input
                         value={keymapFilter}
                         onChange={(e) => setKeymapFilter(e.target.value)}
                         placeholder="Search shortcuts…"
-                        className="flex h-10 w-full rounded-xl border border-input bg-background/50 pl-10 pr-4 py-2 text-sm placeholder:text-muted-foreground/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="flex h-10 w-full rounded-xl border border-input bg-background/50 pl-10 pr-4 py-2 text-sm placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       />
                     </div>
 
                     {groups.length === 0 && (
                       <div className="flex flex-col items-center gap-2 py-12">
                         <IconSearch className="size-8 text-muted-foreground/20" />
-                        <p className="text-sm text-muted-foreground/40">No matching shortcuts</p>
+                        <p className="text-sm text-muted-foreground/70">No matching shortcuts</p>
                       </div>
                     )}
 
                     {groups.map((group) => (
                       <div key={group} className="space-y-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40">{group}</span>
+                          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">{group}</span>
                           <div className="flex-1 border-t border-border/20" />
                         </div>
                         <SettingsCard className="divide-y divide-border/30 !p-0 overflow-hidden">
                           {filtered.filter((e) => e.group === group).map((entry) => (
                             <div key={entry.command} className="flex items-center justify-between px-5 py-2.5 transition-colors hover:bg-muted/10">
                               <span className="text-[13px] text-foreground/80">{entry.command}</span>
-                              <kbd className="shrink-0 rounded-md border border-border/40 bg-muted/30 px-2 py-1 font-mono text-[11px] text-muted-foreground/70 shadow-sm">
+                              <kbd className="shrink-0 rounded-md border border-border/60 bg-muted/50 px-2 py-1 font-mono text-[11px] text-muted-foreground/70 shadow-sm">
                                 {entry.keys}
                               </kbd>
                             </div>

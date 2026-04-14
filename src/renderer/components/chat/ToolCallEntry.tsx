@@ -80,16 +80,16 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall, allToolCall
       >
         {isClickable ? (
           expanded
-            ? <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground/30" />
-            : <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/30" />
+            ? <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground/60" />
+            : <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
         ) : null}
         <Icon className={cn(
           'size-3.5 shrink-0',
-          isRunning ? 'text-primary' : isFailed ? 'text-red-400' : 'text-foreground/40',
+          isRunning ? 'text-primary' : isFailed ? 'text-red-400' : 'text-muted-foreground',
         )} />
         <span className={cn(
           'flex-1 truncate',
-          isRunning ? 'text-foreground' : 'text-foreground/60',
+          isRunning ? 'text-foreground' : 'text-foreground/80',
         )}>
           {toolCall.title}
         </span>
@@ -98,7 +98,7 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall, allToolCall
             {shortPath}
           </span>
         )}
-        {diffLoading && <IconLoader2 className="size-3 shrink-0 animate-spin text-muted-foreground/30" />}
+        {diffLoading && <IconLoader2 className="size-3 shrink-0 animate-spin text-muted-foreground/60" />}
         {isRunning ? (
           <IconLoader2 className="size-3 shrink-0 animate-spin text-primary" />
         ) : isFailed ? (

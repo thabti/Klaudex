@@ -90,7 +90,7 @@ function FileActionBar({
   const shortName = name.split('/').pop() ?? name
 
   return (
-    <div className="border-b border-border bg-muted/30">
+    <div className="border-b border-border bg-muted/50">
       <div className="flex items-center gap-1 px-2 py-1">
         {/* Collapse toggle */}
         <button
@@ -116,7 +116,7 @@ function FileActionBar({
                 type="button"
                 onClick={onRevert}
                 aria-label="Revert changes"
-                className="flex size-5 items-center justify-center rounded text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                className="flex size-5 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
               >
                 <IconArrowBackUp className="size-3" />
               </button>
@@ -129,7 +129,7 @@ function FileActionBar({
                 type="button"
                 onClick={onStage}
                 aria-label="Stage file"
-                className="flex size-5 items-center justify-center rounded text-muted-foreground/50 transition-colors hover:bg-emerald-500/10 hover:text-emerald-500"
+                className="flex size-5 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-emerald-500/10 hover:text-emerald-500"
               >
                 <IconPlus className="size-3" />
               </button>
@@ -142,7 +142,7 @@ function FileActionBar({
                 type="button"
                 onClick={onOpenInEditor}
                 aria-label="Open in editor"
-                className="flex size-5 items-center justify-center rounded text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
+                className="flex size-5 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
               >
                 <IconExternalLink className="size-3" />
               </button>
@@ -300,7 +300,7 @@ export function DiffViewer({ diff, taskId, workspace, onRefreshDiff }: DiffViewe
               aria-label={isSidebarCollapsed ? 'Show file list' : 'Hide file list'}
               className={cn(
                 'flex size-5 items-center justify-center rounded transition-colors',
-                isSidebarCollapsed ? 'text-muted-foreground/50 hover:text-foreground' : 'bg-accent text-foreground',
+                isSidebarCollapsed ? 'text-muted-foreground/70 hover:text-foreground' : 'bg-accent text-foreground',
               )}
             >
               {isSidebarCollapsed ? <IconLayoutSidebarLeftExpand className="size-3" /> : <IconLayoutSidebarLeftCollapse className="size-3" />}
@@ -316,7 +316,7 @@ export function DiffViewer({ diff, taskId, workspace, onRefreshDiff }: DiffViewe
               aria-label="Unified view"
               className={cn(
                 'flex size-5 items-center justify-center rounded transition-colors',
-                diffStyle === 'unified' ? 'bg-accent text-foreground' : 'text-muted-foreground/50 hover:text-foreground',
+                diffStyle === 'unified' ? 'bg-accent text-foreground' : 'text-muted-foreground/70 hover:text-foreground',
               )}
             >
               <IconLayoutRows className="size-3" />
@@ -332,7 +332,7 @@ export function DiffViewer({ diff, taskId, workspace, onRefreshDiff }: DiffViewe
               aria-label="Split view"
               className={cn(
                 'flex size-5 items-center justify-center rounded transition-colors',
-                diffStyle === 'split' ? 'bg-accent text-foreground' : 'text-muted-foreground/50 hover:text-foreground',
+                diffStyle === 'split' ? 'bg-accent text-foreground' : 'text-muted-foreground/70 hover:text-foreground',
               )}
             >
               <IconColumns className="size-3" />
@@ -348,7 +348,7 @@ export function DiffViewer({ diff, taskId, workspace, onRefreshDiff }: DiffViewe
               aria-label="Toggle word wrap"
               className={cn(
                 'flex size-5 items-center justify-center rounded transition-colors',
-                wordWrap ? 'bg-accent text-foreground' : 'text-muted-foreground/50 hover:text-foreground',
+                wordWrap ? 'bg-accent text-foreground' : 'text-muted-foreground/70 hover:text-foreground',
               )}
             >
               <IconTextWrap className="size-3" />
@@ -383,7 +383,7 @@ export function DiffViewer({ diff, taskId, workspace, onRefreshDiff }: DiffViewe
                     selectedFileIdx === i && 'bg-accent/30 text-foreground',
                   )}
                 >
-                  <IconFileCode className="size-3 shrink-0 text-muted-foreground/50" />
+                  <IconFileCode className="size-3 shrink-0 text-muted-foreground/70" />
                   <span className="min-w-0 flex-1 truncate">{file.name.split('/').pop()}</span>
                   <span className="shrink-0 flex gap-1">
                     {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}

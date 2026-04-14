@@ -74,7 +74,7 @@ export const TaskCompletionCard = memo(function TaskCompletionCard({ report }: {
       {files.length > 0 && (
         <div className="mt-2.5 space-y-0.5">
           {files.map((f) => (
-            <div key={f} className="flex items-center gap-1.5 text-[12px] text-muted-foreground/50">
+            <div key={f} className="flex items-center gap-1.5 text-[12px] text-muted-foreground/70">
               <IconFile className="size-3 shrink-0" aria-hidden />
               <span className="truncate">{f}</span>
             </div>

@@ -185,7 +185,7 @@ export const BranchSelector = memo(function BranchSelector({ workspace }: Branch
           {/* Search input */}
           <div className="border-b border-border p-2">
             <div className="flex items-center gap-2 rounded-lg bg-background/50 px-2.5 py-1.5">
-              <IconSearch className="size-3.5 shrink-0 text-muted-foreground/50" />
+              <IconSearch className="size-3.5 shrink-0 text-muted-foreground/70" />
               <input
                 ref={inputRef}
                 type="text"
@@ -199,7 +199,7 @@ export const BranchSelector = memo(function BranchSelector({ workspace }: Branch
                   }
                 }}
                 placeholder="Search branches"
-                className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/40"
+                className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/70"
               />
             </div>
           </div>
@@ -212,7 +212,7 @@ export const BranchSelector = memo(function BranchSelector({ workspace }: Branch
                 Loading branches...
               </div>
             ) : !hasResults && !canCreate ? (
-              <div className="py-6 text-center text-xs text-muted-foreground/50">
+              <div className="py-6 text-center text-xs text-muted-foreground/70">
                 No branches found.
               </div>
             ) : (
@@ -220,7 +220,7 @@ export const BranchSelector = memo(function BranchSelector({ workspace }: Branch
                 {/* Local branches */}
                 {filteredLocal.length > 0 && (
                   <div className="py-1">
-                    <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40">
+                    <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                       Branches
                     </div>
                     {filteredLocal.map((branch) => (
@@ -238,7 +238,7 @@ export const BranchSelector = memo(function BranchSelector({ workspace }: Branch
                 {/* Remote branches grouped by remote name */}
                 {Object.entries(filteredRemotes).map(([remoteName, branches]) => (
                   <div key={remoteName} className="py-1">
-                    <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40">
+                    <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                       {remoteName}
                     </div>
                     {branches.map((branch) => (
@@ -305,11 +305,11 @@ function BranchItem({
         isCurrent ? 'text-foreground' : 'text-muted-foreground',
       )}
     >
-      <IconGitBranch className="size-3.5 shrink-0 text-muted-foreground/40" />
+      <IconGitBranch className="size-3.5 shrink-0 text-muted-foreground/70" />
       <span className="min-w-0 flex-1 truncate">{name}</span>
       {isCurrent && <IconCheck className="size-3.5 shrink-0 text-foreground" />}
       {badge && !isCurrent && (
-        <span className="shrink-0 text-[10px] text-muted-foreground/40">{badge}</span>
+        <span className="shrink-0 text-[10px] text-muted-foreground/70">{badge}</span>
       )}
     </button>
   )

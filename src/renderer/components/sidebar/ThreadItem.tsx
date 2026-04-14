@@ -98,11 +98,11 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
         onContextMenu={handleContextMenu}
         onKeyDown={(e) => e.key === 'Enter' && onSelect()}
         className={cn(
-          'flex min-w-0 h-6 w-full cursor-pointer items-center gap-1.5 overflow-hidden rounded-lg px-2 pr-1 text-xs select-none',
+          'flex min-w-0 h-8 w-full cursor-pointer items-center gap-1.5 overflow-hidden rounded-lg px-2 pr-1 text-[13px] select-none',
           'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring transition-colors',
           isActive
             ? 'bg-accent/85 dark:bg-accent/55 text-foreground font-medium hover:bg-accent dark:hover:bg-accent/70'
-            : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+            : 'text-foreground/80 hover:bg-accent hover:text-foreground',
         )}
       >
         {task.isDraft ? (
@@ -111,7 +111,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
           <span className={cn('size-1.5 shrink-0 rounded-full', dot.color, dot.pulse && 'animate-pulse')} />
         ) : null}
         {task.isArchived && (
-          <IconArchive className="size-3 shrink-0 text-muted-foreground/50" aria-label="View-only thread" />
+          <IconArchive className="size-3 shrink-0 text-muted-foreground/70" aria-label="View-only thread" />
         )}
         {editing ? (
           <input
@@ -121,22 +121,22 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
             onBlur={commitRename}
             onKeyDown={(e) => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditing(false) }}
             onClick={(e) => e.stopPropagation()}
-            className="min-w-0 flex-1 truncate bg-transparent text-xs outline-none"
+            className="min-w-0 flex-1 truncate bg-transparent text-[13px] outline-none"
           />
         ) : (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="min-w-0 flex-1 truncate text-xs">{task.name}</span>
+              <span className="min-w-0 flex-1 truncate text-[13px]">{task.name}</span>
             </TooltipTrigger>
             <TooltipContent side="top" align="start">{task.name}</TooltipContent>
           </Tooltip>
         )}
         {task.isDraft ? (
-          <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/80 group-hover/thread:hidden" aria-hidden="true">
+          <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground group-hover/thread:hidden" aria-hidden="true">
             Draft
           </span>
         ) : (
-          <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground/40 group-hover/thread:hidden">
+          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70 group-hover/thread:hidden">
             {relativeTime(task.lastActivityAt)}
           </span>
         )}
@@ -170,18 +170,18 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
         >
           {confirmDelete ? (
             <>
-              <p className="px-3 py-1.5 text-xs text-muted-foreground">Delete this thread?</p>
+              <p className="px-3 py-1.5 text-[13px] text-muted-foreground">Delete this thread?</p>
               <div className="flex gap-1 px-2 pb-1.5">
                 <button
                   type="button"
-                  className="flex-1 rounded-md bg-destructive/90 px-2 py-1 text-xs font-medium text-white hover:bg-destructive transition-colors"
+                  className="flex-1 rounded-md bg-destructive/90 px-2 py-1 text-[13px] font-medium text-white hover:bg-destructive transition-colors"
                   onClick={handleConfirmDelete}
                 >
                   Delete
                 </button>
                 <button
                   type="button"
-                  className="flex-1 rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-accent transition-colors"
+                  className="flex-1 rounded-md border border-border px-2 py-1 text-[13px] text-foreground hover:bg-accent transition-colors"
                   onClick={handleCancelDelete}
                 >
                   Cancel
@@ -194,7 +194,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
                 <>
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
                     onClick={handleRenameClick}
                   >
                     <IconPencil className="size-3.5" /> Rename
@@ -204,7 +204,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
               )}
               <button
                 type="button"
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-destructive transition-colors hover:bg-destructive/10"
                 onClick={handleDeleteClick}
               >
                 <IconTrash className="size-3.5" /> Delete

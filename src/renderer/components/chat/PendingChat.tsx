@@ -61,7 +61,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
             </button>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground/40 select-none">New thread</p>
+          <p className="text-sm text-muted-foreground/60 select-none">New thread</p>
         )}
       </div>
       <ChatInput autoFocus disabled={isLoggedOut} initialValue={draft} onDraftChange={handleDraftChange} onSendMessage={handleSend} workspace={workspace} />

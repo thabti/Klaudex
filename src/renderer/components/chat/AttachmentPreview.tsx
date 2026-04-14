@@ -92,31 +92,31 @@ const PreviewPopover = memo(function PreviewPopover({
       )}
       {hasText && (
         <div className="max-h-40 overflow-auto bg-black/10 p-3">
-          <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-foreground/70">
+          <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-foreground/85">
             {attachment.textContent!.slice(0, 2000)}
             {attachment.textContent!.length > 2000 && (
-              <span className="text-foreground/30">…</span>
+              <span className="text-muted-foreground">…</span>
             )}
           </pre>
         </div>
       )}
       {!isImage && !hasText && (
-        <div className="flex items-center justify-center py-6 text-[11px] text-foreground/30">
+        <div className="flex items-center justify-center py-6 text-[11px] text-muted-foreground">
           No preview available
         </div>
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between border-t border-border/30 px-3 py-2">
+      <div className="flex items-center justify-between border-t border-border/60 px-3 py-2">
         <div className="min-w-0">
-          <p className="truncate text-[11px] font-medium text-foreground/70">{attachment.name}</p>
-          <p className="text-[10px] text-foreground/30">{formatSize(attachment.size)}</p>
+          <p className="truncate text-[11px] font-medium text-foreground/85">{attachment.name}</p>
+          <p className="text-[10px] text-muted-foreground">{formatSize(attachment.size)}</p>
         </div>
         {attachment.path && (
           <button
             type="button"
             onClick={onOpenExternal}
-            className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-foreground/40 transition-colors hover:bg-muted/30 hover:text-foreground/70"
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground/85"
           >
             <IconExternalLink className="size-3" />
             Open
@@ -161,7 +161,7 @@ const AttachmentPill = memo(function AttachmentPill({
       <span
         className={cn(
           'inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-[12px] font-medium transition-colors',
-          isImage ? 'bg-muted/30 text-foreground/60' : 'bg-accent/40 text-foreground/60',
+          isImage ? 'bg-muted/50 text-foreground/80' : 'bg-accent/40 text-foreground/80',
           showPreview && 'ring-1 ring-primary/30',
         )}
         role="listitem"
@@ -171,10 +171,10 @@ const AttachmentPill = memo(function AttachmentPill({
         {isImage ? (
           <img src={attachment.preview} alt="" className="size-4 shrink-0 rounded-sm object-cover" />
         ) : (
-          <Icon className="size-3.5 shrink-0 text-foreground/30" aria-hidden />
+          <Icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
         )}
         <span className="max-w-[140px] truncate">{attachment.name}</span>
-        <span className="text-[11px] text-foreground/25">{formatSize(attachment.size)}</span>
+        <span className="text-[11px] text-muted-foreground/70">{formatSize(attachment.size)}</span>
         <button
           type="button"
           onClick={handleRemove}

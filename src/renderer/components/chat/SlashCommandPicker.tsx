@@ -150,7 +150,7 @@ export const SlashCommandPicker = memo(function SlashCommandPicker({
                 isActive ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
               )}
             >
-              <span className={cn('shrink-0', isActive ? 'text-foreground' : 'text-muted-foreground/50')}>
+              <span className={cn('shrink-0', isActive ? 'text-foreground' : 'text-muted-foreground/70')}>
                 <Icon />
               </span>
               <span className="font-medium text-[13px]">/{name}</span>

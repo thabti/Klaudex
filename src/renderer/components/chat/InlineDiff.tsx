@@ -10,8 +10,8 @@ export const InlineDiff = memo(function InlineDiff({ diffText }: { diffText: str
   }
 
   return (
-    <div className="ml-6 mr-2 mb-1 mt-0.5 rounded-md border border-border/30 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30 text-[11px] text-muted-foreground/60">
+    <div className="ml-6 mr-2 mb-1 mt-0.5 rounded-md border border-border/60 overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 text-[11px] text-muted-foreground/60">
         <span>Changes</span>
         <span className="flex-1" />
         {added > 0 && <span className="text-emerald-400">+{added}</span>}
@@ -44,7 +44,7 @@ export const InlineDiff = memo(function InlineDiff({ diffText }: { diffText: str
             )
           }
           return (
-            <div key={i} className="px-3 text-foreground/40">
+            <div key={i} className="px-3 text-muted-foreground">
               {line || ' '}
             </div>
           )

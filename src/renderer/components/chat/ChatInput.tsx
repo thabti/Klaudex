@@ -64,7 +64,7 @@ export const PillsRow = memo(function PillsRow({ mentionedFiles, nonImageAttachm
           type="button"
           onClick={handleToggle}
           data-testid="pills-expand-button"
-          className="inline-flex h-7 items-center gap-1.5 rounded-md bg-muted/40 px-2.5 text-[12px] font-medium text-foreground/50 transition-colors hover:bg-muted/60 hover:text-foreground/70"
+          className="inline-flex h-7 items-center gap-1.5 rounded-md bg-muted/40 px-2.5 text-[12px] font-medium text-foreground/70 transition-colors hover:bg-muted/60 hover:text-foreground/70"
           aria-label={`${totalCount} items attached, click to expand`}
         >
           <IconPaperclip className="size-3.5" aria-hidden />
@@ -83,11 +83,11 @@ export const PillsRow = memo(function PillsRow({ mentionedFiles, nonImageAttachm
             <span
               key={chunk.id}
               data-testid="pasted-chunk-pill"
-              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium align-middle bg-muted/40 text-foreground/60"
+              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium align-middle bg-muted/40 text-foreground/80"
             >
-              <IconClipboard className="size-3.5 shrink-0 text-foreground/30" aria-hidden />
+              <IconClipboard className="size-3.5 shrink-0 text-muted-foreground/70" aria-hidden />
               <span className="max-w-[120px] truncate">Pasted #{chunk.id}</span>
-              <span className="text-foreground/25">+{chunk.lines > 1 ? `${chunk.lines}L` : `${chunk.chars}c`}</span>
+              <span className="text-muted-foreground">+{chunk.lines > 1 ? `${chunk.lines}L` : `${chunk.chars}c`}</span>
               <button
                 type="button"
                 onClick={() => onRemoveChunk(chunk.id)}
@@ -298,7 +298,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
               disabled={disabled}
               rows={1}
               className={cn(
-                'block max-h-[200px] min-h-[70px] w-full resize-none rounded-lg bg-transparent leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground/35',
+                'block max-h-[200px] min-h-[70px] w-full resize-none rounded-lg bg-transparent leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground/60',
                 disabled && 'cursor-not-allowed opacity-50',
               )}
               style={{ overflow: 'auto', fontFamily: 'inherit', caretColor: 'var(--foreground)' }}
@@ -316,7 +316,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
                     onClick={handleFilePickerClick}
                     aria-label="Attach files"
                     data-testid="attach-files-button"
-                    className="flex size-8 items-center justify-center rounded-full text-muted-foreground/40 transition-colors hover:bg-muted/60 hover:text-muted-foreground/70"
+                    className="flex size-8 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-muted/60 hover:text-muted-foreground/70"
                   >
                     <IconPaperclip className="size-4" />
                   </button>
@@ -347,7 +347,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
                 aria-hidden
               />
               {/* Focus hint */}
-              <kbd className="hidden text-[10px] text-muted-foreground/25 sm:inline">{MOD_KEY}L</kbd>
+              <kbd className="hidden text-[10px] text-muted-foreground/50 sm:inline">{MOD_KEY}L</kbd>
               {isRunning ? (
                 <Tooltip>
                   <TooltipTrigger asChild>

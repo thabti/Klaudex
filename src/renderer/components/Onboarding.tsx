@@ -96,7 +96,7 @@ export function Onboarding() {
             {i > 0 && <div className={cn('h-px w-6', step === s || (['cli', 'auth'].indexOf(step) > i - 1) ? 'bg-primary/40' : 'bg-border/30')} />}
             <div className={cn(
               'flex size-6 items-center justify-center rounded-full text-[10px] font-bold transition-colors',
-              step === s ? 'bg-primary text-primary-foreground' : (['cli', 'auth'].indexOf(step) > i ? 'bg-primary/20 text-primary' : 'bg-muted/30 text-foreground/20'),
+              step === s ? 'bg-primary text-primary-foreground' : (['cli', 'auth'].indexOf(step) > i ? 'bg-primary/20 text-primary' : 'bg-muted/50 text-muted-foreground/60'),
             )}>
               {i + 1}
             </div>
@@ -184,13 +184,13 @@ export function Onboarding() {
               <div className="flex w-full max-w-sm flex-col gap-3">
                 <button type="button"
                   onClick={() => ipc.openUrl('https://kiro.dev/docs/cli/installation/')}
-                  className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border/50 px-3 py-2.5 text-[13px] text-foreground/70 transition-colors hover:bg-muted/30"
+                  className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border/50 px-3 py-2.5 text-[13px] text-foreground/70 transition-colors hover:bg-muted/50"
                 >
                   Install kiro-cli <IconExternalLink size={14} />
                 </button>
                 <div className="relative">
-                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/30" /></div>
-                  <div className="relative flex justify-center"><span className="bg-background px-2 text-[10px] text-foreground/20">or set path manually</span></div>
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/60" /></div>
+                  <div className="relative flex justify-center"><span className="bg-background px-2 text-[10px] text-muted-foreground/60">or set path manually</span></div>
                 </div>
                 <div className="flex gap-1.5">
                   <input
@@ -198,10 +198,10 @@ export function Onboarding() {
                     value={manualPath}
                     onChange={(e) => setManualPath(e.target.value)}
                     placeholder="/path/to/kiro-cli"
-                    className="flex-1 rounded-lg border border-border/30 bg-card/50 px-3 py-2 font-mono text-[12px] text-foreground outline-none placeholder:text-foreground/15 focus:border-primary/40"
+                    className="flex-1 rounded-lg border border-border/60 bg-card/70 px-3 py-2 font-mono text-[12px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/40"
                   />
                   <button type="button" onClick={handleBrowse}
-                    className="rounded-lg border border-border/30 px-2.5 py-2 text-foreground/30 transition-colors hover:text-foreground/70"
+                    className="rounded-lg border border-border/60 px-2.5 py-2 text-muted-foreground transition-colors hover:text-foreground/70"
                   >
                     <IconFolderOpen size={16} />
                   </button>
@@ -241,11 +241,11 @@ export function Onboarding() {
             {/* Auth status card */}
             <div className="w-full max-w-sm">
               {authState === 'checking' && (
-                <div className="flex flex-col items-center gap-4 rounded-2xl border border-border/30 bg-card/30 p-8">
-                  <div className="flex size-12 items-center justify-center rounded-full bg-muted/20">
-                    <IconLoader2 size={24} className="animate-spin text-foreground/20" />
+                <div className="flex flex-col items-center gap-4 rounded-2xl border border-border/60 bg-card/60 p-8">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+                    <IconLoader2 size={24} className="animate-spin text-muted-foreground/60" />
                   </div>
-                  <p className="text-[13px] text-foreground/30">Checking authentication…</p>
+                  <p className="text-[13px] text-muted-foreground">Checking authentication…</p>
                 </div>
               )}
 
@@ -261,7 +261,7 @@ export function Onboarding() {
                         {accountTypeLabel(authAccountType)}
                       </span>
                       {authRegion && (
-                        <span className="text-[10px] text-foreground/25">{authRegion}</span>
+                        <span className="text-[10px] text-muted-foreground/70">{authRegion}</span>
                       )}
                     </div>
                   </div>
@@ -273,11 +273,11 @@ export function Onboarding() {
 
               {authState === 'not-authenticated' && (
                 <div className="flex flex-col gap-4">
-                  <div className="flex flex-col items-center gap-3 rounded-2xl border border-border/30 bg-card/30 p-6">
-                    <div className="flex size-12 items-center justify-center rounded-full bg-muted/20">
-                      <IconUser size={24} className="text-foreground/20" />
+                  <div className="flex flex-col items-center gap-3 rounded-2xl border border-border/60 bg-card/60 p-6">
+                    <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+                      <IconUser size={24} className="text-muted-foreground/60" />
                     </div>
-                    <p className="text-[13px] text-foreground/40">Not signed in</p>
+                    <p className="text-[13px] text-muted-foreground">Not signed in</p>
                   </div>
 
                   {/* Login button */}
@@ -297,15 +297,15 @@ export function Onboarding() {
                     <LoginMethod Icon={IconBrandGithub} label="GitHub" />
                   </div>
 
-                  <p className="text-[11px] text-foreground/20 leading-relaxed">
-                    This will open a terminal window to run <code className="rounded bg-muted/30 px-1 py-0.5 font-mono text-[10px]">kiro-cli login</code>.
+                  <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
+                    This will open a terminal window to run <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px]">kiro-cli login</code>.
                     After signing in, click the button below.
                   </p>
 
                   <button
                     type="button"
                     onClick={checkAuth}
-                    className="flex items-center justify-center gap-1.5 rounded-lg border border-border/30 px-4 py-2 text-[13px] text-foreground/50 transition-colors hover:bg-muted/20 hover:text-foreground/80"
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-border/60 px-4 py-2 text-[13px] text-foreground/70 transition-colors hover:bg-muted/40 hover:text-foreground/80"
                   >
                     <IconRefresh size={14} /> I've signed in — check again
                   </button>
@@ -326,7 +326,7 @@ export function Onboarding() {
                 <button
                   type="button"
                   onClick={finish}
-                  className="text-[13px] text-foreground/25 transition-colors hover:text-foreground/50"
+                  className="text-[13px] text-muted-foreground/70 transition-colors hover:text-foreground/70"
                 >
                   Skip for now <IconChevronRight size={14} className="inline" />
                 </button>
@@ -342,7 +342,7 @@ export function Onboarding() {
 function Feature({ Icon, text }: { Icon: React.ElementType; text: string }) {
   return (
     <div className="flex items-center gap-3">
-      <Icon size={20} stroke={1.5} className="text-muted-foreground/50" />
+      <Icon size={20} stroke={1.5} className="text-muted-foreground/70" />
       <span>{text}</span>
     </div>
   )
@@ -350,7 +350,7 @@ function Feature({ Icon, text }: { Icon: React.ElementType; text: string }) {
 
 function LoginMethod({ Icon, label }: { Icon: React.ElementType; label: string }) {
   return (
-    <div className="flex items-center gap-1 text-[10px] text-foreground/20">
+    <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
       <Icon size={12} /> {label}
     </div>
   )

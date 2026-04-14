@@ -34,7 +34,7 @@ const handleHeaderMouseDown = (e: React.MouseEvent<HTMLElement>) => {
 }
 
 // ── Breadcrumb separator ──────────────────────────────────────────────
-const Sep = () => <span className="text-muted-foreground/25 select-none">/</span>
+const Sep = () => <span className="text-muted-foreground/50 select-none">/</span>
 
 // ── AppHeader ─────────────────────────────────────────────────────────
 interface AppHeaderProps {
@@ -130,7 +130,7 @@ const AppHeaderInner = memo(function AppHeaderInner({ sidePanelOpen, onToggleSid
         ) : pendingWorkspace ? (
           <>
             <Sep />
-            <span className="text-[13px] text-muted-foreground/60">New thread</span>
+            <span className="text-[13px] text-muted-foreground">New thread</span>
           </>
         ) : !workspace ? (
           <>
@@ -148,14 +148,14 @@ const AppHeaderInner = memo(function AppHeaderInner({ sidePanelOpen, onToggleSid
           <div className="h-5 w-14 rounded bg-muted-foreground/6" />
           <div className="flex">
             <div className="inline-flex h-6 items-center gap-1.5 rounded-l-md border border-muted-foreground/8 px-1.5">
-              <IconGitCompare className="size-3 text-muted-foreground/15" />
+              <IconGitCompare className="size-3 text-muted-foreground/40" />
             </div>
             <div className="inline-flex h-6 items-center rounded-r-md border border-l-0 border-muted-foreground/8 px-1.5">
               <span className="h-2 w-2 rounded-sm bg-muted-foreground/10" />
             </div>
           </div>
           <div className="inline-flex h-6 items-center rounded-md border border-muted-foreground/8 px-1.5">
-            <IconTerminal2 className="size-3 text-muted-foreground/15" />
+            <IconTerminal2 className="size-3 text-muted-foreground/40" />
           </div>
         </div>
       )}
@@ -221,6 +221,7 @@ const AppHeaderInner = memo(function AppHeaderInner({ sidePanelOpen, onToggleSid
             <TooltipContent side="bottom">Terminal</TooltipContent>
           </Tooltip>
 
+          {/* Pause / Resume / Cancel — commented out, kept for future use
           {canPause && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -245,6 +246,7 @@ const AppHeaderInner = memo(function AppHeaderInner({ sidePanelOpen, onToggleSid
               <TooltipContent side="bottom">Cancel</TooltipContent>
             </Tooltip>
           )}
+          */}
         </div>
       )}
 
@@ -288,7 +290,7 @@ const UserMenu = memo(function UserMenu() {
               'inline-flex size-6 items-center justify-center rounded-md transition-colors',
               kiroAuth
                 ? 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                : 'text-muted-foreground/50 hover:bg-accent hover:text-foreground',
+                : 'text-muted-foreground/70 hover:bg-accent hover:text-foreground',
               !kiroAuthChecked && 'animate-pulse',
             )}
           >
@@ -339,7 +341,7 @@ const UserMenu = memo(function UserMenu() {
                 type="button"
                 disabled={refreshing}
                 onClick={async () => { setRefreshing(true); await checkAuth(); setRefreshing(false) }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-foreground/40 transition-colors hover:bg-muted/30 hover:text-foreground/70 disabled:opacity-50"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground/70 disabled:opacity-50"
               >
                 <IconRefresh className={cn('size-3.5', refreshing && 'animate-spin')} /> {refreshing ? 'Checking…' : 'Check again'}
               </button>

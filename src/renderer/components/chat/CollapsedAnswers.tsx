@@ -21,8 +21,8 @@ export const CollapsedAnswers = memo(function CollapsedAnswers({ questionAnswers
         className="flex w-full items-center gap-2 px-3.5 py-2 text-left transition-colors hover:bg-accent/5"
       >
         {expanded
-          ? <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground/40" />
-          : <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/40" />}
+          ? <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground/70" />
+          : <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />}
         <IconMessageCircleQuestion className="size-3.5 shrink-0 text-primary/50" />
         <span className="text-[13px] font-medium text-muted-foreground/60">
           Answered {questionAnswers.length} question{questionAnswers.length > 1 ? 's' : ''}

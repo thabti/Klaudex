@@ -151,13 +151,13 @@ export const DiffPanel = memo(function DiffPanel() {
         onMouseDown={onDragStart}
         className="flex h-2 cursor-row-resize items-center justify-center hover:bg-primary/20 active:bg-primary/30 transition-colors"
       >
-        <IconGripHorizontal className="size-3 text-muted-foreground/30" />
+        <IconGripHorizontal className="size-3 text-muted-foreground/60" />
       </div>
 
       {/* Toolbar */}
       <div className="flex items-center gap-1.5 border-b border-border/50 px-3 py-1 shrink-0">
         <span className="text-[11px] font-medium text-muted-foreground">Files Changed</span>
-        <span className="text-[10px] text-muted-foreground/50">
+        <span className="text-[10px] text-muted-foreground/70">
           {parsedFiles.length} file{parsedFiles.length !== 1 ? 's' : ''}
         </span>
 
@@ -169,7 +169,7 @@ export const DiffPanel = memo(function DiffPanel() {
         )}
 
         {!taskWorkspace && (
-          <span className="text-[10px] text-muted-foreground/40 italic">no workspace</span>
+          <span className="text-[10px] text-muted-foreground/70 italic">no workspace</span>
         )}
 
         <div className="flex-1" />
@@ -181,7 +181,7 @@ export const DiffPanel = memo(function DiffPanel() {
               onClick={handleRefresh}
               data-testid="diff-refresh-button"
               className={cn(
-                'flex size-5 items-center justify-center rounded text-muted-foreground/50 hover:text-foreground transition-colors',
+                'flex size-5 items-center justify-center rounded text-muted-foreground/70 hover:text-foreground transition-colors',
                 loading && 'animate-spin',
               )}
             >
@@ -198,7 +198,7 @@ export const DiffPanel = memo(function DiffPanel() {
               onClick={() => setDiffStyle('unified')}
               className={cn(
                 'flex size-5 items-center justify-center rounded transition-colors',
-                diffStyle === 'unified' ? 'bg-accent text-foreground' : 'text-muted-foreground/50 hover:text-foreground',
+                diffStyle === 'unified' ? 'bg-accent text-foreground' : 'text-muted-foreground/70 hover:text-foreground',
               )}
             >
               <IconLayoutRows className="size-3" />
@@ -213,7 +213,7 @@ export const DiffPanel = memo(function DiffPanel() {
               onClick={() => setDiffStyle('split')}
               className={cn(
                 'flex size-5 items-center justify-center rounded transition-colors',
-                diffStyle === 'split' ? 'bg-accent text-foreground' : 'text-muted-foreground/50 hover:text-foreground',
+                diffStyle === 'split' ? 'bg-accent text-foreground' : 'text-muted-foreground/70 hover:text-foreground',
               )}
             >
               <IconColumns className="size-3" />
@@ -228,7 +228,7 @@ export const DiffPanel = memo(function DiffPanel() {
               onClick={() => setWordWrap((v) => !v)}
               className={cn(
                 'flex size-5 items-center justify-center rounded transition-colors',
-                wordWrap ? 'bg-accent text-foreground' : 'text-muted-foreground/50 hover:text-foreground',
+                wordWrap ? 'bg-accent text-foreground' : 'text-muted-foreground/70 hover:text-foreground',
               )}
             >
               <IconTextWrap className="size-3" />
@@ -243,7 +243,7 @@ export const DiffPanel = memo(function DiffPanel() {
               type="button"
               onClick={() => setOpen(false)}
               data-testid="diff-close-button"
-              className="flex size-5 items-center justify-center rounded text-muted-foreground/40 hover:bg-accent hover:text-foreground transition-colors"
+              className="flex size-5 items-center justify-center rounded text-muted-foreground/70 hover:bg-accent hover:text-foreground transition-colors"
             >
               <IconX className="size-3" />
             </button>
@@ -292,7 +292,7 @@ export const DiffPanel = memo(function DiffPanel() {
                     onClick={() => setSelectedFileIdx(i)}
                     className="flex items-center gap-1 min-w-0 flex-1 truncate"
                   >
-                    <IconFileCode className="size-3 shrink-0 text-muted-foreground/50" />
+                    <IconFileCode className="size-3 shrink-0 text-muted-foreground/70" />
                     <span className="min-w-0 flex-1 truncate text-left">{file.name.split('/').pop()}</span>
                     <span className="shrink-0 flex gap-1">
                       {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
@@ -343,10 +343,10 @@ export const DiffPanel = memo(function DiffPanel() {
         <div className="flex-1 min-w-0 overflow-auto">
           {loading ? (
             <div className="flex h-full items-center justify-center">
-              <IconRefresh className="size-4 animate-spin text-muted-foreground/30" />
+              <IconRefresh className="size-4 animate-spin text-muted-foreground/60" />
             </div>
           ) : parsedFiles.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-xs text-muted-foreground/40">
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground/70">
               {diff.trim() ? 'Could not parse diff' : 'No changes yet'}
             </div>
           ) : (

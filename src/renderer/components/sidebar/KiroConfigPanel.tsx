@@ -57,7 +57,7 @@ function getAgentRole(name: string): string {
 type StackMeta = { icon: ElementType; color: string }
 
 const STACK_META: Record<string, StackMeta> = {
-  nextjs:             { icon: IconBrandNextjs,     color: 'text-foreground/70' },
+  nextjs:             { icon: IconBrandNextjs,     color: 'text-foreground/85' },
   laravel:            { icon: IconBrandLaravel,    color: 'text-red-400' },
   magento:            { icon: IconBoxMultiple,     color: 'text-orange-400' },
   strapi:             { icon: IconDatabase,        color: 'text-indigo-400' },
@@ -68,7 +68,7 @@ const STACK_META: Record<string, StackMeta> = {
   python:             { icon: IconBrandPython,     color: 'text-yellow-400' },
   swiftui:            { icon: IconBrandSwift,      color: 'text-orange-300' },
   mumzworld:          { icon: IconWorld,           color: 'text-pink-400' },
-  other:              { icon: IconTool,            color: 'text-muted-foreground/60' },
+  other:              { icon: IconTool,            color: 'text-muted-foreground' },
 }
 
 // Role-level icons for individual agents
@@ -81,7 +81,7 @@ function getRoleIcon(name: string): { icon: ElementType; color: string } {
   if (n.includes('documentation')) return { icon: IconBook,       color: 'text-blue-400' }
   if (n.includes('senior'))        return { icon: IconPalette,    color: 'text-teal-400' }
   if (n.includes('expert'))        return { icon: IconRocket,     color: 'text-amber-300' }
-  return { icon: IconRobot, color: 'text-muted-foreground/50' }
+  return { icon: IconRobot, color: 'text-muted-foreground/70' }
 }
 
 // ── Viewer state ──────────────────────────────────────────────────
@@ -95,22 +95,22 @@ function SectionToggle({ icon: Icon, iconColor, label, count, errorCount, expand
 }) {
   return (
     <button type="button" onClick={onToggle} className={cn(
-      'flex w-full h-7 cursor-pointer items-center gap-2 overflow-hidden rounded-lg px-2 text-xs text-left',
+      'flex w-full h-8 cursor-pointer items-center gap-2 overflow-hidden rounded-lg px-2 text-[13px] text-left',
       'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
       'hover:bg-accent hover:text-foreground transition-colors',
     )}>
       <IconChevronRight className={cn('-ml-0.5 size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-150', expanded && 'rotate-90')} aria-hidden />
-      <Icon className={cn('size-3.5 shrink-0', iconColor ?? 'text-muted-foreground/60')} aria-hidden />
-      <span className="flex-1 truncate text-xs font-medium text-foreground/90">{label}</span>
+      <Icon className={cn('size-3.5 shrink-0', iconColor ?? 'text-muted-foreground')} aria-hidden />
+      <span className="flex-1 truncate text-[13px] font-medium text-foreground/90">{label}</span>
       {errorCount && errorCount > 0 ? (
         <span className="flex items-center gap-1">
           <IconCircle className="size-1.5 shrink-0 fill-red-500 text-red-500" aria-hidden />
-          <span className="text-[10px] tabular-nums text-red-400/70">{errorCount}</span>
-          <span className="text-[10px] text-muted-foreground/30">/</span>
-          <span className="text-[10px] tabular-nums text-muted-foreground/50">{count}</span>
+          <span className="text-[11px] tabular-nums text-red-400/70">{errorCount}</span>
+          <span className="text-[11px] text-muted-foreground/60">/</span>
+          <span className="text-[11px] tabular-nums text-muted-foreground/70">{count}</span>
         </span>
       ) : (
-        <span className="text-[10px] tabular-nums text-muted-foreground/50">{count}</span>
+        <span className="text-[11px] tabular-nums text-muted-foreground/70">{count}</span>
       )}
     </button>
   )
@@ -132,14 +132,14 @@ const AgentStackGroup = memo(function AgentStackGroup({ stack, agents, onOpen }:
   return (
     <li>
       <button type="button" onClick={() => setOpen((v) => !v)} className={cn(
-        'flex w-full h-6 cursor-pointer items-center gap-1.5 rounded-md px-1.5 text-[11px] text-left',
+        'flex w-full h-7 cursor-pointer items-center gap-1.5 rounded-md px-1.5 text-xs text-left',
         'text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors',
         'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
       )}>
-        <IconChevronRight className={cn('size-2.5 shrink-0 text-muted-foreground/40 transition-transform duration-150', open && 'rotate-90')} aria-hidden />
+        <IconChevronRight className={cn('size-2.5 shrink-0 text-muted-foreground/70 transition-transform duration-150', open && 'rotate-90')} aria-hidden />
         <StackIcon className={cn('size-3.5 shrink-0', meta.color)} aria-hidden />
         <span className="flex-1 truncate font-medium text-left">{getStackLabel(stack)}</span>
-        <span className="text-[9px] tabular-nums text-muted-foreground/40">{agents.length}</span>
+        <span className="text-[10px] tabular-nums text-muted-foreground/70">{agents.length}</span>
       </button>
       {open && (
         <ul className="flex flex-col gap-px py-px pl-3">
@@ -163,7 +163,7 @@ const AgentRow = memo(function AgentRow({ agent, onOpen }: { agent: KiroAgent; o
           onClick={() => agent.filePath && onOpen({ filePath: agent.filePath, title: formatName(agent.name) })}
           onKeyDown={(e) => e.key === 'Enter' && agent.filePath && onOpen({ filePath: agent.filePath, title: formatName(agent.name) })}
           className={cn(
-            'flex h-6 min-w-0 w-full items-center gap-1.5 rounded-md px-1.5 text-[11px] cursor-pointer',
+            'flex h-7 min-w-0 w-full items-center gap-1.5 rounded-md px-1.5 text-xs cursor-pointer',
             'text-muted-foreground/80 hover:bg-accent/50 hover:text-foreground transition-colors',
           )}
         >
@@ -175,7 +175,7 @@ const AgentRow = memo(function AgentRow({ agent, onOpen }: { agent: KiroAgent; o
       <TooltipContent side="right" className="max-w-[240px]">
         <p className="text-[11px] font-medium">{formatName(agent.name)}</p>
         {agent.description && <p className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed">{agent.description.slice(0, 160)}</p>}
-        <p className="mt-1 text-[9px] text-muted-foreground/50 font-mono">{(agent.filePath ?? '').replace(/^\/Users\/[^/]+/, '~')}</p>
+        <p className="mt-1 text-[9px] text-muted-foreground/70 font-mono">{(agent.filePath ?? '').replace(/^\/Users\/[^/]+/, '~')}</p>
       </TooltipContent>
     </Tooltip>
   )
@@ -220,7 +220,7 @@ const SteeringRow = memo(function SteeringRow({ rule, onOpen }: { rule: KiroStee
         >
           {rule.alwaysApply
             ? <IconCircleDot className="size-3 shrink-0 text-emerald-400 drop-shadow-[0_0_4px_rgba(52,211,153,0.5)]" aria-hidden />
-            : <IconCircleDashed className="size-3 shrink-0 text-muted-foreground/30" aria-hidden />}
+            : <IconCircleDashed className="size-3 shrink-0 text-muted-foreground/60" aria-hidden />}
           <span className="min-w-0 flex-1 truncate">{formatName(rule.name)}</span>
           {rule.alwaysApply && <span className="shrink-0 text-[9px] text-emerald-400/60">on</span>}
           <SourceDot source={rule.source} />
@@ -229,7 +229,7 @@ const SteeringRow = memo(function SteeringRow({ rule, onOpen }: { rule: KiroStee
       <TooltipContent side="right" className="max-w-[220px]">
         <p className="text-[11px] font-medium">{formatName(rule.name)}</p>
         {rule.excerpt && <p className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed">{rule.excerpt}</p>}
-        <p className="mt-1 text-[9px] text-muted-foreground/50 font-mono">{(rule.filePath ?? '').replace(/^\/Users\/[^/]+/, '~')}</p>
+        <p className="mt-1 text-[9px] text-muted-foreground/70 font-mono">{(rule.filePath ?? '').replace(/^\/Users\/[^/]+/, '~')}</p>
       </TooltipContent>
     </Tooltip>
   )
@@ -259,7 +259,7 @@ const McpRow = memo(function McpRow({ server, onOpen }: { server: KiroMcpServer;
         >
           <IconCircle className={cn('size-2 shrink-0', dotClass)} aria-hidden />
           <span className="min-w-0 flex-1 truncate">{server.name}</span>
-          <span className="shrink-0 text-[9px] text-muted-foreground/40">
+          <span className="shrink-0 text-[9px] text-muted-foreground/70">
             {server.transport}
           </span>
         </li>
@@ -272,7 +272,7 @@ const McpRow = memo(function McpRow({ server, onOpen }: { server: KiroMcpServer;
           </p>
         )}
         {server.error && (
-          <p className="mt-0.5 text-[9px] text-muted-foreground/50 font-mono truncate">{server.error}</p>
+          <p className="mt-0.5 text-[9px] text-muted-foreground/70 font-mono truncate">{server.error}</p>
         )}
       </TooltipContent>
     </Tooltip>
@@ -286,7 +286,7 @@ function InlineSearch({ value, onChange, onClose }: { value: string; onChange: (
   useEffect(() => { ref.current?.focus() }, [])
   return (
     <div className="relative mx-2 mb-1">
-      <IconSearch className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground/40 pointer-events-none" />
+      <IconSearch className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground/70 pointer-events-none" />
       <input ref={ref} type="text" value={value} onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Escape') { onChange(''); onClose() } }}
         placeholder="Filter…"
@@ -294,7 +294,7 @@ function InlineSearch({ value, onChange, onClose }: { value: string; onChange: (
       />
       {value && (
         <button type="button" onClick={() => { onChange(''); onClose() }}
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 flex size-3.5 items-center justify-center rounded text-muted-foreground/40 hover:text-foreground transition-colors">
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 flex size-3.5 items-center justify-center rounded text-muted-foreground/70 hover:text-foreground transition-colors">
           <IconX className="size-2.5" />
         </button>
       )}
@@ -385,7 +385,7 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="flex h-6 flex-1 items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+            className="flex h-6 flex-1 items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70 hover:text-muted-foreground transition-colors"
           >
             <IconChevronRight className={cn('size-3 shrink-0 transition-transform duration-150', !collapsed && 'rotate-90')} aria-hidden />
             Kiro
@@ -395,7 +395,7 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
               <TooltipTrigger asChild>
                 <button type="button" onClick={() => setSearching((v) => !v)}
                   className={cn('inline-flex size-5 cursor-pointer items-center justify-center rounded-md transition-colors',
-                    searching ? 'bg-accent text-foreground' : 'text-muted-foreground/60 hover:bg-accent hover:text-foreground')}>
+                    searching ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
                   <IconSearch className="size-3.5" aria-hidden />
                 </button>
               </TooltipTrigger>
@@ -453,7 +453,7 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
               </ul>
             )}
 
-            {noResults && <p className="px-2 py-3 text-center text-[10px] text-muted-foreground/40">No matches</p>}
+            {noResults && <p className="px-2 py-3 text-center text-[10px] text-muted-foreground/70">No matches</p>}
           </>
         )}
       </div>

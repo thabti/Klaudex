@@ -40,7 +40,7 @@ const SortDropdown = memo(function SortDropdown({ sort, onChange }: { sort: Sort
         <TooltipTrigger asChild>
           <button ref={btnRef} type="button" onClick={handleOpen}
             className={cn('inline-flex size-5 cursor-pointer items-center justify-center rounded-md transition-colors',
-              open ? 'bg-accent text-foreground' : 'text-muted-foreground/60 hover:bg-accent hover:text-foreground')}>
+              open ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
             <IconArrowsUpDown className="size-3.5" />
           </button>
         </TooltipTrigger>
@@ -53,7 +53,7 @@ const SortDropdown = memo(function SortDropdown({ sort, onChange }: { sort: Sort
             {SORT_OPTIONS.map((opt) => (
               <button key={opt.key} type="button"
                 onClick={() => { onChange(opt.key); setOpen(false) }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors">
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground hover:bg-accent transition-colors">
                 <IconCheck className={cn('size-3 shrink-0', sort === opt.key ? 'opacity-100' : 'opacity-0')} />
                 {opt.label}
               </button>
@@ -156,7 +156,7 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
         <>
           <div className="fixed inset-0 z-[199]" onClick={() => setCtxMenu(null)} onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null) }} />
           <div className="fixed z-[200] min-w-[160px] rounded-lg border border-border bg-popover py-1 shadow-lg" style={{ top: ctxMenu.y, left: ctxMenu.x }}>
-            <button type="button" onClick={handleSwitchSide} className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors">
+            <button type="button" onClick={handleSwitchSide} className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground hover:bg-accent transition-colors">
               {isRight ? <IconLayoutSidebarLeftCollapse className="size-3.5" /> : <IconLayoutSidebarRightCollapse className="size-3.5" />}
               Move sidebar to {isRight ? 'left' : 'right'}
             </button>
@@ -172,13 +172,13 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
         className={cn('absolute top-0 z-10 h-full w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-colors', isRight ? 'left-0' : 'right-0')}
       />
       <div className="flex items-center justify-between px-4 py-2 pr-3">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">Projects</span>
+        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Projects</span>
         <div className="flex shrink-0 items-center gap-1">
           <SortDropdown sort={sort} onChange={setSort} />
           <Tooltip>
             <TooltipTrigger asChild>
               <button type="button" aria-label="Add project" data-testid="add-project-button" onClick={() => setNewProjectOpen(true)}
-                className="inline-flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground">
+                className="inline-flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
                 <IconPlus className="size-3.5" />
               </button>
             </TooltipTrigger>
@@ -191,7 +191,7 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
           <div className="relative flex min-w-0 flex-col">
             <ul className="flex min-w-0 flex-col gap-0.5">
               {projectList.length === 0 && (
-                <p className="px-3 py-6 text-center text-[11px] text-muted-foreground">No projects yet — click + to import a folder</p>
+                <p className="px-3 py-6 text-center text-xs text-muted-foreground">No projects yet — click + to import a folder</p>
               )}
               {projectList.map((project, idx) => (
                 <ProjectItem

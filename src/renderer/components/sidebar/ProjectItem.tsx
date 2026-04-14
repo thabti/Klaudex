@@ -80,14 +80,14 @@ export const ProjectItem = memo(function ProjectItem({
           onClick={() => setExpanded((v) => !v)}
           onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY }) }}
           className={cn(
-            'peer/menu-button flex w-full h-6 cursor-pointer items-center gap-1 overflow-hidden rounded-lg px-1.5 py-1 text-[11px] text-left',
+            'peer/menu-button flex w-full h-8 cursor-pointer items-center gap-1 overflow-hidden rounded-lg px-1.5 py-1 text-[13px] text-left',
             'outline-none focus-visible:ring-2 focus-visible:ring-ring',
             'hover:bg-accent hover:text-foreground transition-colors',
           )}
         >
           {expanded
-            ? <IconChevronDown className="size-3 shrink-0 text-muted-foreground/50" aria-hidden />
-            : <IconChevronRight className="size-3 shrink-0 text-muted-foreground/50" aria-hidden />
+            ? <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground/70" aria-hidden />
+            : <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" aria-hidden />
           }
           {editing ? (
             <input
@@ -97,10 +97,10 @@ export const ProjectItem = memo(function ProjectItem({
               onBlur={commitRename}
               onKeyDown={(e) => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditing(false) }}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 min-w-0 truncate bg-transparent text-[11px] font-normal text-foreground outline-none"
+              className="flex-1 min-w-0 truncate bg-transparent text-[13px] font-normal text-foreground outline-none"
             />
           ) : (
-            <span className="flex-1 truncate text-[11px] font-normal text-foreground/70">{name}</span>
+            <span className="flex-1 truncate text-[13px] font-normal text-foreground/85">{name}</span>
           )}
         </button>
 
@@ -118,7 +118,7 @@ export const ProjectItem = memo(function ProjectItem({
                 type="button"
                 aria-label={`New thread in ${name}`}
                 onClick={onNewThread}
-                className="pointer-events-auto flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground/70 hover:bg-secondary hover:text-foreground outline-none"
+                className="pointer-events-auto flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground outline-none"
               >
                 <IconEdit className="size-3.5" />
               </button>
@@ -132,7 +132,7 @@ export const ProjectItem = memo(function ProjectItem({
                 type="button"
                 aria-label={`Remove ${name}`}
                 onClick={onRemoveProject}
-                className="pointer-events-auto flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground/70 hover:bg-destructive/15 hover:text-destructive outline-none"
+                className="pointer-events-auto flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive outline-none"
               >
                 <IconTrash className="size-3" />
               </button>
@@ -144,25 +144,25 @@ export const ProjectItem = memo(function ProjectItem({
 
       {ctxMenu && (
         <div ref={ctxRef} className="fixed z-[300] min-w-[160px] rounded-lg border border-border bg-popover py-1 shadow-lg" style={{ left: ctxMenu.x, top: ctxMenu.y }}>
-          <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
+          <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
             onClick={() => { onNewThread(); setCtxMenu(null) }}>
             <IconMessagePlus className="size-3.5" /> New Thread
           </button>
           <div className="my-1 border-t border-border/50" />
-          <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
+          <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
             onClick={() => { ipc.openUrl(cwd); setCtxMenu(null) }}>
             <IconFolderOpen className="size-3.5" /> Open in Finder
           </button>
-          <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
+          <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
             onClick={() => { setEditValue(name); setEditing(true); setCtxMenu(null) }}>
             <IconPencil className="size-3.5" /> Edit Name
           </button>
-          <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
+          <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
             onClick={() => { onArchiveThreads(); setCtxMenu(null) }}>
             <IconArchive className="size-3.5" /> Archive Threads
           </button>
           <div className="my-1 border-t border-border/50" />
-          <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10"
+          <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-destructive transition-colors hover:bg-destructive/10"
             onClick={() => { onRemoveProject(); setCtxMenu(null) }}>
             <IconTrash className="size-3.5" /> Delete
           </button>

@@ -87,7 +87,7 @@ export const ReadOutput = memo(function ReadOutput({ rawInput, rawOutput }: Read
           return (
             <div key={i} className="flex">
               <span
-                className="shrink-0 select-none text-right text-muted-foreground/30 pr-3 pl-2"
+                className="shrink-0 select-none text-right text-muted-foreground/60 pr-3 pl-2"
                 style={{ minWidth: `${gutterWidth + 2}ch` }}
               >
                 {lineNum}

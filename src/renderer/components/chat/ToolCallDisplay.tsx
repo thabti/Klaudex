@@ -38,9 +38,9 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls }: Tool
         className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left transition-colors hover:bg-accent/5"
       >
         {expanded ? (
-          <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground/40" />
+          <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground/70" />
         ) : (
-          <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/40" />
+          <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
         )}
         <IconBolt className="size-3.5 shrink-0 text-amber-400/60" />
         <span className="text-[13px] font-medium text-muted-foreground/60">
@@ -77,7 +77,7 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls }: Tool
             <button
               type="button"
               onClick={() => setShowAll(true)}
-              className="w-full px-3 py-1.5 text-[11px] text-muted-foreground/40 transition-colors hover:text-muted-foreground/60"
+              className="w-full px-3 py-1.5 text-[11px] text-muted-foreground/70 transition-colors hover:text-muted-foreground/80"
             >
               +{toolCalls.length - MAX_VISIBLE_DEFAULT} more
             </button>

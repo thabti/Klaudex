@@ -36,14 +36,14 @@ export const KiroFileViewer = memo(function KiroFileViewer({ filePath, title, on
         <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-foreground">{title}</p>
-            <p className="truncate text-[10px] font-mono text-muted-foreground/50 mt-0.5">{shortPath}</p>
+            <p className="truncate text-[10px] font-mono text-muted-foreground/70 mt-0.5">{shortPath}</p>
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 type="button"
                 onClick={() => ipc.openInEditor(filePath, getPreferredEditor()).catch(() => {})}
-                className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-accent hover:text-foreground transition-colors"
+                className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               >
                 <IconExternalLink className="size-3.5" />
               </button>
@@ -55,7 +55,7 @@ export const KiroFileViewer = memo(function KiroFileViewer({ filePath, title, on
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-accent hover:text-foreground transition-colors"
+                className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               >
                 <IconX className="size-3.5" />
               </button>

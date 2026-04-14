@@ -157,7 +157,7 @@ export const QuestionCards = memo(function QuestionCards({
           {current?.question}
         </p>
         {total > 1 && (
-          <div className="flex shrink-0 items-center gap-1 text-[12px] text-muted-foreground/50">
+          <div className="flex shrink-0 items-center gap-1 text-[12px] text-muted-foreground/70">
             <button
               type="button"
               onClick={() => setPage((p) => Math.max(0, p - 1))}
@@ -197,7 +197,7 @@ export const QuestionCards = memo(function QuestionCards({
                   "flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-2.5 text-left text-[14px] transition-all",
                   isSelected
                     ? "border-primary/30 bg-primary/8 text-foreground"
-                    : "border-border/40 bg-transparent text-foreground/60 hover:border-primary/30 hover:bg-muted/30",
+                    : "border-border/60 bg-transparent text-foreground/80 hover:border-primary/30 hover:bg-muted/50",
                 )}
               >
                 <span
@@ -226,14 +226,14 @@ export const QuestionCards = memo(function QuestionCards({
           value={currentExtra}
           onChange={(e) => setExtraText((prev) => ({ ...prev, [current?.number ?? '']: e.target.value }))}
           placeholder="Add extra context (optional)"
-          className="w-full rounded-lg border border-border/50 bg-background/50 px-3.5 py-2 text-[13px] text-black dark:text-white outline-none placeholder:text-muted-foreground/30 focus:border-primary/30"
+          className="w-full rounded-lg border border-border/50 bg-background/50 px-3.5 py-2 text-[13px] text-black dark:text-white outline-none placeholder:text-muted-foreground/60 focus:border-primary/30"
         />
       </div>
 
       {/* Footer: dismiss + continue */}
-      <div className="flex items-center justify-end gap-2 border-t border-border/30 px-5 py-3">
+      <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
         {selectedCount > 0 && total > 1 && (
-          <span className="mr-auto text-[11px] text-muted-foreground/40">
+          <span className="mr-auto text-[11px] text-muted-foreground/70">
             {selectedCount} of {total} answered
           </span>
         )}
@@ -255,7 +255,7 @@ export const QuestionCards = memo(function QuestionCards({
             "flex items-center gap-1.5 rounded-lg px-4 py-2 text-[12px] font-medium transition-all",
             hasAnyInput
               ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "bg-muted text-muted-foreground/40 cursor-not-allowed",
+              : "bg-muted text-muted-foreground/70 cursor-not-allowed",
           )}
         >
           {isAllAnswered || isLastPage ? "Submit" : "Next"}

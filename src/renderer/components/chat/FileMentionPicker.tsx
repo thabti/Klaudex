@@ -319,7 +319,7 @@ export const FileMentionPicker = memo(function FileMentionPicker({
   if (loading) {
     return (
       <div className="absolute bottom-full left-0 right-0 z-[300] mb-2 overflow-hidden rounded-xl border border-border bg-popover shadow-xl">
-        <div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground/50">
+        <div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground/70">
           <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.2" />
             <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
@@ -333,7 +333,7 @@ export const FileMentionPicker = memo(function FileMentionPicker({
   if (totalItems === 0) {
     return (
       <div className="absolute bottom-full left-0 right-0 z-[300] mb-2 overflow-hidden rounded-xl border border-border bg-popover shadow-xl">
-        <p className="px-3 py-3 text-xs text-muted-foreground/50">No files found</p>
+        <p className="px-3 py-3 text-xs text-muted-foreground/70">No files found</p>
       </div>
     )
   }
@@ -370,7 +370,7 @@ export const FileMentionPicker = memo(function FileMentionPicker({
               <span className="min-w-0 flex-1 flex items-center gap-1.5">
                 <span className="truncate text-[13px] font-medium">{item.name}</span>
               </span>
-              <span className="shrink-0 text-[10px] text-muted-foreground/30">{item.type}</span>
+              <span className="shrink-0 text-[10px] text-muted-foreground/60">{item.type}</span>
             </li>
           )
         })}
@@ -397,12 +397,12 @@ export const FileMentionPicker = memo(function FileMentionPicker({
                 <GitChangeBadge status={file.gitStatus} linesAdded={file.linesAdded} linesDeleted={file.linesDeleted} />
               </span>
               {file.modifiedAt > 0 && !file.isDir && (
-                <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/30">
+                <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
                   {formatRelativeTime(file.modifiedAt)}
                 </span>
               )}
               {file.dir && (
-                <span className="shrink-0 truncate text-[11px] text-muted-foreground/40 max-w-[180px]">
+                <span className="shrink-0 truncate text-[11px] text-muted-foreground/70 max-w-[180px]">
                   {file.dir}
                 </span>
               )}

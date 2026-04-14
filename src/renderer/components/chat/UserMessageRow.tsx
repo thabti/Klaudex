@@ -38,7 +38,7 @@ function renderWithMentions(text: string): ReactNode {
       parts.push(
         <button key={idx} type="button"
           onClick={() => useDiffStore.getState().openToFile(ref)}
-          className="mx-0.5 inline-flex items-center gap-0.5 rounded bg-accent/40 px-1 py-px align-middle font-mono text-[13px] leading-normal text-foreground/60 transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
+          className="mx-0.5 inline-flex items-center gap-0.5 rounded bg-accent/40 px-1 py-px align-middle font-mono text-[13px] leading-normal text-foreground/80 transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
         >
           <IconFileText className="size-3 shrink-0" />{ref.split('/').pop()}
         </button>
@@ -155,7 +155,7 @@ export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserM
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="rounded-md p-0.5 text-muted-foreground/0 transition-all group-hover:text-muted-foreground/50 hover:!text-foreground"
+                  className="rounded-md p-0.5 text-muted-foreground/0 transition-all group-hover:text-muted-foreground/70 hover:!text-foreground"
                 >
                   {copied ? (
                     <IconCheck className="size-3" aria-hidden />
@@ -168,7 +168,7 @@ export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserM
                 {copied ? 'Copied!' : 'Copy message'}
               </TooltipContent>
             </Tooltip>
-            <span className="text-[11px] tabular-nums text-muted-foreground/30">
+            <span className="text-[11px] tabular-nums text-muted-foreground/60">
               {timeStr}
             </span>
           </div>

@@ -55,9 +55,9 @@ export const SidebarFooter = memo(function SidebarFooter() {
         <Tooltip>
           <TooltipTrigger asChild>
             <button type="button" onClick={() => useDebugStore.getState().toggleOpen()}
-              className="flex w-full h-6 cursor-pointer items-center gap-2 overflow-hidden rounded-lg px-2 text-xs text-muted-foreground/70 hover:bg-accent hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <IconBug className="size-3.5" aria-hidden />
-              <span className="text-xs">Debug</span>
+              className="flex w-full h-8 cursor-pointer items-center gap-2 overflow-hidden rounded-lg px-2 text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <IconBug className="size-4" aria-hidden />
+              <span className="text-[13px]">Debug</span>
             </button>
           </TooltipTrigger>
           <TooltipContent side="top">Toggle debug panel</TooltipContent>
@@ -65,9 +65,9 @@ export const SidebarFooter = memo(function SidebarFooter() {
         <Tooltip>
           <TooltipTrigger asChild>
             <button type="button" onClick={() => setSettingsOpen(true)}
-              className="flex w-full h-6 cursor-pointer items-center gap-2 overflow-hidden rounded-lg px-2 text-xs text-muted-foreground/70 hover:bg-accent hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <IconSettings className="size-3.5" aria-hidden />
-              <span className="text-xs">Settings</span>
+              className="flex w-full h-8 cursor-pointer items-center gap-2 overflow-hidden rounded-lg px-2 text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <IconSettings className="size-4" aria-hidden />
+              <span className="text-[13px]">Settings</span>
               {isUpdateAvailable && (
                 <span
                   role="button"
@@ -75,7 +75,7 @@ export const SidebarFooter = memo(function SidebarFooter() {
                   aria-label="Download and install update"
                   onClick={handleUpdateClick}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); triggerDownload?.() } }}
-                  className="ml-auto shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium leading-none text-primary-foreground hover:bg-primary/80 transition-colors"
+                  className="ml-auto shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[11px] font-medium leading-none text-primary-foreground hover:bg-primary/80 transition-colors"
                 >
                   Update Now
                 </span>

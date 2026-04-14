@@ -102,22 +102,22 @@ export const TaskListDisplay = memo(function TaskListDisplay({ toolCall, allTool
   const completed = tasks.filter((t) => t.completed).length
 
   return (
-    <div className="my-1 ml-1 rounded-lg border border-border/30 bg-card/30">
+    <div className="my-1 ml-1 rounded-lg border border-border/60 bg-card/60">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
         className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left transition-colors hover:bg-accent/5"
       >
         {expanded ? (
-          <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground/40" />
+          <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground/70" />
         ) : (
-          <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/40" />
+          <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
         )}
         <IconListCheck className="size-3.5 shrink-0 text-primary/60" />
         <span className="flex-1 truncate text-[13px] font-medium text-muted-foreground/70">
           {description ?? 'Task list'}
         </span>
-        <span className="text-[11px] tabular-nums text-muted-foreground/40">
+        <span className="text-[11px] tabular-nums text-muted-foreground/70">
           {completed}/{tasks.length}
         </span>
       </button>
@@ -127,9 +127,9 @@ export const TaskListDisplay = memo(function TaskListDisplay({ toolCall, allTool
             <div key={task.id} className="flex items-start gap-2 px-1.5 py-1">
               {task.completed
                 ? <IconCircleCheck className="mt-0.5 size-3.5 shrink-0 text-emerald-400/70" />
-                : <IconCircle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/25" />
+                : <IconCircle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/50" />
               }
-              <span className={`text-[13px] leading-[1.6] ${task.completed ? 'text-muted-foreground/40 line-through' : 'text-foreground/70'}`}>
+              <span className={`text-[13px] leading-[1.6] ${task.completed ? 'text-muted-foreground/70 line-through' : 'text-foreground/85'}`}>
                 {task.task_description}
               </span>
             </div>

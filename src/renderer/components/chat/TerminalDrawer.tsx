@@ -282,7 +282,7 @@ export const TerminalDrawer = memo(function TerminalDrawer({ cwd }: TerminalDraw
           </div>
 
           {hasMultipleTabs && (
-            <aside className="flex w-36 min-w-36 flex-col border-l border-border/70 bg-muted/10">
+            <aside className="flex w-36 min-w-36 flex-col border-l border-border/70 bg-muted/30">
               <div className="flex h-[22px] items-stretch justify-end border-b border-border/70">
                 <Tooltip>
                   <TooltipTrigger asChild>

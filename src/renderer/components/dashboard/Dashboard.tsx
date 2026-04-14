@@ -85,7 +85,7 @@ export const Dashboard = memo(function Dashboard() {
           {taskCount === 0 ? (
             <Empty>
               <EmptyHeader>
-                <IconRobot className="mb-4 h-10 w-10 text-muted-foreground/40" />
+                <IconRobot className="mb-4 h-10 w-10 text-muted-foreground/70" />
                 <EmptyTitle>No threads yet</EmptyTitle>
                 <EmptyDescription>
                   Import a project folder to start a new thread with Kiro.
