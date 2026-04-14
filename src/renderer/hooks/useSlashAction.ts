@@ -4,7 +4,7 @@ import { useTaskStore } from '@/stores/taskStore'
 import { ipc } from '@/lib/ipc'
 import { track } from '@/lib/analytics'
 
-export type SlashPanel = 'model' | 'agent' | null
+export type SlashPanel = 'model' | 'agent' | 'usage' | null
 
 export interface SlashActionResult {
   panel: SlashPanel
@@ -49,7 +49,7 @@ export const useSlashAction = (): SlashActionResult => {
     // Track every recognized slash command. The switch below rejects unknown
     // names by returning false, so we gate the track call on that path via
     // the `default` case.
-    const KNOWN = new Set(['clear', 'model', 'agent', 'settings', 'upload', 'plan', 'close', 'exit'])
+    const KNOWN = new Set(['clear', 'model', 'agent', 'settings', 'upload', 'plan', 'usage', 'close', 'exit'])
     if (KNOWN.has(name)) {
       track('feature_used', { feature: 'slash_command', detail: name })
     }
@@ -82,6 +82,9 @@ export const useSlashAction = (): SlashActionResult => {
         // Trigger the hidden file input — dispatched as a custom event picked up by ChatInput
         document.dispatchEvent(new CustomEvent('slash-upload'))
         setPanel(null)
+        return true
+      case 'usage':
+        setPanel((p) => (p === 'usage' ? null : 'usage'))
         return true
       case 'plan': {
         const current = useSettingsStore.getState().currentModeId

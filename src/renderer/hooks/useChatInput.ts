@@ -155,6 +155,7 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
       { name: 'agent', description: 'Switch between agents or list available ones' },
       { name: 'plan', description: 'Toggle plan mode on or off' },
       { name: 'upload', description: 'Upload images or files' },
+      { name: 'usage', description: 'Show token and cost usage for this session' },
       { name: 'close', description: 'Close and delete the current thread' },
       { name: 'exit', description: 'Close and delete the current thread' },
     ]
