@@ -47,6 +47,7 @@ interface TaskStore {
   archiveThreads: (workspace: string) => void
   upsertTask: (task: AgentTask) => void
   removeTask: (id: string) => void
+  archiveTask: (id: string) => void
   appendChunk: (taskId: string, chunk: string) => void
   appendThinkingChunk: (taskId: string, chunk: string) => void
   upsertToolCall: (taskId: string, toolCall: ToolCall) => void
@@ -218,6 +219,20 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         selectedTaskId: state.selectedTaskId === id ? null : state.selectedTaskId,
       }
     })
+    get().persistHistory()
+  },
+
+  archiveTask: (id) => {
+    const task = get().tasks[id]
+    if (!task || task.isArchived) return
+    void ipc.cancelTask(id).catch(() => {})
+    set((s) => ({
+      tasks: { ...s.tasks, [id]: { ...s.tasks[id], isArchived: true, status: 'completed' } },
+      streamingChunks: { ...s.streamingChunks, [id]: '' },
+      thinkingChunks: { ...s.thinkingChunks, [id]: '' },
+      liveToolCalls: { ...s.liveToolCalls, [id]: [] },
+    }))
+    void ipc.deleteTask(id)
     get().persistHistory()
   },
 
