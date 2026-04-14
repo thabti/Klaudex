@@ -338,6 +338,18 @@ impl acp::Client for KirodexClient {
                 "mcpServers": params.get("mcpServers").cloned().unwrap_or(Value::Array(vec![]))
             }));
         }
+        // Compaction status — forward so the frontend can show compacting indicator
+        if method_normalized == "kiro.dev/compaction/status" {
+            let status_type = params.get("status")
+                .and_then(|s| s.get("type"))
+                .and_then(|t| t.as_str())
+                .unwrap_or("unknown");
+            let _ = self.app.emit("compaction_status", serde_json::json!({
+                "taskId": self.task_id,
+                "status": status_type,
+                "summary": params.get("summary").cloned().unwrap_or(Value::Null)
+            }));
+        }
         // Subagent lifecycle — forward so the frontend can track subagent sessions
         if method_normalized == "kiro.dev/subagent/list_update" {
             let _ = self.app.emit("subagent_update", serde_json::json!({
