@@ -1,5 +1,37 @@
 # Activity Log
 
+## 2026-04-14 22:33 GST (Dubai)
+
+### Chat: Improve answered questions UI; remove bubble, increase fonts
+
+Improved the answered questions display in two ways: 1) `UserMessageRow` now skips the dark bubble background (`bg-[#1a1b1e]`) when rendering question answers, rendering `CollapsedAnswers` directly instead. 2) `CollapsedAnswers` redesigned with larger fonts (15px questions, 14px answers, 14px header), primary-tinted border/background matching the QuestionCards accent style, larger icons, and better spacing.
+
+**Modified:** `src/renderer/components/chat/UserMessageRow.tsx`, `src/renderer/components/chat/CollapsedAnswers.tsx`
+
+## 2026-04-14 22:27 GST (Dubai)
+
+### Chat: Redesign plan mode question cards for better approachability
+
+Overhauled the `QuestionCards` component with a more inviting, interactive UI. Added a primary-colored accent header bar with a question icon, numbered step dots with checkmarks for answered questions, radio-style option indicators with keyboard shortcut hints, a subtle gradient background, and a cleaner footer layout separating navigation arrows from the submit button.
+
+**Modified:** `src/renderer/components/chat/QuestionCards.tsx`
+
+## 2026-04-14 18:26 GST (Dubai)
+
+### Chat: Fix task list not marking all tasks as completed
+
+Fixed bug in `aggregateLatestTasks()` where an empty `tasks: []` array (truthy in JS) prevented the `else` branch from processing `completed_task_ids`. Changed `if (tasks)` to `if (tasks && tasks.length > 0)`.
+
+**Modified:** `src/renderer/components/chat/TaskListDisplay.tsx`
+
+## 2026-04-14 18:22 GST (Dubai)
+
+### Chat: Match user message bubble background to chat input
+
+Changed the user message bubble background from `#2c2e35` to `#1a1b1e` in `UserMessageRow.tsx` so inline mention pills (agent, skill, file) render with the same appearance in both the chat input and sent message bubbles.
+
+**Modified:** `src/renderer/components/chat/UserMessageRow.tsx`
+
 ## 2026-04-14 17:52 GST (Dubai)
 
 ### Rust: Fix unused variable warning and failing settings test
