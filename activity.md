@@ -1,5 +1,21 @@
 # Activity Log
 
+## 2026-04-15 15:54 GST (Dubai)
+
+### Tests: Suppress console.warn stderr noise in updateStore test
+
+Fixed the `dismissVersion handles localStorage error gracefully` test that was leaking a `console.warn` to stderr. Added a `console.warn` spy to suppress the output and an assertion that the warning was called with the expected error.
+
+**Modified:** `src/renderer/stores/updateStore.test.ts`
+
+## 2026-04-15 15:56 GST (Dubai)
+
+### Tests: Fix 246 failures from `bun test` runner mismatch
+
+The 246 failures came from running `bun test` (Bun's native test runner) instead of `bun run test` (Vitest). Bun's runner doesn't provide jsdom, so all component tests failed with `ReferenceError: document is not defined`. Fixed by adding `bunfig.toml` with `[test] root = ".bun-test-noop"` to redirect `bun test` away from Vitest test files, plus a sentinel test that passes and tells users to use `bun run test`.
+
+**Modified:** `bunfig.toml`, `.bun-test-noop/redirect.test.ts`, `activity.md`
+
 ## 2026-04-15 15:47 GST (Dubai)
 
 ### Commits: Review and organize all changes since v0.8.15
@@ -19,6 +35,14 @@ Added thread and project filter dropdowns to the JS Debug tab, matching the Kiro
 - `src/renderer/stores/jsDebugStore.ts` — added threadName/projectName to filter state
 - `src/renderer/lib/jsInterceptors.ts` — stamp selectedTaskId on each entry
 - `src/renderer/components/debug/JsDebugTab.tsx` — thread/project filter dropdowns + filtering logic
+
+## 2026-04-15 15:55 GST (Dubai)
+
+### JsDebugTab: Capture threadName and projectName on entries for reliable filtering
+
+Updated JS debug interceptors to capture `threadName` and `projectName` directly on each `JsDebugEntry` at creation time (from the active task). Updated the filter logic in `JsDebugTab` to use these entry-level fields instead of looking up from the task store at render time, so filters work even after tasks are deleted.
+
+**Modified:** `src/renderer/types/index.ts`, `src/renderer/lib/jsInterceptors.ts`, `src/renderer/components/debug/JsDebugTab.tsx`, `activity.md`
 
 ## 2026-04-15 15:55 GST (Dubai)
 
