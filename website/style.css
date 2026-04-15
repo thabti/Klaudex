@@ -14,13 +14,13 @@
 }
 
 :root {
-  --background: #0D0D0D;
-  --foreground: #f0f0f0;
-  --card: #141414;
-  --card-foreground: #f0f0f0;
-  --primary: #818cf8;
+  --background: #16161c;
+  --foreground: #f5f5f7;
+  --card: #1e1e26;
+  --card-foreground: #f5f5f7;
+  --primary: #0000FF;
   --primary-foreground: #ffffff;
-  --muted-foreground: #9a9a9a;
+  --muted-foreground: #b0b0ba;
   --border: rgba(255, 255, 255, 0.10);
   --info: #60a5fa;
   --success: #34d399;
@@ -34,6 +34,7 @@
 
 html {
   scroll-behavior: smooth;
+  font-size: 16px;
 }
 
 body {
@@ -44,23 +45,10 @@ body {
   padding: 0;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
-/* Noise texture overlay — matches the Kirodex app */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.035;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  background-size: 256px 256px;
-  z-index: 9999;
-}
-
-/* Scrollbar — matches the app */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
