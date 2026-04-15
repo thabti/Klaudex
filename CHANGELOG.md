@@ -1,5 +1,47 @@
 # Changelog
 
+## [v0.8.14] - 2026-04-15
+
+### Features
+
+- upgrade to onboarding v2 with privacy toggle
+- add Recently Deleted section with soft-delete thread recovery
+- combine completion report card with changed files summary
+- add provider-specific icons to model picker
+- redesign into 3-step flow with platform install commands
+- rewrite notification system with queue and debounce
+- add Cmd+F message search with highlighting
+- add light/dark/system theme support
+- add restart prompt dialog and sidebar update indicator
+
+### Bug fixes
+
+- make task_fork async and add parent_task_id to Task
+
+### Styling
+
+- improve light mode contrast and add dark mode color variants
+- improve light/dark mode contrast for CSS tokens
+- bump base font to 14px, light mode fixes, and UI polish
+
+### Refactoring
+
+- move RecentlyDeleted from sidebar to SettingsPanel
+
+### Documentation
+
+- update activity log with commit review session
+- update README features and refresh screenshots
+
+### CI
+
+- add update-downloads workflow
+
+### Tests
+
+- improve frontend test coverage across stores, lib, hooks, and components
+- add unit tests for 0.8.13 changes and About dialog
+
 ## [v0.8.13] - 2026-04-15
 
 ### Features
