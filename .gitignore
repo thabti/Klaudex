@@ -12,3 +12,5 @@ coverage
 *.cer
 .claude/
 .kiro/worktrees/
+website/node_modules
+website/dist

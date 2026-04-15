@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <base href="/kirodex/">
+  <title>Kirodex — AI coding agents on your desktop</title>
+  <meta name="description" content="Kirodex is a native desktop app for managing AI coding agents. Chat interface, diff viewer, git integration, terminal, and plan mode. Built with Tauri and React.">
+  <meta property="og:title" content="Kirodex — AI coding agents on your desktop">
+  <meta property="og:description" content="A native desktop app for managing AI coding agents via the Agent Client Protocol.">
+  <meta property="og:image" content="assets/main.png">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="dist/style.css">
+</head>
+<body>
+
+  <!-- ── Nav ─────────────────────────────────────────────────── -->
+  <nav id="nav" class="fixed top-0 left-0 right-0 z-50 border-b border-[rgba(255,255,255,0.07)] bg-[#0D0D0D]/80 backdrop-blur-md">
+    <div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
+      <a href="#" class="flex items-center gap-2.5 text-[15px] font-semibold text-foreground no-underline">
+        <img src="assets/icon.svg" alt="" width="24" height="24" class="rounded">
+        Kirodex
+      </a>
+      <div class="hidden items-center gap-6 text-[13px] text-muted-foreground sm:flex">
+        <a href="#features" class="transition-colors hover:text-foreground no-underline">Features</a>
+        <a href="#screenshots" class="transition-colors hover:text-foreground no-underline">Screenshots</a>
+        <a href="#install" class="transition-colors hover:text-foreground no-underline">Install</a>
+        <a href="https://github.com/thabti/kirodex" target="_blank" rel="noopener" class="transition-colors hover:text-foreground no-underline">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Hero ────────────────────────────────────────────────── -->
+  <section class="flex flex-col items-center px-6 pt-32 pb-20 text-center">
+    <img src="assets/icon.svg" alt="Kirodex icon" width="56" height="56" class="mb-5 rounded-xl">
+    <h1 class="mb-3 text-4xl font-bold tracking-tight text-foreground sm:text-5xl">Kirodex</h1>
+    <p class="mb-6 max-w-lg text-lg text-muted-foreground">AI coding agents on your desktop. Chat, plan, diff, commit — all from one native app.</p>
+    <p class="mb-8 max-w-md text-[14px] leading-relaxed text-muted-foreground/70">
+      Built with Tauri v2 and React 19. Powered by the Agent Client Protocol.
+      Works with macOS, Linux, and Windows.
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-3">
+      <a href="https://github.com/thabti/kirodex/releases/latest"
+         class="inline-flex h-10 items-center gap-2 rounded-lg border border-[#818cf8] bg-[#818cf8] px-5 text-[14px] font-medium text-white shadow-lg shadow-[#818cf8]/20 transition-colors hover:bg-[#6366f1] no-underline">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </a>
+      <a href="https://github.com/thabti/kirodex" target="_blank" rel="noopener"
+         class="inline-flex h-10 items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.10)] bg-transparent px-5 text-[14px] font-medium text-foreground transition-colors hover:bg-[rgba(255,255,255,0.05)] no-underline">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub
+      </a>
+    </div>
+    <div class="mt-14 w-full max-w-4xl">
+      <img src="assets/main.png" alt="Kirodex main view showing the chat interface, sidebar, and slash commands"
+           class="w-full rounded-2xl border border-[rgba(255,255,255,0.08)] shadow-2xl shadow-black/40"
+           loading="eager">
+    </div>
+  </section>
+
+</body>
+</html>
