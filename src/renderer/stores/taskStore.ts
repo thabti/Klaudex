@@ -680,7 +680,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       notifiedTaskIds: [],
     })
     // Reset settings to defaults and go back to onboarding
-    const defaultSettings = { ...useSettingsStore.getState().settings, hasOnboarded: false, projectPrefs: {} }
+    const defaultSettings = { ...useSettingsStore.getState().settings, hasOnboardedV2: false, projectPrefs: {} }
     await useSettingsStore.getState().saveSettings(defaultSettings)
     useSettingsStore.setState({ settings: defaultSettings })
   },

@@ -131,11 +131,11 @@ export interface AppSettings {
   notifications?: boolean
   soundNotifications?: boolean
   projectPrefs?: Record<string, ProjectPrefs>
-  hasOnboarded?: boolean
+  hasOnboardedV2?: boolean
   sidebarPosition?: SidebarPosition
   /** Theme mode: dark, light, or system (follows OS preference). Default: dark. */
   theme?: ThemeMode
-  /** Opt-in flag for anonymous product analytics. Default: false. */
+  /** Opt-in flag for anonymous product analytics. Default: true. */
   analyticsEnabled?: boolean
   /** Random UUID generated on first opt-in, cleared on opt-out. */
   analyticsAnonId?: string | null

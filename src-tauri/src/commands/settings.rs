@@ -50,10 +50,10 @@ pub struct AppSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub project_prefs: Option<std::collections::HashMap<String, ProjectPrefs>>,
     #[serde(default)]
-    pub has_onboarded: bool,
+    pub has_onboarded_v2: bool,
     /// Flag for anonymous product analytics. Defaults to true; the user
-    /// must turn it on via Settings → Advanced.
-    #[serde(default)]
+    /// can turn it off via Settings → Advanced.
+    #[serde(default = "default_true")]
     pub analytics_enabled: bool,
     /// Random UUID created on first opt-in and cleared on opt-out. Used as the
     /// PostHog `distinct_id` — never tied to OS identity, email, or machine ID.
@@ -91,7 +91,7 @@ impl Default for AppSettings {
             notifications: true,
             sound_notifications: true,
             project_prefs: None,
-            has_onboarded: false,
+            has_onboarded_v2: false,
             analytics_enabled: true,
             analytics_anon_id: None,
             theme: default_theme(),
@@ -149,7 +149,7 @@ mod tests {
         assert!(!s.auto_approve);
         assert!(s.respect_gitignore);
         assert!(s.co_author);
-        assert!(!s.has_onboarded);
+        assert!(!s.has_onboarded_v2);
         assert!(s.agent_profiles.is_empty());
         assert!(s.project_prefs.is_none());
         assert!(s.analytics_enabled);
@@ -170,7 +170,7 @@ mod tests {
             kiro_bin: "/usr/local/bin/kiro-cli".to_string(),
             font_size: 16,
             auto_approve: true,
-            has_onboarded: true,
+            has_onboarded_v2: true,
             respect_gitignore: false,
             co_author: false,
             project_prefs: Some(prefs),
@@ -181,7 +181,7 @@ mod tests {
         assert_eq!(restored.kiro_bin, "/usr/local/bin/kiro-cli");
         assert_eq!(restored.font_size, 16);
         assert!(restored.auto_approve);
-        assert!(restored.has_onboarded);
+        assert!(restored.has_onboarded_v2);
         assert!(!restored.respect_gitignore);
         assert!(!restored.co_author);
         let pp = restored.project_prefs.unwrap();
@@ -196,7 +196,7 @@ mod tests {
         assert_eq!(settings.font_size, 13);
         assert!(settings.respect_gitignore);
         assert!(settings.co_author);
-        assert!(!settings.has_onboarded);
+        assert!(!settings.has_onboarded_v2);
     }
 
     #[test]
@@ -206,7 +206,7 @@ mod tests {
         assert!(json.contains("kiroBin"));
         assert!(json.contains("fontSize"));
         assert!(json.contains("autoApprove"));
-        assert!(json.contains("hasOnboarded"));
+        assert!(json.contains("hasOnboardedV2"));
         assert!(!json.contains("kiro_bin"));
     }
 }

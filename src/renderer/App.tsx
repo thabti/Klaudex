@@ -206,7 +206,7 @@ export function App() {
   );
   const debugOpen = useDebugStore((s) => s.isOpen);
   const settingsLoaded = useSettingsStore((s) => s.isLoaded);
-  const hasOnboarded = useSettingsStore((s) => s.settings.hasOnboarded);
+  const hasOnboardedV2 = useSettingsStore((s) => s.settings.hasOnboardedV2);
   const analyticsEnabled = useSettingsStore((s) => s.settings.analyticsEnabled ?? true);
   const analyticsAnonId = useSettingsStore((s) => s.settings.analyticsAnonId ?? null);
   const fontSize = useSettingsStore((s) => s.settings.fontSize);
@@ -333,7 +333,7 @@ export function App() {
   const closeSidePanel = useCallback(() => setSidePanelOpen(false), []);
   const toggleSidebar = useCallback(() => setIsSidebarCollapsed((v) => !v), []);
 
-  if (settingsLoaded && !hasOnboarded)
+  if (settingsLoaded && !hasOnboardedV2)
     return (
       <Suspense>
         <Onboarding />

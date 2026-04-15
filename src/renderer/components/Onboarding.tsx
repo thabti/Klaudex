@@ -6,8 +6,9 @@ import {
   IconLoader2, IconLogin, IconRefresh, IconArrowRight,
   IconUser, IconBrandGoogle, IconBrandGithub, IconBuilding,
   IconCopy, IconCheck, IconChevronDown, IconChevronUp,
-  IconBrandApple, IconTerminal, IconPaint,
+  IconBrandApple, IconTerminal, IconPaint, IconShieldCheck,
 } from '@tabler/icons-react'
+import { Switch } from '@/components/ui/switch'
 import { ipc } from '@/lib/ipc'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
@@ -84,18 +85,18 @@ const CopyButton = ({ text }: { text: string }) => {
       onClick={handleCopy}
       aria-label="Copy to clipboard"
       tabIndex={0}
-      className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-white/5 hover:text-foreground/70"
+      className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground/70"
     >
-      {isCopied ? <IconCheck size={14} className="text-emerald-400" /> : <IconCopy size={14} />}
+      {isCopied ? <IconCheck size={14} className="text-emerald-600 dark:text-emerald-400" /> : <IconCopy size={14} />}
     </button>
   )
 }
 
 /** Single install command row */
 const CommandRow = ({ cmd }: { cmd: InstallCommand }) => (
-  <div className="flex items-center gap-2 rounded-lg bg-black/20 px-3 py-2">
-    <span className="shrink-0 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50 w-16">{cmd.label}</span>
-    <code className="flex-1 truncate font-mono text-[12px] text-white/60">{cmd.command}</code>
+  <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
+    <span className="shrink-0 text-[10px] font-medium uppercase tracking-wider text-muted-foreground w-16">{cmd.label}</span>
+    <code className="flex-1 truncate font-mono text-[12px] text-muted-foreground">{cmd.command}</code>
     <CopyButton text={cmd.command} />
   </div>
 )
@@ -113,6 +114,7 @@ export function Onboarding() {
   const [authAccountType, setAuthAccountType] = useState('')
   const [authRegion, setAuthRegion] = useState('')
   const [showAlternatives, setShowAlternatives] = useState(false)
+  const [isAnalyticsEnabled, setIsAnalyticsEnabled] = useState(true)
   const platform = useState(detectPlatform)[0]
   const bin = cliPath || manualPath || 'kiro-cli'
   const isCliReady = detectState === 'found' || manualPath.length > 0
@@ -170,10 +172,10 @@ export function Onboarding() {
 
   const finish = useCallback(async () => {
     const settings = useSettingsStore.getState().settings
-    await useSettingsStore.getState().saveSettings({ ...settings, kiroBin: bin, hasOnboarded: true, theme: themeChoice })
+    await useSettingsStore.getState().saveSettings({ ...settings, kiroBin: bin, hasOnboardedV2: true, theme: themeChoice, analyticsEnabled: isAnalyticsEnabled })
     useSettingsStore.getState().checkAuth()
     ipc.probeCapabilities().catch(() => {})
-  }, [bin, themeChoice])
+  }, [bin, themeChoice, isAnalyticsEnabled])
 
   const accountTypeLabel = (t: string): string => {
     if (t === 'IamIdentityCenter') return 'IAM Identity Center'
@@ -196,14 +198,14 @@ export function Onboarding() {
           const isCurrent = step === s
           return (
             <div key={s} className="flex items-center gap-2">
-              {i > 0 && <div className={cn('h-px w-8', isPast || isCurrent ? 'bg-primary/40' : 'bg-border/30')} />}
+              {i > 0 && <div className={cn('h-px w-8', isPast || isCurrent ? 'bg-primary/40' : 'bg-border')} />}
               <div className={cn(
                 'flex size-6 items-center justify-center rounded-full text-[10px] font-bold transition-colors',
                 isCurrent
                   ? 'bg-primary text-primary-foreground'
                   : isPast
                     ? 'bg-primary/20 text-primary'
-                    : 'bg-muted/50 text-muted-foreground/60',
+                    : 'bg-muted/50 text-muted-foreground',
               )}>
                 {i + 1}
               </div>
@@ -226,10 +228,10 @@ export function Onboarding() {
                 A native desktop client for Kiro; the AI-powered coding assistant.
               </p>
             </div>
-            <div className="flex flex-col gap-3 text-left text-[14px] text-muted-foreground/80">
+            <div className="flex flex-col gap-3 text-left text-[14px] text-muted-foreground">
               {FEATURES.map(({ Icon, text }) => (
                 <div key={text} className="flex items-center gap-3">
-                  <Icon size={20} stroke={1.5} className="text-muted-foreground/70" />
+                  <Icon size={20} stroke={1.5} className="text-muted-foreground" />
                   <span>{text}</span>
                 </div>
               ))}
@@ -280,23 +282,23 @@ export function Onboarding() {
             </div>
 
             {/* ── CLI Section ── */}
-            <div className="w-full rounded-xl border border-border/60 bg-card/40 overflow-hidden">
-              <div className="flex items-center gap-3 border-b border-border/40 px-5 py-3">
+            <div className="w-full rounded-xl border border-border bg-card overflow-hidden">
+              <div className="flex items-center gap-3 border-b border-border px-5 py-3">
                 <div className={cn(
                   'flex size-7 items-center justify-center rounded-full transition-colors',
                   isCliReady ? 'bg-emerald-500/10' : 'bg-muted/40',
                 )}>
                   {detectState === 'detecting' ? (
-                    <IconLoader2 size={14} className="animate-spin text-muted-foreground/60" />
+                    <IconLoader2 size={14} className="animate-spin text-muted-foreground" />
                   ) : isCliReady ? (
-                    <IconCircleCheck size={14} className="text-emerald-400" />
+                    <IconCircleCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
                   ) : (
-                    <IconTerminal size={14} className="text-muted-foreground/60" />
+                    <IconTerminal size={14} className="text-muted-foreground" />
                   )}
                 </div>
                 <div className="flex-1 text-left">
                   <p className="text-[13px] font-medium text-foreground/90">Kiro CLI</p>
-                  <p className="text-[11px] text-muted-foreground/60">
+                  <p className="text-[11px] text-muted-foreground">
                     {detectState === 'detecting' && 'Searching for kiro-cli...'}
                     {detectState === 'found' && cliPath}
                     {detectState === 'not-found' && !manualPath && 'Not found — install or set path below'}
@@ -309,7 +311,7 @@ export function Onboarding() {
                     onClick={detect}
                     aria-label="Retry CLI detection"
                     tabIndex={0}
-                    className="flex size-7 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-muted/40 hover:text-foreground/70"
+                    className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground/70"
                   >
                     <IconRefresh size={14} />
                   </button>
@@ -320,10 +322,10 @@ export function Onboarding() {
                 <div className="flex flex-col gap-3 px-5 py-4">
                   {/* Platform badge */}
                   <div className="flex items-center gap-2">
-                    {platform === 'macos' && <IconBrandApple size={14} className="text-muted-foreground/60" />}
-                    {platform === 'linux' && <IconTerminal size={14} className="text-muted-foreground/60" />}
-                    {platform === 'windows' && <IconTerminal size={14} className="text-muted-foreground/60" />}
-                    <span className="text-[11px] font-medium text-muted-foreground/60">
+                    {platform === 'macos' && <IconBrandApple size={14} className="text-muted-foreground" />}
+                    {platform === 'linux' && <IconTerminal size={14} className="text-muted-foreground" />}
+                    {platform === 'windows' && <IconTerminal size={14} className="text-muted-foreground" />}
+                    <span className="text-[11px] font-medium text-muted-foreground">
                       Install for {PLATFORM_LABELS[platform]}
                     </span>
                   </div>
@@ -337,7 +339,7 @@ export function Onboarding() {
                       <button
                         type="button"
                         onClick={() => setShowAlternatives((v) => !v)}
-                        className="flex items-center gap-1 text-[11px] text-muted-foreground/50 transition-colors hover:text-muted-foreground/80"
+                        className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-muted-foreground"
                       >
                         {showAlternatives ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />}
                         Other install methods
@@ -354,9 +356,9 @@ export function Onboarding() {
 
                   {/* Divider + manual path */}
                   <div className="relative">
-                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/40" /></div>
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
                     <div className="relative flex justify-center">
-                      <span className="bg-card/40 px-2 text-[10px] text-muted-foreground/50">or set path manually</span>
+                      <span className="bg-card px-2 text-[10px] text-muted-foreground">or set path manually</span>
                     </div>
                   </div>
                   <div className="flex gap-1.5">
@@ -365,14 +367,14 @@ export function Onboarding() {
                       value={manualPath}
                       onChange={(e) => setManualPath(e.target.value)}
                       placeholder="/path/to/kiro-cli"
-                      className="flex-1 rounded-lg border border-border/60 bg-background/50 px-3 py-2 font-mono text-[12px] text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/40"
+                      className="flex-1 rounded-lg border border-border bg-background/50 px-3 py-2 font-mono text-[12px] text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/40"
                     />
                     <button
                       type="button"
                       onClick={handleBrowse}
                       aria-label="Browse for kiro-cli"
                       tabIndex={0}
-                      className="rounded-lg border border-border/60 px-2.5 py-2 text-muted-foreground transition-colors hover:text-foreground/70"
+                      className="rounded-lg border border-border px-2.5 py-2 text-muted-foreground transition-colors hover:text-foreground/70"
                     >
                       <IconFolderOpen size={16} />
                     </button>
@@ -382,7 +384,7 @@ export function Onboarding() {
                     href="https://kiro.dev/docs/cli/installation/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1.5 text-[12px] text-primary/60 transition-colors hover:text-primary"
+                    className="flex items-center justify-center gap-1.5 text-[12px] text-primary transition-colors hover:text-primary"
                   >
                     Full installation guide <IconExternalLink size={12} />
                   </a>
@@ -393,31 +395,31 @@ export function Onboarding() {
             {/* ── Auth Section ── */}
             <div className={cn(
               'w-full rounded-xl border overflow-hidden transition-colors',
-              !isCliReady ? 'border-border/30 bg-card/20 opacity-50 pointer-events-none' : 'border-border/60 bg-card/40',
+              !isCliReady ? 'border-border bg-card opacity-50 pointer-events-none' : 'border-border bg-card',
             )}>
-              <div className="flex items-center gap-3 border-b border-border/40 px-5 py-3">
+              <div className="flex items-center gap-3 border-b border-border px-5 py-3">
                 <div className={cn(
                   'flex size-7 items-center justify-center rounded-full transition-colors',
                   authState === 'authenticated' ? 'bg-emerald-500/10' : 'bg-muted/40',
                 )}>
                   {authState === 'checking' ? (
-                    <IconLoader2 size={14} className="animate-spin text-muted-foreground/60" />
+                    <IconLoader2 size={14} className="animate-spin text-muted-foreground" />
                   ) : authState === 'authenticated' ? (
-                    <IconCircleCheck size={14} className="text-emerald-400" />
+                    <IconCircleCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
                   ) : (
-                    <IconUser size={14} className="text-muted-foreground/60" />
+                    <IconUser size={14} className="text-muted-foreground" />
                   )}
                 </div>
                 <div className="flex-1 text-left">
                   <p className="text-[13px] font-medium text-foreground/90">Authentication</p>
-                  <p className="text-[11px] text-muted-foreground/60">
+                  <p className="text-[11px] text-muted-foreground">
                     {authState === 'checking' && 'Checking...'}
                     {authState === 'authenticated' && (authEmail || 'Signed in')}
                     {authState === 'not-authenticated' && 'Sign in to access AI models'}
                   </p>
                 </div>
                 {authState === 'authenticated' && authAccountType && (
-                  <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-medium text-emerald-400">
+                  <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
                     {accountTypeLabel(authAccountType)}
                   </span>
                 )}
@@ -440,7 +442,7 @@ export function Onboarding() {
                     <LoginMethod Icon={IconBrandGithub} label="GitHub" />
                   </div>
 
-                  <p className="text-[11px] text-muted-foreground/50 leading-relaxed">
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
                     Opens a terminal to run <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px]">kiro-cli login</code>.
                     Come back and click below when done.
                   </p>
@@ -448,7 +450,7 @@ export function Onboarding() {
                   <button
                     type="button"
                     onClick={checkAuth}
-                    className="flex items-center justify-center gap-1.5 rounded-lg border border-border/60 px-4 py-2 text-[12px] text-foreground/70 transition-colors hover:bg-muted/40 hover:text-foreground/80"
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-border px-4 py-2 text-[12px] text-foreground/70 transition-colors hover:bg-muted/40 hover:text-foreground/80"
                   >
                     <IconRefresh size={14} /> I've signed in — check again
                   </button>
@@ -457,9 +459,29 @@ export function Onboarding() {
 
               {authState === 'authenticated' && authRegion && (
                 <div className="px-5 py-2.5 text-left">
-                  <span className="text-[11px] text-muted-foreground/50">Region: {authRegion}</span>
+                  <span className="text-[11px] text-muted-foreground">Region: {authRegion}</span>
                 </div>
               )}
+            </div>
+
+            {/* ── Privacy ── */}
+            <div className="w-full rounded-xl border border-border bg-card overflow-hidden">
+              <div className="flex items-center gap-3 px-5 py-3">
+                <div className="flex size-7 items-center justify-center rounded-full bg-muted/40">
+                  <IconShieldCheck size={14} className="text-muted-foreground" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-[13px] font-medium text-foreground/90">Share anonymous usage data</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Feature usage and app version only. No prompts, code, file paths, branch names, or commit messages are ever sent.
+                  </p>
+                </div>
+                <Switch
+                  checked={isAnalyticsEnabled}
+                  onCheckedChange={setIsAnalyticsEnabled}
+                  aria-label="Toggle anonymous usage data"
+                />
+              </div>
             </div>
 
             {/* ── Actions ── */}
@@ -476,7 +498,7 @@ export function Onboarding() {
                 <button
                   type="button"
                   onClick={finish}
-                  className="text-[13px] text-muted-foreground/60 transition-colors hover:text-foreground/70"
+                  className="text-[13px] text-muted-foreground transition-colors hover:text-foreground/70"
                 >
                   Skip sign-in for now
                 </button>
@@ -491,7 +513,7 @@ export function Onboarding() {
 
 function LoginMethod({ Icon, label }: { Icon: React.ElementType; label: string }) {
   return (
-    <div className="flex items-center gap-1 text-[10px] text-muted-foreground/50">
+    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
       <Icon size={12} /> {label}
     </div>
   )

@@ -753,7 +753,7 @@ export const SettingsPanel = () => {
                           type="button"
                           onClick={async () => {
                             const store = useSettingsStore.getState()
-                            await store.saveSettings({ ...store.settings, hasOnboarded: false })
+                            await store.saveSettings({ ...store.settings, hasOnboardedV2: false })
                             handleClose()
                           }}
                           className="flex items-center gap-1.5 rounded-lg border border-input px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
