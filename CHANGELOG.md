@@ -1,5 +1,31 @@
 # Changelog
 
+## [v0.9.0] - 2026-04-15
+
+### Features
+
+- add threadName and projectName to JsDebugEntry
+- add full landing page content, changelog, and deploy workflow
+- add thread and project filtering to JS Debug tab
+- add landing page with screenshots and Tailwind styling
+- add git worktree support with /branch and /worktree commands
+- add JS Debug tab with console, error, network, and Rust log capture
+- plan-aware context compaction
+
+### Bug fixes
+
+- make local dev work and use blue production icon
+- prevent bun test from running vitest files without jsdom
+- stamp threadName/projectName on JS debug entries
+
+### Documentation
+
+- update activity log with website and changelog entries
+
+### Tests
+
+- suppress console.warn stderr noise in dismissVersion test
+
 ## [v0.8.15] - 2026-04-15
 
 ### Features
