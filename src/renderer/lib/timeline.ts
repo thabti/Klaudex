@@ -1,5 +1,6 @@
 import type { TaskMessage, ToolCall } from '@/types'
 import { parseReport } from '@/components/chat/TaskCompletionCard'
+import { hasQuestionBlocks } from '@/lib/question-parser'
 
 /** Check if a tool call represents a file mutation (edit, delete, move) */
 function isFileMutation(kind?: string, title?: string): boolean {
@@ -42,6 +43,8 @@ export interface AssistantTextRow {
   squashed?: boolean
   /** True when a changed-files row follows this row (report card rendered there instead) */
   hasChangedFiles?: boolean
+  /** True when the questions in this message have already been answered by the user */
+  questionsAnswered?: boolean
 }
 
 export interface WorkRow {
@@ -132,6 +135,9 @@ export function deriveTimeline(
     )
 
     if (msg.content || msg.thinking) {
+      // Check if questions in this message have been answered by a subsequent user message
+      const questionsAnswered = !!(msg.content && hasQuestionBlocks(msg.content) &&
+        messages.slice(i + 1).some((m) => m.role === 'user' && m.questionAnswers?.length))
       rows.push({
         kind: 'assistant-text',
         id: `msg-${i}-text`,
@@ -140,6 +146,7 @@ export function deriveTimeline(
         thinking: msg.thinking,
         squashed: hasToolCalls,
         hasChangedFiles: hasFileChanges,
+        questionsAnswered,
       })
     }
 

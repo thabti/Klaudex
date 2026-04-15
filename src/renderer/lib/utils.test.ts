@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cn, joinChunk } from './utils'
+import { cn, joinChunk, slugify, isValidWorktreeSlug } from './utils'
 
 describe('cn', () => {
   it('merges class names', () => {
@@ -72,5 +72,70 @@ describe('joinChunk', () => {
     expect(text).toBe(
       'Let me understand the codebase structure first. Let me look at the relevant source files. Now let me check the settings.'
     )
+  })
+})
+
+describe('slugify', () => {
+  it('converts spaces to dashes', () => {
+    expect(slugify('my feature branch')).toBe('my-feature-branch')
+  })
+
+  it('lowercases input', () => {
+    expect(slugify('My-Feature')).toBe('my-feature')
+  })
+
+  it('replaces special characters', () => {
+    expect(slugify('fix: bug #123')).toBe('fix-bug-123')
+  })
+
+  it('trims leading and trailing dashes', () => {
+    expect(slugify('  hello world  ')).toBe('hello-world')
+  })
+
+  it('collapses multiple dashes', () => {
+    expect(slugify('foo---bar')).toBe('foo-bar')
+  })
+
+  it('truncates to 64 characters', () => {
+    const long = 'a'.repeat(100)
+    expect(slugify(long).length).toBe(64)
+  })
+
+  it('preserves dots and underscores', () => {
+    expect(slugify('v1.0_release')).toBe('v1.0_release')
+  })
+
+  it('handles unicode by stripping', () => {
+    expect(slugify('café-résumé')).toBe('caf-r-sum')
+  })
+
+  it('returns empty for empty input', () => {
+    expect(slugify('')).toBe('')
+  })
+})
+
+describe('isValidWorktreeSlug', () => {
+  it('accepts valid slugs', () => {
+    expect(isValidWorktreeSlug('my-feature')).toBe(true)
+    expect(isValidWorktreeSlug('fix_123')).toBe(true)
+    expect(isValidWorktreeSlug('v1.0.0')).toBe(true)
+  })
+
+  it('rejects empty string', () => {
+    expect(isValidWorktreeSlug('')).toBe(false)
+  })
+
+  it('rejects strings over 64 chars', () => {
+    expect(isValidWorktreeSlug('a'.repeat(65))).toBe(false)
+  })
+
+  it('rejects double dots', () => {
+    expect(isValidWorktreeSlug('foo..bar')).toBe(false)
+  })
+
+  it('rejects special characters', () => {
+    expect(isValidWorktreeSlug('foo/bar')).toBe(false)
+    expect(isValidWorktreeSlug('foo bar')).toBe(false)
+    expect(isValidWorktreeSlug('foo@bar')).toBe(false)
   })
 })

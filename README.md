@@ -17,11 +17,14 @@
     ·
     <a href="https://github.com/thabti/kirodex/issues">Request Feature</a>
   </p>
-  <p align="center">
-    <img src="screenshots/main.png" alt="Kirodex screenshot" />
-    <img src="screenshots/chat-task-list-diff-panel.png" alt="Kirodex screenshot" />
   </p>
-</p>
+  <table>
+    <tr>
+      <td><img src="screenshots/main.png" alt="Kirodex main view" width="100%" /></td>
+      <td><img src="screenshots/chat-task-list-diff-panel.png" alt="Kirodex chat, task list, and diff panel" width="100%" /></td>
+    </tr>
+  </table>
+
 
 <div align="center">
 
@@ -107,6 +110,13 @@ chmod +x Kirodex_*.AppImage && ./Kirodex_*.AppImage
 **Git**
 - Branch, stage, commit, push, pull, fetch through [git2](https://crates.io/crates/git2) with SSH + HTTPS credential support (no shell commands)
 - Live diff stats in the header bar, always visible when a project is open
+- Git worktree support — isolate each thread in its own working directory under `.kiro/worktrees/`
+- `/branch` command to create and checkout a new branch inline
+- `/worktree` command to create a worktree and spawn a new thread in it
+- "Use worktree" checkbox on new thread page with auto-generated slug from your message
+- Symlink heavy directories (e.g. `node_modules`) and copy gitignored files via `.worktreeinclude`
+- Auto-cleanup worktree on thread close; prompts if uncommitted changes exist
+- Sidebar badge and branch selector indicator for worktree-backed threads
 
 **Notifications**
 - Native desktop notifications when the agent finishes a turn while the app is in the background

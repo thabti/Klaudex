@@ -1,5 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { IconGitBranch, IconChevronDown, IconSearch, IconPlus, IconCheck, IconLoader2 } from '@tabler/icons-react'
+import {
+  IconGitBranch,
+  IconChevronDown,
+  IconSearch,
+  IconPlus,
+  IconCheck,
+  IconLoader2,
+  IconGitFork,
+  IconArrowLeft,
+} from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
 
@@ -23,18 +32,24 @@ interface BranchData {
 
 interface BranchSelectorProps {
   workspace: string | null
+  isWorktree?: boolean
 }
+
+type InlineMode = 'none' | 'branch' | 'worktree'
 
 // ── Component ──────────────────────────────────────────────────────────
 
-export const BranchSelector = memo(function BranchSelector({ workspace }: BranchSelectorProps) {
+export const BranchSelector = memo(function BranchSelector({ workspace, isWorktree }: BranchSelectorProps) {
   const [open, setOpen] = useState(false)
   const [data, setData] = useState<BranchData | null>(null)
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [checkingOut, setCheckingOut] = useState(false)
+  const [inlineMode, setInlineMode] = useState<InlineMode>('none')
+  const [inlineValue, setInlineValue] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const inlineInputRef = useRef<HTMLInputElement>(null)
 
   // ── Fetch branches ──────────────────────────────────────────────────
 
@@ -61,10 +76,22 @@ export const BranchSelector = memo(function BranchSelector({ workspace }: Branch
 
   // On open, refresh and focus search
   useEffect(() => {
-    if (!open) { setSearch(''); return }
+    if (!open) {
+      setSearch('')
+      setInlineMode('none')
+      setInlineValue('')
+      return
+    }
     fetchBranches()
     requestAnimationFrame(() => inputRef.current?.focus())
   }, [open, fetchBranches])
+
+  // Focus inline input when mode changes
+  useEffect(() => {
+    if (inlineMode !== 'none') {
+      requestAnimationFrame(() => inlineInputRef.current?.focus())
+    }
+  }, [inlineMode])
 
   // Click outside → close
   useEffect(() => {
@@ -82,11 +109,18 @@ export const BranchSelector = memo(function BranchSelector({ workspace }: Branch
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') {
+        if (inlineMode !== 'none') {
+          setInlineMode('none')
+          setInlineValue('')
+        } else {
+          setOpen(false)
+        }
+      }
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [open])
+  }, [open, inlineMode])
 
   // ── Filter logic ────────────────────────────────────────────────────
 
@@ -116,7 +150,7 @@ export const BranchSelector = memo(function BranchSelector({ workspace }: Branch
 
   const hasResults = filteredLocal.length > 0 || Object.keys(filteredRemotes).length > 0
 
-  // Can create new branch?
+  // Can create new branch from search?
   const canCreate =
     search.trim().length > 0 &&
     !data?.local.some((b) => b.name === search.trim()) &&
@@ -160,6 +194,35 @@ export const BranchSelector = memo(function BranchSelector({ workspace }: Branch
     [workspace, checkingOut, fetchBranches],
   )
 
+  const handleCreateWorktree = useCallback(
+    async (slug: string) => {
+      if (!workspace || checkingOut) return
+      const trimmed = slug.trim()
+      if (!trimmed) return
+      setCheckingOut(true)
+      try {
+        await ipc.gitWorktreeCreate(workspace, trimmed)
+        await fetchBranches()
+      } catch (err) {
+        console.error('[branch-selector] worktree create failed:', err)
+      } finally {
+        setCheckingOut(false)
+        setOpen(false)
+      }
+    },
+    [workspace, checkingOut, fetchBranches],
+  )
+
+  const handleInlineSubmit = useCallback(() => {
+    const trimmed = inlineValue.trim()
+    if (!trimmed || checkingOut) return
+    if (inlineMode === 'branch') {
+      handleCreate(trimmed)
+    } else if (inlineMode === 'worktree') {
+      handleCreateWorktree(trimmed)
+    }
+  }, [inlineMode, inlineValue, checkingOut, handleCreate, handleCreateWorktree])
+
   // ── Current branch label ────────────────────────────────────────────
 
   const currentBranch = data?.currentBranch || data?.local.find((b) => b.current)?.name
@@ -181,12 +244,16 @@ export const BranchSelector = memo(function BranchSelector({ workspace }: Branch
       >
         <IconGitBranch className="size-3" />
         <span className="max-w-[120px] truncate">{currentBranch ?? 'branch'}</span>
+        {isWorktree && <span className="rounded bg-violet-500/15 px-1 py-0.5 text-[9px] font-medium text-violet-500 dark:text-violet-400">WT</span>}
         <IconChevronDown className={cn('size-3 opacity-50 transition-transform', open && 'rotate-180')} />
       </button>
 
       {/* Popup */}
       {open && (
-        <div data-testid="branch-selector-popup" className="absolute bottom-full left-0 z-[200] mb-2 w-80 overflow-hidden rounded-xl border border-border bg-popover shadow-xl">
+        <div
+          data-testid="branch-selector-popup"
+          className="absolute bottom-full right-0 z-[9999] mb-2 w-80 overflow-hidden rounded-xl border border-border bg-popover shadow-xl"
+        >
           {/* Search input */}
           <div className="border-b border-border p-2">
             <div className="flex items-center gap-2 rounded-lg bg-background/50 px-2.5 py-1.5">
@@ -262,7 +329,7 @@ export const BranchSelector = memo(function BranchSelector({ workspace }: Branch
             )}
           </div>
 
-          {/* Create new branch footer */}
+          {/* Create new branch from search */}
           {canCreate && (
             <>
               <div className="mx-3 border-t border-border" />
@@ -279,6 +346,92 @@ export const BranchSelector = memo(function BranchSelector({ workspace }: Branch
               </button>
             </>
           )}
+
+          {/* Actions footer */}
+          <div className="border-t border-border">
+            {inlineMode === 'none' ? (
+              <div className="flex flex-col">
+                <button
+                  type="button"
+                  aria-label="Create new branch"
+                  onClick={() => setInlineMode('branch')}
+                  disabled={checkingOut}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+                >
+                  <IconPlus className="size-3.5" />
+                  <span>New branch</span>
+                </button>
+                <button
+                  type="button"
+                  aria-label="Create new worktree"
+                  onClick={() => setInlineMode('worktree')}
+                  disabled={checkingOut}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+                >
+                  <IconGitFork className="size-3.5" />
+                  <span>New worktree</span>
+                </button>
+              </div>
+            ) : (
+              <div className="p-2.5">
+                <div className="mb-2 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    aria-label="Go back"
+                    onClick={() => { setInlineMode('none'); setInlineValue('') }}
+                    className="flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <IconArrowLeft className="size-3.5" />
+                  </button>
+                  <span className="text-xs font-medium text-foreground">
+                    {inlineMode === 'branch' ? 'Create branch' : 'Create worktree'}
+                  </span>
+                </div>
+                <p className="mb-2 text-[11px] leading-relaxed text-muted-foreground">
+                  {inlineMode === 'branch'
+                    ? 'Enter a name for the new branch. It will be checked out after creation.'
+                    : 'Enter a slug for the worktree. A new branch and working directory will be created.'}
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    ref={inlineInputRef}
+                    type="text"
+                    value={inlineValue}
+                    onChange={(e) => setInlineValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleInlineSubmit()
+                      }
+                      if (e.key === 'Escape') {
+                        e.preventDefault()
+                        setInlineMode('none')
+                        setInlineValue('')
+                      }
+                    }}
+                    placeholder={inlineMode === 'branch' ? 'feat/my-feature' : 'my-feature'}
+                    className="min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-ring focus:ring-1 focus:ring-ring/30"
+                  />
+                  <button
+                    type="button"
+                    aria-label={inlineMode === 'branch' ? 'Create branch' : 'Create worktree'}
+                    onClick={handleInlineSubmit}
+                    disabled={!inlineValue.trim() || checkingOut}
+                    className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {checkingOut ? (
+                      <IconLoader2 className="size-3 animate-spin" />
+                    ) : inlineMode === 'branch' ? (
+                      <IconGitBranch className="size-3" />
+                    ) : (
+                      <IconGitFork className="size-3" />
+                    )}
+                    {checkingOut ? 'Creating...' : 'Create'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -7,6 +7,8 @@ vi.mock('@/lib/ipc', () => ({
     listTasks: vi.fn().mockResolvedValue([]),
     sendMessage: vi.fn().mockResolvedValue(undefined),
     forkTask: vi.fn().mockResolvedValue({ id: 'fork-1', name: 'Fork', workspace: '/ws', status: 'paused', createdAt: '', messages: [] }),
+    gitWorktreeHasChanges: vi.fn().mockResolvedValue(false),
+    gitWorktreeRemove: vi.fn().mockResolvedValue(undefined),
   },
 }))
 vi.mock('@/lib/history-store', () => ({
@@ -868,5 +870,150 @@ describe('clearHistory clears softDeleted', () => {
     })
     await useTaskStore.getState().clearHistory()
     expect(Object.keys(useTaskStore.getState().softDeleted)).toHaveLength(0)
+  })
+})
+
+describe('worktree cleanup in archiveTask', () => {
+  it('calls gitWorktreeHasChanges for worktree tasks', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    useTaskStore.getState().upsertTask(makeTask({
+      status: 'running',
+      worktreePath: '/project/.kiro/worktrees/feat',
+      originalWorkspace: '/project',
+    }))
+    useTaskStore.getState().archiveTask('task-1')
+    // Wait for the async check to fire
+    await vi.waitFor(() => {
+      expect(ipc.gitWorktreeHasChanges).toHaveBeenCalledWith('/project/.kiro/worktrees/feat')
+    })
+  })
+
+  it('auto-removes clean worktree on archive', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    vi.mocked(ipc.gitWorktreeHasChanges).mockResolvedValueOnce(false)
+    useTaskStore.getState().upsertTask(makeTask({
+      status: 'running',
+      worktreePath: '/project/.kiro/worktrees/feat',
+      originalWorkspace: '/project',
+    }))
+    useTaskStore.getState().archiveTask('task-1')
+    await vi.waitFor(() => {
+      expect(ipc.gitWorktreeRemove).toHaveBeenCalledWith('/project', '/project/.kiro/worktrees/feat')
+    })
+  })
+
+  it('sets worktreeCleanupPending when worktree has changes', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    vi.mocked(ipc.gitWorktreeHasChanges).mockResolvedValueOnce(true)
+    useTaskStore.getState().upsertTask(makeTask({
+      status: 'running',
+      worktreePath: '/project/.kiro/worktrees/dirty',
+      originalWorkspace: '/project',
+    }))
+    useTaskStore.getState().archiveTask('task-1')
+    await vi.waitFor(() => {
+      const pending = useTaskStore.getState().worktreeCleanupPending
+      expect(pending).toEqual({
+        taskId: 'task-1',
+        worktreePath: '/project/.kiro/worktrees/dirty',
+        originalWorkspace: '/project',
+        action: 'archive',
+      })
+    })
+  })
+
+  it('does not check worktree for non-worktree tasks', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    vi.mocked(ipc.gitWorktreeHasChanges).mockClear()
+    useTaskStore.getState().upsertTask(makeTask({ status: 'running' }))
+    useTaskStore.getState().archiveTask('task-1')
+    // Give async a chance to fire (it shouldn't)
+    await new Promise((r) => setTimeout(r, 10))
+    expect(ipc.gitWorktreeHasChanges).not.toHaveBeenCalled()
+  })
+})
+
+describe('worktree cleanup in softDeleteTask', () => {
+  it('calls gitWorktreeHasChanges for worktree tasks', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    useTaskStore.getState().upsertTask(makeTask({
+      worktreePath: '/project/.kiro/worktrees/feat',
+      originalWorkspace: '/project',
+    }))
+    useTaskStore.getState().softDeleteTask('task-1')
+    await vi.waitFor(() => {
+      expect(ipc.gitWorktreeHasChanges).toHaveBeenCalledWith('/project/.kiro/worktrees/feat')
+    })
+  })
+
+  it('auto-removes clean worktree on soft delete', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    vi.mocked(ipc.gitWorktreeHasChanges).mockResolvedValueOnce(false)
+    useTaskStore.getState().upsertTask(makeTask({
+      worktreePath: '/project/.kiro/worktrees/feat',
+      originalWorkspace: '/project',
+    }))
+    useTaskStore.getState().softDeleteTask('task-1')
+    await vi.waitFor(() => {
+      expect(ipc.gitWorktreeRemove).toHaveBeenCalledWith('/project', '/project/.kiro/worktrees/feat')
+    })
+  })
+
+  it('sets worktreeCleanupPending with action delete when dirty', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    vi.mocked(ipc.gitWorktreeHasChanges).mockResolvedValueOnce(true)
+    useTaskStore.getState().upsertTask(makeTask({
+      worktreePath: '/project/.kiro/worktrees/dirty',
+      originalWorkspace: '/project',
+    }))
+    useTaskStore.getState().softDeleteTask('task-1')
+    await vi.waitFor(() => {
+      const pending = useTaskStore.getState().worktreeCleanupPending
+      expect(pending).toEqual({
+        taskId: 'task-1',
+        worktreePath: '/project/.kiro/worktrees/dirty',
+        originalWorkspace: '/project',
+        action: 'delete',
+      })
+    })
+  })
+})
+
+describe('resolveWorktreeCleanup', () => {
+  it('removes worktree when resolve(true)', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    useTaskStore.setState({
+      worktreeCleanupPending: {
+        taskId: 'task-1',
+        worktreePath: '/project/.kiro/worktrees/feat',
+        originalWorkspace: '/project',
+        action: 'delete',
+      },
+    })
+    useTaskStore.getState().resolveWorktreeCleanup(true)
+    expect(ipc.gitWorktreeRemove).toHaveBeenCalledWith('/project', '/project/.kiro/worktrees/feat')
+    expect(useTaskStore.getState().worktreeCleanupPending).toBeNull()
+  })
+
+  it('keeps worktree when resolve(false)', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    vi.mocked(ipc.gitWorktreeRemove).mockClear()
+    useTaskStore.setState({
+      worktreeCleanupPending: {
+        taskId: 'task-1',
+        worktreePath: '/project/.kiro/worktrees/feat',
+        originalWorkspace: '/project',
+        action: 'archive',
+      },
+    })
+    useTaskStore.getState().resolveWorktreeCleanup(false)
+    expect(ipc.gitWorktreeRemove).not.toHaveBeenCalled()
+    expect(useTaskStore.getState().worktreeCleanupPending).toBeNull()
+  })
+
+  it('no-ops when no pending cleanup', () => {
+    useTaskStore.setState({ worktreeCleanupPending: null })
+    useTaskStore.getState().resolveWorktreeCleanup(true)
+    expect(useTaskStore.getState().worktreeCleanupPending).toBeNull()
   })
 })

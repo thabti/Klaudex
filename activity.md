@@ -1,5 +1,46 @@
 # Activity Log
 
+## 2026-04-15 15:32 GST (Dubai)
+
+### BranchSelector: Add back button and improve inline create UI
+
+Added a back arrow button to return from the branch/worktree creation form to the action menu. Improved the inline form with a title header, descriptive helper text, better input focus ring styling, and a contextual Create button that shows the relevant icon (branch or fork) and "Creating..." state during submission.
+
+**Modified:** src/renderer/components/chat/BranchSelector.tsx
+
+## 2026-04-15 15:29 GST (Dubai)
+
+### README: Fix screenshot images not rendering
+
+Moved the `<table>` containing screenshots outside the `<p>` tag. Block-level elements inside `<p>` are invalid HTML and GitHub strips them, hiding the images.
+
+**Modified:** README.md
+
+## 2026-04-15 15:27 GST (Dubai)
+
+### BranchSelector: Fix positioning and add new branch/worktree creation
+
+Fixed popup z-index from `z-[200]` to `z-[9999]` and changed `left-0` to `right-0` so the popup aligns to the right edge of the toolbar. Added a persistent footer with "New branch" and "New worktree" action buttons that expand into inline input fields with a Create button. Worktree creation calls `gitWorktreeCreate` IPC. Esc cancels inline mode, second Esc closes the popup.
+
+**Modified:** src/renderer/components/chat/BranchSelector.tsx
+
+## 2026-04-15 15:28 GST (Dubai)
+
+### README: Display screenshots side by side
+
+Replaced the stacked `<p>` image layout with an HTML `<table>` so the two screenshots render side by side on GitHub. Also improved alt text for each image.
+
+**Modified:** README.md
+
+## 2026-04-15 15:26 GST (Dubai)
+
+### PendingChat: Inline click-to-edit slug within worktree description
+
+Moved the worktree slug input out of the checkbox row and into the description line itself. The description "Isolates this thread in .kiro/worktrees/<slug>" now always appears when worktree is checked. The slug portion is a clickable inline element with a pencil icon; clicking it reveals a small input field in-place. Press Enter/Escape or blur to close. Removes the separate input row for a cleaner layout.
+
+**Modified:**
+- `src/renderer/components/chat/PendingChat.tsx` — refactored worktree section to inline click-to-edit slug
+
 ## 2026-04-15 15:11 GST (Dubai)
 
 ### PendingChat: Center worktree toggle, add icon and folder path hint

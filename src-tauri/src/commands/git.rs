@@ -2,6 +2,7 @@ use git2::{BranchType, Cred, DiffOptions, RemoteCallbacks, Repository};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::Path;
+use std::process::Command;
 
 use super::acp::AcpState;
 use super::error::AppError;
@@ -455,6 +456,190 @@ pub fn git_diff_file(
     Ok(output)
 }
 
+// ── Worktree support ─────────────────────────────────────────────
+
+/// Allowed slug characters: alphanumeric, dashes, underscores, dots.
+/// No `..`, max 64 chars.
+fn validate_worktree_slug(slug: &str) -> Result<(), AppError> {
+    if slug.is_empty() || slug.len() > 64 {
+        return Err(AppError::Other("Slug must be 1–64 characters".to_string()));
+    }
+    if slug.contains("..") {
+        return Err(AppError::Other("Slug must not contain '..'".to_string()));
+    }
+    if !slug.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.') {
+        return Err(AppError::Other(
+            "Slug may only contain alphanumeric characters, dashes, underscores, and dots".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeResult {
+    pub worktree_path: String,
+    pub branch: String,
+}
+
+#[tauri::command]
+pub fn git_worktree_create(cwd: String, slug: String) -> Result<WorktreeResult, AppError> {
+    validate_worktree_slug(&slug)?;
+    let cwd_path = Path::new(&cwd);
+    let worktree_dir = cwd_path.join(".kiro").join("worktrees").join(&slug);
+    let worktree_path = worktree_dir.to_string_lossy().to_string();
+    let branch = format!("worktree-{slug}");
+    let output = Command::new("git")
+        .args(["worktree", "add", "-B", &branch, &worktree_path, "HEAD"])
+        .current_dir(&cwd)
+        .output()?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::Other(format!("git worktree add failed: {stderr}")));
+    }
+    Ok(WorktreeResult { worktree_path, branch })
+}
+
+#[tauri::command]
+pub fn git_worktree_remove(cwd: String, worktree_path: String) -> Result<(), AppError> {
+    let output = Command::new("git")
+        .args(["worktree", "remove", "--force", &worktree_path])
+        .current_dir(&cwd)
+        .output()?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::Other(format!("git worktree remove failed: {stderr}")));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn git_worktree_has_changes(worktree_path: String) -> Result<bool, AppError> {
+    let repo = Repository::open(&worktree_path)?;
+    let head_tree = repo.head().ok().and_then(|h| h.peel_to_tree().ok());
+    // Check staged changes
+    if let Ok(staged) = repo.diff_tree_to_index(head_tree.as_ref(), None, None) {
+        if let Ok(stats) = staged.stats() {
+            if stats.files_changed() > 0 {
+                return Ok(true);
+            }
+        }
+    }
+    // Check unstaged changes
+    if let Ok(unstaged) = repo.diff_index_to_workdir(None, None) {
+        if let Ok(stats) = unstaged.stats() {
+            if stats.files_changed() > 0 {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeSetupResult {
+    pub symlink_count: u32,
+    pub copied_files: Vec<String>,
+}
+
+#[tauri::command]
+pub fn git_worktree_setup(
+    cwd: String,
+    worktree_path: String,
+    symlink_dirs: Vec<String>,
+) -> Result<WorktreeSetupResult, AppError> {
+    let cwd_path = Path::new(&cwd).canonicalize()?;
+    let wt_path = Path::new(&worktree_path);
+    let mut symlink_count: u32 = 0;
+    let mut copied_files: Vec<String> = Vec::new();
+    // Symlink directories
+    for dir in &symlink_dirs {
+        // Reject path traversal
+        if dir.contains("..") || dir.starts_with('/') {
+            continue;
+        }
+        let source = cwd_path.join(dir);
+        let target = wt_path.join(dir);
+        if !source.exists() {
+            continue;
+        }
+        // Create parent dirs in worktree
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&source, &target)?;
+        #[cfg(windows)]
+        {
+            if source.is_dir() {
+                std::os::windows::fs::symlink_dir(&source, &target)?;
+            } else {
+                std::os::windows::fs::symlink_file(&source, &target)?;
+            }
+        }
+        symlink_count += 1;
+    }
+    // Read .worktreeinclude and copy matching gitignored files
+    let include_file = cwd_path.join(".worktreeinclude");
+    if include_file.exists() {
+        let content = std::fs::read_to_string(&include_file)?;
+        let patterns: Vec<&str> = content.lines()
+            .map(|l| l.trim())
+            .filter(|l| !l.is_empty() && !l.starts_with('#'))
+            .collect();
+        if !patterns.is_empty() {
+            // Use git ls-files to find ignored files
+            let output = Command::new("git")
+                .args(["ls-files", "--others", "--ignored", "--exclude-standard"])
+                .current_dir(&cwd_path)
+                .output()?;
+            if output.status.success() {
+                let files = String::from_utf8_lossy(&output.stdout);
+                for file in files.lines() {
+                    let matches = patterns.iter().any(|pat| {
+                        // Simple glob: exact match or fnmatch-style
+                        file == *pat || file.starts_with(pat.trim_end_matches('*'))
+                            || Path::new(file).file_name()
+                                .map(|n| n.to_string_lossy() == *pat)
+                                .unwrap_or(false)
+                    });
+                    if !matches { continue; }
+                    // Reject path traversal in file paths
+                    if file.contains("..") { continue; }
+                    let src = cwd_path.join(file);
+                    let dst = wt_path.join(file);
+                    if !src.exists() { continue; }
+                    if let Some(parent) = dst.parent() {
+                        std::fs::create_dir_all(parent)?;
+                    }
+                    std::fs::copy(&src, &dst)?;
+                    copied_files.push(file.to_string());
+                }
+            }
+        }
+    }
+    // Ensure .kiro/worktrees/ is in .gitignore
+    ensure_gitignore_entry(&cwd_path, ".kiro/worktrees/")?;
+    Ok(WorktreeSetupResult { symlink_count, copied_files })
+}
+
+/// Append an entry to .gitignore if not already present.
+fn ensure_gitignore_entry(cwd: &Path, entry: &str) -> Result<(), AppError> {
+    let gitignore = cwd.join(".gitignore");
+    if gitignore.exists() {
+        let content = std::fs::read_to_string(&gitignore)?;
+        if content.lines().any(|l| l.trim() == entry) {
+            return Ok(());
+        }
+        let separator = if content.ends_with('\n') { "" } else { "\n" };
+        std::fs::write(&gitignore, format!("{content}{separator}{entry}\n"))?;
+    } else {
+        std::fs::write(&gitignore, format!("{entry}\n"))?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -507,5 +692,94 @@ mod tests {
     #[test]
     fn git_detect_true_for_real_repo() {
         assert!(git_detect(env!("CARGO_MANIFEST_DIR").to_string()));
+    }
+
+    #[test]
+    fn validate_slug_accepts_valid() {
+        assert!(validate_worktree_slug("my-feature").is_ok());
+        assert!(validate_worktree_slug("fix_123").is_ok());
+        assert!(validate_worktree_slug("v1.0.0").is_ok());
+        assert!(validate_worktree_slug("a").is_ok());
+    }
+
+    #[test]
+    fn validate_slug_rejects_empty() {
+        assert!(validate_worktree_slug("").is_err());
+    }
+
+    #[test]
+    fn validate_slug_rejects_too_long() {
+        let long = "a".repeat(65);
+        assert!(validate_worktree_slug(&long).is_err());
+    }
+
+    #[test]
+    fn validate_slug_rejects_dot_dot() {
+        assert!(validate_worktree_slug("foo..bar").is_err());
+    }
+
+    #[test]
+    fn validate_slug_rejects_special_chars() {
+        assert!(validate_worktree_slug("foo/bar").is_err());
+        assert!(validate_worktree_slug("foo bar").is_err());
+        assert!(validate_worktree_slug("foo@bar").is_err());
+    }
+
+    #[test]
+    fn worktree_result_serializes_camel_case() {
+        let r = WorktreeResult {
+            worktree_path: "/tmp/wt".to_string(),
+            branch: "worktree-feat".to_string(),
+        };
+        let json = serde_json::to_string(&r).unwrap();
+        assert!(json.contains("\"worktreePath\":\"/tmp/wt\""));
+        assert!(json.contains("\"branch\":\"worktree-feat\""));
+    }
+
+    #[test]
+    fn worktree_setup_result_serializes_camel_case() {
+        let r = WorktreeSetupResult {
+            symlink_count: 2,
+            copied_files: vec![".env".to_string()],
+        };
+        let json = serde_json::to_string(&r).unwrap();
+        assert!(json.contains("\"symlinkCount\":2"));
+        assert!(json.contains("\"copiedFiles\""));
+    }
+
+    #[test]
+    fn ensure_gitignore_creates_file_if_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        ensure_gitignore_entry(dir.path(), ".kiro/worktrees/").unwrap();
+        let content = std::fs::read_to_string(dir.path().join(".gitignore")).unwrap();
+        assert_eq!(content, ".kiro/worktrees/\n");
+    }
+
+    #[test]
+    fn ensure_gitignore_appends_if_not_present() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(".gitignore"), "node_modules/\n").unwrap();
+        ensure_gitignore_entry(dir.path(), ".kiro/worktrees/").unwrap();
+        let content = std::fs::read_to_string(dir.path().join(".gitignore")).unwrap();
+        assert!(content.contains("node_modules/"));
+        assert!(content.contains(".kiro/worktrees/"));
+    }
+
+    #[test]
+    fn ensure_gitignore_skips_if_already_present() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(".gitignore"), ".kiro/worktrees/\n").unwrap();
+        ensure_gitignore_entry(dir.path(), ".kiro/worktrees/").unwrap();
+        let content = std::fs::read_to_string(dir.path().join(".gitignore")).unwrap();
+        assert_eq!(content.matches(".kiro/worktrees/").count(), 1);
+    }
+
+    #[test]
+    fn ensure_gitignore_handles_no_trailing_newline() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(".gitignore"), "node_modules/").unwrap();
+        ensure_gitignore_entry(dir.path(), ".kiro/worktrees/").unwrap();
+        let content = std::fs::read_to_string(dir.path().join(".gitignore")).unwrap();
+        assert_eq!(content, "node_modules/\n.kiro/worktrees/\n");
     }
 }

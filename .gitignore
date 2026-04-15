@@ -11,3 +11,4 @@ coverage
 *.csr
 *.cer
 .claude/
+.kiro/worktrees/

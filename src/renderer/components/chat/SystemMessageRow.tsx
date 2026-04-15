@@ -13,11 +13,11 @@ export const SystemMessageRow = memo(function SystemMessageRow({ row }: { row: S
     })
     return (
       <div className="pb-4" data-timeline-row-kind="system-message">
-        <div className="mx-auto flex max-w-md items-center justify-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/8 px-4 py-2 text-[13px] text-emerald-600 dark:text-emerald-400">
-          <IconGitFork className="size-4 shrink-0" aria-hidden />
+        <div className="mx-auto flex items-center justify-center gap-1.5 text-[12px] text-muted-foreground/60">
+          <IconGitFork className="size-3.5 shrink-0" aria-hidden />
           <span>Forked from {parentTaskId
             ? <ParentLink parentTaskId={parentTaskId} parentName={parentName} />
-            : <span className="font-medium text-emerald-600 dark:text-emerald-300">{parentName}</span>
+            : <span className="text-muted-foreground/80">{parentName}</span>
           }</span>
         </div>
       </div>
@@ -57,7 +57,7 @@ const ParentLink = memo(function ParentLink({ parentTaskId, parentName }: { pare
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       aria-label={`Go to parent thread: ${parentName}`}
-      className="font-medium text-emerald-600 dark:text-emerald-300 underline decoration-emerald-600/40 dark:decoration-emerald-300/40 underline-offset-2 transition-colors hover:text-emerald-700 dark:hover:text-emerald-200 hover:decoration-emerald-700/60 dark:hover:decoration-emerald-200/60 cursor-pointer"
+      className="text-muted-foreground/80 underline decoration-muted-foreground/30 underline-offset-2 transition-colors hover:text-muted-foreground hover:decoration-muted-foreground/50 cursor-pointer"
     >
       {parentName}
     </button>

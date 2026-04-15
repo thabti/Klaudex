@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useEffect, useCallback } from 'react'
-import { IconPencil, IconTrash, IconArchive, IconGitFork } from '@tabler/icons-react'
+import { IconPencil, IconTrash, IconArchive, IconGitFork, IconGitBranch } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { SidebarTask } from '@/hooks/useSidebarTasks'
@@ -113,6 +113,9 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
         ) : null}
         {task.isArchived && (
           <IconArchive className="size-3 shrink-0 text-muted-foreground/70" aria-label="View-only thread" />
+        )}
+        {task.worktreePath && !task.isArchived && (
+          <IconGitBranch className="size-3 shrink-0 text-violet-500 dark:text-violet-400" aria-label="Worktree thread" />
         )}
         {editing ? (
           <input

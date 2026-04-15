@@ -346,7 +346,7 @@ export const SettingsPanel = () => {
   const settingsInitialSection = useTaskStore((s) => s.settingsInitialSection)
   const {
     settings, saveSettings, availableModels, currentModelId,
-    modelsLoading, modelsError, fetchModels,
+    modelsLoading, modelsError, fetchModels, activeWorkspace,
     kiroAuth, kiroAuthChecked, checkAuth, logout, openLogin,
   } = useSettingsStore()
 
@@ -660,6 +660,26 @@ export const SettingsPanel = () => {
                           checked={draft.respectGitignore ?? true}
                           onCheckedChange={(checked) => updateDraft({ respectGitignore: checked })}
                           aria-label="Toggle respect gitignore"
+                        />
+                      </SettingRow>
+                    </SettingsCard>
+                  </div>
+
+                  {/* Worktrees */}
+                  <div>
+                    <SectionLabel title="Worktrees" />
+                    <SettingsCard>
+                      <SettingRow label="Use worktrees for new threads" description="Isolate each thread in its own git worktree under .kiro/worktrees/">
+                        <Switch
+                          checked={draft.projectPrefs?.[activeWorkspace ?? '']?.worktreeEnabled ?? false}
+                          onCheckedChange={(checked) => {
+                            if (!activeWorkspace) return
+                            const prefs = draft.projectPrefs ?? {}
+                            const existing = prefs[activeWorkspace] ?? {}
+                            updateDraft({ projectPrefs: { ...prefs, [activeWorkspace]: { ...existing, worktreeEnabled: checked } } })
+                          }}
+                          disabled={!activeWorkspace}
+                          aria-label="Toggle worktrees for new threads"
                         />
                       </SettingRow>
                     </SettingsCard>

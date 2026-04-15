@@ -25,6 +25,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 interface ChatMarkdownProps {
   text: string;
   isStreaming?: boolean;
+  questionsAnswered?: boolean;
 }
 
 function nodeToPlainText(node: ReactNode): string {
@@ -133,13 +134,13 @@ function wrapChildrenWithHighlight(children: ReactNode): ReactNode {
   });
 }
 
-function ChatMarkdown({ text, isStreaming = false }: ChatMarkdownProps) {
+function ChatMarkdown({ text, isStreaming = false, questionsAnswered = false }: ChatMarkdownProps) {
   const displayText = isStreaming ? stabilizeStreamingMarkdown(text) : text;
   const searchQuery = useContext(SearchQueryContext);
   const chatFontSize = useSettingsStore((s) => s.settings.fontSize ?? 14);
   const showQuestions = useMemo(
-    () => !isStreaming && hasQuestionBlocks(displayText),
-    [isStreaming, displayText],
+    () => !isStreaming && !questionsAnswered && hasQuestionBlocks(displayText),
+    [isStreaming, questionsAnswered, displayText],
   );
   const markdownText = useMemo(
     () => (showQuestions ? stripQuestionBlocks(displayText) : displayText),

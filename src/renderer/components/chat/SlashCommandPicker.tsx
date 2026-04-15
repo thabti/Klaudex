@@ -9,6 +9,7 @@ const displayName = (name: string): string => name.replace(/^\/+/, '')
 // ── Kiro-accurate descriptions (fallback when ACP description is generic) ──
 const COMMAND_DESCRIPTIONS: Record<string, string> = {
   agent: 'Switch between agents or list available ones',
+  branch: 'Create and checkout a new branch',
   chat: 'Pass through to backend chat command',
   clear: 'Clear the current conversation',
   code: 'Initialize or manage code intelligence workspace',
@@ -23,6 +24,7 @@ const COMMAND_DESCRIPTIONS: Record<string, string> = {
   settings: 'Open application settings',
   tools: 'View or configure available tools',
   usage: 'Show token and cost usage for this session',
+  worktree: 'Create a worktree and new thread for isolated work',
 }
 
 // ── Per-command SVG icons ───────────────────────────────────────────
@@ -36,6 +38,11 @@ const COMMAND_ICONS: Record<string, () => React.ReactNode> = {
   agent: () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="12" cy="8" r="4" /><path d="M20 21a8 8 0 0 0-16 0" />
+    </svg>
+  ),
+  branch: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <line x1="6" y1="3" x2="6" y2="15" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M18 9a9 9 0 0 1-9 9" />
     </svg>
   ),
   chat: icon('M7.9 20A9 9 0 1 0 4 16.1L2 22z'),
@@ -98,6 +105,11 @@ const COMMAND_ICONS: Record<string, () => React.ReactNode> = {
   usage: () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M3 3v18h18" /><path d="M18 9l-5 5-4-4-3 3" />
+    </svg>
+  ),
+  worktree: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="6" cy="6" r="3" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><line x1="6" y1="9" x2="6" y2="15" /><path d="M9 6h6" /><path d="M6 9c0 3 2 6 6 9" />
     </svg>
   ),
 }

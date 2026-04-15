@@ -22,6 +22,10 @@ pub struct ProjectPrefs {
     pub model_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_approve: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub worktree_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub symlink_directories: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -164,6 +168,8 @@ mod tests {
             ProjectPrefs {
                 model_id: Some("claude-4".to_string()),
                 auto_approve: Some(true),
+                worktree_enabled: Some(true),
+                symlink_directories: Some(vec!["node_modules".to_string(), ".next".to_string()]),
             },
         );
         let settings = AppSettings {
@@ -186,6 +192,8 @@ mod tests {
         assert!(!restored.co_author);
         let pp = restored.project_prefs.unwrap();
         assert_eq!(pp["proj"].model_id.as_deref(), Some("claude-4"));
+        assert_eq!(pp["proj"].worktree_enabled, Some(true));
+        assert_eq!(pp["proj"].symlink_directories.as_deref(), Some(vec!["node_modules".to_string(), ".next".to_string()]).as_deref());
     }
 
     #[test]

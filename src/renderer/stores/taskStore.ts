@@ -194,18 +194,21 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const messages = prev && prev.messages.length > task.messages.length
         ? prev.messages
         : task.messages
+      // Preserve client-side name: backend task_update events carry the stale
+      // creation-time name and are unaware of user renames via renameTask().
+      const name = prev ? prev.name : task.name
       // Bail out if nothing meaningful changed
       if (prev
         && prev.status === task.status
         && prev.messages === messages
-        && prev.name === task.name
+        && prev.name === name
         && prev.pendingPermission === task.pendingPermission
         && prev.plan === task.plan
         && prev.contextUsage === task.contextUsage
       ) {
         return state
       }
-      const merged = { ...task, messages, ...(prev?.parentTaskId && !task.parentTaskId ? { parentTaskId: prev.parentTaskId } : {}) }
+      const merged = { ...task, messages, name, ...(prev?.parentTaskId && !task.parentTaskId ? { parentTaskId: prev.parentTaskId } : {}) }
       const statusChanged = !prev || prev.status !== task.status
       if (statusChanged && (task.status === 'completed' || task.status === 'error' || task.status === 'cancelled')) {
         track('task_completed', { status: task.status })
@@ -673,12 +676,16 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         for (const sp of savedProjects) {
           if (sp.displayName) projectNames[sp.workspace] = sp.displayName
         }
-        // Restore soft-deleted threads
+        // Restore soft-deleted threads and rebuild deletedTaskIds guard
         const softDeleted: Record<string, import('@/types').SoftDeletedThread> = {}
+        const deletedTaskIds = new Set<string>()
         for (const sd of savedSoftDeleted) {
           softDeleted[sd.task.id] = sd
+          deletedTaskIds.add(sd.task.id)
+          // Remove from tasks map so deleted threads don't appear in sidebar
+          delete tasks[sd.task.id]
         }
-        set({ tasks, projects, projectNames, softDeleted, connected: true })
+        set({ tasks, projects, projectNames, softDeleted, deletedTaskIds, connected: true })
       } catch {
         // History load failed — still usable without it
         set({ tasks, projects, connected: true })
@@ -699,10 +706,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           if (sp.displayName) projectNames[sp.workspace] = sp.displayName
         }
         const softDeleted: Record<string, import('@/types').SoftDeletedThread> = {}
+        const deletedTaskIds = new Set<string>()
         for (const sd of savedSoftDeleted) {
           softDeleted[sd.task.id] = sd
+          deletedTaskIds.add(sd.task.id)
         }
-        set({ tasks, projects, projectNames, softDeleted, connected: false })
+        set({ tasks, projects, projectNames, softDeleted, deletedTaskIds, connected: false })
       } catch {
         set({ connected: false })
       }

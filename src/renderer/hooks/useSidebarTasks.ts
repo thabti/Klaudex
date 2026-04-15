@@ -11,6 +11,7 @@ export interface SidebarTask {
   readonly status: string
   readonly isArchived?: boolean
   readonly isDraft?: boolean
+  readonly worktreePath?: string
 }
 
 export type SortKey = 'recent' | 'oldest' | 'name-asc' | 'name-desc'
@@ -53,11 +54,11 @@ export function useSidebarTasks(sort: SortKey): readonly SidebarProject[] {
       const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1].timestamp : ''
       const lastActivityAt = lastMsg || t.createdAt
       const p = prev.get(t.id)
-      if (p && p.name === t.name && p.status === t.status && p.createdAt === t.createdAt && p.workspace === t.workspace && p.isArchived === t.isArchived && p.lastActivityAt === lastActivityAt && !p.isDraft) {
+      if (p && p.name === t.name && p.status === t.status && p.createdAt === t.createdAt && p.workspace === t.workspace && p.isArchived === t.isArchived && p.worktreePath === t.worktreePath && p.lastActivityAt === lastActivityAt && !p.isDraft) {
         next.set(t.id, p)
       } else {
         changed = true
-        next.set(t.id, { id: t.id, name: t.name, workspace: t.workspace, createdAt: t.createdAt, lastActivityAt, status: t.status, isArchived: t.isArchived })
+        next.set(t.id, { id: t.id, name: t.name, workspace: t.workspace, createdAt: t.createdAt, lastActivityAt, status: t.status, isArchived: t.isArchived, worktreePath: t.worktreePath })
       }
     }
     if (!changed) return prev

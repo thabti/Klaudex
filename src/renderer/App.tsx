@@ -32,6 +32,7 @@ import { useKiroStore, initKiroListeners } from "@/stores/kiroStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useUpdateChecker } from "@/hooks/useUpdateChecker";
 import { RestartPromptDialog } from "@/components/sidebar/RestartPromptDialog";
+import { WorktreeCleanupDialog } from "@/components/sidebar/WorktreeCleanupDialog";
 import { getVersion } from "@tauri-apps/api/app";
 import {
   initAnalytics,
@@ -407,6 +408,7 @@ export function App() {
       />
       <UpdateNotifier />
       <RestartPromptDialog />
+      <WorktreeCleanupDialog />
     </TooltipProvider>
   );
 }

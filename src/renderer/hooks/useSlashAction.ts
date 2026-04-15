@@ -4,7 +4,7 @@ import { useTaskStore } from '@/stores/taskStore'
 import { ipc } from '@/lib/ipc'
 import { track } from '@/lib/analytics'
 
-export type SlashPanel = 'model' | 'agent' | 'usage' | null
+export type SlashPanel = 'model' | 'agent' | 'usage' | 'branch' | 'worktree' | null
 
 export interface SlashActionResult {
   panel: SlashPanel
@@ -49,7 +49,7 @@ export const useSlashAction = (): SlashActionResult => {
     // Track every recognized slash command. The switch below rejects unknown
     // names by returning false, so we gate the track call on that path via
     // the `default` case.
-    const KNOWN = new Set(['clear', 'model', 'agent', 'settings', 'upload', 'plan', 'usage', 'close', 'exit', 'fork'])
+    const KNOWN = new Set(['clear', 'model', 'agent', 'settings', 'upload', 'plan', 'usage', 'close', 'exit', 'fork', 'branch', 'worktree'])
     if (KNOWN.has(name)) {
       track('feature_used', { feature: 'slash_command', detail: name })
     }
@@ -115,6 +115,12 @@ export const useSlashAction = (): SlashActionResult => {
         setPanel(null)
         return true
       }
+      case 'branch':
+        setPanel((p) => (p === 'branch' ? null : 'branch'))
+        return true
+      case 'worktree':
+        setPanel((p) => (p === 'worktree' ? null : 'worktree'))
+        return true
       default:
         setPanel(null)
         return false
