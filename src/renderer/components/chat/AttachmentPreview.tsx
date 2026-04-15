@@ -82,7 +82,7 @@ const PreviewPopover = memo(function PreviewPopover({
     >
       {/* Preview content */}
       {isImage && (
-        <div className="bg-black/20 p-2">
+        <div className="bg-muted p-2">
           <img
             src={attachment.preview}
             alt={attachment.name}
@@ -91,7 +91,7 @@ const PreviewPopover = memo(function PreviewPopover({
         </div>
       )}
       {hasText && (
-        <div className="max-h-40 overflow-auto bg-black/10 p-3">
+        <div className="max-h-40 overflow-auto bg-muted/60 p-3">
           <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-foreground/85">
             {attachment.textContent!.slice(0, 2000)}
             {attachment.textContent!.length > 2000 && (
@@ -174,12 +174,12 @@ const AttachmentPill = memo(function AttachmentPill({
           <Icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
         )}
         <span className="max-w-[140px] truncate">{attachment.name}</span>
-        <span className="text-[11px] text-muted-foreground/70">{formatSize(attachment.size)}</span>
+        <span className="text-[11px] text-muted-foreground">{formatSize(attachment.size)}</span>
         <button
           type="button"
           onClick={handleRemove}
           aria-label={`Remove ${attachment.name}`}
-          className="ml-0.5 flex size-4 items-center justify-center rounded text-foreground/20 hover:text-foreground/50"
+          className="ml-0.5 flex size-4 items-center justify-center rounded text-foreground/70 hover:text-foreground/70"
         >
           <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M1 1l6 6M7 1l-6 6" /></svg>
         </button>

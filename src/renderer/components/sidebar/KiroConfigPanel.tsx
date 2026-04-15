@@ -59,28 +59,28 @@ type StackMeta = { icon: ElementType; color: string }
 
 const STACK_META: Record<string, StackMeta> = {
   nextjs:             { icon: IconBrandNextjs,     color: 'text-foreground/85' },
-  laravel:            { icon: IconBrandLaravel,    color: 'text-red-400' },
-  magento:            { icon: IconBoxMultiple,     color: 'text-orange-400' },
-  strapi:             { icon: IconDatabase,        color: 'text-indigo-400' },
-  'expo-react-native':{ icon: IconBrandReactNative,color: 'text-cyan-400' },
-  express:            { icon: IconStack2,          color: 'text-green-400' },
-  nodejs:             { icon: IconBrandNodejs,     color: 'text-emerald-400' },
-  devops:             { icon: IconBrandDocker,     color: 'text-sky-400' },
-  python:             { icon: IconBrandPython,     color: 'text-yellow-400' },
+  laravel:            { icon: IconBrandLaravel,    color: 'text-red-600 dark:text-red-400' },
+  magento:            { icon: IconBoxMultiple,     color: 'text-orange-600 dark:text-orange-400' },
+  strapi:             { icon: IconDatabase,        color: 'text-indigo-600 dark:text-indigo-400' },
+  'expo-react-native':{ icon: IconBrandReactNative,color: 'text-cyan-600 dark:text-cyan-400' },
+  express:            { icon: IconStack2,          color: 'text-green-600 dark:text-green-400' },
+  nodejs:             { icon: IconBrandNodejs,     color: 'text-emerald-600 dark:text-emerald-400' },
+  devops:             { icon: IconBrandDocker,     color: 'text-sky-600 dark:text-sky-400' },
+  python:             { icon: IconBrandPython,     color: 'text-yellow-600 dark:text-yellow-400' },
   swiftui:            { icon: IconBrandSwift,      color: 'text-orange-300' },
-  mumzworld:          { icon: IconWorld,           color: 'text-pink-400' },
-  custom:             { icon: IconRobot,           color: 'text-violet-400' },
+  mumzworld:          { icon: IconWorld,           color: 'text-pink-600 dark:text-pink-400' },
+  custom:             { icon: IconRobot,           color: 'text-violet-600 dark:text-violet-400' },
 }
 
 // Role-level icons for individual agents
 function getRoleIcon(name: string): { icon: ElementType; color: string } {
   const n = name.toLowerCase()
-  if (n.includes('orchestrator'))  return { icon: IconGitBranch,  color: 'text-blue-400' }
-  if (n.includes('workflow'))      return { icon: IconGitBranch,  color: 'text-blue-400' }
-  if (n.includes('automation'))    return { icon: IconFlask,      color: 'text-amber-400' }
-  if (n.includes('code-review'))   return { icon: IconShield,     color: 'text-rose-400' }
-  if (n.includes('documentation')) return { icon: IconBook,       color: 'text-blue-400' }
-  if (n.includes('senior'))        return { icon: IconPalette,    color: 'text-teal-400' }
+  if (n.includes('orchestrator'))  return { icon: IconGitBranch,  color: 'text-blue-600 dark:text-blue-400' }
+  if (n.includes('workflow'))      return { icon: IconGitBranch,  color: 'text-blue-600 dark:text-blue-400' }
+  if (n.includes('automation'))    return { icon: IconFlask,      color: 'text-amber-600 dark:text-amber-400' }
+  if (n.includes('code-review'))   return { icon: IconShield,     color: 'text-rose-600 dark:text-rose-400' }
+  if (n.includes('documentation')) return { icon: IconBook,       color: 'text-blue-600 dark:text-blue-400' }
+  if (n.includes('senior'))        return { icon: IconPalette,    color: 'text-teal-600 dark:text-teal-400' }
   if (n.includes('expert'))        return { icon: IconRocket,     color: 'text-amber-600 dark:text-amber-300' }
   return { icon: IconRobot, color: 'text-muted-foreground/70' }
 }
@@ -106,19 +106,19 @@ function SectionToggle({ icon: Icon, iconColor, label, count, errorCount, expand
       {errorCount && errorCount > 0 ? (
         <span className="flex items-center gap-1">
           <IconCircle className="size-1.5 shrink-0 fill-red-500 text-red-500" aria-hidden />
-          <span className="text-[11px] tabular-nums text-red-400/70">{errorCount}</span>
-          <span className="text-[11px] text-muted-foreground/60">/</span>
-          <span className="text-[11px] tabular-nums text-muted-foreground/70">{count}</span>
+          <span className="text-[11px] tabular-nums text-red-600/70 dark:text-red-400/70">{errorCount}</span>
+          <span className="text-[11px] text-muted-foreground">/</span>
+          <span className="text-[11px] tabular-nums text-muted-foreground">{count}</span>
         </span>
       ) : (
-        <span className="text-[11px] tabular-nums text-muted-foreground/70">{count}</span>
+        <span className="text-[11px] tabular-nums text-muted-foreground">{count}</span>
       )}
     </button>
   )
 }
 
 function SourceDot({ source }: { source: 'global' | 'local' }) {
-  return source === 'local' ? <IconFolderCode className="size-2.5 shrink-0 text-primary/50" aria-hidden /> : null
+  return source === 'local' ? <IconFolderCode className="size-2.5 shrink-0 text-primary" aria-hidden /> : null
 }
 
 // ── Agent stack group ─────────────────────────────────────────────
@@ -140,7 +140,7 @@ const AgentStackGroup = memo(function AgentStackGroup({ stack, agents, onOpen }:
         <IconChevronRight className={cn('size-2.5 shrink-0 text-muted-foreground/70 transition-transform duration-150', open && 'rotate-90')} aria-hidden />
         <StackIcon className={cn('size-3.5 shrink-0', meta.color)} aria-hidden />
         <span className="flex-1 truncate font-medium text-left">{getStackLabel(stack)}</span>
-        <span className="text-[10px] tabular-nums text-muted-foreground/70">{agents.length}</span>
+        <span className="text-[10px] tabular-nums text-muted-foreground">{agents.length}</span>
       </button>
       {open && (
         <ul className="flex flex-col gap-px py-px pl-3">
@@ -176,7 +176,7 @@ const AgentRow = memo(function AgentRow({ agent, onOpen }: { agent: KiroAgent; o
       <TooltipContent side="right" className="max-w-[240px]">
         <p className="text-[11px] font-medium">{formatName(agent.name)}</p>
         {agent.description && <p className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed">{agent.description.slice(0, 160)}</p>}
-        <p className="mt-1 text-[9px] text-muted-foreground/70 font-mono">{(agent.filePath ?? '').replace(/^\/Users\/[^/]+/, '~')}</p>
+        <p className="mt-1 text-[9px] text-muted-foreground font-mono">{(agent.filePath ?? '').replace(/^\/Users\/[^/]+/, '~')}</p>
       </TooltipContent>
     </Tooltip>
   )
@@ -196,7 +196,7 @@ const SkillRow = memo(function SkillRow({ skill, onOpen }: { skill: KiroSkill; o
         'text-muted-foreground/80 hover:bg-accent/50 hover:text-foreground transition-colors',
       )}
     >
-      <IconBolt className="size-3 shrink-0 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]" aria-hidden />
+      <IconBolt className="size-3 shrink-0 text-amber-600 dark:text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]" aria-hidden />
       <span className="min-w-0 flex-1 truncate">{formatName(skill.name)}</span>
       <SourceDot source={skill.source} />
     </li>
@@ -220,17 +220,17 @@ const SteeringRow = memo(function SteeringRow({ rule, onOpen }: { rule: KiroStee
           )}
         >
           {rule.alwaysApply
-            ? <IconCircleDot className="size-3 shrink-0 text-emerald-400 drop-shadow-[0_0_4px_rgba(52,211,153,0.5)]" aria-hidden />
-            : <IconCircleDashed className="size-3 shrink-0 text-muted-foreground/60" aria-hidden />}
+            ? <IconCircleDot className="size-3 shrink-0 text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_4px_rgba(52,211,153,0.5)]" aria-hidden />
+            : <IconCircleDashed className="size-3 shrink-0 text-muted-foreground" aria-hidden />}
           <span className="min-w-0 flex-1 truncate">{formatName(rule.name)}</span>
-          {rule.alwaysApply && <span className="shrink-0 text-[9px] text-emerald-400/60">on</span>}
+          {rule.alwaysApply && <span className="shrink-0 text-[9px] text-emerald-600/60 dark:text-emerald-400/60">on</span>}
           <SourceDot source={rule.source} />
         </li>
       </TooltipTrigger>
       <TooltipContent side="right" className="max-w-[220px]">
         <p className="text-[11px] font-medium">{formatName(rule.name)}</p>
         {rule.excerpt && <p className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed">{rule.excerpt}</p>}
-        <p className="mt-1 text-[9px] text-muted-foreground/70 font-mono">{(rule.filePath ?? '').replace(/^\/Users\/[^/]+/, '~')}</p>
+        <p className="mt-1 text-[9px] text-muted-foreground font-mono">{(rule.filePath ?? '').replace(/^\/Users\/[^/]+/, '~')}</p>
       </TooltipContent>
     </Tooltip>
   )
@@ -240,10 +240,10 @@ const SteeringRow = memo(function SteeringRow({ rule, onOpen }: { rule: KiroStee
 
 const McpRow = memo(function McpRow({ server, onOpen }: { server: KiroMcpServer; onOpen: (v: ViewerState) => void }) {
   const dotClass = !server.enabled
-    ? 'fill-muted-foreground/20 text-muted-foreground/20'
+    ? 'fill-muted-foreground text-muted-foreground'
     : server.status === 'error' || server.status === 'needs-auth'
       ? 'fill-red-500 text-red-500'
-      : 'fill-emerald-400 text-emerald-400'
+      : 'fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400'
 
   return (
     <Tooltip>
@@ -260,7 +260,7 @@ const McpRow = memo(function McpRow({ server, onOpen }: { server: KiroMcpServer;
         >
           <IconCircle className={cn('size-2 shrink-0', dotClass)} aria-hidden />
           <span className="min-w-0 flex-1 truncate">{server.name}</span>
-          <span className="shrink-0 text-[9px] text-muted-foreground/70">
+          <span className="shrink-0 text-[9px] text-muted-foreground">
             {server.transport}
           </span>
         </li>
@@ -268,12 +268,12 @@ const McpRow = memo(function McpRow({ server, onOpen }: { server: KiroMcpServer;
       <TooltipContent side="right" className="max-w-[220px]">
         <p className="text-[11px] font-medium">{server.name}</p>
         {(server.status === 'error' || server.status === 'needs-auth') && (
-          <p className="mt-0.5 text-[10px] text-red-400">
+          <p className="mt-0.5 text-[10px] text-red-600 dark:text-red-400">
             {server.status === 'needs-auth' ? 'Auth required' : 'Failed to connect'}
           </p>
         )}
         {server.error && (
-          <p className="mt-0.5 text-[9px] text-muted-foreground/70 font-mono truncate">{server.error}</p>
+          <p className="mt-0.5 text-[9px] text-muted-foreground font-mono truncate">{server.error}</p>
         )}
       </TooltipContent>
     </Tooltip>
@@ -291,7 +291,7 @@ function InlineSearch({ value, onChange, onClose }: { value: string; onChange: (
       <input ref={ref} type="text" value={value} onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Escape') { onChange(''); onClose() } }}
         placeholder="Filter…"
-        className="h-6 w-full rounded-md bg-muted/30 pl-6 pr-6 text-[11px] text-foreground placeholder:text-muted-foreground/35 outline-none focus:bg-muted/50 transition-colors"
+        className="h-6 w-full rounded-md bg-muted/30 pl-6 pr-6 text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:bg-muted/50 transition-colors"
       />
       {value && (
         <button type="button" onClick={() => { onChange(''); onClose() }}
@@ -386,7 +386,7 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="flex h-6 flex-1 items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+            className="flex h-6 flex-1 items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors"
           >
             <IconChevronRight className={cn('size-3 shrink-0 transition-transform duration-150', !collapsed && 'rotate-90')} aria-hidden />
             Kiro
@@ -412,7 +412,7 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
 
             {/* Steering */}
             {steeringRules.length > 0 && (filteredRules.length > 0 || !search) && (
-              <SectionToggle icon={IconCompass} iconColor="text-emerald-400" label="Steering" count={filteredRules.length} expanded={rulesOpen} onToggle={() => setRulesOpen((v) => !v)} />
+              <SectionToggle icon={IconCompass} iconColor="text-emerald-600 dark:text-emerald-400" label="Steering" count={filteredRules.length} expanded={rulesOpen} onToggle={() => setRulesOpen((v) => !v)} />
             )}
             {rulesOpen && filteredRules.length > 0 && (
               <ul className="flex min-w-0 flex-col gap-px border-l mx-1 px-1.5 py-px" style={{ borderColor: 'var(--border)' }}>
@@ -422,7 +422,7 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
 
             {/* Skills */}
             {skills.length > 0 && (filteredSkills.length > 0 || !search) && (
-              <SectionToggle icon={IconBolt} iconColor="text-amber-400" label="Skills" count={filteredSkills.length} expanded={skillsOpen} onToggle={() => setSkillsOpen((v) => !v)} />
+              <SectionToggle icon={IconBolt} iconColor="text-amber-600 dark:text-amber-400" label="Skills" count={filteredSkills.length} expanded={skillsOpen} onToggle={() => setSkillsOpen((v) => !v)} />
             )}
             {skillsOpen && filteredSkills.length > 0 && (
               <ul className="flex min-w-0 flex-col gap-px border-l mx-1 px-1.5 py-px" style={{ borderColor: 'var(--border)' }}>
@@ -432,7 +432,7 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
 
             {/* Agents */}
             {agents.length > 0 && (totalAgents > 0 || !search) && (
-              <SectionToggle icon={IconRobot} iconColor="text-violet-400" label="Agents" count={totalAgents} expanded={agentsOpen} onToggle={() => setAgentsOpen((v) => !v)} />
+              <SectionToggle icon={IconRobot} iconColor="text-violet-600 dark:text-violet-400" label="Agents" count={totalAgents} expanded={agentsOpen} onToggle={() => setAgentsOpen((v) => !v)} />
             )}
             {agentsOpen && totalAgents > 0 && (
               <ul className="flex min-w-0 flex-col gap-px border-l mx-1 px-1.5 py-px" style={{ borderColor: 'var(--border)' }}>
@@ -446,7 +446,7 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
 
             {/* MCP */}
             {mcpServers.length > 0 && (filteredMcp.length > 0 || !search) && (
-              <SectionToggle icon={IconPlug} iconColor="text-sky-400" label="MCP" count={filteredMcp.length} errorCount={mcpErrorCount} expanded={mcpOpen} onToggle={() => setMcpOpen((v) => !v)} />
+              <SectionToggle icon={IconPlug} iconColor="text-sky-600 dark:text-sky-400" label="MCP" count={filteredMcp.length} errorCount={mcpErrorCount} expanded={mcpOpen} onToggle={() => setMcpOpen((v) => !v)} />
             )}
             {mcpOpen && filteredMcp.length > 0 && (
               <ul className="flex min-w-0 flex-col gap-px border-l mx-1 px-1.5 py-px" style={{ borderColor: 'var(--border)' }}>
@@ -454,7 +454,7 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
               </ul>
             )}
 
-            {noResults && <p className="px-2 py-3 text-center text-[10px] text-muted-foreground/70">No matches</p>}
+            {noResults && <p className="px-2 py-3 text-center text-[10px] text-muted-foreground">No matches</p>}
           </>
         )}
       </div>

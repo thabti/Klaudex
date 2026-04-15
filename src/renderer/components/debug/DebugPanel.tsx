@@ -79,7 +79,7 @@ const DebugRow = memo(function DebugRow({
             ? <IconChevronDown className="size-3 shrink-0 text-muted-foreground/70" />
             : <IconChevronRight className="size-3 shrink-0 text-muted-foreground/70" />}
 
-          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70 w-[78px]">
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground w-[78px]">
             {formatTime(entry.timestamp)}
           </span>
 
@@ -99,15 +99,15 @@ const DebugRow = memo(function DebugRow({
             {entry.category}
           </Badge>
 
-          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70 w-[56px] truncate">
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground w-[56px] truncate">
             {entry.taskId ? entry.taskId.slice(0, 8) : 'global'}
           </span>
 
-          <span className="shrink-0 font-mono text-[10px] text-primary/70 max-w-[160px] truncate">
+          <span className="shrink-0 font-mono text-[10px] text-primary max-w-[160px] truncate">
             {entry.type}
           </span>
 
-          <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground/60">
+          <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground">
             {entry.summary}
           </span>
         </button>
@@ -129,7 +129,7 @@ const DebugRow = memo(function DebugRow({
       </div>
 
       {expanded && (
-        <div className="border-t border-border/20 bg-background/50 px-3 py-2">
+        <div className="border-t border-border/50 bg-background/50 px-3 py-2">
           <pre className="max-h-64 overflow-auto rounded-md bg-card p-2 font-mono text-[10px] leading-relaxed text-muted-foreground whitespace-pre-wrap break-all">
             {typeof entry.payload === 'string'
               ? entry.payload
@@ -166,7 +166,7 @@ function CopyAllButton({ entries }: { entries: DebugLogEntry[] }) {
           onClick={handleCopyAll}
           className="flex size-5 items-center justify-center rounded text-muted-foreground/70 hover:bg-accent hover:text-foreground transition-colors"
         >
-          {copied ? <IconCheck className="size-3 text-emerald-400" /> : <IconCopy className="size-3" />}
+          {copied ? <IconCheck className="size-3 text-emerald-600 dark:text-emerald-400" /> : <IconCopy className="size-3" />}
         </button>
       </TooltipTrigger>
       <TooltipContent side="bottom">{copied ? 'Copied!' : 'Copy all entries'}</TooltipContent>
@@ -304,7 +304,7 @@ export const DebugPanel = memo(function DebugPanel() {
         onMouseDown={onDragStart}
         className="flex h-2 cursor-row-resize items-center justify-center hover:bg-primary/20 active:bg-primary/30 transition-colors"
       >
-        <IconGripHorizontal className="size-3 text-muted-foreground/60" />
+        <IconGripHorizontal className="size-3 text-muted-foreground" />
       </div>
 
       {/* Filter bar */}
@@ -314,7 +314,7 @@ export const DebugPanel = memo(function DebugPanel() {
           value={filter.search}
           onChange={(e) => setFilter({ search: e.target.value })}
           placeholder="Filter..."
-          className="h-5 w-32 rounded border border-border/50 bg-background px-1.5 text-[10px] text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-ring/50"
+          className="h-5 w-32 rounded border border-border/50 bg-background px-1.5 text-[10px] text-foreground placeholder:text-muted-foreground outline-none focus:border-ring/50"
         />
 
         <select
@@ -355,7 +355,7 @@ export const DebugPanel = memo(function DebugPanel() {
           </select>
         )}
 
-        <label className="flex items-center gap-1 text-[10px] text-muted-foreground/60 cursor-pointer select-none">
+        <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer select-none">
           <input
             type="checkbox"
             checked={filter.errorsOnly}
@@ -365,7 +365,7 @@ export const DebugPanel = memo(function DebugPanel() {
           Errors
         </label>
 
-        <span className="ml-auto text-[9px] tabular-nums text-muted-foreground/70">
+        <span className="ml-auto text-[9px] tabular-nums text-muted-foreground">
           {filtered.length}/{entries.length}
         </span>
 
@@ -401,7 +401,7 @@ export const DebugPanel = memo(function DebugPanel() {
       {/* Virtualized log */}
       <div ref={parentRef} className="min-h-0 flex-1 overflow-auto">
         {filtered.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-[11px] text-muted-foreground/70">
+          <div className="flex h-full items-center justify-center text-[11px] text-muted-foreground">
             {entries.length === 0 ? 'No debug entries yet' : 'No matches'}
           </div>
         ) : (

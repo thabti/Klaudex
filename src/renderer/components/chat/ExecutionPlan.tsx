@@ -10,7 +10,7 @@ interface ExecutionPlanProps {
 const stepIcons = {
   pending: <IconCircle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/70" />,
   in_progress: <IconLoader2 className="mt-0.5 size-3.5 shrink-0 animate-spin text-primary" />,
-  completed: <IconCheck className="mt-0.5 size-3.5 shrink-0 text-emerald-400" />,
+  completed: <IconCheck className="mt-0.5 size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />,
 } as const
 
 const priorityDot: Record<string, string> = {
@@ -27,7 +27,7 @@ export const ExecutionPlan = memo(function ExecutionPlan({ steps }: ExecutionPla
 
   return (
     <div className={cn(
-      'my-2 overflow-hidden rounded-lg border bg-card/40 transition-colors',
+      'my-2 overflow-hidden rounded-lg border bg-card transition-colors',
       isAllDone
         ? 'border-emerald-500/30'
         : 'border-primary/25',
@@ -40,7 +40,7 @@ export const ExecutionPlan = memo(function ExecutionPlan({ steps }: ExecutionPla
       >
         <IconListCheck className={cn(
           'size-4',
-          isAllDone ? 'text-emerald-400' : 'text-primary/70',
+          isAllDone ? 'text-emerald-600 dark:text-emerald-400' : 'text-primary',
         )} />
         <span className="flex-1 text-xs font-medium text-muted-foreground">
           Plan
@@ -73,7 +73,7 @@ export const ExecutionPlan = memo(function ExecutionPlan({ steps }: ExecutionPla
                 'flex-1 leading-relaxed',
                 step.status === 'completed' && 'text-muted-foreground line-through',
                 step.status === 'in_progress' && 'text-foreground',
-                step.status === 'pending' && 'text-muted-foreground/70',
+                step.status === 'pending' && 'text-muted-foreground',
               )}>
                 {step.content}
               </span>

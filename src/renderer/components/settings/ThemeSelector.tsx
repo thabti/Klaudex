@@ -163,7 +163,7 @@ const ThemeSelector = ({ value, onChange }: ThemeSelectorProps) => (
             <span
               className={cn(
                 'text-xs font-medium',
-                isActive ? 'text-primary' : 'text-muted-foreground/70 group-hover:text-foreground',
+                isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground',
               )}
             >
               {label}

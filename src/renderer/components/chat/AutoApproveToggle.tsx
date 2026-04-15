@@ -36,7 +36,7 @@ export const AutoApproveToggle = memo(function AutoApproveToggle() {
             'flex items-center gap-1 rounded-lg px-1.5 py-1 text-[14px] font-medium transition-colors',
             active
               ? 'text-foreground/70 hover:text-foreground'
-              : 'text-muted-foreground/50 hover:text-muted-foreground/70',
+              : 'text-muted-foreground/80 hover:text-muted-foreground',
           )}
         >
           {active ? <IconShieldCheck className="size-3.5" /> : <IconShieldOff className="size-3.5" />}

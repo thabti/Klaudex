@@ -124,23 +124,23 @@ export const TaskListDisplay = memo(function TaskListDisplay({ allToolCalls }: T
         ) : (
           <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
         )}
-        <IconListCheck className="size-3.5 shrink-0 text-primary/60" />
-        <span className="flex-1 truncate text-[13px] font-medium text-muted-foreground/70">
+        <IconListCheck className="size-3.5 shrink-0 text-primary" />
+        <span className="flex-1 truncate text-[13px] font-medium text-muted-foreground">
           {description ?? 'Task list'}
         </span>
-        <span className="text-[11px] tabular-nums text-muted-foreground/70">
+        <span className="text-[11px] tabular-nums text-muted-foreground">
           {completed}/{tasks.length}
         </span>
       </button>
       {expanded && (
-        <div className="border-t border-border/20 px-3 py-2">
+        <div className="border-t border-border/50 px-3 py-2">
           {tasks.map((task) => (
             <div key={task.id} className="flex items-start gap-2 px-1.5 py-1">
               {task.completed
-                ? <IconCircleCheck className="mt-0.5 size-3.5 shrink-0 text-emerald-400/70" />
-                : <IconCircle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/50" />
+                ? <IconCircleCheck className="mt-0.5 size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                : <IconCircle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
               }
-              <span className={`text-[13px] leading-[1.6] ${task.completed ? 'text-muted-foreground/70 line-through' : 'text-foreground/85'}`}>
+              <span className={`text-[13px] leading-[1.6] ${task.completed ? 'text-muted-foreground line-through' : 'text-foreground/85'}`}>
                 {task.task_description}
               </span>
             </div>

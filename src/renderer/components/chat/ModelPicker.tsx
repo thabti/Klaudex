@@ -34,7 +34,7 @@ export const ModelPicker = memo(function ModelPicker() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[14px] font-medium text-muted-foreground/70 transition-colors hover:text-foreground"
+        className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[14px] font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
         <span className="shrink-0">{getModelIcon(triggerIconKey, { size: 13 })}</span>
         <span className="max-w-[8rem] truncate">{label}</span>

@@ -55,7 +55,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </p>
           </div>
           {isLooping ? (
-            <p className="mt-1 max-w-xs text-xs text-muted-foreground/60">
+            <p className="mt-1 max-w-xs text-xs text-muted-foreground">
               This component keeps crashing. Reload the window to recover.
             </p>
           ) : (

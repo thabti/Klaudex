@@ -96,7 +96,7 @@ function FileActionBar({
         <button
           type="button"
           onClick={onToggleCollapse}
-          className="flex size-4 items-center justify-center rounded text-muted-foreground/60 hover:text-foreground transition-colors"
+          className="flex size-4 items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors"
         >
           {collapsed ? <IconChevronRight className="size-3" /> : <IconChevronDown className="size-3" />}
         </button>

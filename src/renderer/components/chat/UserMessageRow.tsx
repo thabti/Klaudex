@@ -26,14 +26,14 @@ function renderWithMentions(text: string): ReactNode {
     if (ref.startsWith('agent:')) {
       const name = ref.slice(6)
       parts.push(
-        <span key={idx} className="mx-0.5 inline-flex items-center gap-0.5 rounded bg-blue-500/15 px-1 py-px align-middle text-[13px] font-medium leading-normal text-blue-400">
+        <span key={idx} className="mx-0.5 inline-flex items-center gap-0.5 rounded bg-blue-500/15 px-1 py-px align-middle text-[13px] font-medium leading-normal text-blue-600 dark:text-blue-400">
           <IconRobot className="size-3 shrink-0" />{name}
         </span>
       )
     } else if (ref.startsWith('skill:')) {
       const name = ref.slice(6)
       parts.push(
-        <span key={idx} className="mx-0.5 inline-flex items-center gap-0.5 rounded bg-yellow-500/15 px-1 py-px align-middle text-[13px] font-medium leading-normal text-yellow-400">
+        <span key={idx} className="mx-0.5 inline-flex items-center gap-0.5 rounded bg-yellow-500/15 px-1 py-px align-middle text-[13px] font-medium leading-normal text-yellow-600 dark:text-yellow-400">
           <IconTool className="size-3 shrink-0" />{name}
         </span>
       )
@@ -104,7 +104,7 @@ const AttachmentPill = memo(function AttachmentPill({ name, type, src }: { name:
         <span className="max-w-[200px] truncate">{name}</span>
       </button>
       {showPreview && src && (
-        <img src={src} alt={name} className="max-h-48 max-w-[280px] rounded-lg border border-border/30 object-contain" />
+        <img src={src} alt={name} className="max-h-48 max-w-[280px] rounded-lg border border-border/60 object-contain" />
       )}
     </div>
   )
@@ -195,7 +195,7 @@ export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserM
                 <TooltipContent side="bottom">{isForking ? 'Forking…' : 'Fork thread'}</TooltipContent>
               </Tooltip>
             )}
-            <span className="text-[11px] tabular-nums text-muted-foreground/60">
+            <span className="text-[11px] tabular-nums text-muted-foreground">
               {timeStr}
             </span>
           </div>

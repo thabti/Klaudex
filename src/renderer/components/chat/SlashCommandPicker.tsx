@@ -169,7 +169,7 @@ export const SlashCommandPicker = memo(function SlashCommandPicker({
               </span>
               <span className="font-medium text-[13px]">/{name}</span>
               {description && (
-                <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground/60">{description}</span>
+                <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground">{description}</span>
               )}
             </li>
           )

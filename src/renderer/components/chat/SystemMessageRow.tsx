@@ -27,7 +27,7 @@ export const SystemMessageRow = memo(function SystemMessageRow({ row }: { row: S
   if (row.variant === 'info') {
     return (
       <div className="pb-4" data-timeline-row-kind="system-message">
-        <div className="mx-auto flex max-w-md items-center justify-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/8 px-4 py-2 text-[13px] text-blue-400">
+        <div className="mx-auto flex max-w-md items-center justify-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/8 px-4 py-2 text-[13px] text-blue-600 dark:text-blue-400">
           <IconInfoCircle className="size-4 shrink-0" aria-hidden />
           <span className="break-words"><HighlightText text={row.content} /></span>
         </div>

@@ -28,7 +28,7 @@ const KIND_STYLES: Record<string, string> = {
   allow_once: 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400',
   allow_always: 'bg-emerald-500/5 text-emerald-600/80 hover:bg-emerald-500/15 dark:text-emerald-400/80',
   reject_once: 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive',
-  reject_always: 'text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive/80',
+  reject_always: 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive/80',
 }
 
 const KIND_ICONS: Record<string, typeof IconCheck | null> = {

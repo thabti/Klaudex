@@ -9,8 +9,8 @@ import type { ProjectFile } from '@/types'
 
 // ── Built-in agents for @ mention ────────────────────────────────────
 const BUILT_IN_MENTION_AGENTS = [
-  { name: 'Default', id: 'kiro_default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-blue-400', bgCls: 'bg-blue-500/20' },
-  { name: 'Planner', id: 'kiro_planner', description: 'Plan before coding', icon: IconListCheck, color: 'text-teal-400', bgCls: 'bg-teal-500/20' },
+  { name: 'Default', id: 'kiro_default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-blue-600 dark:text-blue-400', bgCls: 'bg-blue-500/20' },
+  { name: 'Planner', id: 'kiro_planner', description: 'Plan before coding', icon: IconListCheck, color: 'text-teal-600 dark:text-teal-400', bgCls: 'bg-teal-500/20' },
 ] as const
 
 /** Resolve the icon + color for an agent mention pill by path */
@@ -18,36 +18,36 @@ const getAgentPillMeta = (agentPath: string): { icon: typeof IconRobot; color: s
   const name = agentPath.replace(/^agent:/, '')
   const builtin = BUILT_IN_MENTION_AGENTS.find((a) => a.id === name || a.name === name)
   if (builtin) return { icon: builtin.icon, color: builtin.color, bgCls: builtin.bgCls }
-  return { icon: IconRobot, color: 'text-violet-400', bgCls: 'bg-violet-500/20' }
+  return { icon: IconRobot, color: 'text-violet-600 dark:text-violet-400', bgCls: 'bg-violet-500/20' }
 }
 
 // ── File type icon by extension ──────────────────────────────────────
 const EXT_ICONS: Record<string, { label: string; cls: string }> = {
-  ts:    { label: 'TS',  cls: 'bg-blue-500/20 text-blue-400' },
-  tsx:   { label: 'TSX', cls: 'bg-blue-500/20 text-blue-400' },
-  js:    { label: 'JS',  cls: 'bg-yellow-500/20 text-yellow-400' },
-  jsx:   { label: 'JSX', cls: 'bg-yellow-500/20 text-yellow-400' },
-  rs:    { label: 'RS',  cls: 'bg-orange-500/20 text-orange-400' },
-  toml:  { label: 'TL',  cls: 'bg-gray-500/20 text-gray-400' },
-  json:  { label: '{}',  cls: 'bg-green-500/20 text-green-400' },
-  md:    { label: 'MD',  cls: 'bg-blue-500/20 text-blue-400' },
-  css:   { label: 'CSS', cls: 'bg-pink-500/20 text-pink-400' },
-  html:  { label: 'HTM', cls: 'bg-red-500/20 text-red-400' },
-  yml:   { label: 'YML', cls: 'bg-rose-500/20 text-rose-400' },
-  yaml:  { label: 'YML', cls: 'bg-rose-500/20 text-rose-400' },
-  py:    { label: 'PY',  cls: 'bg-emerald-500/20 text-emerald-400' },
-  go:    { label: 'GO',  cls: 'bg-cyan-500/20 text-cyan-400' },
-  sh:    { label: 'SH',  cls: 'bg-gray-500/20 text-gray-400' },
-  svg:   { label: 'SVG', cls: 'bg-blue-500/20 text-blue-400' },
-  png:   { label: 'IMG', cls: 'bg-teal-500/20 text-teal-400' },
-  jpg:   { label: 'IMG', cls: 'bg-teal-500/20 text-teal-400' },
-  lock:  { label: 'LCK', cls: 'bg-gray-500/20 text-gray-500' },
+  ts:    { label: 'TS',  cls: 'bg-blue-500/20 text-blue-600 dark:text-blue-400' },
+  tsx:   { label: 'TSX', cls: 'bg-blue-500/20 text-blue-600 dark:text-blue-400' },
+  js:    { label: 'JS',  cls: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' },
+  jsx:   { label: 'JSX', cls: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' },
+  rs:    { label: 'RS',  cls: 'bg-orange-500/20 text-orange-600 dark:text-orange-400' },
+  toml:  { label: 'TL',  cls: 'bg-gray-500/20 text-gray-600 dark:text-gray-400' },
+  json:  { label: '{}',  cls: 'bg-green-500/20 text-green-600 dark:text-green-400' },
+  md:    { label: 'MD',  cls: 'bg-blue-500/20 text-blue-600 dark:text-blue-400' },
+  css:   { label: 'CSS', cls: 'bg-pink-500/20 text-pink-600 dark:text-pink-400' },
+  html:  { label: 'HTM', cls: 'bg-red-500/20 text-red-600 dark:text-red-400' },
+  yml:   { label: 'YML', cls: 'bg-rose-500/20 text-rose-600 dark:text-rose-400' },
+  yaml:  { label: 'YML', cls: 'bg-rose-500/20 text-rose-600 dark:text-rose-400' },
+  py:    { label: 'PY',  cls: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' },
+  go:    { label: 'GO',  cls: 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400' },
+  sh:    { label: 'SH',  cls: 'bg-gray-500/20 text-gray-600 dark:text-gray-400' },
+  svg:   { label: 'SVG', cls: 'bg-blue-500/20 text-blue-600 dark:text-blue-400' },
+  png:   { label: 'IMG', cls: 'bg-teal-500/20 text-teal-600 dark:text-teal-400' },
+  jpg:   { label: 'IMG', cls: 'bg-teal-500/20 text-teal-600 dark:text-teal-400' },
+  lock:  { label: 'LCK', cls: 'bg-gray-500/20 text-gray-600 dark:text-gray-400' },
 }
 
 const FileIcon = memo(function FileIcon({ ext, isDir }: { ext: string; isDir: boolean }) {
   if (isDir) {
     return (
-      <span className="flex h-5 w-5 items-center justify-center rounded bg-amber-500/20 text-[9px] font-bold text-amber-400">
+      <span className="flex h-5 w-5 items-center justify-center rounded bg-amber-500/20 text-[9px] font-bold text-amber-600 dark:text-amber-400">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
         </svg>
@@ -73,10 +73,10 @@ const FileIcon = memo(function FileIcon({ ext, isDir }: { ext: string; isDir: bo
 
 // ── Git change badge ─────────────────────────────────────────────────
 const GIT_STATUS_INFO: Record<string, { label: string; tooltip: string; cls: string; bgCls: string }> = {
-  M: { label: 'M', tooltip: 'Modified', cls: 'text-amber-400', bgCls: 'bg-amber-500/15 border-amber-500/20' },
-  A: { label: 'A', tooltip: 'Added (untracked)', cls: 'text-emerald-400', bgCls: 'bg-emerald-500/15 border-emerald-500/20' },
-  D: { label: 'D', tooltip: 'Deleted', cls: 'text-red-400', bgCls: 'bg-red-500/15 border-red-500/20' },
-  R: { label: 'R', tooltip: 'Renamed', cls: 'text-blue-400', bgCls: 'bg-blue-500/15 border-blue-500/20' },
+  M: { label: 'M', tooltip: 'Modified', cls: 'text-amber-600 dark:text-amber-400', bgCls: 'bg-amber-500/15 border-amber-500/20' },
+  A: { label: 'A', tooltip: 'Added (untracked)', cls: 'text-emerald-600 dark:text-emerald-400', bgCls: 'bg-emerald-500/15 border-emerald-500/20' },
+  D: { label: 'D', tooltip: 'Deleted', cls: 'text-red-600 dark:text-red-400', bgCls: 'bg-red-500/15 border-red-500/20' },
+  R: { label: 'R', tooltip: 'Renamed', cls: 'text-blue-600 dark:text-blue-400', bgCls: 'bg-blue-500/15 border-blue-500/20' },
 }
 
 const GitChangeBadge = memo(function GitChangeBadge({
@@ -110,8 +110,8 @@ const GitChangeBadge = memo(function GitChangeBadge({
           <span className={cn('font-bold', info.cls)}>{info.label}</span>
           {hasLineInfo && (
             <>
-              {added > 0 && <span className="text-emerald-400">+{added}</span>}
-              {deleted > 0 && <span className="text-red-400">-{deleted}</span>}
+              {added > 0 && <span className="text-emerald-600 dark:text-emerald-400">+{added}</span>}
+              {deleted > 0 && <span className="text-red-600 dark:text-red-400">-{deleted}</span>}
             </>
           )}
         </span>
@@ -197,7 +197,7 @@ export const FileMentionPill = memo(function FileMentionPill({ path, onRemove }:
     icon = <AgentIcon className={cn('size-3.5', meta.color)} />
     pillCls = `${meta.bgCls} text-foreground/90`
   } else if (isSkill) {
-    icon = <IconTool className="size-3.5 text-yellow-400" />
+    icon = <IconTool className="size-3.5 text-yellow-600 dark:text-yellow-400" />
     pillCls = 'bg-yellow-500/15 text-yellow-300'
   } else {
     icon = <FileIcon ext={ext} isDir={false} />
@@ -215,7 +215,7 @@ export const FileMentionPill = memo(function FileMentionPill({ path, onRemove }:
         <button
           type="button"
           onClick={onRemove}
-          className="ml-0.5 flex size-4 items-center justify-center rounded bg-muted/80 text-foreground/50 hover:bg-destructive/20 hover:text-destructive"
+          className="ml-0.5 flex size-4 items-center justify-center rounded bg-muted/80 text-foreground/70 hover:bg-destructive/20 hover:text-destructive"
         >
           <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
             <path d="M1 1l6 6M7 1l-6 6" />
@@ -340,7 +340,7 @@ export const FileMentionPicker = memo(function FileMentionPicker({
   if (loading) {
     return (
       <div className="absolute bottom-full left-0 right-0 z-[300] mb-2 overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xl ring-1 ring-black/5 dark:ring-white/5 floating-panel">
-        <div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground/70">
+        <div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground">
           <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.2" />
             <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
@@ -354,7 +354,7 @@ export const FileMentionPicker = memo(function FileMentionPicker({
   if (totalItems === 0) {
     return (
       <div className="absolute bottom-full left-0 right-0 z-[300] mb-2 overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xl ring-1 ring-black/5 dark:ring-white/5 floating-panel">
-        <p className="px-3 py-3 text-xs text-muted-foreground/70">No files found</p>
+        <p className="px-3 py-3 text-xs text-muted-foreground">No files found</p>
       </div>
     )
   }
@@ -382,7 +382,7 @@ export const FileMentionPicker = memo(function FileMentionPicker({
           const formatName = (name: string): string =>
             name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
           const ItemIcon = item.builtinIcon ?? (item.type === 'agent' ? IconRobot : IconTool)
-          const iconColor = item.builtinColor ?? (item.type === 'agent' ? 'text-violet-400' : 'text-yellow-400')
+          const iconColor = item.builtinColor ?? (item.type === 'agent' ? 'text-violet-600 dark:text-violet-400' : 'text-yellow-600 dark:text-yellow-400')
           const iconBg = item.builtinBgCls ?? (item.type === 'agent' ? 'bg-violet-500/20' : 'bg-yellow-500/20')
           const displayName = item.builtinIcon
             ? BUILT_IN_MENTION_AGENTS.find((b) => b.id === item.name)?.name ?? item.name
@@ -406,14 +406,14 @@ export const FileMentionPicker = memo(function FileMentionPicker({
               </span>
               <span className="min-w-0 flex-1 flex items-center gap-1.5">
                 <span className="truncate text-[13px] font-medium">{displayName}</span>
-                {item.description && <span className="truncate text-[11px] text-muted-foreground/50">{item.description.slice(0, 50)}</span>}
+                {item.description && <span className="truncate text-[11px] text-muted-foreground">{item.description.slice(0, 50)}</span>}
               </span>
-              <span className="shrink-0 text-[10px] text-muted-foreground/60">{item.type}</span>
+              <span className="shrink-0 text-[10px] text-muted-foreground">{item.type}</span>
             </li>
           )
         })}
         {kiroItems.length > 0 && filtered.length > 0 && (
-          <li className="mx-3 my-1 border-t border-border/20" role="separator" />
+          <li className="mx-3 my-1 border-t border-border/50" role="separator" />
         )}
         {filtered.map((file, i) => {
           const globalIdx = kiroItems.length + i
@@ -435,12 +435,12 @@ export const FileMentionPicker = memo(function FileMentionPicker({
                 <GitChangeBadge status={file.gitStatus} linesAdded={file.linesAdded} linesDeleted={file.linesDeleted} />
               </span>
               {file.modifiedAt > 0 && !file.isDir && (
-                <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
+                <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
                   {formatRelativeTime(file.modifiedAt)}
                 </span>
               )}
               {file.dir && (
-                <span className="shrink-0 truncate text-[11px] text-muted-foreground/70 max-w-[180px]">
+                <span className="shrink-0 truncate text-[11px] text-muted-foreground max-w-[180px]">
                   {file.dir}
                 </span>
               )}

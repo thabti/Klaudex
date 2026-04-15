@@ -17,7 +17,7 @@ export const ContextUsageBar = memo(function ContextUsageBar({ usage, className 
       <div className="h-1 flex-1 rounded-full bg-secondary">
         <div className={cn('h-full rounded-full transition-all duration-300', color)} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-[10px] tabular-nums text-muted-foreground/60">{tokensK}k / {sizeK}k</span>
+      <span className="text-[10px] tabular-nums text-muted-foreground">{tokensK}k / {sizeK}k</span>
     </div>
   )
 })

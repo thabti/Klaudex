@@ -74,7 +74,7 @@ export const DragOverlay = memo(function DragOverlay({ visible }: DragOverlayPro
           stroke="currentColor"
           strokeWidth="2"
           strokeDasharray="8 6"
-          className="text-primary/40"
+          className="text-primary"
           style={{
             animation: visible ? 'dash-march 0.6s linear infinite' : 'none',
           }}
@@ -84,7 +84,7 @@ export const DragOverlay = memo(function DragOverlay({ visible }: DragOverlayPro
       <span className="text-sm font-medium text-foreground/60">
         Drop files here
       </span>
-      <span className="text-sm text-muted-foreground/50">
+      <span className="text-sm text-muted-foreground">
         Images, code, documents
       </span>
       <style>{`

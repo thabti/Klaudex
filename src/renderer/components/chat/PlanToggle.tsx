@@ -37,8 +37,8 @@ export const PlanToggle = memo(function PlanToggle() {
           className={cn(
             'flex items-center gap-1 rounded-lg px-1.5 py-1 text-[14px] font-medium transition-colors',
             isPlan
-              ? 'text-teal-400 hover:text-teal-300'
-              : 'text-muted-foreground/50 hover:text-muted-foreground/70',
+              ? 'text-teal-600 dark:text-teal-400 hover:text-teal-500 dark:hover:text-teal-300'
+              : 'text-muted-foreground/80 hover:text-muted-foreground',
           )}
         >
           <PlanIcon />

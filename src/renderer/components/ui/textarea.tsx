@@ -14,7 +14,7 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         data-slot="textarea-control"
       >
         <textarea
-          className="field-sizing-content min-h-17.5 w-full rounded-[inherit] bg-transparent px-3 py-1.5 outline-none placeholder:text-muted-foreground/72"
+          className="field-sizing-content min-h-17.5 w-full rounded-[inherit] bg-transparent px-3 py-1.5 outline-none placeholder:text-muted-foreground"
           ref={ref}
           data-slot="textarea"
           {...props}

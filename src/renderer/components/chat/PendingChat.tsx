@@ -48,13 +48,13 @@ export function PendingChat({ workspace }: PendingChatProps) {
         {isLoggedOut ? (
           <div className="flex flex-col items-center gap-3 text-center">
             <div className="flex size-12 items-center justify-center rounded-full bg-amber-500/10">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-amber-400" aria-hidden>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-amber-600 dark:text-amber-400" aria-hidden>
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm0 15a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm1-4a1 1 0 0 1-2 0V8a1 1 0 0 1 2 0v5Z" fill="currentColor"/>
               </svg>
             </div>
             <div>
               <p className="text-sm font-medium text-foreground/80">Sign in to start a conversation</p>
-              <p className="mt-1 text-xs text-muted-foreground/50">Kiro authentication is required to use AI agents</p>
+              <p className="mt-1 text-xs text-muted-foreground">Kiro authentication is required to use AI agents</p>
             </div>
             <button
               type="button"

@@ -111,7 +111,7 @@ export const TaskCompletionCard = memo(function TaskCompletionCard({ report }: {
       </p>
 
       {hasStats && (
-        <p className="mt-1 text-[12px] text-muted-foreground/60">
+        <p className="mt-1 text-[12px] text-muted-foreground">
           {(report.linesAdded ?? 0) > 0 && (
             <span className="inline-flex items-center gap-0.5 text-emerald-600/70 dark:text-emerald-400/70">
               <IconPlus className="size-3" aria-hidden />
@@ -119,7 +119,7 @@ export const TaskCompletionCard = memo(function TaskCompletionCard({ report }: {
             </span>
           )}
           {(report.linesAdded ?? 0) > 0 && (report.linesRemoved ?? 0) > 0 && (
-            <span className="mx-1 text-muted-foreground/40">/</span>
+            <span className="mx-1 text-muted-foreground">/</span>
           )}
           {(report.linesRemoved ?? 0) > 0 && (
             <span className="inline-flex items-center gap-0.5 text-red-600/70 dark:text-red-400/70">
@@ -137,14 +137,14 @@ export const TaskCompletionCard = memo(function TaskCompletionCard({ report }: {
               key={f}
               type="button"
               onClick={() => handleFileClick(f)}
-              className="flex w-full items-center gap-1.5 rounded py-0.5 text-left text-[12px] text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+              className="flex w-full items-center gap-1.5 rounded py-0.5 text-left text-[12px] text-muted-foreground hover:text-muted-foreground transition-colors"
             >
               <IconFile className="size-3 shrink-0" aria-hidden />
               <span className="truncate font-mono">{f}</span>
             </button>
           ))}
           {hasMoreFiles && (
-            <p className="text-[11px] text-muted-foreground/50 pl-[18px]">
+            <p className="text-[11px] text-muted-foreground pl-[18px]">
               +{(report.filesChanged?.length ?? 0) - 10} more
             </p>
           )}

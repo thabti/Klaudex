@@ -18,8 +18,8 @@ const STATUS_DOT: Record<string, { cls: string; label: string }> = {
 
 // ── Built-in agents ─────────────────────────────────────────────────
 const BUILT_IN_AGENTS = [
-  { id: 'kiro_default', name: 'Default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-blue-400' },
-  { id: 'kiro_planner', name: 'Planner', description: 'Plan before coding', icon: IconListCheck, color: 'text-teal-400' },
+  { id: 'kiro_default', name: 'Default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-blue-600 dark:text-blue-400' },
+  { id: 'kiro_planner', name: 'Planner', description: 'Plan before coding', icon: IconListCheck, color: 'text-teal-600 dark:text-teal-400' },
 ] as const
 
 // ── Model picker panel ──────────────────────────────────────────────
@@ -55,14 +55,14 @@ const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { onDismi
 
   if (models.length === 0) return (
     <PanelShell onDismiss={onDismiss}>
-      <p className="px-3 py-3 text-xs text-muted-foreground/70">No models available</p>
+      <p className="px-3 py-3 text-xs text-muted-foreground">No models available</p>
     </PanelShell>
   )
 
   return (
     <PanelShell onDismiss={onDismiss}>
       <div className="px-3 pt-2 pb-1">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">Models</span>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Models</span>
       </div>
       {models.length > 5 && (
         <div className="px-3 pb-1">
@@ -73,7 +73,7 @@ const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { onDismi
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search models…"
             autoFocus
-            className="w-full rounded-md border border-border/40 bg-background/50 px-2 py-1 text-[12px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-border/80"
+            className="w-full rounded-md border border-border/40 bg-background/50 px-2 py-1 text-[12px] text-foreground outline-none placeholder:text-muted-foreground focus:border-border/80"
           />
         </div>
       )}
@@ -93,7 +93,7 @@ const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { onDismi
             >
               <span className={cn('size-1.5 shrink-0 rounded-full', isActive ? 'bg-primary' : 'bg-transparent')} />
               <span className={cn('flex-1 truncate', isActive && 'font-medium')}>{m.name}</span>
-              {isActive && <span className="text-[10px] text-primary/60">active</span>}
+              {isActive && <span className="text-[10px] text-primary">active</span>}
             </li>
           )
         })}
@@ -175,7 +175,7 @@ const AgentListPanel = memo(function AgentListPanel({ onDismiss }: { onDismiss: 
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search agents & servers…"
             autoFocus
-            className="w-full rounded-md border border-border/40 bg-background/50 px-2 py-1 text-[12px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-border/80"
+            className="w-full rounded-md border border-border/40 bg-background/50 px-2 py-1 text-[12px] text-foreground outline-none placeholder:text-muted-foreground focus:border-border/80"
           />
         </div>
       )}
@@ -184,7 +184,7 @@ const AgentListPanel = memo(function AgentListPanel({ onDismiss }: { onDismiss: 
       {filteredBuiltIn.length > 0 && (
         <>
           <div className="px-3 pt-2 pb-1">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">Agents</span>
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Agents</span>
           </div>
           <ul className="pb-1">
             {filteredBuiltIn.map((agent) => {
@@ -201,10 +201,10 @@ const AgentListPanel = memo(function AgentListPanel({ onDismiss }: { onDismiss: 
                     isActive ? 'text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
                   )}
                 >
-                  <Icon className={cn('size-3.5 shrink-0', isActive ? agent.color : 'text-muted-foreground/60')} />
+                  <Icon className={cn('size-3.5 shrink-0', isActive ? agent.color : 'text-muted-foreground')} />
                   <span className={cn('flex-1', isActive && 'font-medium')}>{agent.name}</span>
-                  <span className="text-[10px] text-muted-foreground/50">{agent.description}</span>
-                  {isActive && <span className="text-[10px] text-primary/60">active</span>}
+                  <span className="text-[10px] text-muted-foreground">{agent.description}</span>
+                  {isActive && <span className="text-[10px] text-primary">active</span>}
                 </li>
               )
             })}
@@ -217,7 +217,7 @@ const AgentListPanel = memo(function AgentListPanel({ onDismiss }: { onDismiss: 
         <>
           <div className="mx-3 border-t border-border/40" />
           <div className="px-3 pt-2 pb-1">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">.kiro Agents</span>
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">.kiro Agents</span>
           </div>
           <ul className="max-h-[160px] overflow-y-auto pb-1">
             {filteredKiro.map((agent) => {
@@ -233,10 +233,10 @@ const AgentListPanel = memo(function AgentListPanel({ onDismiss }: { onDismiss: 
                     isActive ? 'text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
                   )}
                 >
-                  <IconRobot className={cn('size-3.5 shrink-0', isActive ? 'text-violet-400' : 'text-muted-foreground/60')} />
+                  <IconRobot className={cn('size-3.5 shrink-0', isActive ? 'text-violet-600 dark:text-violet-400' : 'text-muted-foreground')} />
                   <span className={cn('flex-1 truncate', isActive && 'font-medium')}>{formatName(agent.name)}</span>
-                  <span className="text-[10px] text-muted-foreground/50 truncate max-w-[120px]">{agent.description.slice(0, 60)}</span>
-                  {isActive && <span className="shrink-0 text-[10px] text-primary/60">active</span>}
+                  <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{agent.description.slice(0, 60)}</span>
+                  {isActive && <span className="shrink-0 text-[10px] text-primary">active</span>}
                 </li>
               )
             })}
@@ -261,8 +261,8 @@ const AgentListPanel = memo(function AgentListPanel({ onDismiss }: { onDismiss: 
                 >
                   <span className={cn('size-1.5 shrink-0 rounded-full', dot.cls)} />
                   <span className="flex-1 truncate text-foreground/90">{server.name}</span>
-                  <span className="text-[10px] text-muted-foreground/50">{dot.label}</span>
-                  <span className="text-[10px] text-muted-foreground/40">
+                  <span className="text-[10px] text-muted-foreground">{dot.label}</span>
+                  <span className="text-[10px] text-muted-foreground/70">
                     {server.toolCount > 0 ? `${server.toolCount} tools` : '—'}
                   </span>
                 </div>
@@ -339,7 +339,7 @@ const UsagePanel = memo(function UsagePanel({ onDismiss }: { onDismiss: () => vo
             />
           </div>
         )}
-        <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground/50">
+        <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
           <span>{entries.length} task{entries.length !== 1 ? 's' : ''} with usage</span>
           <span>{currentModel ?? 'unknown model'}</span>
         </div>
@@ -359,7 +359,7 @@ const UsagePanel = memo(function UsagePanel({ onDismiss }: { onDismiss: () => vo
                     <span className="truncate">{task.name || task.id.slice(0, 8)}</span>
                   </div>
                 </div>
-                <span className="shrink-0 text-[10px] text-muted-foreground/50">{pct.toFixed(0)}%</span>
+                <span className="shrink-0 text-[10px] text-muted-foreground">{pct.toFixed(0)}%</span>
                 <span className="shrink-0 text-[11px]">{formatTokens(cu.used)}</span>
               </li>
             )

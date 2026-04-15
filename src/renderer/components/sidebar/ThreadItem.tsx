@@ -137,7 +137,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
             Draft
           </span>
         ) : (
-          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70 group-hover/thread:hidden">
+          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground group-hover/thread:hidden">
             {relativeTime(task.lastActivityAt)}
           </span>
         )}
@@ -154,7 +154,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
               type="button"
               aria-label="Delete thread"
               onClick={(e) => { e.stopPropagation(); onDelete() }}
-              className="pointer-events-auto flex size-5 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-destructive/15 hover:text-destructive"
+              className="pointer-events-auto flex size-5 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
             >
               <IconTrash className="size-3" />
             </button>

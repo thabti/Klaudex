@@ -139,7 +139,7 @@ export const Dashboard = memo(function Dashboard() {
                       <span className="ml-1 text-muted-foreground">
                         {entry.status.replace('_', ' ')}
                       </span>
-                      <div className="text-[10px] text-muted-foreground/60">
+                      <div className="text-[10px] text-muted-foreground">
                         {relativeTime(entry.timestamp)}
                       </div>
                     </div>

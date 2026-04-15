@@ -78,12 +78,12 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall }: { toolCal
       >
         {isClickable ? (
           expanded
-            ? <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground/60" />
-            : <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+            ? <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+            : <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
         ) : null}
         <Icon className={cn(
           'size-3.5 shrink-0',
-          isRunning ? 'text-primary' : isFailed ? 'text-red-400' : 'text-muted-foreground',
+          isRunning ? 'text-primary' : isFailed ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground',
         )} />
         <span className={cn(
           'flex-1 truncate',
@@ -92,17 +92,17 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall }: { toolCal
           {toolCall.title}
         </span>
         {shortPath && (
-          <span className="hidden sm:inline max-w-[180px] truncate font-mono text-[11px] text-foreground/30">
+          <span className="hidden sm:inline max-w-[180px] truncate font-mono text-[11px] text-foreground/70">
             {shortPath}
           </span>
         )}
-        {diffLoading && <IconLoader2 className="size-3 shrink-0 animate-spin text-muted-foreground/60" />}
+        {diffLoading && <IconLoader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />}
         {isRunning ? (
           <IconLoader2 className="size-3 shrink-0 animate-spin text-primary" />
         ) : isFailed ? (
-          <IconX className="size-3 shrink-0 text-red-400" />
+          <IconX className="size-3 shrink-0 text-red-600 dark:text-red-400" />
         ) : isCompleted ? (
-          <IconCheck className="size-3 shrink-0 text-emerald-400/60" />
+          <IconCheck className="size-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
         ) : null}
       </button>
 
@@ -113,7 +113,7 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall }: { toolCal
       )}
 
       {expanded && hasContent && toolCall.kind !== 'read' && (
-        <div className="ml-6 mr-2 mb-1.5 mt-1 min-w-0 rounded-md border border-border/30 bg-background/50 px-3 py-2.5 text-[13px] space-y-2">
+        <div className="ml-6 mr-2 mb-1.5 mt-1 min-w-0 rounded-md border border-border/60 bg-background/50 px-3 py-2.5 text-[13px] space-y-2">
           {toolCall.content?.map((item, i) => (
             <div key={i}>
               {item.type === 'diff' && item.path && (
@@ -145,7 +145,7 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall }: { toolCal
 
           {toolCall.rawInput !== undefined && (
             <div>
-              <p className="mb-1 text-muted-foreground/60">Input</p>
+              <p className="mb-1 text-muted-foreground">Input</p>
               <pre className="max-h-32 overflow-auto rounded-md bg-background p-2 font-mono text-[12px] leading-[1.6]">
                 {typeof toolCall.rawInput === 'string'
                   ? toolCall.rawInput.slice(0, 1500)
@@ -156,7 +156,7 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall }: { toolCal
 
           {toolCall.rawOutput !== undefined && (
             <div>
-              <p className="mb-1 text-muted-foreground/60">Output</p>
+              <p className="mb-1 text-muted-foreground">Output</p>
               <pre className="max-h-32 overflow-auto rounded-md bg-background p-2 font-mono text-[12px] leading-[1.6]">
                 {typeof toolCall.rawOutput === 'string'
                   ? toolCall.rawOutput.slice(0, 1500)

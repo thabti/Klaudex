@@ -74,8 +74,8 @@ export const ReadOutput = memo(function ReadOutput({ rawInput, rawOutput }: Read
   const gutterWidth = String(offset + displayLines.length).length
 
   return (
-    <div className="ml-6 mr-2 mb-1.5 mt-1 rounded-md border border-border/30 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30 text-[11px] text-muted-foreground/60">
+    <div className="ml-6 mr-2 mb-1.5 mt-1 rounded-md border border-border/60 overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30 text-[11px] text-muted-foreground">
         <IconFileText className="size-3" />
         <span>{summary}</span>
         <span className="flex-1" />
@@ -87,7 +87,7 @@ export const ReadOutput = memo(function ReadOutput({ rawInput, rawOutput }: Read
           return (
             <div key={i} className="flex">
               <span
-                className="shrink-0 select-none text-right text-muted-foreground/60 pr-3 pl-2"
+                className="shrink-0 select-none text-right text-muted-foreground pr-3 pl-2"
                 style={{ minWidth: `${gutterWidth + 2}ch` }}
               >
                 {lineNum}

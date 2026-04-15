@@ -79,7 +79,7 @@ const CopyButton = memo(function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="rounded p-1 text-muted-foreground/50 transition-colors hover:bg-secondary hover:text-foreground"
+      className="rounded p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
       aria-label={copied ? "Copied" : "Copy code"}
     >
       {copied ? (
@@ -195,7 +195,7 @@ function ChatMarkdown({ text, isStreaming = false }: ChatMarkdownProps) {
         return (
           <div className="group relative my-3 overflow-hidden rounded-lg border border-border/50 bg-muted/50 dark:bg-muted/30">
             <div className="flex items-center justify-between border-b border-border/40 px-3.5 py-2">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/50">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 {lang}
               </span>
               <CopyButton text={block.code} />

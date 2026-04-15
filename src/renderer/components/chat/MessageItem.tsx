@@ -37,7 +37,7 @@ function McpErrorLines() {
   return (
     <div className="mt-1.5 space-y-0.5">
       {failed.map((m) => (
-        <p key={m.name} className="text-[10px] text-red-400/70">
+        <p key={m.name} className="text-[10px] text-red-600/70 dark:text-red-400/70">
           {m.name} — {m.status === "needs-auth" ? "auth required" : "failed"}
         </p>
       ))}
@@ -68,7 +68,7 @@ function GeneratingIndicator() {
     <div className="py-1 select-none">
       <div className="flex items-center gap-2">
         <span
-          className={`text-xs transition-opacity duration-300 ${isPlan ? 'text-teal-400' : 'text-primary'}`}
+          className={`text-xs transition-opacity duration-300 ${isPlan ? 'text-teal-600 dark:text-teal-400' : 'text-primary'}`}
           style={{ opacity: visible ? 1 : 0 }}
         >
           {LOADING_WORDS[idx]}&hellip;
@@ -148,7 +148,7 @@ export const MessageItem = memo(function MessageItem({
         ) : (
           <div className="flex items-center gap-2 py-1">
             <div className="h-px flex-1 bg-border/40" />
-            <span className="text-xs text-muted-foreground/70 select-none">
+            <span className="text-xs text-muted-foreground select-none">
               {message.content}
             </span>
             <div className="h-px flex-1 bg-border/40" />
@@ -208,7 +208,7 @@ export const MessageItem = memo(function MessageItem({
                   <TooltipContent side="bottom">{isForking ? 'Forking…' : 'Fork thread'}</TooltipContent>
                 </Tooltip>
               )}
-              <span className="text-[10px] tabular-nums text-muted-foreground/60">
+              <span className="text-[10px] tabular-nums text-muted-foreground">
                 {timeStr}
               </span>
             </div>

@@ -34,7 +34,7 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls }: Tool
   const hasTaskList = useMemo(() => toolCalls.some(isTaskListToolCall), [toolCalls])
 
   return (
-    <div data-testid="tool-call-display" className="rounded-lg border border-border/30 bg-card/30">
+    <div data-testid="tool-call-display" className="rounded-lg border border-border/60 bg-card">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
@@ -45,11 +45,11 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls }: Tool
         ) : (
           <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
         )}
-        <IconBolt className="size-3.5 shrink-0 text-amber-400/60" />
-        <span className="text-[13px] font-medium text-muted-foreground/60">
+        <IconBolt className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <span className="text-[13px] font-medium text-muted-foreground">
           Tool calls
         </span>
-        <span className="text-[11px] tabular-nums text-muted-foreground/35">
+        <span className="text-[11px] tabular-nums text-muted-foreground">
           ({toolCalls.length})
         </span>
 
@@ -61,18 +61,18 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls }: Tool
           </span>
         )}
         {failedCount > 0 && (
-          <span className="flex items-center gap-1 text-[11px] text-red-400">
+          <span className="flex items-center gap-1 text-[11px] text-red-600 dark:text-red-400">
             <IconX className="size-3" />
             {failedCount}
           </span>
         )}
         {completedCount > 0 && runningCount === 0 && failedCount === 0 && (
-          <IconCheck className="size-3.5 text-emerald-400/50" />
+          <IconCheck className="size-3.5 text-emerald-600 dark:text-emerald-400" />
         )}
       </button>
 
       {expanded && (
-        <div className="border-t border-border/20 py-1">
+        <div className="border-t border-border/50 py-1">
           {visibleCalls.map((tc) => (
             <ToolCallEntry key={tc.toolCallId} toolCall={tc} />
           ))}
@@ -80,7 +80,7 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls }: Tool
             <button
               type="button"
               onClick={() => setShowAll(true)}
-              className="w-full px-3 py-1.5 text-[11px] text-muted-foreground/70 transition-colors hover:text-muted-foreground/80"
+              className="w-full px-3 py-1.5 text-[11px] text-muted-foreground transition-colors hover:text-muted-foreground/80"
             >
               +{toolCalls.length - MAX_VISIBLE_DEFAULT} more
             </button>

@@ -90,16 +90,16 @@ const ArchivedBanner = memo(function ArchivedBanner() {
   return (
     <div className="relative flex items-center justify-center py-4 px-6 select-none" data-testid="chat-archived-banner">
       {/* Zigzag line left */}
-      <svg className="flex-1 h-3 text-blue-400/30" preserveAspectRatio="none" viewBox="0 0 120 12">
+      <svg className="flex-1 h-3 text-blue-600/30 dark:text-blue-400/30" preserveAspectRatio="none" viewBox="0 0 120 12">
         <path d="M0,6 L5,0 L10,6 L15,0 L20,6 L25,0 L30,6 L35,0 L40,6 L45,0 L50,6 L55,0 L60,6 L65,0 L70,6 L75,0 L80,6 L85,0 L90,6 L95,0 L100,6 L105,0 L110,6 L115,0 L120,6" fill="none" stroke="currentColor" strokeWidth="1" />
       </svg>
       {/* Label */}
       <div className="flex shrink-0 items-center gap-1.5 mx-3 rounded-full border border-blue-400/20 bg-card px-3 py-1">
-        <IconHistory className="size-3 text-blue-400/50" />
+        <IconHistory className="size-3 text-blue-600/50 dark:text-blue-400/50" />
         <span className="text-[11px] font-medium text-blue-500/60 dark:text-blue-300/50">Previous conversation — view only</span>
       </div>
       {/* Zigzag line right */}
-      <svg className="flex-1 h-3 text-blue-400/30" preserveAspectRatio="none" viewBox="0 0 120 12">
+      <svg className="flex-1 h-3 text-blue-600/30 dark:text-blue-400/30" preserveAspectRatio="none" viewBox="0 0 120 12">
         <path d="M0,6 L5,0 L10,6 L15,0 L20,6 L25,0 L30,6 L35,0 L40,6 L45,0 L50,6 L55,0 L60,6 L65,0 L70,6 L75,0 L80,6 L85,0 L90,6 L95,0 L100,6 L105,0 L110,6 L115,0 L120,6" fill="none" stroke="currentColor" strokeWidth="1" />
       </svg>
     </div>
@@ -278,8 +278,8 @@ export const ChatPanel = memo(function ChatPanel() {
         {isArchived ? (
           <div className="px-4 pb-4 pt-2 sm:px-6">
             <div className="mx-auto w-full max-w-3xl lg:max-w-4xl xl:max-w-5xl">
-              <div className="flex items-center justify-center rounded-2xl border border-border/40 bg-card/50 px-4 py-3 opacity-50">
-                <span className="text-[13px] text-muted-foreground/50">This conversation is from a previous session</span>
+              <div className="flex items-center justify-center rounded-2xl border border-border/40 bg-card px-4 py-3 opacity-50">
+                <span className="text-[13px] text-muted-foreground/80">This conversation is from a previous session</span>
               </div>
             </div>
           </div>

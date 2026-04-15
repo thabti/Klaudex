@@ -41,7 +41,7 @@ export const WorkingRow = memo(function WorkingRow() {
     <div className="py-2 select-none" data-timeline-row-kind="working">
       <div className="flex items-center gap-2">
         <span
-          className={`text-[13px] transition-opacity duration-300 ${isPlan ? 'text-teal-400' : 'text-primary'}`}
+          className={`text-[13px] transition-opacity duration-300 ${isPlan ? 'text-teal-600 dark:text-teal-400' : 'text-primary'}`}
           style={{ opacity: visible ? 1 : 0 }}
         >
           {LOADING_WORDS[idx]}&hellip;

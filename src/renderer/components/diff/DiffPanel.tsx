@@ -153,13 +153,13 @@ export const DiffPanel = memo(function DiffPanel() {
         onMouseDown={onDragStart}
         className="flex h-2 cursor-row-resize items-center justify-center hover:bg-primary/20 active:bg-primary/30 transition-colors"
       >
-        <IconGripHorizontal className="size-3 text-muted-foreground/60" />
+        <IconGripHorizontal className="size-3 text-muted-foreground" />
       </div>
 
       {/* Toolbar */}
       <div className="flex items-center gap-1.5 border-b border-border/50 px-3 py-1 shrink-0">
         <span className="text-[11px] font-medium text-muted-foreground">Files Changed</span>
-        <span className="text-[10px] text-muted-foreground/70">
+        <span className="text-[10px] text-muted-foreground">
           {parsedFiles.length} file{parsedFiles.length !== 1 ? 's' : ''}
         </span>
 
@@ -171,7 +171,7 @@ export const DiffPanel = memo(function DiffPanel() {
         )}
 
         {!taskWorkspace && (
-          <span className="text-[10px] text-muted-foreground/70 italic">no workspace</span>
+          <span className="text-[10px] text-muted-foreground italic">no workspace</span>
         )}
 
         <div className="flex-1" />
@@ -328,7 +328,7 @@ export const DiffPanel = memo(function DiffPanel() {
                     type="button"
                     onClick={handleRevertSelected}
                     data-testid="diff-revert-button"
-                    className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-red-400 hover:bg-red-400/10 transition-colors"
+                    className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-red-600 dark:text-red-400 hover:bg-red-400/10 transition-colors"
                     aria-label="Revert selected files"
                   >
                     <IconArrowBackUp className="size-3" />
@@ -345,10 +345,10 @@ export const DiffPanel = memo(function DiffPanel() {
         <div className="flex-1 min-w-0 overflow-auto">
           {loading ? (
             <div className="flex h-full items-center justify-center">
-              <IconRefresh className="size-4 animate-spin text-muted-foreground/60" />
+              <IconRefresh className="size-4 animate-spin text-muted-foreground" />
             </div>
           ) : parsedFiles.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-xs text-muted-foreground/70">
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
               {diff.trim() ? 'Could not parse diff' : 'No changes yet'}
             </div>
           ) : (

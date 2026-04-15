@@ -59,7 +59,7 @@ export const SearchBar = memo(function SearchBar({
       role="search"
       aria-label="Search messages"
     >
-      <IconSearch className="size-3.5 shrink-0 text-muted-foreground/60" aria-hidden />
+      <IconSearch className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
       <input
         ref={inputRef}
         type="text"
@@ -68,10 +68,10 @@ export const SearchBar = memo(function SearchBar({
         onKeyDown={handleKeyDown}
         placeholder="Search messages…"
         aria-label="Search messages"
-        className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/50"
+        className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
       />
       {hasQuery && (
-        <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/60">
+        <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
           {label}
         </span>
       )}

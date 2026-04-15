@@ -313,8 +313,8 @@ export const ChangedFilesSummary = memo(function ChangedFilesSummary({ row }: { 
                     aria-hidden
                   />
                   {isDirCollapsed
-                    ? <IconFolder className="size-3.5 shrink-0 text-foreground/35" aria-hidden />
-                    : <IconFolderOpen className="size-3.5 shrink-0 text-foreground/35" aria-hidden />}
+                    ? <IconFolder className="size-3.5 shrink-0 text-foreground/60" aria-hidden />
+                    : <IconFolderOpen className="size-3.5 shrink-0 text-foreground/60" aria-hidden />}
                   <span className="truncate font-mono text-[12px] text-foreground/70 group-hover:text-foreground/80">
                     {group.dir}
                   </span>

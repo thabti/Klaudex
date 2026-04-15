@@ -36,7 +36,7 @@ export const KiroFileViewer = memo(function KiroFileViewer({ filePath, title, on
         <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-foreground">{title}</p>
-            <p className="truncate text-[10px] font-mono text-muted-foreground/70 mt-0.5">{shortPath}</p>
+            <p className="truncate text-[10px] font-mono text-muted-foreground mt-0.5">{shortPath}</p>
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -95,7 +95,7 @@ export const KiroFileViewer = memo(function KiroFileViewer({ filePath, title, on
               [&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground
               [&_hr]:border-border/50 [&_a]:text-primary [&_a]:no-underline [&_a:hover]:underline
               [&_table]:text-xs [&_th]:font-semibold [&_th]:text-left [&_th]:pb-1
-              [&_td]:py-0.5 [&_tr]:border-b [&_tr]:border-border/30
+              [&_td]:py-0.5 [&_tr]:border-b [&_tr]:border-border/60
             ">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
             </div>

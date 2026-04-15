@@ -45,17 +45,17 @@ export const PlanHandoffCard = memo(function PlanHandoffCard() {
       className="mt-3 flex w-full items-center gap-3 rounded-lg border border-teal-400/20 bg-teal-400/5 px-4 py-3 text-left transition-colors hover:border-teal-400/40 hover:bg-teal-400/10 disabled:opacity-50 disabled:pointer-events-none"
     >
       <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-teal-400/15">
-        <IconRocket className="size-4 text-teal-400" aria-hidden />
+        <IconRocket className="size-4 text-teal-600 dark:text-teal-400" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-[13px] font-medium text-foreground">
           {isSwitching ? 'Switching...' : 'Start building'}
         </p>
-        <p className="text-[11px] text-muted-foreground/60">
+        <p className="text-[11px] text-muted-foreground">
           Switch to the coding agent and execute this plan
         </p>
       </div>
-      <IconArrowRight className="size-4 shrink-0 text-teal-400/60" aria-hidden />
+      <IconArrowRight className="size-4 shrink-0 text-teal-600/60 dark:text-teal-400/60" aria-hidden />
     </button>
   )
 })

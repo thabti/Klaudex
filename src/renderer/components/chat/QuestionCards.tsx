@@ -180,7 +180,7 @@ export const QuestionCards = memo(function QuestionCards({
                       ? "bg-primary text-primary-foreground scale-110"
                       : isAnswered
                         ? "bg-primary/20 text-primary"
-                        : "bg-muted text-muted-foreground/50 hover:bg-muted/80",
+                        : "bg-muted text-muted-foreground hover:bg-muted/80",
                   )}
                   aria-label={`Go to question ${i + 1}`}
                 >
@@ -237,7 +237,7 @@ export const QuestionCards = memo(function QuestionCards({
                     "shrink-0 rounded border px-1.5 py-0.5 font-mono text-[11px] font-semibold transition-all",
                     isSelected
                       ? "border-primary/30 bg-primary/15 text-primary"
-                      : "border-border/50 bg-muted/50 text-muted-foreground/50 group-hover:text-muted-foreground/70",
+                      : "border-border/50 bg-muted/50 text-muted-foreground group-hover:text-muted-foreground",
                   )}>
                     {opt.letter}
                   </kbd>
@@ -261,7 +261,7 @@ export const QuestionCards = memo(function QuestionCards({
           value={currentExtra}
           onChange={(e) => setExtraText((prev) => ({ ...prev, [current?.number ?? '']: e.target.value }))}
           placeholder="Add extra context (optional)"
-          className="w-full rounded-xl border border-border/40 bg-background/60 px-3.5 py-2.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/30 focus:ring-1 focus:ring-primary/10"
+          className="w-full rounded-xl border border-border/40 bg-background/60 px-3.5 py-2.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/10"
         />
       </div>
 
@@ -269,14 +269,14 @@ export const QuestionCards = memo(function QuestionCards({
       <div className="flex items-center justify-between border-t border-primary/10 bg-primary/[0.02] px-5 py-3">
         <div className="flex items-center gap-3">
           {selectedCount > 0 && total > 1 && (
-            <span className="text-[11px] text-muted-foreground/60">
+            <span className="text-[11px] text-muted-foreground">
               {selectedCount}/{total} answered
             </span>
           )}
           <button
             type="button"
             onClick={handleDismiss}
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] text-muted-foreground/50 transition-colors hover:text-foreground"
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
           >
             Dismiss
             <kbd className="rounded border border-border/40 bg-muted/40 px-1 py-0.5 text-[10px] font-medium">
@@ -293,7 +293,7 @@ export const QuestionCards = memo(function QuestionCards({
                 type="button"
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={page === 0}
-                className="rounded-lg p-1.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground disabled:opacity-20"
+                className="rounded-lg p-1.5 text-muted-foreground/80 transition-colors hover:bg-muted hover:text-foreground disabled:opacity-20"
                 aria-label="Previous question"
               >
                 <IconChevronLeft className="size-4" />
@@ -302,7 +302,7 @@ export const QuestionCards = memo(function QuestionCards({
                 type="button"
                 onClick={() => setPage((p) => Math.min(total - 1, p + 1))}
                 disabled={isLastPage}
-                className="rounded-lg p-1.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground disabled:opacity-20"
+                className="rounded-lg p-1.5 text-muted-foreground/80 transition-colors hover:bg-muted hover:text-foreground disabled:opacity-20"
                 aria-label="Next question"
               >
                 <IconChevronRight className="size-4" />
@@ -318,7 +318,7 @@ export const QuestionCards = memo(function QuestionCards({
               "flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-medium transition-all",
               canSubmit
                 ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 active:scale-[0.98]"
-                : "bg-muted text-muted-foreground/40 cursor-not-allowed",
+                : "bg-muted text-muted-foreground cursor-not-allowed",
             )}
           >
             {isAllAnswered || isLastPage ? "Submit" : "Next"}

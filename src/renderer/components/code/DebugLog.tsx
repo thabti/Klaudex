@@ -48,7 +48,7 @@ export function DebugLog({ entries, onClear }: DebugLogProps) {
           </div>
         ) : (
           filtered.map((entry) => (
-            <div key={entry.id} className="rounded border bg-card/50 p-2">
+            <div key={entry.id} className="rounded border bg-card p-2">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-[10px] text-muted-foreground">{entry.timestamp}</span>
                 <span className="font-mono text-[10px] text-accent">{entry.type}</span>

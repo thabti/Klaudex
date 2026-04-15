@@ -73,14 +73,14 @@ const SettingRow = ({ label, description, children, className }: SettingRowProps
   <div className={cn('flex items-center justify-between gap-4 py-3 transition-colors hover:bg-muted/5 -mx-5 px-5 rounded-lg', className)}>
     <div className="min-w-0 flex-1">
       <p className="text-[13px] font-medium text-foreground">{label}</p>
-      <p className="text-[11.5px] leading-relaxed text-muted-foreground/80">{description}</p>
+      <p className="text-[11.5px] leading-relaxed text-muted-foreground">{description}</p>
     </div>
     <div className="shrink-0">{children}</div>
   </div>
 )
 
 const SectionLabel = ({ title }: { title: string }) => (
-  <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">{title}</p>
+  <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</p>
 )
 
 const SectionHeader = ({ section }: { section: Section }) => {
@@ -92,7 +92,7 @@ const SectionHeader = ({ section }: { section: Section }) => {
         <nav.icon className="size-5 text-primary" />
         <h3 className="text-[17px] font-semibold text-foreground">{nav.label}</h3>
       </div>
-      <p className="mt-1 text-[12.5px] text-muted-foreground/70">{nav.sectionDescription}</p>
+      <p className="mt-1 text-[12.5px] text-muted-foreground">{nav.sectionDescription}</p>
     </div>
   )
 }
@@ -431,14 +431,14 @@ export const SettingsPanel = () => {
         <nav data-testid="settings-nav" className="flex w-56 shrink-0 flex-col border-r border-border/60 px-3 pt-16 pb-4">
           <div className="mb-6 px-3">
             <h2 className="text-lg font-semibold text-foreground">Settings</h2>
-            <p className="mt-0.5 text-[11px] text-muted-foreground/70">Configure Kirodex</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Configure Kirodex</p>
           </div>
 
           <div className="flex flex-1 flex-col gap-0.5">
             {NAV.map((item, idx) => (
               <div key={item.id}>
                 {idx > 0 && NAV[idx - 1].group !== item.group && (
-                  <div className="my-2 border-t border-border/20" />
+                  <div className="my-2 border-t border-border/50" />
                 )}
                 <button
                   onClick={() => setSection(item.id)}
@@ -462,7 +462,7 @@ export const SettingsPanel = () => {
             ))}
           </div>
 
-          <div className="mt-auto px-3 pt-4 border-t border-border/40 space-y-2">
+          <div className="mt-auto px-3 pt-4 border-t border-border/70 space-y-2">
             <button
               onClick={handleClose}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
@@ -476,7 +476,7 @@ export const SettingsPanel = () => {
                 onClick={() => setIsAboutOpen(true)}
                 className="text-left transition-colors hover:text-foreground"
               >
-                <p className="text-[10px] text-muted-foreground/50">Kirodex {appVersion ? `v${appVersion}` : ''}</p>
+                <p className="text-[10px] text-muted-foreground">Kirodex {appVersion ? `v${appVersion}` : ''}</p>
               </button>
               <a
                 href="https://github.com/thabti/kirodex"
@@ -484,7 +484,7 @@ export const SettingsPanel = () => {
                 rel="noopener noreferrer"
                 aria-label="Kirodex on GitHub"
                 tabIndex={0}
-                className="text-muted-foreground/40 transition-colors hover:text-foreground"
+                className="text-muted-foreground transition-colors hover:text-foreground"
               >
                 <IconBrandGithub className="size-3.5" />
               </a>
@@ -495,8 +495,8 @@ export const SettingsPanel = () => {
         {/* ── Main content ── */}
         <div className="flex flex-1 flex-col min-h-0">
           {/* Top bar */}
-          <div className="flex h-14 shrink-0 items-center justify-between border-b border-border/30 px-6">
-            <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground/60">
+          <div className="flex h-14 shrink-0 items-center justify-between border-b border-border/60 px-6">
+            <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
               <span>Settings</span>
               <span>/</span>
               <span className="text-foreground/80 font-medium">{NAV.find((n) => n.id === section)?.label}</span>
@@ -588,7 +588,7 @@ export const SettingsPanel = () => {
                           data-testid="settings-cli-path-input"
                           onChange={(e) => updateDraft({ kiroBin: e.target.value })}
                           placeholder="kiro-cli"
-                          className="flex h-8 w-full flex-1 rounded-lg border border-input bg-background/50 px-3 font-mono text-sm placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          className="flex h-8 w-full flex-1 rounded-lg border border-input bg-background/50 px-3 font-mono text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         />
                         <button onClick={browseCli} className="shrink-0 rounded-lg border border-input px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent">Browse</button>
                         <button
@@ -716,7 +716,7 @@ export const SettingsPanel = () => {
                     <SectionLabel title="Font size" />
                     <SettingsCard className="!py-4">
                       <div className="flex items-center gap-4">
-                        <span className="text-[11px] font-medium text-muted-foreground/60 tabular-nums">{FONT_SIZE_MIN}</span>
+                        <span className="text-[11px] font-medium text-muted-foreground tabular-nums">{FONT_SIZE_MIN}</span>
                         <input
                           type="range"
                           min={FONT_SIZE_MIN}
@@ -727,11 +727,11 @@ export const SettingsPanel = () => {
                           aria-label="Font size"
                           className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-border/60 accent-primary [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-sm"
                         />
-                        <span className="text-[11px] font-medium text-muted-foreground/60 tabular-nums">{FONT_SIZE_MAX}</span>
+                        <span className="text-[11px] font-medium text-muted-foreground tabular-nums">{FONT_SIZE_MAX}</span>
                         <span className="min-w-[3ch] text-center text-sm font-semibold tabular-nums text-primary">{draft.fontSize ?? 14}</span>
                       </div>
-                      <div className="mt-3 rounded-lg border border-border/30 bg-background/50 px-4 py-3">
-                        <p className="text-[11px] font-medium text-muted-foreground/50 mb-1.5">Preview</p>
+                      <div className="mt-3 rounded-lg border border-border/60 bg-background/50 px-4 py-3">
+                        <p className="text-[11px] font-medium text-muted-foreground mb-1.5">Preview</p>
                         <p className="text-foreground/80 leading-relaxed" style={{ fontSize: draft.fontSize }}>The quick brown fox jumps over the lazy dog</p>
                       </div>
                     </SettingsCard>
@@ -750,7 +750,7 @@ export const SettingsPanel = () => {
                               'flex-1 rounded-lg border py-2.5 text-center text-xs font-medium capitalize transition-colors',
                               (draft.sidebarPosition ?? 'left') === pos
                                 ? 'border-primary bg-primary/10 text-primary'
-                                : 'border-border/60 text-muted-foreground/60 hover:bg-accent hover:text-foreground',
+                                : 'border-border/60 text-muted-foreground hover:bg-accent hover:text-foreground',
                             )}
                           >
                             {pos}
@@ -775,33 +775,33 @@ export const SettingsPanel = () => {
                     <SectionHeader section="keymap" />
 
                     <div className="relative">
-                      <IconSearch className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60" />
+                      <IconSearch className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                       <input
                         value={keymapFilter}
                         onChange={(e) => setKeymapFilter(e.target.value)}
                         placeholder="Search shortcuts…"
-                        className="flex h-10 w-full rounded-xl border border-input bg-background/50 pl-10 pr-4 py-2 text-sm placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="flex h-10 w-full rounded-xl border border-input bg-background/50 pl-10 pr-4 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       />
                     </div>
 
                     {groups.length === 0 && (
                       <div className="flex flex-col items-center gap-2 py-12">
-                        <IconSearch className="size-8 text-muted-foreground/20" />
-                        <p className="text-sm text-muted-foreground/70">No matching shortcuts</p>
+                        <IconSearch className="size-8 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">No matching shortcuts</p>
                       </div>
                     )}
 
                     {groups.map((group) => (
                       <div key={group} className="space-y-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">{group}</span>
-                          <div className="flex-1 border-t border-border/20" />
+                          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{group}</span>
+                          <div className="flex-1 border-t border-border/50" />
                         </div>
                         <SettingsCard className="divide-y divide-border/30 !p-0 overflow-hidden">
                           {filtered.filter((e) => e.group === group).map((entry) => (
                             <div key={entry.command} className="flex items-center justify-between px-5 py-2.5 transition-colors hover:bg-muted/15">
                               <span className="text-[13px] text-foreground/90">{entry.command}</span>
-                              <kbd className="shrink-0 rounded-md border border-border/60 bg-muted/50 px-2 py-1 font-mono text-[11px] text-muted-foreground/70 shadow-sm">
+                              <kbd className="shrink-0 rounded-md border border-border/60 bg-muted/50 px-2 py-1 font-mono text-[11px] text-muted-foreground shadow-sm">
                                 {entry.keys}
                               </kbd>
                             </div>

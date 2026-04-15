@@ -112,7 +112,7 @@ export const AboutDialog = ({ open, onOpenChange }: AboutDialogProps) => {
               </button>
             )}
             {isError && (
-              <span className="text-[12px] text-red-400">{error ?? 'Update check failed'}</span>
+              <span className="text-[12px] text-red-600 dark:text-red-400">{error ?? 'Update check failed'}</span>
             )}
             {status === 'idle' && (
               <button
@@ -129,7 +129,7 @@ export const AboutDialog = ({ open, onOpenChange }: AboutDialogProps) => {
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-border/40 px-6 py-3">
-          <span className="text-[11px] text-muted-foreground/50">
+          <span className="text-[11px] text-muted-foreground">
             © 2026 Thabti
           </span>
           <a
@@ -140,7 +140,7 @@ export const AboutDialog = ({ open, onOpenChange }: AboutDialogProps) => {
             tabIndex={0}
             className={cn(
               'inline-flex size-6 items-center justify-center rounded-md',
-              'text-muted-foreground/50 transition-colors hover:text-foreground',
+              'text-muted-foreground transition-colors hover:text-foreground',
             )}
           >
             <IconBrandGithub className="size-4" />

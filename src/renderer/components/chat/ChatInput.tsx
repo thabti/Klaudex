@@ -92,7 +92,7 @@ export const PillsRow = memo(function PillsRow({ mentionedFiles, nonImageAttachm
                 type="button"
                 onClick={() => onRemoveChunk(chunk.id)}
                 aria-label={`Remove pasted text #${chunk.id}`}
-                className="ml-0.5 flex size-4 items-center justify-center rounded text-foreground/25 hover:text-foreground/50"
+                className="ml-0.5 flex size-4 items-center justify-center rounded text-foreground/70 hover:text-foreground/70"
               >
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M1 1l6 6M7 1l-6 6" /></svg>
               </button>
@@ -103,7 +103,7 @@ export const PillsRow = memo(function PillsRow({ mentionedFiles, nonImageAttachm
               type="button"
               onClick={handleToggle}
               data-testid="pills-collapse-button"
-              className="inline-flex h-7 items-center gap-0.5 rounded-md px-1.5 text-[11px] text-foreground/30 transition-colors hover:text-foreground/50"
+              className="inline-flex h-7 items-center gap-0.5 rounded-md px-1.5 text-[11px] text-foreground/70 transition-colors hover:text-foreground/70"
               aria-label="Collapse attachments"
             >
               <IconChevronDown className="size-3.5 rotate-180" aria-hidden />
@@ -240,8 +240,8 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
               'hover:border-muted-foreground/30',
             )}
           >
-            <span className="text-[13px] text-muted-foreground/60">Type a message…</span>
-            <IconChevronUp className="size-4 text-muted-foreground/50" />
+            <span className="text-[13px] text-muted-foreground">Type a message…</span>
+            <IconChevronUp className="size-4 text-muted-foreground/80" />
           </button>
         </div>
       </div>
@@ -298,11 +298,11 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
                       type="button"
                       onClick={() => handleRemoveAttachment(a.id)}
                       aria-label={`Remove ${a.name}`}
-                      className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-background border border-border/60 text-foreground/40 opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground/80"
+                      className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-background border border-border/60 text-foreground/60 opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground/80"
                     >
                       <IconX className="size-3" />
                     </button>
-                    <span className="mt-0.5 block max-w-[80px] truncate text-center text-[10px] text-foreground/40">{a.name}</span>
+                    <span className="mt-0.5 block max-w-[80px] truncate text-center text-[10px] text-foreground/60">{a.name}</span>
                   </div>
                 ))}
               </div>
@@ -340,7 +340,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
               disabled={disabled}
               rows={1}
               className={cn(
-                'block max-h-[200px] min-h-[70px] w-full resize-none rounded-lg bg-transparent text-sm leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground/60',
+                'block max-h-[200px] min-h-[70px] w-full resize-none rounded-lg bg-transparent text-sm leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground',
                 disabled && 'cursor-not-allowed opacity-50',
               )}
               style={{ overflow: 'auto', fontFamily: 'inherit', caretColor: 'var(--foreground)' }}
@@ -404,7 +404,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
                 aria-hidden
               />
               {/* Focus hint */}
-              <kbd className="hidden text-[10px] text-muted-foreground/50 sm:inline">{MOD_KEY}L</kbd>
+              <kbd className="hidden text-[10px] text-muted-foreground sm:inline">{MOD_KEY}L</kbd>
               {isRunning ? (
                 <Tooltip>
                   <TooltipTrigger asChild>

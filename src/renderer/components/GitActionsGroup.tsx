@@ -145,7 +145,7 @@ function GitMenuItem({ icon: Icon, label, loading, disabled, onClick }: {
         ? <IconLoader2 className="size-3.5 animate-spin" />
         : <Icon className="size-3.5" />}
       {label}
-      {loading && <span className="ml-auto text-[10px] text-muted-foreground/50">…</span>}
+      {loading && <span className="ml-auto text-[10px] text-muted-foreground">…</span>}
     </button>
   )
 }

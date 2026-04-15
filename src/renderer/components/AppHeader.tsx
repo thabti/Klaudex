@@ -34,7 +34,7 @@ const handleHeaderMouseDown = (e: React.MouseEvent<HTMLElement>) => {
 }
 
 // ── Breadcrumb separator ──────────────────────────────────────────────
-const Sep = () => <span className="text-muted-foreground/50 select-none">/</span>
+const Sep = () => <span className="text-muted-foreground select-none">/</span>
 
 // ── AppHeader ─────────────────────────────────────────────────────────
 interface AppHeaderProps {
@@ -151,14 +151,14 @@ const AppHeaderInner = memo(function AppHeaderInner({ sidePanelOpen, onToggleSid
           <div className="h-5 w-14 rounded bg-muted-foreground/6" />
           <div className="flex">
             <div className="inline-flex h-6 items-center gap-1.5 rounded-l-md border border-muted-foreground/8 px-1.5">
-              <IconGitCompare className="size-3 text-muted-foreground/40" />
+              <IconGitCompare className="size-3 text-muted-foreground/70" />
             </div>
             <div className="inline-flex h-6 items-center rounded-r-md border border-l-0 border-muted-foreground/8 px-1.5">
               <span className="h-2 w-2 rounded-sm bg-muted-foreground/10" />
             </div>
           </div>
           <div className="inline-flex h-6 items-center rounded-md border border-muted-foreground/8 px-1.5">
-            <IconTerminal2 className="size-3 text-muted-foreground/40" />
+            <IconTerminal2 className="size-3 text-muted-foreground/70" />
           </div>
         </div>
       )}
@@ -327,9 +327,9 @@ const UserMenu = memo(function UserMenu() {
         <div className="absolute right-0 top-full z-50 mt-1.5 w-56 overflow-hidden rounded-xl border border-border/60 bg-card shadow-xl shadow-black/20 animate-in fade-in-0 slide-in-from-top-1 duration-100">
           {kiroAuth ? (
             <>
-              <div className="px-3 py-2.5 border-b border-border/30">
+              <div className="px-3 py-2.5 border-b border-border/60">
                 <p className="text-[12px] font-medium text-foreground/90 truncate">{kiroAuth.email ?? kiroAuth.accountType}</p>
-                <p className="text-[10px] text-foreground/30">{kiroAuth.accountType}{kiroAuth.region ? ` · ${kiroAuth.region}` : ''}</p>
+                <p className="text-[10px] text-foreground/70">{kiroAuth.accountType}{kiroAuth.region ? ` · ${kiroAuth.region}` : ''}</p>
               </div>
               <div className="py-1">
                 <button
@@ -343,7 +343,7 @@ const UserMenu = memo(function UserMenu() {
                 <button
                   type="button"
                   onClick={() => { logout(); setOpen(false) }}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-red-400/70 transition-colors hover:bg-red-500/5 hover:text-red-400"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-red-600/70 dark:text-red-400/70 transition-colors hover:bg-red-500/5 hover:text-red-600 dark:hover:text-red-400"
                 >
                   <IconLogout className="size-3.5" /> Logout
                 </button>

@@ -61,7 +61,7 @@ function LoginBanner() {
       </svg>
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-medium text-amber-700 dark:text-amber-200/90">Sign in to Kiro to start using AI agents</p>
-        <p className="text-[11px] text-amber-600/70 dark:text-amber-200/50">Authentication is required to create threads and interact with agents</p>
+        <p className="text-[11px] text-amber-600/70 dark:text-amber-400">Authentication is required to create threads and interact with agents</p>
       </div>
       <button
         type="button"
@@ -96,7 +96,7 @@ function EmptyState() {
           <h2 className="text-lg font-semibold text-foreground">
             {hasProjects ? "Start a new thread" : "Open a project to get started"}
           </h2>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground/60">
+          <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
             {hasProjects
               ? "Pick a project and start chatting with Kiro"
               : "Point Kirodex at any folder on your machine. The AI agent works directly with your files, runs commands, and helps you build."}
@@ -121,7 +121,7 @@ function EmptyState() {
           )}
         </button>
         {!hasProjects && (
-          <p className="text-[11px] text-muted-foreground/40">
+          <p className="text-[11px] text-muted-foreground">
             Or press <kbd className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px]">⌘O</kbd> to open a folder
           </p>
         )}
