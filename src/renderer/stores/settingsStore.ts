@@ -54,7 +54,7 @@ interface SettingsStore {
 const defaultSettings: AppSettings = {
   kiroBin: 'kiro-cli',
   agentProfiles: [],
-  fontSize: 13,
+  fontSize: 14,
   sidebarPosition: 'left',
   analyticsEnabled: true,
 }
@@ -93,7 +93,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     const keys: Array<keyof AppSettings> = [
       'kiroBin', 'defaultModel', 'autoApprove', 'respectGitignore',
       'coAuthor', 'coAuthorJsonReport', 'notifications', 'fontSize',
-      'sidebarPosition', 'analyticsEnabled',
+      'sidebarPosition', 'analyticsEnabled', 'theme',
     ]
     for (const k of keys) {
       if (prev[k] !== settings[k]) track('settings_changed', { key: String(k) })

@@ -128,16 +128,16 @@
    (100vh stays unzoomed while content grows), clipping the bottom in Tauri
    production builds where the webview doesn't compensate for zoom. */
 html {
-    font-size: 100%;
+    font-size: 87.5%;
 }
 @media (min-width: 900px) {
     html {
-        font-size: 106.25%;
+        font-size: 93.75%;
     }
 }
 @media (min-width: 1100px) {
     html {
-        font-size: 112.5%;
+        font-size: 100%;
     }
 }
 
@@ -346,12 +346,22 @@ input[type="search"] {
     background: linear-gradient(
         90deg,
         var(--muted) 25%,
-        rgba(255, 255, 255, 0.06) 50%,
+        rgba(0, 0, 0, 0.03) 50%,
         var(--muted) 75%
     );
     background-size: 200% 100%;
     animation: var(--animate-skeleton);
     border-radius: var(--radius-sm);
+}
+
+.dark .skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--muted) 25%,
+        rgba(255, 255, 255, 0.06) 50%,
+        var(--muted) 75%
+    );
+    background-size: 200% 100%;
 }
 
 /* Streaming cursor — appended to the last block while the model is generating */
@@ -479,4 +489,18 @@ input[type="search"] {
 .dark .window-unfocused .traffic-light-maximize {
     background: #5a5a5a !important;
     border-color: #4a4a4a !important;
+}
+
+
+/* Floating panel background — hardcoded to bypass Tailwind v4 CSS variable
+   resolution issues in Tauri's WebKit webview where bg-card / bg-popover
+   can render as transparent in light mode. */
+.floating-panel {
+    background-color: #fafafa !important;
+    color: #1a1a1a !important;
+}
+
+.dark .floating-panel {
+    background-color: #141414 !important;
+    color: #f0f0f0 !important;
 }

@@ -59,6 +59,9 @@ pub struct AppSettings {
     /// PostHog `distinct_id` — never tied to OS identity, email, or machine ID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub analytics_anon_id: Option<String>,
+    /// Theme mode: "dark", "light", or "system". Default: "dark".
+    #[serde(default = "default_theme")]
+    pub theme: String,
 }
 
 fn default_kiro_bin() -> String {
@@ -66,6 +69,9 @@ fn default_kiro_bin() -> String {
 }
 fn default_font_size() -> u32 {
     13
+}
+fn default_theme() -> String {
+    "dark".to_string()
 }
 fn default_true() -> bool {
     true
@@ -88,6 +94,7 @@ impl Default for AppSettings {
             has_onboarded: false,
             analytics_enabled: true,
             analytics_anon_id: None,
+            theme: default_theme(),
         }
     }
 }

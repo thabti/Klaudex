@@ -4,8 +4,9 @@ import ReactDOM from 'react-dom/client'
 import { App } from './App'
 import '../tailwind.css'
 
-// Apply dark theme immediately to prevent white flash
-document.documentElement.classList.add('dark')
+// Apply persisted theme immediately to prevent flash
+import { readPersistedTheme, applyTheme } from './lib/theme'
+applyTheme(readPersistedTheme())
 
 function showError(err: unknown) {
   const fallback = document.getElementById('error-fallback')
