@@ -2,6 +2,7 @@ import { memo, useState, useRef, useEffect } from 'react'
 import { IconChevronDown } from '@tabler/icons-react'
 import { useSettingsStore, type ModelOption } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
+import { getModelIcon } from '@/lib/model-icons'
 
 export const ModelPicker = memo(function ModelPicker() {
   const models = useSettingsStore((s) => s.availableModels)
@@ -20,6 +21,7 @@ export const ModelPicker = memo(function ModelPicker() {
 
   const current = models.find((m) => m.modelId === currentId)
   const label = current?.name ?? currentId ?? 'Model'
+  const triggerIconKey = current?.modelId ?? current?.name ?? currentId ?? ''
 
   if (models.length === 0) return (
     <div className="flex items-center gap-1.5 px-1.5 py-1">
@@ -32,11 +34,9 @@ export const ModelPicker = memo(function ModelPicker() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[11px] font-medium text-muted-foreground/70 transition-colors hover:text-foreground"
+        className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[14px] font-medium text-muted-foreground/70 transition-colors hover:text-foreground"
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-        </svg>
+        <span className="shrink-0">{getModelIcon(triggerIconKey, { size: 13 })}</span>
         <span className="max-w-[8rem] truncate">{label}</span>
         <IconChevronDown className="size-3 shrink-0 opacity-50" aria-hidden />
       </button>
@@ -62,8 +62,7 @@ export const ModelPicker = memo(function ModelPicker() {
                 m.modelId === currentId ? 'text-foreground font-medium' : 'text-muted-foreground',
               )}
             >
-              {m.modelId === currentId && <span className="size-1.5 rounded-full bg-primary shrink-0" />}
-              {m.modelId !== currentId && <span className="size-1.5 shrink-0" />}
+              <span className="shrink-0">{getModelIcon(m.modelId || m.name, { size: 14 })}</span>
               {m.name}
             </button>
           ))}
