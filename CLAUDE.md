@@ -236,6 +236,34 @@ When deleting a thread or removing a project, call `ipc.cancelTask()` before `ip
 
 `confy` stores config at its own XDG/macOS-standard path (e.g., `~/Library/Application Support/rs.kirodex/default-config.toml` on macOS), not the previous custom path. If migrating from hand-rolled persistence, existing settings at the old path won't be found. Consider a one-time migration or document the new location.
 
+### upsertTask must preserve client-side name
+
+The ACP backend sends `task_update` events carrying the original creation-time name. If `upsertTask` spreads the backend object as the base, every status change overwrites user renames. Fix: when the task already exists locally, always keep the client-side `name`. This follows the same pattern used for `messages` and `parentTaskId` preservation.
+
+### Soft-deleted threads reappear after app restart
+
+`loadTasks` builds the task map from `listTasks()` ACP responses. If `deletedTaskIds` isn't populated from persisted soft-deleted thread IDs before `upsertTask` runs, deleted threads get re-added. Fix: populate `deletedTaskIds` from persisted storage first, then filter them out of the task map during `loadTasks`.
+
+### `bun test` vs `bun run test` runner mismatch
+
+`bun test` invokes Bun's native test runner, which doesn't provide jsdom. `bun run test` invokes Vitest (configured with jsdom). Running `bun test` causes all component tests to fail with `ReferenceError: document is not defined`. Fix: add `bunfig.toml` with `[test] root = ".bun-test-noop"` to redirect Bun's native runner away from Vitest test files.
+
+### Clean up orphaned worktrees on setup failure
+
+If `gitWorktreeSetup` fails after the worktree directory was partially created, the orphaned directory remains on disk. Any component that calls worktree setup must catch the error and call `gitWorktreeRemove` to clean up. This applies to both `PendingChat` and `WorktreePanel`.
+
+### Stamp context on debug entries at creation time
+
+Debug entries (JS console, network, Rust logs) should capture `threadName` and `projectName` from the active task at creation time, not look them up from the task store at render time. Tasks can be deleted or archived after the entry was created, making render-time lookups return nothing and breaking filter functionality.
+
+### tauri-plugin-log for Rust-to-WebView log forwarding
+
+Use `tauri-plugin-log` with `LogTarget::Webview` to forward Rust `log::info!()` / `log::error!()` calls to the frontend JS context. Requires adding `log:default` to the Tauri capabilities file. The frontend listens via the plugin's `onEvent` API and can display Rust logs alongside JS console output.
+
+### GitHub Markdown strips block elements inside `<p>` tags
+
+Block-level HTML elements (`<table>`, `<div>`, `<pre>`) nested inside `<p>` tags are invalid HTML. GitHub's Markdown renderer strips them, hiding the content. Always place block-level elements outside `<p>` tags in README and other GitHub-rendered Markdown files.
+
 ## Activity log
 
 After completing any task, update `activity.md` at the project root before finishing.

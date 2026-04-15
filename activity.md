@@ -1,5 +1,13 @@
 # Activity Log
 
+## 2026-04-15 17:00 GST (Dubai)
+
+### CLAUDE.md: Add 7 engineering learnings from session
+
+Extracted learnings from the session activity log and added them to CLAUDE.md's Engineering Learnings section: upsertTask name preservation from ACP overwrites, soft-delete persistence on reload, `bun test` vs `bun run test` runner mismatch, worktree cleanup on setup failure, stamping context on debug entries at creation time, tauri-plugin-log for Rust→WebView forwarding, and GitHub HTML nesting rules for block elements inside `<p>` tags.
+
+**Modified:** `CLAUDE.md`, `activity.md`
+
 ## 2026-04-15 15:54 GST (Dubai)
 
 ### Tests: Suppress console.warn stderr noise in updateStore test
