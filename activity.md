@@ -1,5 +1,13 @@
 # Activity Log
 
+## 2026-04-16 02:41 GST (Dubai)
+
+### AppHeader: fix dark mode background mismatch
+
+Changed header background from `bg-card` (#141414) to `bg-background` (#0D0D0D) so the header blends with the window background in dark mode instead of appearing as a lighter strip.
+
+**Modified:** `src/renderer/components/AppHeader.tsx`
+
 ## 2026-04-16 02:29 GST (Dubai)
 
 ### Window: fix macOS traffic lights disappearing on focus loss
