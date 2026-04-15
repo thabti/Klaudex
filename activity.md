@@ -1,5 +1,41 @@
 # Activity Log
 
+## 2026-04-15 15:47 GST (Dubai)
+
+### Commits: Review and organize all changes since v0.8.15
+
+Reviewed all changes since v0.8.15 tag (4 existing commits + uncommitted changes). Created 3 additional feature-scoped commits for uncommitted work: debug tab thread/project filtering, website full content with changelog and deploy workflow, and activity log updates. Total of 7 commits since v0.8.15, all using conventional commit format.
+
+**Modified:** `activity.md`
+
+## 2026-04-15 15:46 GST (Dubai)
+
+### DebugPanel: Add thread and project filters to JS Debug tab
+
+Added thread and project filter dropdowns to the JS Debug tab, matching the Kiro Debug tab UX. Each JS debug entry is now stamped with the active taskId at capture time. The filter bar shows "All threads" / "All projects" dropdowns when entries have associated tasks.
+
+**Modified:**
+- `src/renderer/types/index.ts` — added optional `taskId` to JsDebugEntry
+- `src/renderer/stores/jsDebugStore.ts` — added threadName/projectName to filter state
+- `src/renderer/lib/jsInterceptors.ts` — stamp selectedTaskId on each entry
+- `src/renderer/components/debug/JsDebugTab.tsx` — thread/project filter dropdowns + filtering logic
+
+## 2026-04-15 15:55 GST (Dubai)
+
+### Website: Add changelog page
+
+Added `website/changelog.html` that fetches `CHANGELOG.md` from the repo at runtime and renders it as a styled timeline with color-coded categories (green for features, red for bug fixes, purple for styling, etc.). Added Changelog link to both the main page and changelog page navs. Updated deploy workflow to include the new page.
+
+**Modified:** `website/changelog.html`, `website/index.html`, `.github/workflows/deploy-website.yml`, `activity.md`
+
+## 2026-04-15 15:55 GST (Dubai)
+
+### Website: Build Kirodex GitHub Pages site
+
+Built a single-page dark-themed website in `website/` that matches the Kirodex app's design system. Includes hero with download CTA, 6 feature cards, screenshot gallery, platform install tabs with keyboard navigation, live download stats from `downloads.json`, and footer with sponsor. Added GitHub Actions deployment workflow and enabled GitHub Pages via `gh` CLI. Site will be live at `thabti.github.io/kirodex`.
+
+**Modified:** `.gitignore`, `package.json`, `website/index.html`, `website/style.css`, `website/package.json`, `.github/workflows/deploy-website.yml`
+
 ## 2026-04-15 15:32 GST (Dubai)
 
 ### BranchSelector: Add back button and improve inline create UI
