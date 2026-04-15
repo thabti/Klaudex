@@ -1,3 +1,215 @@
+## 2026-04-15 21:10 GST (Dubai)
+### ChatInput: Add Cmd+Shift+V raw paste support
+Added early return in `handleTextPaste` when Shift is held so Cmd+Shift+V pastes raw text directly into the textarea instead of creating a `[Pasted text #N]` placeholder pill. Tracks Shift key state via a `useRef` + window keydown/keyup listeners since `ClipboardEvent` doesn't expose modifier keys.
+**Modified:** src/renderer/hooks/useChatInput.ts
+
+## 2026-04-15 21:04 GST (Dubai)
+### Steering: Hardened project isolation to absolute no-exceptions rule
+Strengthened .kiro/steering/kirodex-rules.md to refuse all `..` path access, refuse cross-project edits even if user asks, and require subagent prompts to include the scope constraint. Previous version was too soft and I violated it myself by writing to ../lastline/.
+**Modified:** .kiro/steering/kirodex-rules.md
+
+## 2026-04-15 21:02 GST (Dubai)
+### Cross-project: Added project isolation boundaries to kirodex-tauri and lastline
+Added project boundary rules to prevent AI agents from traversing parent/sibling directories and bleeding context between projects. Updated kirodex-tauri/.kiro/steering/kirodex-rules.md, lastline/CLAUDE.md, and created lastline/.kiro/steering/project-isolation.md (alwaysApply: true).
+**Modified:** .kiro/steering/kirodex-rules.md, ../lastline/CLAUDE.md, ../lastline/.kiro/steering/project-isolation.md
+
+## 2026-04-15 20:59 GST (Dubai)
+### CLAUDE.md: Audit change request reviewed and rejected (wrong project)
+Received a 14-point audit update request for CLAUDE.md referencing a monorepo with NestJS API, Next.js landing, analytics service, Chrome extension, email templates, auth guards, and pnpm dev commands. The current CLAUDE.md is for Kirodex (Tauri v2 desktop app) and contains none of the referenced content. Flagged the mismatch to the user.
+**Modified:** None (no changes applied)
+
+## 2026-04-15 20:54 GST (Dubai)
+
+### Git: Slugify branch names and worktree slugs in BranchSelector
+
+Added `slugify()` to branch creation in `BranchPanel` (SlashPanels.tsx) and `BranchSelector.tsx` so user input like "fix: my bug #123" becomes `fix-my-bug-123` before hitting `git_create_branch`. Also slugified worktree slugs in `BranchSelector.handleCreateWorktree`. Thread naming remains plain text (no slugify).
+
+**Modified:** `src/renderer/components/chat/SlashPanels.tsx`, `src/renderer/components/chat/BranchSelector.tsx`
+
+## 2026-04-15 20:52 GST (Dubai)
+
+### Utils: Replace custom slugify with slugify package
+
+Replaced the hand-rolled `slugify` function in `utils.ts` with the `slugify` npm package (v1.6.9). Gains proper unicode transliteration (e.g. `café` → `cafe` instead of `caf`). Post-processing for max length (30 chars), leading/trailing dot/dash stripping, and dash collapsing is preserved. All 36 utils tests pass.
+
+**Modified:** `package.json`, `bun.lock`, `src/renderer/lib/utils.ts`, `src/renderer/lib/utils.test.ts`
+
+## 2026-04-15 20:50 GST (Dubai)
+
+### Git: Fix worktree slug generation to produce valid branch names
+
+Worktree creation failed when the thread name ended with a period (e.g., "updating-claude.") because git rejects branch names ending with `.`. Fixed `slugify()` to strip leading/trailing dots, added a post-truncation cleanup for dots left by `.slice()`, updated `isValidWorktreeSlug()` and the Rust `validate_worktree_slug()` to reject leading/trailing dots. Added five new test cases covering dot edge cases. All 36 tests pass.
+
+**Modified:** `src/renderer/lib/utils.ts`, `src/renderer/lib/utils.test.ts`, `src-tauri/src/commands/git.rs`
+
+## 2026-04-15 20:47 GST (Dubai)
+
+### Chat: Conditional kirodex-report card rendering
+
+Report blocks now only render as a rich `TaskCompletionCard` component when `status` is `"done"` AND `filesChanged` is non-empty. For `"partial"` / `"blocked"` statuses or when `filesChanged` is missing, the report stays in the markdown and renders as a standalone code block. Added `shouldRenderReportCard` helper to centralize the gate logic.
+
+**Modified:** `src/renderer/components/chat/TaskCompletionCard.tsx`, `src/renderer/components/chat/AssistantTextRow.tsx`, `src/renderer/components/chat/MessageItem.tsx`, `src/renderer/lib/timeline.ts`
+
+## 2026-04-15 20:12 GST (Dubai)
+
+### Tests: Workspace scoping and worktree path enforcement
+
+Added 10 frontend tests in `taskStore.test.ts` under "workspace scoping": `setSelectedTask` syncs `activeWorkspace` to project root (including worktree resolution), `setPendingWorkspace` syncs immediately, `addProject` rejects worktree paths, `loadTasks`/`forkTask`/`restoreTask` never put worktree paths in projects. Added 1 Rust test in `git.rs`: `worktree_create_rejects_worktree_path_as_cwd`. All 163 frontend + 56 Rust tests pass.
+
+**Modified:** `src/renderer/stores/taskStore.test.ts`, `src-tauri/src/commands/git.rs`
+
+## 2026-04-15 20:08 GST (Dubai)
+
+### Worktree: Enforce <project>/.kiro/worktrees/<slug> path
+
+Added a backend guard in `git_worktree_create` that rejects worktree paths as `cwd` (prevents creating worktrees from inside other worktrees). Fixed `BranchSelector` to resolve `originalWorkspace ?? workspace` for worktree creation so it always uses the project root. The worktree path is always `<project>/.kiro/worktrees/<slug>`.
+
+**Modified:** `src-tauri/src/commands/git.rs`, `src/renderer/components/chat/BranchSelector.tsx`
+
+## 2026-04-15 20:05 GST (Dubai)
+
+### Scope: Sync activeWorkspace immediately on thread/project switch
+
+`activeWorkspace` was set via a React `useEffect` that lagged behind thread switches, and didn't account for `pendingWorkspace`. Fixed: `setSelectedTask` and `setPendingWorkspace` now sync `activeWorkspace` immediately in the store action (resolving worktree threads to project root). The `App.tsx` effect also includes `pendingWorkspace` as a dependency. Fixed `ChatPanel.sendMessageDirect` to look up `projectPrefs` using `originalWorkspace ?? workspace`. Fixed `useKeyboardShortcuts` Cmd+N to resolve to project root.
+
+**Modified:** `src/renderer/stores/taskStore.ts`, `src/renderer/App.tsx`, `src/renderer/components/chat/ChatPanel.tsx`, `src/renderer/hooks/useKeyboardShortcuts.ts`, `src/renderer/stores/taskStore.test.ts`
+
+## 2026-04-15 20:04 GST (Dubai)
+
+### Scope: Remove hardcoded Kirodex project rules from agent system prefix
+
+The system prefix injected into every ACP prompt contained Kirodex-specific rules (co-author trailer, commit format) that leaked into all projects. A Lastline worktree thread was getting told about "Kirodex project rules." Removed the project-specific content; the prefix now only contains the structured questions format (UI rendering hint) and optional JSON report format. Project-specific rules belong in each project's `.kiro/` steering rules, not hardcoded in the app.
+
+**Modified:** `src-tauri/src/commands/acp.rs`
+
+## 2026-04-15 20:00 GST (Dubai)
+
+### Focus: Always resolve activeWorkspace to project root
+
+`activeWorkspace` was set to the worktree path for worktree threads, causing project prefs (model, auto-approve, worktree toggle) to look up the wrong key. Fixed `App.tsx` to use `task.originalWorkspace ?? task.workspace`. Fixed `KiroConfigPanel` to resolve to project root for `.kiro/` config loading. Fixed `AppHeader` to use `projectRoot` for display name while keeping `workspace` for git/diff operations.
+
+**Modified:** `src/renderer/App.tsx`, `src/renderer/components/sidebar/KiroConfigPanel.tsx`, `src/renderer/components/AppHeader.tsx`
+
+## 2026-04-15 19:50 GST (Dubai)
+
+### Worktree guard: Ensure worktree paths never enter projects array
+
+Worktree paths (`.kiro/worktrees/`) are threads, not projects. Fixed six locations: `addProject` now rejects worktree paths; `loadTasks` derives projects from `originalWorkspace ?? workspace` (not UUID `projectId`); `forkTask` and `restoreTask` add the real workspace path to projects; `removeProject` and `archiveThreads` match tasks by `originalWorkspace ?? workspace` instead of UUID `projectId`.
+
+**Modified:** `src/renderer/stores/taskStore.ts`, `src/renderer/stores/taskStore.test.ts`
+
+## 2026-04-15 19:47 GST (Dubai)
+
+### ProjectId: Generate UUID on project import
+
+Projects now get a stable UUID on import instead of using the workspace path as `projectId`. Added `projectIds` map (workspace→UUID) to taskStore with `getProjectId` helper that returns existing or generates new. All thread creation paths (`PendingChat`, `createDraftThread`, `forkTask`) use `getProjectId`. Sidebar grouping resolves UUIDs back to workspace paths for display. History store persists and restores `projectIds`. Backward compatible: `loadTasks` generates UUIDs for projects that don't have one yet.
+
+**Modified:** `src/renderer/stores/taskStore.ts`, `src/renderer/components/chat/PendingChat.tsx`, `src/renderer/hooks/useSidebarTasks.ts`, `src/renderer/lib/history-store.ts`, `src/renderer/stores/taskStore.test.ts`, `src/renderer/hooks/useSidebarTasks.test.ts`
+
+## 2026-04-15 19:40 GST (Dubai)
+
+### Feature removal: Remove project rename
+
+Removed the project rename feature to prevent potential issues. Deleted `renameProject` action from taskStore, inline editing state and "Edit Name" context menu from ProjectItem, double-click rename from AppHeader's project breadcrumb, and the `onRenameProject` prop chain through TaskSidebar. The `projectNames` field is kept for read-only display (loaded from history).
+
+**Modified:** `src/renderer/stores/taskStore.ts`, `src/renderer/components/sidebar/ProjectItem.tsx`, `src/renderer/components/sidebar/TaskSidebar.tsx`, `src/renderer/components/AppHeader.tsx`, `src/renderer/stores/taskStore.test.ts`
+
+## 2026-04-15 19:36 GST (Dubai)
+
+### Tests: Add projectId unit tests across stores and hooks
+
+Added 26 new tests: 12 in `taskStore.test.ts` (upsertTask preservation, createDraftThread, forkTask inheritance, removeProject/archiveThreads matching, restoreTask, loadTasks derivation), 5 in `history-store.test.ts` (saveThreads persistence, worktree grouping, toArchivedTasks restoration), and 9 in new `useSidebarTasks.test.ts` (projectId grouping, worktree nesting, fallback chain, cross-project separation). All 149 tests pass.
+
+**Modified:** `src/renderer/stores/taskStore.test.ts`, `src/renderer/lib/history-store.test.ts`, `src/renderer/hooks/useSidebarTasks.test.ts`
+
+## 2026-04-15 19:30 GST (Dubai)
+
+### AgentTask: Add explicit projectId for canonical project grouping
+
+Added `projectId` field to `AgentTask` so every thread (regular, worktree, forked) carries its parent project identity explicitly. All creation paths (`PendingChat`, `createDraftThread`, `forkTask`) set `projectId` at creation time. Sidebar grouping (`useSidebarTasks`) now uses `projectId` directly instead of inferring from `worktreePath`/`originalWorkspace`. History store persists and restores `projectId`. All project operations (`removeProject`, `archiveThreads`, `restoreTask`, `loadTasks`) use `projectId` as the canonical key with fallback chain `projectId ?? originalWorkspace ?? workspace` for backward compatibility.
+
+**Modified:** `src/renderer/types/index.ts`, `src/renderer/components/chat/PendingChat.tsx`, `src/renderer/stores/taskStore.ts`, `src/renderer/hooks/useSidebarTasks.ts`, `src/renderer/lib/history-store.ts`
+
+## 2026-04-15 19:22 GST (Dubai)
+
+### Worktree: Fix project grouping across all code paths
+
+Worktree threads still appeared as separate top-level projects because multiple code paths used `task.workspace` (the worktree path) instead of `task.originalWorkspace` (the parent project). Fixed five locations: `loadTasks` now derives the projects array from `originalWorkspace ?? workspace`; `saveThreads` in history-store groups threads by `originalWorkspace`; `forkTask` preserves `worktreePath`/`originalWorkspace` from the parent; `removeProject` and `archiveThreads` match tasks by both `workspace` and `originalWorkspace`; `restoreTask` adds the `originalWorkspace` to the projects list.
+
+**Modified:** `src/renderer/stores/taskStore.ts`, `src/renderer/lib/history-store.ts`
+
+## 2026-04-15 19:14 GST (Dubai)
+
+### Worktree: Fix threads appearing as top-level projects
+
+Fixed worktree threads leaking into the sidebar as standalone projects instead of nesting under their parent. Root cause: `upsertTask` merged backend `task_update` events (which lack `worktreePath`/`originalWorkspace`) via object spread, wiping client-only metadata. Also fixed `history-store.ts` not persisting worktree fields, so metadata was lost on restart. Defaulted the worktree toggle to `false` on new threads. Wrapped worktree creation in try/catch with inline error fallback. Replaced silent `.catch(() => {})` in cleanup with `console.warn`.
+
+**Modified:** `src/renderer/stores/taskStore.ts`, `src/renderer/stores/taskStore.test.ts`, `src/renderer/lib/history-store.ts`, `src/renderer/lib/history-store.test.ts`, `src/renderer/components/chat/PendingChat.tsx`
+
+## 2026-04-15 19:09 GST (Dubai)
+
+### CollapsibleContent: Make "Show more" button more visible
+
+Increased visual weight of the Show more/less toggle button: added a subtle background (`bg-accent/30`), a faint border (`border-border/50`), bumped font weight to semibold, and darkened text color from `text-muted-foreground` to `text-foreground/80`.
+
+**Modified:** `src/renderer/components/chat/CollapsibleContent.tsx`
+
+## 2026-04-15 18:43 GST (Dubai)
+
+### ChatInput: Hide left toolbar in PendingChat (new thread view)
+
+Added a `minimal` prop to ChatInput. When true, the left toolbar group (collapse, attach, plan/model/auto-approve) is hidden. PendingChat now passes `minimal` so the new thread input is cleaner.
+
+**Modified:** `src/renderer/components/chat/ChatInput.tsx`, `src/renderer/components/chat/PendingChat.tsx`
+
+## 2026-04-15 17:35 GST (Dubai)
+
+### SystemMessageRow: Worktree-specific variant with violet theme
+
+Added a dedicated `worktree` variant for system messages. Instead of showing the raw full path in a generic blue info pill, worktree messages now display a violet-themed pill with an `IconGitBranch` icon and cleaned-up text showing only the slug and branch name (e.g., "Worktree **tesr** on **worktree-tesr**").
+
+**Modified:** `src/renderer/lib/timeline.ts`, `src/renderer/components/chat/SystemMessageRow.tsx`
+
+## 2026-04-15 17:26 GST (Dubai)
+
+### PendingChat: Darken worktree description text
+
+Changed the "Isolate this thread in its own directory" description from `text-muted-foreground/50` to `text-muted-foreground` for better readability.
+
+**Modified:** `src/renderer/components/chat/PendingChat.tsx`
+
+## 2026-04-15 17:28 GST (Dubai)
+
+### Sidebar: Prevent worktree paths from appearing as empty top-level projects
+
+Follow-up fix: worktree workspace paths (e.g., `/project/.kiro/worktrees/feat`) could still end up in the `projects` array via task hydration, restore, and fork flows. Added a `worktreeWorkspaces` set in `useSidebarTasks` that collects all worktree task workspaces and skips them when building the project list, preventing ghost empty project entries.
+
+**Modified:** `src/renderer/hooks/useSidebarTasks.ts`
+
+## 2026-04-15 17:20 GST (Dubai)
+
+### Sidebar: Nest worktree threads under parent project
+
+Worktree threads were appearing as separate top-level projects in the sidebar because `useSidebarTasks` grouped tasks by `workspace` (the worktree path). Changed the grouping logic to use `originalWorkspace` for worktree tasks so they nest under their parent project. Added `originalWorkspace` to the `SidebarTask` interface and structural sharing comparison.
+
+**Modified:** `src/renderer/hooks/useSidebarTasks.ts`
+
+## 2026-04-15 17:24 GST (Dubai)
+
+### PendingChat: Redesign worktree toggle UI
+
+Replaced the raw HTML checkbox with the Radix `Checkbox` component. Wrapped the worktree section in a subtle rounded card with border. Added a cleaner slug row with a code-style badge for the `.kiro/worktrees/` prefix, a truncating edit button, and `maxLength` on the input. The toggle handler now accepts the Radix `CheckedState` value directly.
+
+**Modified:** `src/renderer/components/chat/PendingChat.tsx`
+
+## 2026-04-15 17:22 GST (Dubai)
+
+### Worktree slug: Reduce max length from 64 to 30 characters
+
+Long worktree slugs looked wrong in the pending chat UI. Reduced `MAX_SLUG_LENGTH` from 64 to 30 in `utils.ts`, updated the Rust-side `validate_worktree_slug` in `git.rs` to match, trimmed the auto-slug input slice in `PendingChat.tsx`, and updated tests.
+
+**Modified:** `src/renderer/lib/utils.ts`, `src/renderer/components/chat/PendingChat.tsx`, `src-tauri/src/commands/git.rs`, `src/renderer/lib/utils.test.ts`
+
 ## 2026-04-15 17:09 GST (Dubai)
 
 ### index.html + main.tsx: Remove error-fallback div
@@ -225,3 +437,43 @@ Fixed `loadTasks` so soft-deleted threads no longer reappear in the sidebar afte
 11. `src/renderer/stores/taskStore.ts` — worktreeCleanupPending, archiveTask, softDeleteTask, resolveWorktreeCleanup
 12. `src/renderer/components/settings/SettingsPanel.tsx` — Worktrees section
 13. `src/renderer/App.tsx` — WorktreeCleanupDialog
+
+## 2026-04-15 19:23 (Dubai) — Thread Creation & Sidebar Grouping Investigation
+
+**Task**: Deep analysis of how threads are created, how worktree threads are handled, and how the sidebar groups threads under projects.
+
+**Files analyzed**:
+- `src/renderer/types/index.ts` — AgentTask type with worktreePath/originalWorkspace fields
+- `src/renderer/stores/taskStore.ts` — Thread creation, upsert, deletion, worktree cleanup
+- `src/renderer/hooks/useSidebarTasks.ts` — Sidebar grouping logic (groups worktree tasks under originalWorkspace)
+- `src/renderer/hooks/useSlashAction.ts` — /worktree command toggles panel
+- `src/renderer/components/sidebar/TaskSidebar.tsx` — Sidebar rendering
+- `src/renderer/components/sidebar/ProjectItem.tsx` — Project group rendering
+- `src/renderer/components/sidebar/ThreadItem.tsx` — Thread item rendering with worktree icon
+- `src/renderer/components/chat/SlashPanels.tsx` — WorktreePanel creates worktree threads
+- `src/renderer/components/chat/PendingChat.tsx` — handleSend creates worktree threads
+- `src/renderer/lib/ipc.ts` — IPC calls for task/worktree operations
+- `src-tauri/src/commands/acp.rs` — Rust backend task creation (no worktree fields)
+- `src-tauri/src/commands/git.rs` — Rust worktree create/remove/setup/has-changes
+
+**Key findings**:
+1. worktreePath and originalWorkspace are CLIENT-SIDE ONLY fields — backend Task struct doesn't have them
+2. Sidebar groups worktree tasks under originalWorkspace, excludes worktree paths from top-level projects
+3. Fork doesn't preserve worktree fields — potential bug where forked worktree threads appear as separate projects
+4. Thread workspace is set to worktree path for worktree threads, original project path for regular threads
+
+## 2026-04-15 19:56 (Dubai) — AI Features Audit
+
+**Task:** Comprehensive search of Kirodex project for all AI-related features across 10 categories.
+
+**Findings:**
+- Zero direct AI SDK dependencies (no openai, anthropic, langchain, etc.)
+- Core AI integration via `agent-client-protocol` Rust crate (v0.10.4) in `src-tauri/Cargo.toml`
+- All AI interaction proxied through `kiro-cli acp` subprocess (stdin/stdout JSON-RPC)
+- `src-tauri/src/commands/acp.rs` is the main AI integration file
+- `src/renderer/lib/model-icons.tsx` supports 10 AI providers (Anthropic, OpenAI, Amazon, Meta, Google, Mistral, Cohere, AI21, DeepSeek, Kiro)
+- 50+ chat component files for AI interaction UI
+- No vector DB, embeddings, or RAG code
+- No hardcoded system prompts (UI uses `role: 'system'` for status messages only)
+- No AI-related environment variables (auth handled by kiro-cli externally)
+- Feature toggles: autoApprove, plan mode, task completion reports

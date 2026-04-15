@@ -46,6 +46,15 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
   const attachmentsBag = useAttachments()
   const mentionBag = useFileMention({ textareaRef, value, setValue })
 
+  // ── Track Shift key for raw paste (Cmd+Shift+V) ────────────────
+  const isShiftHeldRef = useRef(false)
+  useEffect(() => {
+    const handleDown = (e: globalThis.KeyboardEvent) => { if (e.key === 'Shift') isShiftHeldRef.current = true }
+    const handleUp = (e: globalThis.KeyboardEvent) => { if (e.key === 'Shift') isShiftHeldRef.current = false }
+    window.addEventListener('keydown', handleDown)
+    window.addEventListener('keyup', handleUp)
+    return () => { window.removeEventListener('keydown', handleDown); window.removeEventListener('keyup', handleUp) }
+  }, [])
   // ── Pasted text chunks ─────────────────────────────────────────
   const [pastedChunks, setPastedChunks] = useState<PastedChunk[]>([])
   const chunkCounterRef = useRef(0)
@@ -53,6 +62,8 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
   const handleTextPaste = useCallback((e: ClipboardEvent) => {
     const text = e.clipboardData.getData('text/plain')
     if (!text || !isLargePaste(text)) return
+    // Cmd+Shift+V (or Ctrl+Shift+V): paste raw text without placeholder
+    if (isShiftHeldRef.current) return
     // Let image pastes pass through to useAttachments
     const hasImages = Array.from(e.clipboardData.items).some((i) => i.type.startsWith('image/'))
     if (hasImages) return
