@@ -1,5 +1,13 @@
 # Activity Log
 
+## 2026-04-16 01:34 GST (Dubai)
+
+### Theme: change primary color from indigo to blue-500
+
+Updated `--primary` and `--ring` CSS variables in `tailwind.css` from indigo (#6366f1) to blue-500 (#3b82f6) in light mode, and from indigo-400 (#818cf8) to blue-400 (#60a5fa) in dark mode. This affects all buttons, switches, checkboxes, badges, links, and other elements using the `primary` token. Violet/purple icon colors in components are left unchanged per request.
+
+**Modified:** `src/tailwind.css`
+
 ## 2026-04-16 01:25 GST (Dubai)
 
 ### BranchSelector: detect worktree-locked branches, prevent checkout
