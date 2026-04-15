@@ -1,5 +1,38 @@
 # Changelog
 
+## [v0.9.2] - 2026-04-16
+
+### Features
+
+- detect worktree-locked branches and add force checkout
+- force checkout option and worktree branch locking
+- show confirmation dialog before deleting worktree threads
+- worktree-aware workspace sync and pink theme token
+- worktree-aware sidebar grouping and input improvements
+- worktree-aware components and terminal improvements
+- workspace sandbox for ACP and worktree validation
+- worktree-aware project identity and per-project config caching
+- worktree support in utils, timeline, and history-store
+- add projectId field to AgentTask
+- support Cmd+Shift+V for raw paste without placeholder
+
+### Bug fixes
+
+- friendly errors, worktree lock UI, force checkout
+
+### Documentation
+
+- update activity log
+- log worktree confirmation dialog session in activity.md
+- log commit organization session in activity.md
+- update activity logs
+- add CLAUDE.md for analytics service
+
+### Chores
+
+- add slugify and xterm-addon-web-links
+- remove kirodex-rules steering file
+
 ## [v0.9.1] - 2026-04-15
 
 ### Bug fixes
