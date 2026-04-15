@@ -171,9 +171,9 @@ function groupByDirectory(files: readonly FileStats[]): DirGroup[] {
 const Stats = memo(function Stats({ additions, deletions }: { additions: number; deletions: number }) {
   return (
     <span className="ml-auto shrink-0 font-mono text-[11px] tabular-nums">
-      <span className="text-emerald-400">+{additions}</span>
+      <span className="text-emerald-600 dark:text-emerald-400">+{additions}</span>
       <span className="mx-0.5 text-muted-foreground">/</span>
-      <span className="text-red-400/80">-{deletions}</span>
+      <span className="text-red-600/80 dark:text-red-400/80">-{deletions}</span>
     </span>
   )
 })
@@ -243,17 +243,32 @@ export const ChangedFilesSummary = memo(function ChangedFilesSummary({ row }: { 
   const isCapped = !showAll && totalFiles > MAX_VISIBLE_FILES
   let visibleCount = 0
 
+  const report = row.report
+  const reportLabel = report
+    ? report.status === 'blocked' ? 'Blocked'
+      : report.status === 'partial' ? 'Partial'
+      : 'Done'
+    : null
+
   return (
     <div className="pt-2 pb-4" data-timeline-row-kind="changed-files">
       <div className="rounded-lg border border-border/80 bg-card/70 p-3">
+      {/* Report summary */}
+      {report && reportLabel && (
+        <p className="mb-3 pb-3 border-b border-border/40 text-[13px] leading-relaxed text-muted-foreground">
+          <span className="font-medium text-foreground/90">{reportLabel}</span>
+          <span className="mx-1.5 text-border">·</span>
+          {report.summary}
+        </p>
+      )}
       {/* Header */}
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
           <span>Changed files ({totalFiles})</span>
           <span className="mx-1">&middot;</span>
-          <span className="text-emerald-400">+{totals.additions}</span>
+          <span className="text-emerald-600 dark:text-emerald-400">+{totals.additions}</span>
           <span className="mx-0.5 text-muted-foreground">/</span>
-          <span className="text-red-400/80">-{totals.deletions}</span>
+          <span className="text-red-600/80 dark:text-red-400/80">-{totals.deletions}</span>
         </p>
         <div className="flex items-center gap-1.5">
           {dirGroups.length > 1 && (

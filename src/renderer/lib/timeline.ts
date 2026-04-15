@@ -1,4 +1,5 @@
 import type { TaskMessage, ToolCall } from '@/types'
+import { parseReport } from '@/components/chat/TaskCompletionCard'
 
 /** Check if a tool call represents a file mutation (edit, delete, move) */
 function isFileMutation(kind?: string, title?: string): boolean {
@@ -20,11 +21,14 @@ export interface UserMessageRow {
   questionAnswers?: { question: string; answer: string }[]
 }
 
+export type SystemMessageVariant = 'error' | 'info' | 'fork'
+
 export interface SystemMessageRow {
   kind: 'system-message'
   id: string
   content: string
   timestamp: string
+  variant: SystemMessageVariant
 }
 
 export interface AssistantTextRow {
@@ -36,6 +40,8 @@ export interface AssistantTextRow {
   isStreaming?: boolean
   /** True when this row is followed by another row from the same turn */
   squashed?: boolean
+  /** True when a changed-files row follows this row (report card rendered there instead) */
+  hasChangedFiles?: boolean
 }
 
 export interface WorkRow {
@@ -55,6 +61,14 @@ export interface ChangedFilesRow {
   kind: 'changed-files'
   id: string
   toolCalls: ToolCall[]
+  /** Completion report parsed from the preceding assistant text, if any */
+  report?: {
+    status: 'done' | 'partial' | 'blocked'
+    summary: string
+    filesChanged?: string[]
+    linesAdded?: number
+    linesRemoved?: number
+  }
 }
 
 export type TimelineRow = UserMessageRow | SystemMessageRow | AssistantTextRow | WorkRow | WorkingRow | ChangedFilesRow
@@ -99,11 +113,14 @@ export function deriveTimeline(
     }
 
     if (msg.role === 'system') {
+      const isFork = msg.content.startsWith('Forked from:')
+      const isError = msg.content.startsWith('⚠️') || msg.content.toLowerCase().includes('failed')
       rows.push({
         kind: 'system-message',
         id: `msg-${i}-system`,
         content: msg.content,
         timestamp: msg.timestamp,
+        variant: isFork ? 'fork' : isError ? 'error' : 'info',
       })
       continue
     }
@@ -122,6 +139,7 @@ export function deriveTimeline(
         timestamp: msg.timestamp,
         thinking: msg.thinking,
         squashed: hasToolCalls,
+        hasChangedFiles: hasFileChanges,
       })
     }
 
@@ -137,6 +155,7 @@ export function deriveTimeline(
           kind: 'changed-files',
           id: `msg-${i}-changed-files`,
           toolCalls: msg.toolCalls!,
+          report: msg.content ? parseReport(msg.content) ?? undefined : undefined,
         })
       }
     }
