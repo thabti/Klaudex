@@ -77,7 +77,7 @@
     --secondary: color-mix(in srgb, black 5%, transparent);
     --secondary-foreground: #1a1a1a;
     --muted: color-mix(in srgb, black 4%, transparent);
-    --muted-foreground: #6b6b6b;
+    --muted-foreground: #636363;
     --accent: color-mix(in srgb, black 5%, transparent);
     --sidebar: #f7f7f8;
     --accent-foreground: #1a1a1a;
@@ -85,13 +85,13 @@
     --border: #e5e5e5;
     --input: color-mix(in srgb, black 10%, transparent);
     --ring: #6366f1;
-    --destructive-foreground: #dc2626;
+    --destructive-foreground: #b91c1c;
     --info: #3b82f6;
     --info-foreground: #1d4ed8;
     --success: #10b981;
-    --success-foreground: #059669;
+    --success-foreground: #047857;
     --warning: #f59e0b;
-    --warning-foreground: #d97706;
+    --warning-foreground: #b45309;
 }
 
 .dark {
@@ -102,7 +102,7 @@
     --card-foreground: #f0f0f0;
     --popover: #161616;
     --popover-foreground: #f0f0f0;
-    --primary: #6366f1;
+    --primary: #818cf8;
     --primary-foreground: #ffffff;
     --secondary: color-mix(in srgb, white 6%, transparent);
     --secondary-foreground: #f0f0f0;
