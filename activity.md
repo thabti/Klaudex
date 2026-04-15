@@ -1,5 +1,13 @@
 # Activity Log
 
+## 2026-04-16 01:05 GST (Dubai)
+
+### Git: organize uncommitted changes into 11 conventional commits
+
+Reviewed all 43 modified files and created 11 small, logical commits covering: steering rule cleanup, analytics docs, dependency additions (slugify, xterm-addon-web-links), types (projectId), lib worktree support, store refactoring (per-project config caching, projectIds, operationalWorkspace), Rust backend sandbox and worktree validation, UI components (TerminalDrawer refactor, PendingChat worktree UI, sidebar badges), hooks (worktree-aware grouping + tests), App.tsx workspace sync, and activity logs.
+
+**Modified:** 43 files across 11 commits (+2391 / -986 lines)
+
 ## 2026-04-16 00:58 GST (Dubai)
 
 ### Worktree: fix CWD consistency for git operations in worktree threads
