@@ -1,5 +1,45 @@
 # Activity Log
 
+## 2026-04-16 13:22 GST (Dubai)
+
+### Website: Add Kiro ghost logo to hero section
+
+Restored the original nav icon (`icon.svg`). Added the Kiro ghost SVG as a decorative element at the top of the hero, above the sponsored-by pill. Sized `h-16 w-[53px]` at 80% opacity with `aria-hidden`.
+
+**Modified:** website/index.html
+
+---
+
+## 2026-04-16 13:21 GST (Dubai)
+
+### Website: Replace nav icon with Kiro ghost SVG logo
+
+Replaced the `icon.svg` image in the nav bar with the inline Kiro ghost SVG logo (white ghost with black eyes). Sized at `h-6 w-5` to fit the nav, with `aria-hidden="true"`.
+
+**Modified:** website/index.html
+
+---
+
+## 2026-04-16 13:16 GST (Dubai)
+
+### Website: Add sponsored-by Lastline pill above hero heading
+
+Added a small "Sponsored by [logo] Lastline" pill link above the hero `<h1>` on the website. Links to `https://lastline.app`, uses the existing `lastline-logo.svg` asset, styled as a rounded pill matching the stats pills aesthetic.
+
+**Modified:** website/index.html
+
+---
+
+## 2026-04-16 13:15 GST (Dubai)
+
+### Docs: Update main screenshot
+
+Committed updated `screenshots/main.png` (~880KB → ~906KB) reflecting the latest UI state.
+
+**Modified:** screenshots/main.png
+
+---
+
 ## 2026-04-16 13:05 GST (Dubai)
 
 ### Chat: handle refusal gracefully with auto-retry and recovery
