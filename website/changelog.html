@@ -15,17 +15,15 @@
 <body>
 
   <!-- ── Nav ─────────────────────────────────────────────────── -->
-  <nav class="fixed top-0 left-0 right-0 z-50 border-b border-[rgba(255,255,255,0.07)] bg-[#0D0D0D]/80 backdrop-blur-md">
+  <nav class="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-md">
     <div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
-      <a href="./" class="flex items-center gap-2.5 text-[15px] font-semibold text-foreground no-underline">
+      <a href="./" class="flex items-center gap-2.5 text-[15px] font-bold text-foreground no-underline">
         <img src="assets/icon.svg" alt="" width="24" height="24" class="rounded">
         Kirodex
       </a>
-      <div class="hidden items-center gap-6 text-[13px] text-muted-foreground sm:flex">
-        <a href="./#features" class="transition-colors hover:text-foreground no-underline">Features</a>
-        <a href="./#install" class="transition-colors hover:text-foreground no-underline">Install</a>
+      <div class="flex items-center gap-6 text-[14px] text-muted-foreground">
         <a href="changelog.html" class="text-foreground no-underline">Changelog</a>
-        <a href="https://github.com/thabti/kirodex" target="_blank" rel="noopener" class="transition-colors hover:text-foreground no-underline">GitHub</a>
+        <a href="https://github.com/thabti/kirodex" target="_blank" rel="noopener" class="transition-colors hover:text-foreground no-underline">GitHub ↗</a>
       </div>
     </div>
   </nav>
@@ -43,16 +41,13 @@
   </main>
 
   <!-- ── Footer ──────────────────────────────────────────────── -->
-  <footer class="border-t border-[rgba(255,255,255,0.07)] px-6 py-10">
-    <div class="mx-auto flex max-w-5xl flex-col items-center gap-6 sm:flex-row sm:justify-between">
-      <div class="flex items-center gap-4 text-[13px] text-muted-foreground">
+  <footer class="border-t border-[rgba(255,255,255,0.06)] px-6 py-8">
+    <div class="mx-auto flex max-w-5xl items-center justify-between">
+      <p class="text-[13px] text-muted-foreground">&copy; 2026 Sabeur Thabti</p>
+      <div class="flex items-center gap-5 text-[13px] text-muted-foreground">
         <a href="./" class="transition-colors hover:text-foreground no-underline">Home</a>
-        <span class="text-[rgba(255,255,255,0.15)]">·</span>
         <a href="https://github.com/thabti/kirodex" target="_blank" rel="noopener" class="transition-colors hover:text-foreground no-underline">GitHub</a>
-        <span class="text-[rgba(255,255,255,0.15)]">·</span>
-        <span>MIT License</span>
       </div>
-      <div class="text-[13px] text-muted-foreground">Built by Sabeur Thabti</div>
     </div>
   </footer>
 
@@ -74,7 +69,7 @@
             const tag = match ? match[1] : line.slice(3);
             const date = match && match[2] ? match[2] : '';
             html += `<div class="relative pl-6 border-l border-[rgba(255,255,255,0.08)]">`;
-            html += `<div class="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full border-2 border-[#4444FF] bg-[#0D0D0D]"></div>`;
+            html += `<div class="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full border-2 border-[#4444FF] bg-[#0a0a0a]"></div>`;
             html += `<div class="flex flex-wrap items-baseline gap-3 mb-4">`;
             html += `<a href="https://github.com/thabti/kirodex/releases/tag/${tag}" target="_blank" rel="noopener" class="text-lg font-semibold text-foreground no-underline hover:text-[#4444FF] transition-colors">${tag}</a>`;
             if (date) html += `<span class="text-[13px] text-muted-foreground">${date}</span>`;

@@ -14,14 +14,14 @@
 }
 
 :root {
-  --background: #1c1c24;
+  --background: #0a0a0a;
   --foreground: #f5f5f7;
-  --card: #24242e;
+  --card: #111111;
   --card-foreground: #f5f5f7;
   --primary: #0000FF;
   --primary-foreground: #ffffff;
-  --muted-foreground: #b8b8c4;
-  --border: rgba(255, 255, 255, 0.10);
+  --muted-foreground: #888888;
+  --border: rgba(255, 255, 255, 0.06);
   --info: #60a5fa;
   --success: #34d399;
 }
