@@ -2,7 +2,9 @@ import { memo, useCallback } from 'react'
 import { IconShieldCheck, IconShieldOff } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { ipc } from '@/lib/ipc'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useTaskStore } from '@/stores/taskStore'
 
 export const selectAutoApprove = (s: ReturnType<typeof useSettingsStore.getState>) => {
   const ws = s.activeWorkspace
@@ -18,10 +20,20 @@ export const AutoApproveToggle = memo(function AutoApproveToggle() {
     const current = activeWorkspace
       ? (settings.projectPrefs?.[activeWorkspace]?.autoApprove ?? settings.autoApprove ?? false)
       : (settings.autoApprove ?? false)
+    const next = !current
     if (activeWorkspace) {
-      setProjectPref(activeWorkspace, { autoApprove: !current })
+      setProjectPref(activeWorkspace, { autoApprove: next })
     } else {
-      saveSettings({ ...settings, autoApprove: !current })
+      saveSettings({ ...settings, autoApprove: next })
+    }
+    // Push the change to any running ACP connection so it takes effect immediately
+    const { selectedTaskId, tasks } = useTaskStore.getState()
+    if (!selectedTaskId) return
+    const task = tasks[selectedTaskId]
+    if (!task) return
+    const isLive = task.status === 'running' || task.status === 'pending_permission' || task.status === 'paused'
+    if (isLive) {
+      ipc.setAutoApprove(selectedTaskId, next).catch(() => {})
     }
   }, [])
 

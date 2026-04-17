@@ -13,6 +13,7 @@ interface KirodexReport {
 const REPORT_REGEX = /```kirodex-report\s*\n([\s\S]*?)\n```/
 const JSON_FENCE_REGEX = /```json\s*\n([\s\S]*?)\n```/
 const BARE_JSON_REGEX = /\{[\s\S]*"status"\s*:\s*"(?:done|partial|blocked)"[\s\S]*"summary"\s*:\s*"[^"]+?"[\s\S]*\}/
+const KIRO_SUMMARY_REGEX = /<kiro_summary>[\s\S]*?<\/kiro_summary>/g
 
 const VALID_STATUSES = new Set(['done', 'partial', 'blocked'])
 
@@ -25,6 +26,14 @@ const isValidReport = (obj: unknown): obj is KirodexReport => {
 
 /** Extract a completion report from message text. Checks kirodex-report fences, json fences, and bare JSON. */
 export const parseReport = (text: string): KirodexReport | null => {
+  // 0. <kiro_summary> tag
+  const summaryMatch = /<kiro_summary>\s*([\s\S]*?)\s*<\/kiro_summary>/.exec(text)
+  if (summaryMatch) {
+    try {
+      const parsed = JSON.parse(summaryMatch[1])
+      if (isValidReport(parsed)) return parsed
+    } catch { /* fall through */ }
+  }
   // 1. kirodex-report fence (highest priority)
   const fencedMatch = REPORT_REGEX.exec(text)
   if (fencedMatch) {
@@ -59,17 +68,19 @@ export const shouldRenderReportCard = (report: KirodexReport): boolean =>
 /** Strip the report block from message text so ChatMarkdown doesn't render it.
  *  Strips any report-like JSON regardless of whether it parses into a valid report. */
 export const stripReport = (text: string): string => {
-  if (REPORT_REGEX.test(text)) return text.replace(REPORT_REGEX, '').trimEnd()
-  const jsonFenceMatch = JSON_FENCE_REGEX.exec(text)
+  // Always strip <kiro_summary> tags
+  let cleaned = text.replace(KIRO_SUMMARY_REGEX, '').trimEnd()
+  if (REPORT_REGEX.test(cleaned)) return cleaned.replace(REPORT_REGEX, '').trimEnd()
+  const jsonFenceMatch = JSON_FENCE_REGEX.exec(cleaned)
   if (jsonFenceMatch) {
     const inner = jsonFenceMatch[1]
     if (/"status"\s*:\s*"(?:done|partial|blocked)"/.test(inner) && /"summary"\s*:/.test(inner)) {
-      return text.replace(JSON_FENCE_REGEX, '').trimEnd()
+      return cleaned.replace(JSON_FENCE_REGEX, '').trimEnd()
     }
   }
-  const bareMatch = BARE_JSON_REGEX.exec(text)
-  if (bareMatch) return text.replace(bareMatch[0], '').trimEnd()
-  return text
+  const bareMatch = BARE_JSON_REGEX.exec(cleaned)
+  if (bareMatch) return cleaned.replace(bareMatch[0], '').trimEnd()
+  return cleaned
 }
 
 const STATUS_LABEL: Record<string, string> = {

@@ -1,8 +1,7 @@
-import { memo, useCallback } from 'react'
-import { IconGitBranch, IconGitFork, IconInfoCircle, IconAlertTriangle } from '@tabler/icons-react'
+import { memo } from 'react'
+import { IconGitBranch, IconInfoCircle, IconAlertTriangle } from '@tabler/icons-react'
 import type { SystemMessageRow as SystemMessageRowData } from '@/lib/timeline'
 import { HighlightText } from './HighlightText'
-import { useTaskStore } from '@/stores/taskStore'
 
 /** Extract slug and branch from worktree system message content */
 const parseWorktreeMessage = (content: string): { slug: string; branch: string } => {
@@ -25,25 +24,6 @@ export const SystemMessageRow = memo(function SystemMessageRow({ row }: { row: S
             Worktree <span className="text-muted-foreground/80 font-medium">{slug}</span>
             {branch && <> on <span className="text-muted-foreground/80 font-medium">{branch}</span></>}
           </span>
-        </div>
-      </div>
-    )
-  }
-
-  if (row.variant === 'fork') {
-    const parentName = row.content.replace(/^Forked from:\s*/, '')
-    const parentTaskId = useTaskStore((s) => {
-      const taskId = s.selectedTaskId
-      return taskId ? s.tasks[taskId]?.parentTaskId : undefined
-    })
-    return (
-      <div className="pb-4" data-timeline-row-kind="system-message">
-        <div className="mx-auto flex items-center justify-center gap-1.5 text-[12px] text-muted-foreground/60">
-          <IconGitFork className="size-3.5 shrink-0" aria-hidden />
-          <span>Forked from {parentTaskId
-            ? <ParentLink parentTaskId={parentTaskId} parentName={parentName} />
-            : <span className="text-muted-foreground/80">{parentName}</span>
-          }</span>
         </div>
       </div>
     )
@@ -95,21 +75,3 @@ export const SystemMessageRow = memo(function SystemMessageRow({ row }: { row: S
   )
 })
 
-const ParentLink = memo(function ParentLink({ parentTaskId, parentName }: { parentTaskId: string; parentName: string }) {
-  const setSelectedTask = useTaskStore((s) => s.setSelectedTask)
-  const handleClick = useCallback(() => { setSelectedTask(parentTaskId) }, [setSelectedTask, parentTaskId])
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedTask(parentTaskId) }
-  }, [setSelectedTask, parentTaskId])
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
-      aria-label={`Go to parent thread: ${parentName}`}
-      className="text-muted-foreground/80 underline decoration-muted-foreground/30 underline-offset-2 transition-colors hover:text-muted-foreground hover:decoration-muted-foreground/50 cursor-pointer"
-    >
-      {parentName}
-    </button>
-  )
-})

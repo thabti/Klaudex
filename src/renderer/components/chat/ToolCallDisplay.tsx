@@ -5,6 +5,7 @@ import {
 import type { ToolCall } from '@/types'
 import { ToolCallEntry } from './ToolCallEntry'
 import { TaskListDisplay, isTaskListToolCall } from './TaskListDisplay'
+import { SubagentDisplay, isSubagentToolCall } from './SubagentDisplay'
 
 const MAX_VISIBLE_DEFAULT = 6
 
@@ -32,6 +33,7 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls }: Tool
   const hasMore = toolCalls.length > MAX_VISIBLE_DEFAULT
 
   const hasTaskList = useMemo(() => toolCalls.some(isTaskListToolCall), [toolCalls])
+  const hasSubagent = useMemo(() => toolCalls.some(isSubagentToolCall), [toolCalls])
 
   return (
     <div data-testid="tool-call-display" className="rounded-lg border border-border/60 bg-card">
@@ -89,6 +91,7 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls }: Tool
       )}
 
       {hasTaskList && <TaskListDisplay allToolCalls={toolCalls} />}
+      {hasSubagent && <SubagentDisplay allToolCalls={toolCalls} />}
     </div>
   )
 })

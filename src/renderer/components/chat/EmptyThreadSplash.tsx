@@ -22,7 +22,6 @@ const icon = (d: string) => () => (
 const SLASH_COMMANDS: readonly SplashItem[] = [
   { label: '/plan', insert: '/plan ', description: 'Toggle plan mode', color: 'text-teal-600 dark:text-teal-400', icon: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M8 7h8M8 12h8M8 17h4" /></svg> },
   { label: '/model', insert: '/model ', description: 'Switch AI model', color: 'text-amber-600 dark:text-amber-400', icon: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> },
-  { label: '/agent', insert: '/agent ', description: 'Switch agents', color: 'text-purple-600 dark:text-purple-400', icon: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="8" r="4" /><path d="M20 21a8 8 0 0 0-16 0" /></svg> },
   { label: '/clear', insert: '/clear ', description: 'Clear conversation', color: 'text-red-600 dark:text-red-400', icon: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M5 6l1 14h12l1-14" /></svg> },
   { label: '/compact', insert: '/compact ', description: 'Summarize to free context', color: 'text-sky-600 dark:text-sky-400', icon: icon('M4 6h16M4 12h10M4 18h6') },
   { label: '/context', insert: '/context ', description: 'Manage context files', color: 'text-blue-600 dark:text-blue-400', icon: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg> },
@@ -30,11 +29,13 @@ const SLASH_COMMANDS: readonly SplashItem[] = [
   { label: '/usage', insert: '/usage ', description: 'Show token and cost usage', color: 'text-emerald-600 dark:text-emerald-400', icon: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 3v18h18" /><path d="M18 9l-5 5-4-4-3 3" /></svg> },
   { label: '/branch', insert: '/branch ', description: 'Create and checkout a branch', color: 'text-pink-600 dark:text-pink-400', icon: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden><line x1="6" y1="3" x2="6" y2="15" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M18 9a9 9 0 0 1-9 9" /></svg> },
   { label: '/worktree', insert: '/worktree ', description: 'Create an isolated worktree', color: 'text-violet-600 dark:text-violet-400', icon: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="6" cy="6" r="3" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><line x1="6" y1="9" x2="6" y2="15" /><path d="M9 6h6" /><path d="M6 9c0 3 2 6 6 9" /></svg> },
+  { label: '/btw', insert: '/btw ', description: 'Quick side question', color: 'text-yellow-600 dark:text-yellow-400', icon: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg> },
 ] as const
 
 const AT_COMMANDS: readonly SplashItem[] = [
   { label: '@file', insert: '@', description: 'Mention a file for context', color: 'text-cyan-600 dark:text-cyan-400', icon: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg> },
   { label: '@folder', insert: '@', description: 'Reference an entire directory', color: 'text-indigo-600 dark:text-indigo-400', icon: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg> },
+  { label: '@agent', insert: '@', description: 'Mention an agent by name', color: 'text-purple-600 dark:text-purple-400', icon: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="8" r="4" /><path d="M20 21a8 8 0 0 0-16 0" /></svg> },
 ] as const
 
 const SplashItemButton = ({ item }: { readonly item: SplashItem }) => {
@@ -79,12 +80,12 @@ export const EmptyThreadSplash = memo(function EmptyThreadSplash() {
       </div>
 
       {/* Commands grid */}
-      <div className="w-full max-w-lg">
+      <div className="w-full max-w-2xl">
         {/* Slash commands */}
         <p className="mb-1.5 px-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           Slash commands
         </p>
-        <div className="grid grid-cols-2 gap-x-1 gap-y-0.5">
+        <div className="grid grid-cols-3 gap-x-1 gap-y-0.5">
           {SLASH_COMMANDS.map((item) => (
             <SplashItemButton key={item.label} item={item} />
           ))}
@@ -94,7 +95,7 @@ export const EmptyThreadSplash = memo(function EmptyThreadSplash() {
         <p className="mb-1.5 mt-4 px-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           Mentions
         </p>
-        <div className="grid grid-cols-2 gap-x-1 gap-y-0.5">
+        <div className="grid grid-cols-3 gap-x-1 gap-y-0.5">
           {AT_COMMANDS.map((item) => (
             <SplashItemButton key={item.label} item={item} />
           ))}

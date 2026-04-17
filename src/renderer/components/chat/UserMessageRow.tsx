@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useCallback, useContext, useMemo, type ReactNode } from 'react'
-import { IconCopy, IconCheck, IconPhoto, IconFileText, IconFile, IconRobot, IconTool, IconGitFork } from '@tabler/icons-react'
+import { IconCopy, IconCheck, IconPhoto, IconFileText, IconFile, IconRobot, IconTool } from '@tabler/icons-react'
 import {
   Tooltip,
   TooltipContent,
@@ -9,7 +9,6 @@ import { CollapsedAnswers } from './CollapsedAnswers'
 import { CollapsibleContent } from './CollapsibleContent'
 import { highlightNode, SearchQueryContext } from './HighlightText'
 import { useDiffStore } from '@/stores/diffStore'
-import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import type { UserMessageRow as UserMessageRowData } from '@/lib/timeline'
 
@@ -112,11 +111,7 @@ const AttachmentPill = memo(function AttachmentPill({ name, type, src }: { name:
 })
 
 export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserMessageRowData }) {
-  const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
-  const forkTask = useTaskStore((s) => s.forkTask)
-  const isForking = useTaskStore((s) => s.isForking)
   const chatFontSize = useSettingsStore((s) => s.settings.fontSize ?? 14)
-  const handleFork = useCallback(() => { if (selectedTaskId && !isForking) void forkTask(selectedTaskId) }, [selectedTaskId, forkTask, isForking])
   const [copied, setCopied] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchQuery = useContext(SearchQueryContext)
@@ -182,22 +177,6 @@ export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserM
                 {copied ? 'Copied!' : 'Copy message'}
               </TooltipContent>
             </Tooltip>
-            {selectedTaskId && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={handleFork}
-                    disabled={isForking}
-                    aria-label="Fork thread from here"
-                    className="rounded-md p-0.5 text-muted-foreground/0 transition-all group-hover:text-muted-foreground/70 hover:!text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <IconGitFork className={`size-3 ${isForking ? 'animate-spin' : ''}`} aria-hidden />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">{isForking ? 'Forking…' : 'Fork thread'}</TooltipContent>
-              </Tooltip>
-            )}
             <span className="text-[11px] tabular-nums text-muted-foreground">
               {timeStr}
             </span>

@@ -1,7 +1,6 @@
 import {
   memo,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -14,7 +13,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
-import { HighlightText, SearchQueryContext } from "./HighlightText";
+import { HighlightText } from "./HighlightText";
 import {
   QuestionCards,
 } from "./QuestionCards";
@@ -135,8 +134,10 @@ function wrapChildrenWithHighlight(children: ReactNode): ReactNode {
 }
 
 function ChatMarkdown({ text, isStreaming = false, questionsAnswered = false }: ChatMarkdownProps) {
-  const displayText = isStreaming ? stabilizeStreamingMarkdown(text) : text;
-  const searchQuery = useContext(SearchQueryContext);
+  const displayText = useMemo(
+    () => (isStreaming ? stabilizeStreamingMarkdown(text) : text),
+    [text, isStreaming],
+  );
   const chatFontSize = useSettingsStore((s) => s.settings.fontSize ?? 14);
   const showQuestions = useMemo(
     () => !isStreaming && !questionsAnswered && hasQuestionBlocks(displayText),
@@ -254,7 +255,9 @@ function ChatMarkdown({ text, isStreaming = false, questionsAnswered = false }: 
         );
       },
     }),
-    [searchQuery],
+    // Components don't depend on searchQuery — HighlightText reads it via context internally
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
   );
 
   return (

@@ -10,6 +10,7 @@ const displayName = (name: string): string => name.replace(/^\/+/, '')
 const COMMAND_DESCRIPTIONS: Record<string, string> = {
   agent: 'Switch between agents or list available ones',
   branch: 'Create and checkout a new branch',
+  btw: 'Ask a side question without polluting conversation history',
   chat: 'Pass through to backend chat command',
   clear: 'Clear the current conversation',
   code: 'Initialize or manage code intelligence workspace',
@@ -22,6 +23,7 @@ const COMMAND_DESCRIPTIONS: Record<string, string> = {
   plan: 'Toggle plan mode on or off',
   prompts: 'Manage reusable prompt templates',
   settings: 'Open application settings',
+  tangent: 'Ask a side question (alias for /btw)',
   tools: 'View or configure available tools',
   usage: 'Show token and cost usage for this session',
   worktree: 'Create a worktree and new thread for isolated work',
@@ -43,6 +45,11 @@ const COMMAND_ICONS: Record<string, () => React.ReactNode> = {
   branch: () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <line x1="6" y1="3" x2="6" y2="15" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M18 9a9 9 0 0 1-9 9" />
+    </svg>
+  ),
+  btw: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
     </svg>
   ),
   chat: icon('M7.9 20A9 9 0 1 0 4 16.1L2 22z'),
@@ -95,6 +102,11 @@ const COMMAND_ICONS: Record<string, () => React.ReactNode> = {
   settings: () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  ),
+  tangent: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
     </svg>
   ),
   tools: () => (

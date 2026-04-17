@@ -12,6 +12,7 @@ import { TerminalDrawer } from './TerminalDrawer'
 import { QueuedMessages } from './QueuedMessages'
 import { SearchBar } from './SearchBar'
 import { SearchQueryContext } from './HighlightText'
+import { BtwOverlay } from './BtwOverlay'
 import { useMessageSearch } from '@/hooks/useMessageSearch'
 import { ipc } from '@/lib/ipc'
 import type { TaskMessage, ToolCall } from '@/types'
@@ -38,9 +39,9 @@ const StreamingMessageList = memo(function StreamingMessageList({
 }) {
   const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
   const messages = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.messages ?? EMPTY_MESSAGES : EMPTY_MESSAGES)
-  const streamingChunk = useTaskStore((s) => selectedTaskId ? s.streamingChunks[selectedTaskId] ?? '' : '')
-  const liveToolCalls = useTaskStore((s) => selectedTaskId ? s.liveToolCalls[selectedTaskId] ?? EMPTY_TOOL_CALLS : EMPTY_TOOL_CALLS)
-  const liveThinking = useTaskStore((s) => selectedTaskId ? s.thinkingChunks[selectedTaskId] ?? '' : '')
+  const streamingChunk = useTaskStore((s) => s.btwCheckpoint ? '' : selectedTaskId ? s.streamingChunks[selectedTaskId] ?? '' : '')
+  const liveToolCalls = useTaskStore((s) => s.btwCheckpoint ? EMPTY_TOOL_CALLS : selectedTaskId ? s.liveToolCalls[selectedTaskId] ?? EMPTY_TOOL_CALLS : EMPTY_TOOL_CALLS)
+  const liveThinking = useTaskStore((s) => s.btwCheckpoint ? '' : selectedTaskId ? s.thinkingChunks[selectedTaskId] ?? '' : '')
 
   return (
     <MessageList
@@ -122,6 +123,7 @@ export const ChatPanel = memo(function ChatPanel() {
   const terminalOpen = useTaskStore((s) => selectedTaskId ? s.terminalOpenTasks.has(selectedTaskId) : false)
   const toggleTerminal = useTaskStore((s) => s.toggleTerminal)
   const queuedMessages = useTaskStore((s) => selectedTaskId ? s.queuedMessages[selectedTaskId] ?? EMPTY_QUEUE : EMPTY_QUEUE)
+  const isBtwMode = useTaskStore((s) => s.btwCheckpoint !== null)
 
   // Search state — timeline rows are pushed up from MessageList via callback
   const timelineRowsRef = useRef<TimelineRow[]>([])
@@ -168,7 +170,8 @@ export const ChatPanel = memo(function ChatPanel() {
     if (!task) return
 
     // If the agent is running, queue the message instead of sending directly
-    if (task.status === 'running') {
+    // Exception: btw mode messages should always send immediately
+    if (task.status === 'running' && !state.btwCheckpoint) {
       state.enqueueMessage(task.id, msg)
       return
     }
@@ -233,7 +236,8 @@ export const ChatPanel = memo(function ChatPanel() {
   const searchQuery = search.isOpen ? search.query : ''
 
   return (
-    <div data-testid="chat-panel" className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+    <div data-testid="chat-panel" className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col">
+      {isBtwMode && <BtwOverlay />}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {taskPlan && taskPlan.length > 0 && (
           <div className="shrink-0 px-4 pt-2">
@@ -257,7 +261,7 @@ export const ChatPanel = memo(function ChatPanel() {
 
         <SearchQueryContext.Provider value={searchQuery}>
           <StreamingMessageList
-            isRunning={isRunning}
+            isRunning={isRunning && !isBtwMode}
             searchMatchIds={search.isOpen ? search.matchIds : undefined}
             activeMatchId={search.isOpen ? search.activeMatchId : undefined}
             onTimelineRows={handleTimelineRows}

@@ -60,7 +60,8 @@ export function PendingChat({ workspace }: PendingChatProps) {
 
   const handleSend = useCallback(async (msg: string) => {
     removeDraft(workspace)
-    const name = msg.length > 60 ? msg.slice(0, 57) + '\u2026' : msg
+    const cleanMsg = msg.replace(/<\/?kirodex_tangent>/g, '').trim()
+    const name = cleanMsg.length > 60 ? cleanMsg.slice(0, 57) + '\u2026' : cleanMsg
     const { settings: currentSettings, activeWorkspace, currentModeId } = useSettingsStore.getState()
     const prefs = activeWorkspace ? currentSettings.projectPrefs?.[activeWorkspace] : undefined
     const autoApprove = prefs?.autoApprove !== undefined ? prefs.autoApprove : currentSettings.autoApprove
@@ -92,6 +93,10 @@ export function PendingChat({ workspace }: PendingChatProps) {
           useTaskStore.getState().setTaskMode(created.id, currentModeId)
         }
         useTaskStore.setState({ pendingWorkspace: null, selectedTaskId: created.id })
+        if (msg.includes('<kirodex_tangent>')) {
+          const question = msg.replace(/<\/?kirodex_tangent>/g, '').trim()
+          useTaskStore.getState().enterBtwMode(created.id, question)
+        }
         return
       } catch (wtErr) {
         // Worktree failed — fall back to original workspace with inline error
@@ -109,6 +114,10 @@ export function PendingChat({ workspace }: PendingChatProps) {
           useTaskStore.getState().setTaskMode(created.id, currentModeId)
         }
         useTaskStore.setState({ pendingWorkspace: null, selectedTaskId: created.id })
+        if (msg.includes('<kirodex_tangent>')) {
+          const question = msg.replace(/<\/?kirodex_tangent>/g, '').trim()
+          useTaskStore.getState().enterBtwMode(created.id, question)
+        }
         return
       }
     }
@@ -119,6 +128,11 @@ export function PendingChat({ workspace }: PendingChatProps) {
       useTaskStore.getState().setTaskMode(created.id, currentModeId)
     }
     useTaskStore.setState({ pendingWorkspace: null, selectedTaskId: created.id })
+    // If this was a /btw question, enter btw mode on the new task
+    if (msg.includes('<kirodex_tangent>')) {
+      const question = msg.replace(/<\/?kirodex_tangent>/g, '').trim()
+      useTaskStore.getState().enterBtwMode(created.id, question)
+    }
   }, [workspace, upsertTask, removeDraft, useWorktree, worktreeSlug, getProjectId])
 
   const kiroAuth = useSettingsStore((s) => s.kiroAuth)
