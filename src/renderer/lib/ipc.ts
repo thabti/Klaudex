@@ -83,6 +83,8 @@ export const ipc = {
     invoke('git_create_branch', { cwd, branch }),
   getTaskDiff: (taskId: string): Promise<string> =>
     invoke('task_diff', { taskId }),
+  gitDiff: (cwd: string): Promise<string> =>
+    invoke('git_diff', { cwd }),
   gitDiffFile: (taskId: string, filePath: string): Promise<string> =>
     invoke('git_diff_file', { taskId, filePath }),
   gitDiffStats: (cwd: string): Promise<{ additions: number; deletions: number; fileCount: number }> =>

@@ -360,6 +360,34 @@ pub fn task_diff(state: tauri::State<'_, AcpState>, task_id: String) -> Result<S
     Ok(output)
 }
 
+/// Full diff patch by workspace path (no task required).
+#[tauri::command]
+pub fn git_diff(cwd: String) -> Result<String, AppError> {
+    let repo = Repository::open(&cwd)?;
+    let mut diff_opts = DiffOptions::new();
+    let mut output = String::new();
+    let head_tree = repo.head().ok().and_then(|h| h.peel_to_tree().ok());
+    let staged = repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut diff_opts))?;
+    staged.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
+        let origin = line.origin();
+        if matches!(origin, '+' | '-' | ' ') {
+            output.push(origin);
+        }
+        output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+        true
+    })?;
+    let unstaged = repo.diff_index_to_workdir(None, Some(&mut diff_opts))?;
+    unstaged.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
+        let origin = line.origin();
+        if matches!(origin, '+' | '-' | ' ') {
+            output.push(origin);
+        }
+        output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+        true
+    })?;
+    Ok(output)
+}
+
 /// Lightweight diff stats by workspace path (no task required).
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]

@@ -385,10 +385,10 @@ export function App() {
                 </Suspense>
               </div>
             </ErrorBoundary>
-            {sidePanelOpen && selectedTaskId && (
+            {sidePanelOpen && (selectedTaskId || pendingWorkspace) && (
               <ErrorBoundary>
                 <Suspense>
-                  <CodePanel onClose={closeSidePanel} />
+                  <CodePanel onClose={closeSidePanel} workspace={pendingWorkspace ?? undefined} />
                 </Suspense>
               </ErrorBoundary>
             )}
