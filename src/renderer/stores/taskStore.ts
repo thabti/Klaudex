@@ -1,97 +1,15 @@
 import { create } from 'zustand'
-import type { AgentTask, ActivityEntry, ToolCall, PlanStep, SoftDeletedThread } from '@/types'
+import type { AgentTask, ActivityEntry, SoftDeletedThread } from '@/types'
 import { ipc } from '@/lib/ipc'
 import { joinChunk } from '@/lib/utils'
 import * as historyStore from '@/lib/history-store'
-import { useDebugStore } from './debugStore'
 import { useSettingsStore } from './settingsStore'
-import { useDiffStore } from './diffStore'
-import { useKiroStore } from './kiroStore'
 import { track } from '@/lib/analytics'
 import { sendTaskNotification } from '@/lib/notifications'
+import type { TaskStore } from './task-store-types'
 
-interface TaskStore {
-  tasks: Record<string, AgentTask>
-  projects: string[]           // workspace paths
-  /** Maps workspace path → stable UUID for project identity */
-  projectIds: Record<string, string>
-  deletedTaskIds: Set<string>  // guard against backend re-adding deleted tasks
-  softDeleted: Record<string, SoftDeletedThread>  // threads pending permanent deletion
-  selectedTaskId: string | null
-  pendingWorkspace: string | null  // workspace for a new thread not yet created
-  view: 'chat' | 'dashboard'
-  isNewProjectOpen: boolean
-  isSettingsOpen: boolean
-  settingsInitialSection: string | null
-  /** Accumulated text chunks for streaming display */
-  streamingChunks: Record<string, string>
-  /** Accumulated thinking chunks for live thinking display */
-  thinkingChunks: Record<string, string>
-  /** Live tool calls for the current turn (by taskId) */
-  liveToolCalls: Record<string, ToolCall[]>
-  /** Queued messages per task — typed while agent is running, sent on turn end */
-  queuedMessages: Record<string, string[]>
-  activityFeed: ActivityEntry[]
-  connected: boolean
-  terminalOpenTasks: Set<string>
-  /** Workspace-level terminal open state (for PendingChat when no task is selected) */
-  isWorkspaceTerminalOpen: boolean
-  /** Per-workspace draft text (in-memory only, not persisted to disk) */
-  drafts: Record<string, string>
-  /** One-shot guard: workspace whose next setDraft call should be suppressed */
-  _suppressDraftSave: string | null
-  /** Task IDs from desktop notifications pending click-to-navigate */
-  notifiedTaskIds: string[]
-  /** Per-thread mode (e.g. 'kiro_planner') so toggling plan mode in one thread doesn't affect others */
-  taskModes: Record<string, string>
-  /** Whether a fork operation is in progress */
-  isForking: boolean
-  /** Pending worktree cleanup — set when a worktree thread is being deleted/archived */
-  worktreeCleanupPending: { taskId: string; worktreePath: string; branch: string; originalWorkspace: string; action: 'archive' | 'delete'; hasChanges: boolean | null } | null
-  setSelectedTask: (id: string | null) => void
-  setView: (view: 'chat' | 'dashboard') => void
-  setNewProjectOpen: (open: boolean) => void
-  setSettingsOpen: (open: boolean, section?: string | null) => void
-  addProject: (workspace: string) => void
-  /** Returns the stable UUID for a workspace, generating one if needed */
-  getProjectId: (workspace: string) => string
-  removeProject: (workspace: string) => void
-  archiveThreads: (workspace: string) => void
-  upsertTask: (task: AgentTask) => void
-  removeTask: (id: string) => void
-  archiveTask: (id: string) => void
-  softDeleteTask: (id: string) => void
-  restoreTask: (id: string) => void
-  permanentlyDeleteTask: (id: string) => void
-  purgeExpiredSoftDeletes: () => void
-  appendChunk: (taskId: string, chunk: string) => void
-  appendThinkingChunk: (taskId: string, chunk: string) => void
-  upsertToolCall: (taskId: string, toolCall: ToolCall) => void
-  updatePlan: (taskId: string, plan: PlanStep[]) => void
-  updateUsage: (taskId: string, used: number, size: number) => void
-  updateCompactionStatus: (taskId: string, status: import('@/types').CompactionStatus, summary?: string) => void
-  clearTurn: (taskId: string) => void
-  enqueueMessage: (taskId: string, message: string) => void
-  dequeueMessages: (taskId: string) => string[]
-  removeQueuedMessage: (taskId: string, index: number) => void
-  reorderQueuedMessage: (taskId: string, from: number, to: number) => void
-  createDraftThread: (workspace: string) => string
-  setPendingWorkspace: (workspace: string | null) => void
-  renameTask: (taskId: string, name: string) => void
-  forkTask: (taskId: string) => Promise<void>
-  projectNames: Record<string, string>
-  reorderProject: (from: number, to: number) => void
-  setDraft: (workspace: string, content: string) => void
-  removeDraft: (workspace: string) => void
-  toggleTerminal: (taskId: string) => void
-  toggleWorkspaceTerminal: () => void
-  setTaskMode: (taskId: string, modeId: string) => void
-  loadTasks: () => Promise<void>
-  setConnected: (v: boolean) => void
-  persistHistory: () => void
-  clearHistory: () => Promise<void>
-  resolveWorktreeCleanup: (remove: boolean) => void
-}
+export type { TaskStore, BtwCheckpoint } from './task-store-types'
+export { initTaskListeners, applyTurnEnd } from './task-store-listeners'
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: {},
@@ -106,6 +24,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   isNewProjectOpen: false,
   isSettingsOpen: false,
   settingsInitialSection: null,
+  btwCheckpoint: null,
   streamingChunks: {},
   thinkingChunks: {},
   liveToolCalls: {},
@@ -388,7 +307,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         ? state.projects
         : [...state.projects, projectWorkspace]
       return {
-        tasks: { ...state.tasks, [id]: entry.task },
+        tasks: { ...state.tasks, [id]: { ...entry.task, isArchived: false } },
         softDeleted: remaining,
         deletedTaskIds,
         projects,
@@ -900,356 +819,39 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
     get().persistHistory()
   },
+
+  enterBtwMode: (taskId, question) => {
+    const task = get().tasks[taskId]
+    if (!task) return
+    set({ btwCheckpoint: { taskId, messages: [...task.messages], question } })
+  },
+
+  exitBtwMode: (keepTail) => {
+    const checkpoint = get().btwCheckpoint
+    if (!checkpoint) return
+    const { taskId, messages: savedMessages } = checkpoint
+    const task = get().tasks[taskId]
+    if (!task) {
+      set({ btwCheckpoint: null })
+      return
+    }
+    if (keepTail) {
+      // Find the last user+assistant pair added after the checkpoint
+      const currentMessages = task.messages
+      const newMessages = currentMessages.slice(savedMessages.length)
+      const lastUser = [...newMessages].reverse().find((m) => m.role === 'user')
+      const lastAssistant = [...newMessages].reverse().find((m) => m.role === 'assistant')
+      const tail = [lastUser, lastAssistant].filter(Boolean) as import('@/types').TaskMessage[]
+      set((s) => ({
+        btwCheckpoint: null,
+        tasks: { ...s.tasks, [taskId]: { ...task, messages: [...savedMessages, ...tail] } },
+      }))
+    } else {
+      set((s) => ({
+        btwCheckpoint: null,
+        tasks: { ...s.tasks, [taskId]: { ...task, messages: [...savedMessages] } },
+      }))
+    }
+  },
 }))
 
-/** Pure state reducer for turn_end — exported for testing. */
-export const applyTurnEnd = (
-  s: Pick<TaskStore, 'tasks' | 'streamingChunks' | 'thinkingChunks' | 'liveToolCalls'>,
-  taskId: string,
-  stopReason?: string,
-  refusalRetry?: boolean,
-): Partial<TaskStore> => {
-  const chunk = s.streamingChunks[taskId] ?? ''
-  const thinking = s.thinkingChunks[taskId] ?? ''
-  const liveTools = s.liveToolCalls[taskId] ?? []
-  const task = s.tasks[taskId]
-  if (!task) return {}
-  const fallbackStatus = stopReason === 'refusal' ? 'failed' as const : 'completed' as const
-  const finalizedTools = liveTools.map((tc) =>
-    tc.status === 'completed' || tc.status === 'failed' ? tc : { ...tc, status: fallbackStatus },
-  )
-  const newMessages = [...task.messages]
-  if (chunk || finalizedTools.length > 0) {
-    newMessages.push({
-      role: 'assistant' as const,
-      content: chunk,
-      timestamp: new Date().toISOString(),
-      ...(thinking ? { thinking } : {}),
-      ...(finalizedTools.length > 0 ? { toolCalls: finalizedTools } : {}),
-    })
-  }
-  if (stopReason === 'refusal') {
-    const msg = refusalRetry
-      ? '\u26a0\ufe0f The agent refused to continue. Retrying automatically\u2026'
-      : '\u26a0\ufe0f The agent refused to continue. You can try rephrasing your request or sending a new message.'
-    newMessages.push({
-      role: 'system' as const,
-      content: msg,
-      timestamp: new Date().toISOString(),
-    })
-  }
-  const updatedTask: AgentTask = {
-    ...task,
-    // On refusal: stay 'paused' so the user can send new messages (not 'error' which feels stuck)
-    status: stopReason === 'refusal' ? 'paused' : 'paused',
-    messages: newMessages,
-    pendingPermission: undefined,
-  }
-  return {
-    tasks: { ...s.tasks, [taskId]: updatedTask },
-    streamingChunks: { ...s.streamingChunks, [taskId]: '' },
-    thinkingChunks: { ...s.thinkingChunks, [taskId]: '' },
-    liveToolCalls: { ...s.liveToolCalls, [taskId]: [] },
-  }
-}
-
-export function initTaskListeners(): () => void {
-  useTaskStore.getState().setConnected(true)
-
-  // Batch task_update events with rAF — multiple threads can fire status changes rapidly
-  let taskUpdateBuf: Record<string, AgentTask> = {}
-  let taskUpdateRaf: number | null = null
-  const flushTaskUpdates = () => {
-    const buf = taskUpdateBuf; taskUpdateBuf = {}; taskUpdateRaf = null
-    const store = useTaskStore.getState()
-    for (const task of Object.values(buf)) {
-      store.upsertTask({ ...task, messages: [] })
-    }
-  }
-  const unsub1 = ipc.onTaskUpdate((task) => {
-    // Keep only the latest update per task, strip messages
-    taskUpdateBuf[task.id] = task
-    if (!taskUpdateRaf) taskUpdateRaf = requestAnimationFrame(flushTaskUpdates)
-  })
-
-  // Batch streaming chunks with rAF to reduce state updates
-  let chunkBuf: Record<string, string> = {}
-  let chunkRaf: number | null = null
-  const flushChunks = () => {
-    const buf = chunkBuf; chunkBuf = {}; chunkRaf = null
-    useTaskStore.setState((s) => {
-      const next = { ...s.streamingChunks }
-      for (const [id, text] of Object.entries(buf)) next[id] = joinChunk(next[id] ?? '', text)
-      return { streamingChunks: next }
-    })
-  }
-  const unsub2 = ipc.onMessageChunk(({ taskId, chunk }) => {
-    chunkBuf[taskId] = (chunkBuf[taskId] ?? '') + chunk
-    if (!chunkRaf) chunkRaf = requestAnimationFrame(flushChunks)
-  })
-
-  let thinkBuf: Record<string, string> = {}
-  let thinkRaf: number | null = null
-  const flushThinking = () => {
-    const buf = thinkBuf; thinkBuf = {}; thinkRaf = null
-    useTaskStore.setState((s) => {
-      const next = { ...s.thinkingChunks }
-      for (const [id, text] of Object.entries(buf)) next[id] = joinChunk(next[id] ?? '', text)
-      return { thinkingChunks: next }
-    })
-  }
-  const unsub3 = ipc.onThinkingChunk(({ taskId, chunk }) => {
-    thinkBuf[taskId] = (thinkBuf[taskId] ?? '') + chunk
-    if (!thinkRaf) thinkRaf = requestAnimationFrame(flushThinking)
-  })
-
-  const unsub4 = ipc.onToolCall(({ taskId, toolCall }) => {
-    useTaskStore.getState().upsertToolCall(taskId, toolCall)
-  })
-
-  const unsub5 = ipc.onToolCallUpdate(({ taskId, toolCall }) => {
-    useTaskStore.getState().upsertToolCall(taskId, toolCall)
-    if (
-      toolCall.status === 'completed' &&
-      (toolCall.kind === 'edit' || toolCall.kind === 'delete' || toolCall.kind === 'move')
-    ) {
-      useDiffStore.getState().fetchDiff(taskId)
-    }
-  })
-
-  const unsub6 = ipc.onPlanUpdate(({ taskId, plan }) => {
-    useTaskStore.getState().updatePlan(taskId, plan)
-  })
-
-  const unsub7 = ipc.onUsageUpdate(({ taskId, used, size }) => {
-    useTaskStore.getState().updateUsage(taskId, used, size)
-  })
-
-  // Track refusal retries per task — allows one automatic retry before giving up
-  const refusalRetried: Record<string, boolean> = {}
-
-  const unsub8 = ipc.onTurnEnd(({ taskId, stopReason }) => {
-    // Flush any pending rAF-buffered chunks synchronously so turn_end sees them
-    if (chunkBuf[taskId] || Object.keys(chunkBuf).length > 0) {
-      if (chunkRaf) { cancelAnimationFrame(chunkRaf); chunkRaf = null }
-      flushChunks()
-    }
-    if (thinkBuf[taskId] || Object.keys(thinkBuf).length > 0) {
-      if (thinkRaf) { cancelAnimationFrame(thinkRaf); thinkRaf = null }
-      flushThinking()
-    }
-
-    // On refusal: auto-retry once, then give up and let the user send a new message
-    if (stopReason === 'refusal') {
-      const alreadyRetried = !!refusalRetried[taskId]
-
-      // Apply turn end with retry flag so the system message is appropriate
-      useTaskStore.setState((s) => applyTurnEnd(s, taskId, stopReason, !alreadyRetried))
-      useTaskStore.getState().persistHistory()
-
-      if (!alreadyRetried) {
-        // First refusal: mark as retried and auto-retry the last user message
-        refusalRetried[taskId] = true
-        const task = useTaskStore.getState().tasks[taskId]
-        if (task) {
-          // Find the last user message to retry
-          const lastUserMsg = [...task.messages].reverse().find((m) => m.role === 'user')
-          if (lastUserMsg) {
-            useTaskStore.getState().upsertTask({ ...task, status: 'running' })
-            useTaskStore.getState().clearTurn(taskId)
-            ipc.sendMessage(taskId, lastUserMsg.content)
-            return // skip notification and queue processing — we're retrying
-          }
-        }
-      } else {
-        // Second refusal: reset the retry tracker and let the user recover
-        delete refusalRetried[taskId]
-      }
-
-      // Notify on refusal (only if we didn't auto-retry)
-      const settings = useSettingsStore.getState().settings
-      const task = useTaskStore.getState().tasks[taskId]
-      if (task) {
-        sendTaskNotification({
-          task,
-          status: 'error',
-          isNotificationsEnabled: settings.notifications ?? true,
-          isSoundEnabled: settings.soundNotifications ?? true,
-          onNotified: (tid) => {
-            useTaskStore.setState((s) => ({
-              notifiedTaskIds: s.notifiedTaskIds.includes(tid) ? s.notifiedTaskIds : [...s.notifiedTaskIds, tid],
-            }))
-          },
-        })
-      }
-      return // don't process queue on refusal
-    }
-
-    // Non-refusal turn end: clear any refusal tracker for this task
-    delete refusalRetried[taskId]
-
-    // Use a single setState to avoid stale reads between getState() calls
-    useTaskStore.setState((s) => applyTurnEnd(s, taskId, stopReason))
-
-    // Persist history after turn ends
-    useTaskStore.getState().persistHistory()
-
-    // Send a native notification when the window is not focused and notifications are enabled
-    const settings = useSettingsStore.getState().settings
-    const task = useTaskStore.getState().tasks[taskId]
-    if (task) {
-      const notifStatus = task.status === 'error' ? 'error' : 'completed'
-      sendTaskNotification({
-        task,
-        status: notifStatus,
-        isNotificationsEnabled: settings.notifications ?? true,
-        isSoundEnabled: settings.soundNotifications ?? true,
-        onNotified: (tid) => {
-          useTaskStore.setState((s) => ({
-            notifiedTaskIds: s.notifiedTaskIds.includes(tid) ? s.notifiedTaskIds : [...s.notifiedTaskIds, tid],
-          }))
-        },
-      })
-    }
-
-    // Auto-send the first queued message if any exist
-    const state = useTaskStore.getState()
-    const queue = state.queuedMessages[taskId] ?? []
-    if (queue.length > 0) {
-      const nextMsg = queue[0]
-      // Remove the first message from the queue
-      useTaskStore.setState((s) => ({
-        queuedMessages: {
-          ...s.queuedMessages,
-          [taskId]: (s.queuedMessages[taskId] ?? []).slice(1),
-        },
-      }))
-      // Send it — add as user message and dispatch to backend
-      const task = useTaskStore.getState().tasks[taskId]
-      if (task) {
-        const userMsg: import('@/types').TaskMessage = {
-          role: 'user' as const,
-          content: nextMsg,
-          timestamp: new Date().toISOString(),
-        }
-        useTaskStore.getState().upsertTask({
-          ...task,
-          status: 'running',
-          messages: [...task.messages, userMsg],
-        })
-        useTaskStore.getState().clearTurn(taskId)
-        ipc.sendMessage(taskId, nextMsg)
-      }
-    }
-  })
-
-  const unsub9 = ipc.onDebugLog((entry) => {
-    useDebugStore.getState().addEntry(entry)
-    if (entry.category === 'stderr') {
-      const text = typeof entry.payload === 'string' ? entry.payload : JSON.stringify(entry.payload)
-      if (text.includes('Dynamic registration failed') || text.includes('invalid_redirect_uri')) {
-        const knownServers = ['slack', 'figma', 'github', 'notion', 'linear', 'jira', 'atlassian']
-        const serverName = entry.mcpServerName
-          ?? knownServers.find((s) => text.toLowerCase().includes(s))
-          ?? 'unknown'
-        useKiroStore.getState().setMcpError(serverName, 'OAuth setup needed — add http://127.0.0.1 as a redirect URI in your OAuth app, or disable in ~/.kiro/settings/mcp.json')
-      }
-    }
-  })
-
-  const unsub10 = ipc.onSessionInit(({ taskId, models, modes }) => {
-    console.log('[session_init] received', { taskId, models, modes })
-    if (models && typeof models === 'object') {
-      const m = models as { availableModels?: Array<{ modelId: string; name: string; description?: string | null }>; currentModelId?: string }
-      if (m.availableModels) {
-        const existingModel = useSettingsStore.getState().currentModelId
-        const validExistingModel = existingModel && m.availableModels.some((mod) => mod.modelId === existingModel)
-        useSettingsStore.setState({
-          availableModels: m.availableModels,
-          ...(validExistingModel ? {} : { currentModelId: m.currentModelId ?? null }),
-        })
-      }
-    }
-    if (modes && typeof modes === 'object') {
-      const md = modes as { availableModes?: Array<{ id: string; name: string; description?: string | null }>; currentModeId?: string }
-      if (md.availableModes) {
-        const existingMode = useSettingsStore.getState().currentModeId
-        const validExistingMode = existingMode && md.availableModes.some((m) => m.id === existingMode)
-        useSettingsStore.setState({
-          availableModes: md.availableModes,
-          ...(validExistingMode ? {} : { currentModeId: md.currentModeId ?? null }),
-        })
-        if (validExistingMode && existingMode !== md.currentModeId && taskId !== '__probe__') {
-          ipc.setMode(taskId, existingMode).catch(() => {})
-        }
-      }
-    }
-  })
-
-  const unsub11 = ipc.onCommandsUpdate(({ commands, mcpServers }) => {
-    // mcpServers may arrive as a flat array or a grouped object (e.g. { "other": [...] }).
-    // Normalize to a flat LiveMcpServer[] so the UI can always .map() over it.
-    let flatServers: import('@/stores/settingsStore').LiveMcpServer[] | undefined
-    if (mcpServers) {
-      if (Array.isArray(mcpServers)) {
-        flatServers = mcpServers
-      } else if (typeof mcpServers === 'object') {
-        flatServers = Object.values(mcpServers as Record<string, import('@/stores/settingsStore').LiveMcpServer[]>).flat()
-      }
-    }
-    useSettingsStore.setState({
-      availableCommands: commands,
-      ...(flatServers ? { liveMcpServers: flatServers } : {}),
-    })
-  })
-
-  const unsub12 = ipc.onTaskError(({ taskId, message }) => {
-    useTaskStore.setState((s) => {
-      const task = s.tasks[taskId]
-      if (!task) return s
-      const errorMsg: import('@/types').TaskMessage = {
-        role: 'system' as const,
-        content: `\u26a0\ufe0f ${message}`,
-        timestamp: new Date().toISOString(),
-      }
-      return {
-        tasks: { ...s.tasks, [taskId]: { ...task, messages: [...task.messages, errorMsg], status: 'error' } },
-        streamingChunks: { ...s.streamingChunks, [taskId]: '' },
-        thinkingChunks: { ...s.thinkingChunks, [taskId]: '' },
-        liveToolCalls: { ...s.liveToolCalls, [taskId]: [] },
-      }
-    })
-    // Notify on errors while backgrounded
-    const errSettings = useSettingsStore.getState().settings
-    const errTask = useTaskStore.getState().tasks[taskId]
-    if (errTask) {
-      sendTaskNotification({
-        task: errTask,
-        status: 'error',
-        isNotificationsEnabled: errSettings.notifications ?? true,
-        isSoundEnabled: errSettings.soundNotifications ?? true,
-        onNotified: (tid) => {
-          useTaskStore.setState((s) => ({
-            notifiedTaskIds: s.notifiedTaskIds.includes(tid) ? s.notifiedTaskIds : [...s.notifiedTaskIds, tid],
-          }))
-        },
-      })
-    }
-  })
-
-  const unsub13 = ipc.onCompactionStatus(({ taskId, status }) => {
-    const mapped = status === 'started' ? 'compacting'
-      : status === 'completed' ? 'completed'
-      : status === 'failed' ? 'failed'
-      : null
-    if (mapped) {
-      useTaskStore.getState().updateCompactionStatus(taskId, mapped as import('@/types').CompactionStatus)
-    }
-  })
-
-  return () => {
-    unsub1(); unsub2(); unsub3(); unsub4(); unsub5()
-    unsub6(); unsub7(); unsub8(); unsub9(); unsub10(); unsub11(); unsub12()
-    unsub13()
-  }
-}

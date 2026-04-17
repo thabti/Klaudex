@@ -126,6 +126,8 @@ export interface ProjectPrefs {
   autoApprove?: boolean
   worktreeEnabled?: boolean
   symlinkDirectories?: string[]
+  tightSandbox?: boolean
+  iconOverride?: { type: 'framework'; id: string } | { type: 'file'; path: string } | null
 }
 
 export type SidebarPosition = 'left' | 'right'
@@ -151,6 +153,8 @@ export interface AppSettings {
   analyticsEnabled?: boolean
   /** Random UUID generated on first opt-in, cleared on opt-out. */
   analyticsAnonId?: string | null
+  /** Max character limit for /btw side questions. Default: 1220. */
+  btwMaxChars?: number
 }
 
 export interface ProjectFile {

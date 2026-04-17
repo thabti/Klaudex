@@ -60,6 +60,7 @@ beforeEach(() => {
     queuedMessages: {}, activityFeed: [], connected: false,
     terminalOpenTasks: new Set(), pendingWorkspace: null,
     view: 'dashboard', isNewProjectOpen: false, isSettingsOpen: false, projectNames: {},
+    btwCheckpoint: null,
   })
 })
 
@@ -570,6 +571,19 @@ describe('applyTurnEnd', () => {
   it('returns empty object for unknown task', () => {
     const result = applyTurnEnd(baseState(), 'unknown', 'end_turn')
     expect(result).toEqual({})
+  })
+
+  it('does not append empty assistant message after pause clears chunks', () => {
+    const state = baseState({
+      tasks: { 't1': makeTask({ id: 't1', status: 'paused', messages: [{ role: 'user', content: 'hello', timestamp: '' }] }) },
+      streamingChunks: { t1: '' },
+      thinkingChunks: { t1: '' },
+      liveToolCalls: { t1: [] },
+    })
+    const result = applyTurnEnd(state, 't1', 'end_turn')
+    const messages = result.tasks?.['t1'].messages ?? []
+    expect(messages).toHaveLength(1)
+    expect(messages[0].role).toBe('user')
   })
 })
 
@@ -1424,5 +1438,91 @@ describe('workspace scoping', () => {
     useTaskStore.getState().restoreTask('task-1')
     expect(useTaskStore.getState().projects).toContain('/project')
     expect(useTaskStore.getState().projects.some((p) => p.includes('.kiro/worktrees'))).toBe(false)
+  })
+})
+
+describe('btw (tangent) mode', () => {
+  it('enterBtwMode creates a checkpoint with current messages', () => {
+    const task = makeTask({ messages: [{ role: 'user', content: 'hello', timestamp: '' }] })
+    useTaskStore.setState({ tasks: { 'task-1': task }, selectedTaskId: 'task-1' })
+    useTaskStore.getState().enterBtwMode('task-1', 'what is X?')
+    const cp = useTaskStore.getState().btwCheckpoint
+    expect(cp).not.toBeNull()
+    expect(cp!.taskId).toBe('task-1')
+    expect(cp!.question).toBe('what is X?')
+    expect(cp!.messages).toHaveLength(1)
+    expect(cp!.messages[0].content).toBe('hello')
+  })
+
+  it('enterBtwMode does nothing for unknown task', () => {
+    useTaskStore.getState().enterBtwMode('nonexistent', 'q')
+    expect(useTaskStore.getState().btwCheckpoint).toBeNull()
+  })
+
+  it('exitBtwMode(false) restores messages to checkpoint', () => {
+    const task = makeTask({ messages: [{ role: 'user', content: 'original', timestamp: '' }] })
+    useTaskStore.setState({ tasks: { 'task-1': task }, selectedTaskId: 'task-1' })
+    useTaskStore.getState().enterBtwMode('task-1', 'side q')
+    // Simulate btw messages added
+    useTaskStore.setState((s) => ({
+      tasks: { ...s.tasks, 'task-1': { ...s.tasks['task-1'], messages: [
+        { role: 'user', content: 'original', timestamp: '' },
+        { role: 'user', content: 'side q', timestamp: '' },
+        { role: 'assistant', content: 'side answer', timestamp: '' },
+      ] } },
+    }))
+    useTaskStore.getState().exitBtwMode(false)
+    expect(useTaskStore.getState().btwCheckpoint).toBeNull()
+    const msgs = useTaskStore.getState().tasks['task-1'].messages
+    expect(msgs).toHaveLength(1)
+    expect(msgs[0].content).toBe('original')
+  })
+
+  it('exitBtwMode(true) keeps the last Q&A pair (tail mode)', () => {
+    const task = makeTask({ messages: [{ role: 'user', content: 'original', timestamp: '' }] })
+    useTaskStore.setState({ tasks: { 'task-1': task }, selectedTaskId: 'task-1' })
+    useTaskStore.getState().enterBtwMode('task-1', 'side q')
+    useTaskStore.setState((s) => ({
+      tasks: { ...s.tasks, 'task-1': { ...s.tasks['task-1'], messages: [
+        { role: 'user', content: 'original', timestamp: '' },
+        { role: 'user', content: 'side q', timestamp: '' },
+        { role: 'assistant', content: 'side answer', timestamp: '' },
+      ] } },
+    }))
+    useTaskStore.getState().exitBtwMode(true)
+    expect(useTaskStore.getState().btwCheckpoint).toBeNull()
+    const msgs = useTaskStore.getState().tasks['task-1'].messages
+    expect(msgs).toHaveLength(3)
+    expect(msgs[0].content).toBe('original')
+    expect(msgs[1].content).toBe('side q')
+    expect(msgs[2].content).toBe('side answer')
+  })
+
+  it('exitBtwMode clears checkpoint even if task was deleted', () => {
+    const task = makeTask()
+    useTaskStore.setState({ tasks: { 'task-1': task }, selectedTaskId: 'task-1' })
+    useTaskStore.getState().enterBtwMode('task-1', 'q')
+    useTaskStore.setState({ tasks: {} })
+    useTaskStore.getState().exitBtwMode(false)
+    expect(useTaskStore.getState().btwCheckpoint).toBeNull()
+  })
+
+  it('exitBtwMode is no-op when no checkpoint exists', () => {
+    const task = makeTask({ messages: [{ role: 'user', content: 'hello', timestamp: '' }] })
+    useTaskStore.setState({ tasks: { 'task-1': task } })
+    useTaskStore.getState().exitBtwMode(false)
+    expect(useTaskStore.getState().tasks['task-1'].messages).toHaveLength(1)
+  })
+
+  it('checkpoint messages are isolated from subsequent mutations', () => {
+    const task = makeTask({ messages: [{ role: 'user', content: 'original', timestamp: '' }] })
+    useTaskStore.setState({ tasks: { 'task-1': task }, selectedTaskId: 'task-1' })
+    useTaskStore.getState().enterBtwMode('task-1', 'q')
+    // Mutate the task messages
+    useTaskStore.setState((s) => ({
+      tasks: { ...s.tasks, 'task-1': { ...s.tasks['task-1'], messages: [] } },
+    }))
+    // Checkpoint should still have the original
+    expect(useTaskStore.getState().btwCheckpoint!.messages).toHaveLength(1)
   })
 })
