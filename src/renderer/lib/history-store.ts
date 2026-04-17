@@ -4,7 +4,7 @@
  * `history.json` file in the app data directory.
  * Lazy-loaded: no disk I/O until first access.
  */
-import { LazyStore } from '@tauri-apps/plugin-store'
+import type { LazyStore } from '@tauri-apps/plugin-store'
 import type { AgentTask, TaskMessage, SoftDeletedThread } from '@/types'
 
 // ── Persisted types ──────────────────────────────────────────────
@@ -37,17 +37,27 @@ interface SavedProject {
 
 // ── Store singleton ──────────────────────────────────────────────
 
-const store = new LazyStore('history.json', { autoSave: 500, defaults: {} })
+let _store: LazyStore | null = null
+
+const getStore = async (): Promise<LazyStore> => {
+  if (!_store) {
+    const { LazyStore } = await import('@tauri-apps/plugin-store')
+    _store = new LazyStore('history.json', { autoSave: 500, defaults: {} })
+  }
+  return _store
+}
 
 // ── Public API ───────────────────────────────────────────────────
 
 /** Load all persisted threads (returns [] if nothing saved) */
 export async function loadThreads(): Promise<SavedThread[]> {
+  const store = await getStore()
   return (await store.get<SavedThread[]>('threads')) ?? []
 }
 
 /** Load all persisted projects (returns [] if nothing saved) */
 export async function loadProjects(): Promise<SavedProject[]> {
+  const store = await getStore()
   return (await store.get<SavedProject[]>('projects')) ?? []
 }
 
@@ -84,8 +94,8 @@ export async function saveThreads(tasks: Record<string, AgentTask>, projectNames
     threadIds: threadsByWorkspace.get(ws) ?? [],
   }))
 
-  await store.set('threads', threads)
-  await store.set('projects', projects)
+  await (await getStore()).set('threads', threads)
+  await (await getStore()).set('projects', projects)
 }
 
 /** Convert persisted threads into archived AgentTasks */
@@ -107,16 +117,19 @@ export function toArchivedTasks(saved: SavedThread[]): AgentTask[] {
 
 /** Load soft-deleted threads (returns [] if nothing saved) */
 export async function loadSoftDeleted(): Promise<SoftDeletedThread[]> {
+  const store = await getStore()
   return (await store.get<SoftDeletedThread[]>('softDeleted')) ?? []
 }
 
 /** Persist soft-deleted threads */
 export async function saveSoftDeleted(items: SoftDeletedThread[]): Promise<void> {
+  const store = await getStore()
   await store.set('softDeleted', items)
 }
 
 /** Clear all persisted history */
 export async function clearHistory(): Promise<void> {
+  const store = await getStore()
   await store.delete('threads')
   await store.delete('projects')
   await store.delete('softDeleted')

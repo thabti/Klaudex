@@ -55,6 +55,8 @@ export const ipc = {
     invoke('task_deny_permission', { taskId, requestId, optionId }),
   selectPermissionOption: (taskId: string, requestId: string, optionId: string): Promise<void> =>
     invoke('task_allow_permission', { taskId, requestId, optionId }),
+  setAutoApprove: (taskId: string, autoApprove: boolean): Promise<void> =>
+    invoke('task_set_auto_approve', { taskId, autoApprove }),
   pickFolder: (): Promise<string | null> =>
     invoke('pick_folder'),
   detectKiroCli: (): Promise<string | null> =>
@@ -101,6 +103,8 @@ export const ipc = {
     invoke('open_in_editor', { path, editor }),
   detectEditors: (): Promise<string[]> =>
     invoke('detect_editors'),
+  detectEditorsBackground: (known: string[]): Promise<void> =>
+    invoke('detect_editors_background', { known }),
   gitCommit: (cwd: string, message: string): Promise<void> =>
     invoke('git_commit', { cwd, message }),
   gitPush: (cwd: string): Promise<string> =>
@@ -133,6 +137,10 @@ export const ipc = {
     invoke('list_project_files', { root, respectGitignore }),
   openUrl: (url: string): Promise<void> =>
     invoke('open_url', { url }),
+  detectProjectIcon: (cwd: string): Promise<{ iconType: string; value: string } | null> =>
+    invoke('detect_project_icon', { cwd }),
+  listSmallImages: (cwd: string, maxSize: number): Promise<Array<{ path: string; width: number; height: number }>> =>
+    invoke('list_small_images', { cwd, maxSize }),
   // Auth
   kiroWhoami: (kiroBin?: string): Promise<{ email?: string | null; accountType?: string; region?: string; startUrl?: string }> =>
     invoke('kiro_whoami', { kiroBin }),
@@ -177,4 +185,6 @@ export const ipc = {
     tauriListen('subagent_update', cb),
   onCompactionStatus: (cb: (data: { taskId: string; status: string; summary: unknown }) => void): UnsubscribeFn =>
     tauriListen('compaction_status', cb),
+  onEditorsUpdated: (cb: (bins: string[]) => void): UnsubscribeFn =>
+    tauriListen('editors-updated', cb),
 }

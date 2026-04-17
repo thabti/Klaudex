@@ -396,15 +396,6 @@ input[type="search"] {
     animation: cursor-fade 1s ease-in-out infinite;
 }
 
-/* xterm font rendering */
-.xterm canvas {
-    -webkit-font-smoothing: subpixel-antialiased;
-    image-rendering: -webkit-optimize-contrast;
-}
-.xterm .xterm-viewport {
-    overflow-y: auto !important;
-}
-
 /* macOS Traffic Light Styling */
 .traffic-lights-group {
     display: flex;

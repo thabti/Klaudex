@@ -10,6 +10,8 @@ export interface SlashActionResult {
   panel: SlashPanel
   dismissPanel: () => void
   execute: (commandName: string) => boolean
+  /** Handle full input text for commands like /btw that need arguments. Returns true if handled. */
+  executeFullInput: (input: string) => boolean
 }
 
 const bare = (name: string): string => name.replace(/^\/+/, '')
@@ -49,7 +51,7 @@ export const useSlashAction = (): SlashActionResult => {
     // Track every recognized slash command. The switch below rejects unknown
     // names by returning false, so we gate the track call on that path via
     // the `default` case.
-    const KNOWN = new Set(['clear', 'model', 'agent', 'settings', 'upload', 'plan', 'usage', 'close', 'exit', 'fork', 'branch', 'worktree'])
+    const KNOWN = new Set(['clear', 'model', 'agent', 'settings', 'upload', 'plan', 'usage', 'close', 'exit', 'branch', 'worktree', 'btw', 'tangent'])
     if (KNOWN.has(name)) {
       track('feature_used', { feature: 'slash_command', detail: name })
     }
@@ -107,27 +109,53 @@ export const useSlashAction = (): SlashActionResult => {
         setPanel(null)
         return true
       }
-      case 'fork': {
-        const { selectedTaskId, forkTask } = useTaskStore.getState()
-        if (selectedTaskId) {
-          void forkTask(selectedTaskId)
-        }
-        setPanel(null)
-        return true
-      }
       case 'branch':
         setPanel((p) => (p === 'branch' ? null : 'branch'))
         return true
       case 'worktree':
         setPanel((p) => (p === 'worktree' ? null : 'worktree'))
         return true
+      case 'btw':
+      case 'tangent': {
+        // When selected from the picker, exit btw mode if active
+        const { btwCheckpoint, exitBtwMode } = useTaskStore.getState()
+        if (btwCheckpoint) {
+          exitBtwMode(false)
+          setPanel(null)
+          return true
+        }
+        // Not in btw mode — return false so the picker inserts "/btw " for the user to type a question
+        setPanel(null)
+        return false
+      }
       default:
         setPanel(null)
         return false
     }
   }, [])
 
+  const executeFullInput = useCallback((input: string): boolean => {
+    const trimmed = input.trim()
+    // Match /btw or /tangent at the start
+    const match = trimmed.match(/^\/(?:btw|tangent)\b(.*)$/i)
+    if (!match) return false
+    const arg = match[1].trim()
+    const { selectedTaskId, btwCheckpoint, exitBtwMode, enterBtwMode } = useTaskStore.getState()
+    track('feature_used', { feature: 'slash_command', detail: 'btw' })
+    // If already in btw mode, exit
+    if (btwCheckpoint) {
+      const keepTail = arg.toLowerCase() === 'tail'
+      exitBtwMode(keepTail)
+      return true
+    }
+    // Enter btw mode with a question
+    if (!arg) return true // no question = no-op
+    if (selectedTaskId) enterBtwMode(selectedTaskId, arg)
+    // Return false so the caller sends the question as a message (PendingChat handles btw entry after task creation)
+    return false
+  }, [])
+
   const dismissPanel = useCallback(() => setPanel(null), [])
 
-  return { panel, dismissPanel, execute }
+  return { panel, dismissPanel, execute, executeFullInput }
 }

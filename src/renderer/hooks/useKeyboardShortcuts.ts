@@ -46,6 +46,7 @@ export function useKeyboardShortcuts() {
         if (task?.status === 'running') {
           e.preventDefault()
           ipc.pauseTask(task.id)
+          state.clearTurn(task.id)
           return
         }
       }
@@ -70,6 +71,19 @@ export function useKeyboardShortcuts() {
       if (key === 'j' && !e.shiftKey) {
         e.preventDefault()
         const tid = useTaskStore.getState().selectedTaskId; if (tid) useTaskStore.getState().toggleTerminal(tid)
+        return
+      }
+
+      // ── Cmd+B → Toggle btw (tangent) mode ──────────────────
+      if (key === 'b' && !e.shiftKey) {
+        e.preventDefault()
+        const state = useTaskStore.getState()
+        if (state.btwCheckpoint) {
+          state.exitBtwMode(false)
+        } else {
+          // Focus chat input with /btw prefilled
+          document.dispatchEvent(new CustomEvent('btw-shortcut'))
+        }
         return
       }
 

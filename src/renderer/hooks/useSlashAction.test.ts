@@ -52,6 +52,7 @@ beforeEach(() => {
     connected: true,
     terminalOpenTasks: new Set(),
     projectNames: {},
+    btwCheckpoint: null,
   })
 })
 
@@ -246,5 +247,102 @@ describe('useSlashAction /worktree', () => {
     let handled: boolean
     act(() => { handled = result.current.execute('/worktree') })
     expect(handled!).toBe(true)
+  })
+})
+
+describe('useSlashAction /btw and /tangent', () => {
+  it('execute returns false for /btw when not in btw mode (pass-through to insert /btw)', () => {
+    const { result } = renderHook(() => useSlashAction())
+    let handled: boolean
+    act(() => { handled = result.current.execute('/btw') })
+    expect(handled!).toBe(false)
+  })
+
+  it('execute returns false for /tangent when not in btw mode', () => {
+    const { result } = renderHook(() => useSlashAction())
+    let handled: boolean
+    act(() => { handled = result.current.execute('/tangent') })
+    expect(handled!).toBe(false)
+  })
+
+  it('/btw from picker exits btw mode if already active', () => {
+    // Manually enter btw mode
+    useTaskStore.getState().enterBtwMode('task-1', 'test question')
+    expect(useTaskStore.getState().btwCheckpoint).not.toBeNull()
+    const { result } = renderHook(() => useSlashAction())
+    let handled: boolean
+    act(() => { handled = result.current.execute('/btw') })
+    expect(handled!).toBe(true)
+    expect(useTaskStore.getState().btwCheckpoint).toBeNull()
+  })
+
+  it('executeFullInput enters btw mode with /btw <question>', () => {
+    const { result } = renderHook(() => useSlashAction())
+    let handled: boolean
+    act(() => { handled = result.current.executeFullInput('/btw what is useEffect?') })
+    // Returns false so the caller sends the question as a message
+    expect(handled!).toBe(false)
+    expect(useTaskStore.getState().btwCheckpoint).not.toBeNull()
+    expect(useTaskStore.getState().btwCheckpoint!.question).toBe('what is useEffect?')
+  })
+
+  it('executeFullInput enters btw mode with /tangent <question>', () => {
+    const { result } = renderHook(() => useSlashAction())
+    let handled: boolean
+    act(() => { handled = result.current.executeFullInput('/tangent what is useMemo?') })
+    expect(handled!).toBe(false)
+    expect(useTaskStore.getState().btwCheckpoint!.question).toBe('what is useMemo?')
+  })
+
+  it('executeFullInput exits btw mode when called without question', () => {
+    useTaskStore.getState().enterBtwMode('task-1', 'test')
+    const { result } = renderHook(() => useSlashAction())
+    let handled: boolean
+    act(() => { handled = result.current.executeFullInput('/btw') })
+    expect(handled!).toBe(true)
+    expect(useTaskStore.getState().btwCheckpoint).toBeNull()
+  })
+
+  it('executeFullInput exits with tail when /btw tail is used', () => {
+    // Set up messages and enter btw mode
+    useTaskStore.setState((s) => ({
+      tasks: { ...s.tasks, 'task-1': { ...s.tasks['task-1'], messages: [
+        { role: 'user', content: 'original', timestamp: '' },
+      ] } },
+    }))
+    useTaskStore.getState().enterBtwMode('task-1', 'side q')
+    // Simulate btw response added to messages
+    useTaskStore.setState((s) => ({
+      tasks: { ...s.tasks, 'task-1': { ...s.tasks['task-1'], messages: [
+        { role: 'user', content: 'original', timestamp: '' },
+        { role: 'user', content: 'side q', timestamp: '' },
+        { role: 'assistant', content: 'side answer', timestamp: '' },
+      ] } },
+    }))
+    const { result } = renderHook(() => useSlashAction())
+    act(() => { result.current.executeFullInput('/btw tail') })
+    expect(useTaskStore.getState().btwCheckpoint).toBeNull()
+    // Original message + tail Q&A preserved
+    const msgs = useTaskStore.getState().tasks['task-1'].messages
+    expect(msgs).toHaveLength(3)
+    expect(msgs[0].content).toBe('original')
+    expect(msgs[1].content).toBe('side q')
+    expect(msgs[2].content).toBe('side answer')
+  })
+
+  it('executeFullInput returns false for non-btw commands', () => {
+    const { result } = renderHook(() => useSlashAction())
+    let handled: boolean
+    act(() => { handled = result.current.executeFullInput('/plan') })
+    expect(handled!).toBe(false)
+  })
+
+  it('executeFullInput is no-op when no question and not in btw mode', () => {
+    const { result } = renderHook(() => useSlashAction())
+    let handled: boolean
+    act(() => { handled = result.current.executeFullInput('/btw') })
+    // No checkpoint, no question — returns true (handled, but no-op)
+    expect(handled!).toBe(true)
+    expect(useTaskStore.getState().btwCheckpoint).toBeNull()
   })
 })

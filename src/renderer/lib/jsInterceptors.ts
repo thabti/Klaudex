@@ -183,18 +183,21 @@ export const installJsInterceptors = (): (() => void) => {
   })
 
   // ── Rust log listener (tauri-plugin-log) ───────────────────────
-  import('@tauri-apps/plugin-log').then(({ attachLogger }) => {
-    attachLogger(({ level, message }) => {
-      addEntry({
-        category: 'rust',
-        message,
-        detail: message,
-        isError: level >= 5,
-      })
-    }).then((detach) => {
-      cleanups.push(detach)
+  // Only attach in dev builds — release builds don't include the Webview log target
+  if (import.meta.env.DEV) {
+    import('@tauri-apps/plugin-log').then(({ attachLogger }) => {
+      attachLogger(({ level, message }) => {
+        addEntry({
+          category: 'rust',
+          message,
+          detail: message,
+          isError: level >= 5,
+        })
+      }).then((detach) => {
+        cleanups.push(detach)
+      }).catch(() => {})
     }).catch(() => {})
-  }).catch(() => {})
+  }
 
   return () => { cleanups.forEach((fn) => fn()) }
 }

@@ -41,7 +41,7 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
   const [slashIndex, setSlashIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const backendCommands = useSettingsStore((s) => s.availableCommands)
-  const { panel, dismissPanel, execute } = useSlashAction()
+  const { panel, dismissPanel, execute, executeFullInput } = useSlashAction()
 
   const attachmentsBag = useAttachments()
   const mentionBag = useFileMention({ textareaRef, value, setValue })
@@ -174,7 +174,8 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
       { name: 'worktree', description: 'Create a worktree and spawn a new thread in it' },
       { name: 'close', description: 'Close and delete the current thread' },
       { name: 'exit', description: 'Close and delete the current thread' },
-      { name: 'fork', description: 'Fork the current thread into a new session' },
+      { name: 'btw', description: 'Ask a side question without polluting conversation history' },
+      { name: 'tangent', description: 'Ask a side question (alias for /btw)' },
     ]
     const HIDDEN_COMMANDS = new Set(['reply'])
     const filtered = backendCommands.filter((c) => !HIDDEN_COMMANDS.has(c.name.replace(/^\/+/, '')))
@@ -229,6 +230,34 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
     if ((!trimmed && !hasAttachments) || disabled) return
     dismissPanel()
     let message = expandChunks(trimmed)
+    // Intercept /btw and /tangent commands before sending
+    if (/^\/(?:btw|tangent)\b/i.test(message)) {
+      const handled = executeFullInput(message)
+      if (handled) {
+        // Fully handled (exit btw mode) — clear input, don't send
+        setValue('')
+        setSlashIndex(0)
+        setPastedChunks([])
+        mentionBag.clearMentions()
+        attachmentsBag.clearAttachments()
+        if (textareaRef.current) textareaRef.current.style.height = 'auto'
+        textareaRef.current?.focus()
+        return
+      }
+      // Not fully handled = entering btw mode; extract question and send it
+      const question = message.replace(/^\/(?:btw|tangent)\s*/i, '').trim()
+      if (!question) return
+      const btwMax = useSettingsStore.getState().settings.btwMaxChars ?? 1220
+      if (question.length > btwMax) {
+        const { selectedTaskId, tasks, upsertTask } = useTaskStore.getState()
+        if (selectedTaskId && tasks[selectedTaskId]) {
+          const task = tasks[selectedTaskId]
+          upsertTask({ ...task, messages: [...task.messages, { role: 'system', content: `⚠️ /btw question exceeds ${btwMax} character limit (${question.length} chars). Shorten your question or adjust the limit in Settings > Advanced.`, timestamp: new Date().toISOString() }] })
+        }
+        return
+      }
+      message = `<kirodex_tangent>${question.replace(/<\/?kirodex_tangent>/gi, '')}</kirodex_tangent>`
+    }
     if (mentionBag.mentionedFiles.length > 0) {
       const missingRefs = mentionBag.mentionedFiles.filter((f) => !message.includes(`@${f.path}`))
       if (missingRefs.length > 0) {
@@ -246,7 +275,7 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
     onSendMessage(message)
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     textareaRef.current?.focus()
-  }, [value, disabled, onSendMessage, dismissPanel, mentionBag, attachmentsBag, expandChunks])
+  }, [value, disabled, onSendMessage, dismissPanel, mentionBag, attachmentsBag, expandChunks, executeFullInput])
 
   const handleSelectCommand = useCallback((cmd: { name: string }) => {
     const name = cmd.name.replace(/^\/+/, '')

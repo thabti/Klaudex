@@ -22,7 +22,7 @@ export interface UserMessageRow {
   questionAnswers?: { question: string; answer: string }[]
 }
 
-export type SystemMessageVariant = 'error' | 'info' | 'fork' | 'worktree'
+export type SystemMessageVariant = 'error' | 'info' | 'worktree'
 
 export interface SystemMessageRow {
   kind: 'system-message'
@@ -101,8 +101,20 @@ export function deriveTimeline(
   const rows: TimelineRow[] = []
 
   // ── Persisted messages ──────────────────────────────────────
+  let inTangent = false
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i]
+
+    // Skip btw/tangent messages — they only render in the BtwOverlay
+    if (msg.content.includes('<kirodex_tangent>')) {
+      inTangent = true
+      continue
+    }
+    if (inTangent && msg.role === 'assistant') {
+      inTangent = false
+      continue
+    }
+    inTangent = false
 
     if (msg.role === 'user') {
       rows.push({
@@ -116,7 +128,6 @@ export function deriveTimeline(
     }
 
     if (msg.role === 'system') {
-      const isFork = msg.content.startsWith('Forked from:')
       const isWorktree = msg.content.startsWith('Working in worktree')
       const isError = msg.content.startsWith('⚠️') || msg.content.toLowerCase().includes('failed')
       rows.push({
@@ -124,7 +135,7 @@ export function deriveTimeline(
         id: `msg-${i}-system`,
         content: msg.content,
         timestamp: msg.timestamp,
-        variant: isFork ? 'fork' : isWorktree ? 'worktree' : isError ? 'error' : 'info',
+        variant: isWorktree ? 'worktree' : isError ? 'error' : 'info',
       })
       continue
     }
