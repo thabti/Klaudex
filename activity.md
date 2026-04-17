@@ -1,5 +1,11 @@
 # Activity Log
 
+## 2026-04-18 01:32 GST (Dubai)
+### Release notes: Link commit hashes to GitHub
+Updated `scripts/generate-notes.sh` to include GitHub commit links in release notes. Each entry now renders as `description ([short-hash](url))`. Derives the repo URL from `git remote get-url origin`.
+
+**Modified:** `scripts/generate-notes.sh`
+
 ## 2026-04-18 01:16 GST (Dubai)
 ### CodePanel: Enable diff toggle during pending messages
 The diff toggle button in the header was visible when a project was selected but no task existed yet (pending state), but clicking it did nothing because `CodePanel` only rendered when `selectedTaskId` was set. Added a `git_diff` Rust command that takes a workspace path directly (no task ID needed), wired it through IPC, and updated `CodePanel` to accept an optional `workspace` prop. Updated `App.tsx` to render `CodePanel` when either `selectedTaskId` or `pendingWorkspace` is available.

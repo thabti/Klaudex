@@ -14,9 +14,14 @@ if [ -z "$FROM" ]; then
   exit 1
 fi
 
-# Collect one-line commit subjects, skip release commits and CI SKIP
-COMMITS=$(git log "${FROM}..${TO}" --pretty=format:"%s" \
-  | grep -v "^chore: release" \
+# Derive GitHub repo URL from remote
+REPO_URL=$(git remote get-url origin 2>/dev/null \
+  | sed 's|git@github.com:|https://github.com/|' \
+  | sed 's|\.git$||')
+
+# Collect commit hash + subject, skip release commits and CI SKIP
+COMMITS=$(git log "${FROM}..${TO}" --pretty=format:"%H %s" \
+  | grep -v "chore: release" \
   | grep -v "\[CI SKIP\]" \
   | grep -v "^\s*$" || true)
 
@@ -28,25 +33,31 @@ fi
 declare -a FEAT FIX STYLE REFACTOR PERF DOCS BUILD CI TEST CHORE OTHER
 
 while IFS= read -r line; do
+  # Split hash from subject
+  HASH="${line%% *}"
+  SUBJECT="${line#* }"
+  SHORT="${HASH:0:7}"
+  LINK="[\`${SHORT}\`](${REPO_URL}/commit/${HASH})"
   # Extract type from conventional commit prefix (e.g., "feat(scope): desc" -> "feat")
-  if [[ "$line" =~ ^([a-z]+)(\(.+\))?!?:\ (.+)$ ]]; then
+  if [[ "$SUBJECT" =~ ^([a-z]+)(\(.+\))?!?:\ (.+)$ ]]; then
     TYPE="${BASH_REMATCH[1]}"
     DESC="${BASH_REMATCH[3]}"
+    ENTRY="$DESC ($LINK)"
     case "$TYPE" in
-      feat)     FEAT+=("$DESC") ;;
-      fix)      FIX+=("$DESC") ;;
-      style)    STYLE+=("$DESC") ;;
-      refactor) REFACTOR+=("$DESC") ;;
-      perf)     PERF+=("$DESC") ;;
-      docs)     DOCS+=("$DESC") ;;
-      build)    BUILD+=("$DESC") ;;
-      ci)       CI+=("$DESC") ;;
-      test)     TEST+=("$DESC") ;;
-      chore)    CHORE+=("$DESC") ;;
-      *)        OTHER+=("$line") ;;
+      feat)     FEAT+=("$ENTRY") ;;
+      fix)      FIX+=("$ENTRY") ;;
+      style)    STYLE+=("$ENTRY") ;;
+      refactor) REFACTOR+=("$ENTRY") ;;
+      perf)     PERF+=("$ENTRY") ;;
+      docs)     DOCS+=("$ENTRY") ;;
+      build)    BUILD+=("$ENTRY") ;;
+      ci)       CI+=("$ENTRY") ;;
+      test)     TEST+=("$ENTRY") ;;
+      chore)    CHORE+=("$ENTRY") ;;
+      *)        OTHER+=("$SUBJECT ($LINK)") ;;
     esac
   else
-    OTHER+=("$line")
+    OTHER+=("$SUBJECT ($LINK)")
   fi
 done <<< "$COMMITS"
 
