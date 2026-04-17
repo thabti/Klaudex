@@ -91,7 +91,7 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
     store.saveSettings({ ...store.settings, sidebarPosition: next })
   }, [position])
 
-  const { selectedTaskId, pendingWorkspace, setSelectedTask, setView, setNewProjectOpen, removeTask, removeProject, archiveThreads, renameTask, reorderProject, forkTask } = useTaskStore(
+  const { selectedTaskId, pendingWorkspace, setSelectedTask, setView, setNewProjectOpen, removeTask, removeProject, archiveThreads, renameTask, reorderProject } = useTaskStore(
     useShallow((s) => ({
       selectedTaskId: s.selectedTaskId,
       pendingWorkspace: s.pendingWorkspace,
@@ -103,7 +103,6 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
       archiveThreads: s.archiveThreads,
       renameTask: s.renameTask,
       reorderProject: s.reorderProject,
-      forkTask: s.forkTask,
     }))
   )
 
@@ -129,7 +128,6 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
     }
   }, [removeTask])
   const handleNewThread = useCallback((workspace: string) => { useTaskStore.getState().setPendingWorkspace(workspace) }, [])
-  const handleForkTask = useCallback((id: string) => { void forkTask(id) }, [forkTask])
 
   // Project drag-to-reorder handlers
   const handleProjectDragStart = useCallback((idx: number) => { dragSrcIdx.current = idx }, [])
@@ -223,7 +221,6 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
                   onNewThread={() => handleNewThread(project.cwd)}
                   onDeleteTask={handleDeleteTask}
                   onRenameTask={renameTask}
-                  onForkTask={handleForkTask}
                   onRemoveProject={() => removeProject(project.cwd)}
                   onArchiveThreads={() => archiveThreads(project.cwd)}
                   onDragStart={() => handleProjectDragStart(idx)}
