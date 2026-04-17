@@ -40,10 +40,11 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes("posthog-js")) return "vendor-analytics";
           if (id.includes("@pierre") || id.includes("node_modules/diff/")) return "vendor-diffs";
           if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/")) return "vendor-react";
           if (id.includes("react-markdown") || id.includes("remark") || id.includes("rehype") || id.includes("unified") || id.includes("mdast") || id.includes("hast") || id.includes("micromark")) return "vendor-markdown";
-          if (id.includes("xterm") || id.includes("@xterm")) return "vendor-xterm";
+          if (id.includes("ghostty-web")) return "vendor-terminal";
           if (id.includes("@tauri-apps")) return "vendor-tauri";
           if (id.includes("@tabler/icons") || id.includes("lucide")) return "vendor-icons";
         },

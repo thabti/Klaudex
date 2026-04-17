@@ -6,13 +6,11 @@ import {
   IconTerminal2,
   IconClearAll,
 } from '@tabler/icons-react'
-import { Terminal, type ITheme } from 'xterm'
-import { FitAddon } from '@xterm/addon-fit'
-import { WebLinksAddon } from 'xterm-addon-web-links'
+import type { ITheme } from 'ghostty-web'
+import type { Terminal, FitAddon } from 'ghostty-web'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ipc } from '@/lib/ipc'
 import { useResizeHandle } from '@/hooks/useResizeHandle'
-import 'xterm/css/xterm.css'
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -26,7 +24,6 @@ const SCROLLBACK_LINES = 5_000
 const TERMINAL_FONT_FAMILY =
   '"SF Mono", SFMono-Regular, ui-monospace, Menlo, Consolas, monospace'
 const TERMINAL_FONT_SIZE = 12.5
-const TERMINAL_LINE_HEIGHT = 1.25
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -115,11 +112,36 @@ const buildTerminalTheme = (): ITheme => {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Link handler                                                       */
+/*  WASM init (lazy — only loads when terminal is first opened)        */
 /* ------------------------------------------------------------------ */
 
-const handleLinkClick = (_event: MouseEvent, uri: string): void => {
-  void ipc.openUrl(uri)
+let ghosttyPromise: Promise<InstanceType<Awaited<ReturnType<typeof loadGhostty>>['Ghostty']>> | null = null
+
+/** Lazy-load ghostty-web + WASM on first terminal open. */
+const loadGhostty = () => import('ghostty-web')
+
+const getGhostty = (): NonNullable<typeof ghosttyPromise> => {
+  if (!ghosttyPromise) {
+    ghosttyPromise = (async () => {
+      const { Ghostty } = await loadGhostty()
+      const res = await fetch('/ghostty-vt.wasm')
+      if (!res.ok) throw new Error(`Failed to fetch WASM: ${res.status}`)
+      const buf = await res.arrayBuffer()
+      if (buf.byteLength === 0) throw new Error('WASM file is empty')
+      const mod = await WebAssembly.compile(buf)
+      const instance = await WebAssembly.instantiate(mod, {
+        env: {
+          log: (ptr: number, len: number) => {
+            const mem = (instance.exports as { memory: WebAssembly.Memory }).memory
+            const bytes = new Uint8Array(mem.buffer, ptr, len)
+            console.log('[ghostty-vt]', new TextDecoder().decode(bytes))
+          },
+        },
+      })
+      return new Ghostty(instance as unknown as WebAssembly.Instance)
+    })()
+  }
+  return ghosttyPromise
 }
 
 /* ------------------------------------------------------------------ */
@@ -135,26 +157,27 @@ export const TerminalDrawer = memo(function TerminalDrawer({
   const [height, setHeight] = useState(DEFAULT_DRAWER_HEIGHT)
   const readyPtys = useRef<Set<string>>(new Set())
   const instancesRef = useRef<TermInstance[]>([])
+  const instanceMap = useRef<Map<string, TermInstance>>(new Map())
   instancesRef.current = instances
 
   /* ---- Spawn a new terminal ---- */
   const spawnTerminal = useCallback(
     async (groupId: string): Promise<TermInstance> => {
+      const [ghostty, { Terminal, FitAddon }] = await Promise.all([
+        getGhostty(),
+        loadGhostty(),
+      ])
       const id = nextId()
       const term = new Terminal({
+        ghostty,
         fontFamily: TERMINAL_FONT_FAMILY,
         fontSize: TERMINAL_FONT_SIZE,
-        lineHeight: TERMINAL_LINE_HEIGHT,
-        letterSpacing: 0,
         cursorBlink: true,
         scrollback: SCROLLBACK_LINES,
-        allowTransparency: false,
         theme: buildTerminalTheme(),
       })
       const fit = new FitAddon()
       term.loadAddon(fit)
-      const webLinks = new WebLinksAddon(handleLinkClick)
-      term.loadAddon(webLinks)
       const containerRef: React.MutableRefObject<HTMLDivElement | null> = {
         current: null,
       }
@@ -168,6 +191,7 @@ export const TerminalDrawer = memo(function TerminalDrawer({
         writeQueue: [],
         hasActivity: false,
       }
+      instanceMap.current.set(id, instance)
       setInstances((prev) => [...prev, instance])
       setActiveId(id)
       term.onData((data) => {
@@ -195,10 +219,11 @@ export const TerminalDrawer = memo(function TerminalDrawer({
         void ipc.ptyKill(inst.id)
         inst.term.dispose()
         readyPtys.current.delete(inst.id)
+        instanceMap.current.delete(inst.id)
         setInstances((prev) => prev.filter((i) => i.id !== inst.id))
       }
     }
-    void init()
+    init().catch((err) => console.error('[TerminalDrawer] init failed:', err))
     return () => {
       cancelled = true
       instancesRef.current.forEach((inst) => {
@@ -207,6 +232,7 @@ export const TerminalDrawer = memo(function TerminalDrawer({
         inst.term.dispose()
       })
       readyPtys.current.clear()
+      instanceMap.current.clear()
       setInstances([])
       setActiveId(null)
     }
@@ -214,13 +240,24 @@ export const TerminalDrawer = memo(function TerminalDrawer({
 
   /* ---- PTY data — batched via rAF ---- */
   useEffect(() => {
+    let activityDirty = false
+    let activityRaf: number | null = null
+    const flushActivity = () => {
+      activityRaf = null
+      if (activityDirty) {
+        activityDirty = false
+        setInstances((prev) => [...prev])
+      }
+    }
     const unsub = ipc.onPtyData(({ id, data }) => {
-      const inst = instancesRef.current.find((i) => i.id === id)
+      const inst = instanceMap.current.get(id)
       if (!inst) return
-      // Mark activity on non-active terminals
-      if (id !== activeId) {
+      if (id !== activeId && !inst.hasActivity) {
         inst.hasActivity = true
-        setInstances((prev) => [...prev]) // trigger re-render for activity dot
+        activityDirty = true
+        if (activityRaf === null) {
+          activityRaf = requestAnimationFrame(flushActivity)
+        }
       }
       inst.writeQueue.push(data)
       if (inst.rafId === null) {
@@ -234,13 +271,13 @@ export const TerminalDrawer = memo(function TerminalDrawer({
       }
     })
     const unsubExit = ipc.onPtyExit(({ id }) => {
-      instancesRef.current
-        .find((i) => i.id === id)
+      instanceMap.current.get(id)
         ?.term.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n')
     })
     return () => {
       unsub()
       unsubExit()
+      if (activityRaf !== null) cancelAnimationFrame(activityRaf)
     }
   }, [activeId])
 
@@ -249,10 +286,12 @@ export const TerminalDrawer = memo(function TerminalDrawer({
     instances.forEach((inst) => {
       if (inst.containerRef.current && !inst.term.element) {
         inst.term.open(inst.containerRef.current)
-        inst.fit.fit()
-        if (readyPtys.current.has(inst.id)) {
-          void ipc.ptyResize(inst.id, inst.term.cols, inst.term.rows)
-        }
+        requestAnimationFrame(() => {
+          inst.fit.fit()
+          if (readyPtys.current.has(inst.id)) {
+            void ipc.ptyResize(inst.id, inst.term.cols, inst.term.rows)
+          }
+        })
       }
     })
   }, [instances])
@@ -282,7 +321,6 @@ export const TerminalDrawer = memo(function TerminalDrawer({
       const theme = buildTerminalTheme()
       instancesRef.current.forEach((inst) => {
         inst.term.options.theme = theme
-        inst.term.refresh(0, inst.term.rows - 1)
       })
     })
     observer.observe(document.documentElement, {
@@ -304,12 +342,13 @@ export const TerminalDrawer = memo(function TerminalDrawer({
 
   /* ---- Actions ---- */
   const handleClose = useCallback((id: string) => {
-    const inst = instancesRef.current.find((i) => i.id === id)
+    const inst = instanceMap.current.get(id)
     if (inst) {
       if (inst.rafId !== null) cancelAnimationFrame(inst.rafId)
       void ipc.ptyKill(id)
       inst.term.dispose()
       readyPtys.current.delete(id)
+      instanceMap.current.delete(id)
     }
     setInstances((prev) => {
       const next = prev.filter((i) => i.id !== id)
@@ -419,7 +458,10 @@ export const TerminalDrawer = memo(function TerminalDrawer({
                 aria-selected={isActive}
                 role="tab"
               >
-                <IconTerminal2 className="size-3 shrink-0" aria-hidden />
+                {isSplit
+                  ? <IconLayoutColumns className="size-3 shrink-0" aria-hidden />
+                  : <IconTerminal2 className="size-3 shrink-0" aria-hidden />
+                }
                 <span className="truncate">{label}</span>
                 {hasActivity && !isActive && (
                   <span
