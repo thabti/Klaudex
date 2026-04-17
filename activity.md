@@ -1,5 +1,11 @@
 # Activity Log
 
+## 2026-04-18 01:39 GST (Dubai)
+### Website: Fix changelog page rendering markdown links as raw text
+The changelog renderer inserted list items as raw text without converting markdown `[text](url)` links to HTML `<a>` tags. Added a regex replace step that handles both `[text](url)` and `` [`text`](url) `` formats.
+
+**Modified:** `website/changelog.html`
+
 ## 2026-04-18 01:32 GST (Dubai)
 ### Release notes: Link commit hashes to GitHub
 Updated `scripts/generate-notes.sh` to include GitHub commit links in release notes. Each entry now renders as `description ([short-hash](url))`. Derives the repo URL from `git remote get-url origin`.

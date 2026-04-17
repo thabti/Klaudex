@@ -94,7 +94,8 @@
           }
           if (line.startsWith('- ')) {
             if (!inList) { html += '<ul class="mb-4 space-y-1">'; inList = true; }
-            html += `<li class="text-[14px] leading-relaxed text-muted-foreground pl-3 relative before:content-[''] before:absolute before:left-0 before:top-[10px] before:h-1 before:w-1 before:rounded-full before:bg-[rgba(255,255,255,0.25)]">${line.slice(2)}</li>`;
+            const text = line.slice(2).replace(/\[`?([^`\]]+)`?\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="text-[#4444FF] no-underline hover:underline">$1</a>');
+            html += `<li class="text-[14px] leading-relaxed text-muted-foreground pl-3 relative before:content-[''] before:absolute before:left-0 before:top-[10px] before:h-1 before:w-1 before:rounded-full before:bg-[rgba(255,255,255,0.25)]">${text}</li>`;
             continue;
           }
           if (line.trim() === '' && inList) {
