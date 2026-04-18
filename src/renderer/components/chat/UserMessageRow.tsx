@@ -6,7 +6,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { CollapsedAnswers } from './CollapsedAnswers'
-import { CollapsibleContent } from './CollapsibleContent'
 import { highlightNode, SearchQueryContext } from './HighlightText'
 import { useDiffStore } from '@/stores/diffStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -140,7 +139,6 @@ export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserM
             <CollapsedAnswers questionAnswers={row.questionAnswers!} />
           ) : (
           <div className="rounded-2xl rounded-br-md bg-card px-4 py-2.5">
-              <CollapsibleContent>
                 <div className="space-y-2">
                   {cleanText && (
                     <p className="whitespace-pre-wrap break-words leading-[1.7] text-foreground" style={{ fontSize: chatFontSize }}>
@@ -155,7 +153,6 @@ export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserM
                     </div>
                   )}
                 </div>
-              </CollapsibleContent>
           </div>
           )}
           <div className="mt-1 flex items-center justify-end gap-1.5 px-1">

@@ -691,13 +691,25 @@ pub struct KiroIdentity {
 pub fn kiro_whoami(kiro_bin: Option<String>) -> Result<KiroIdentity, AppError> {
     let bin = kiro_bin.unwrap_or_else(|| "kiro-cli".to_string());
     log::info!("[auth] kiro_whoami called with bin: {}", bin);
-    let output = std::process::Command::new(&bin)
+    let output = match std::process::Command::new(&bin)
         .args(["whoami", "--format", "json"])
         .output()
-        .map_err(|e| {
-            log::error!("[auth] Failed to spawn {}: {}", bin, e);
-            AppError::Other(format!("Failed to run {}: {}", bin, e))
-        })?;
+    {
+        Ok(o) => o,
+        Err(e) => {
+            log::warn!("[auth] Failed to spawn '{}': {} — trying detect_kiro_cli fallback", bin, e);
+            let resolved = detect_kiro_cli()
+                .ok_or_else(|| AppError::Other(format!("kiro-cli not found (tried '{}' and known paths)", bin)))?;
+            log::info!("[auth] Fallback resolved to: {}", resolved);
+            std::process::Command::new(&resolved)
+                .args(["whoami", "--format", "json"])
+                .output()
+                .map_err(|e2| {
+                    log::error!("[auth] Fallback also failed: {}", e2);
+                    AppError::Other(format!("Failed to run {}: {}", resolved, e2))
+                })?
+        }
+    };
     log::info!("[auth] whoami exit code: {}", output.status);
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

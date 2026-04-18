@@ -49,6 +49,8 @@ export const AboutDialog = ({ open, onOpenChange }: AboutDialogProps) => {
   }, [triggerDownload])
 
   const handleRestart = useCallback(async () => {
+    const { prepareForRelaunch } = await import('@/lib/relaunch')
+    await prepareForRelaunch()
     const { relaunch } = await import('@tauri-apps/plugin-process')
     await relaunch()
   }, [])

@@ -91,6 +91,8 @@ export const useUpdateChecker = () => {
   const restart = useCallback(async () => {
     const toVersion = pendingUpdateRef.current?.version ?? null
     track('update_restart_clicked', { to_version: toVersion })
+    const { prepareForRelaunch } = await import('@/lib/relaunch')
+    await prepareForRelaunch()
     const { relaunch } = await import('@tauri-apps/plugin-process')
     await relaunch()
   }, [])

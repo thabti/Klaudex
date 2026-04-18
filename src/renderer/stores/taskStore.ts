@@ -682,6 +682,27 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           // Remove from tasks map so deleted threads don't appear in sidebar
           delete tasks[sd.task.id]
         }
+        // Restore missing threads from backup (covers data lost during update relaunch)
+        try {
+          const backup = await historyStore.loadBackup()
+          if (backup.threads.length > 0) {
+            const backupTasks = historyStore.toArchivedTasks(backup.threads)
+            for (const bt of backupTasks) {
+              if (!tasks[bt.id] && !deletedTaskIds.has(bt.id)) tasks[bt.id] = bt
+            }
+            for (const bp of backup.projects) {
+              if (bp.displayName && !projectNames[bp.workspace]) projectNames[bp.workspace] = bp.displayName
+              if (bp.projectId && !projectIds[bp.workspace]) projectIds[bp.workspace] = bp.projectId
+              if (!projects.includes(bp.workspace)) projects.push(bp.workspace)
+            }
+            for (const sd of backup.softDeleted) {
+              if (!softDeleted[sd.task.id] && !tasks[sd.task.id]) {
+                softDeleted[sd.task.id] = sd
+                deletedTaskIds.add(sd.task.id)
+              }
+            }
+          }
+        } catch { /* backup load is best-effort */ }
         set({ tasks, projects, projectIds, projectNames, softDeleted, deletedTaskIds, connected: true })
       } catch {
         // History load failed — derive projects from live tasks, filtering worktree paths
@@ -714,6 +735,27 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           softDeleted[sd.task.id] = sd
           deletedTaskIds.add(sd.task.id)
         }
+        // Restore missing threads from backup (covers data lost during update relaunch)
+        try {
+          const backup = await historyStore.loadBackup()
+          if (backup.threads.length > 0) {
+            const backupTasks = historyStore.toArchivedTasks(backup.threads)
+            for (const bt of backupTasks) {
+              if (!tasks[bt.id] && !deletedTaskIds.has(bt.id)) tasks[bt.id] = bt
+            }
+            for (const bp of backup.projects) {
+              if (bp.displayName && !projectNames[bp.workspace]) projectNames[bp.workspace] = bp.displayName
+              if (bp.projectId && !projectIds[bp.workspace]) projectIds[bp.workspace] = bp.projectId
+              if (!projects.includes(bp.workspace)) projects.push(bp.workspace)
+            }
+            for (const sd of backup.softDeleted) {
+              if (!softDeleted[sd.task.id] && !tasks[sd.task.id]) {
+                softDeleted[sd.task.id] = sd
+                deletedTaskIds.add(sd.task.id)
+              }
+            }
+          }
+        } catch { /* backup load is best-effort */ }
         set({ tasks, projects, projectIds, projectNames, softDeleted, deletedTaskIds, connected: false })
       } catch {
         set({ connected: false })

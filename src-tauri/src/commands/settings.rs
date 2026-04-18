@@ -28,6 +28,10 @@ pub struct ProjectPrefs {
     pub symlink_directories: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tight_sandbox: Option<bool>,
+    /// Icon override set by the user (framework, file, or emoji).
+    /// Stored as opaque JSON to avoid replicating the TypeScript union type.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon_override: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -173,6 +177,7 @@ mod tests {
                 worktree_enabled: Some(true),
                 symlink_directories: Some(vec!["node_modules".to_string(), ".next".to_string()]),
                 tight_sandbox: Some(true),
+                icon_override: Some(serde_json::json!({"type": "emoji", "emoji": "🚀"})),
             },
         );
         let settings = AppSettings {
@@ -198,6 +203,22 @@ mod tests {
         assert_eq!(pp["proj"].worktree_enabled, Some(true));
         assert_eq!(pp["proj"].symlink_directories.as_deref(), Some(vec!["node_modules".to_string(), ".next".to_string()]).as_deref());
         assert_eq!(pp["proj"].tight_sandbox, Some(true));
+        assert_eq!(pp["proj"].icon_override, Some(serde_json::json!({"type": "emoji", "emoji": "🚀"})));
+    }
+
+    #[test]
+    fn icon_override_roundtrips_all_variants() {
+        let framework = serde_json::json!({"type": "framework", "id": "react"});
+        let prefs = ProjectPrefs { icon_override: Some(framework.clone()), ..Default::default() };
+        let json = serde_json::to_string(&prefs).unwrap();
+        let restored: ProjectPrefs = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.icon_override, Some(framework));
+    }
+
+    #[test]
+    fn icon_override_defaults_to_none_when_missing() {
+        let prefs: ProjectPrefs = serde_json::from_str(r#"{}"#).unwrap();
+        assert!(prefs.icon_override.is_none());
     }
 
     #[test]

@@ -121,15 +121,24 @@ chmod +x Kirodex_*.AppImage && ./Kirodex_*.AppImage
 - Auto-cleanup worktree on thread close; prompts if uncommitted changes exist
 - Sidebar badge and branch selector indicator for worktree-backed threads
 
+**Analytics**
+- Built-in analytics dashboard (`/data` or `/usage`) tracking coding hours, messages, tokens, tool calls, diff stats, model popularity, mode usage, slash command frequency, and project stats
+- Nine chart types powered by [Recharts](https://recharts.org) with a [redb](https://crates.io/crates/redb) backend for ACID-compliant local persistence
+- Clear data button in Settings > Advanced
+
 **Notifications**
 - Native desktop notifications when the agent finishes a turn while the app is in the background
 - Configurable — toggle on/off in Settings > General > Permissions
 
 **Terminal and settings**
-- Integrated PTY terminal (xterm.js)
+- Integrated PTY terminal powered by [Ghostty](https://ghostty.org) WASM
 - `Cmd+L` shortcut to focus the chat input from anywhere
+- Open in editor — launch files in VS Code, Cursor, Zed, or your preferred terminal emulator
 - Update checker with sidebar badge when a new version is available
-- Full-screen settings panel: CLI path, default model, auto-approve, font size, keyboard shortcuts, git integration, and notification preferences
+- Quit confirmation dialog on `Cmd+Q` / window close
+- Thread and state persistence across version updates with automatic backups
+- Full-screen settings panel: CLI path, default model, auto-approve, font size, keyboard shortcuts, git integration, notification preferences, and analytics
+- First-run onboarding wizard for CLI setup and authentication
 
 ---
 
