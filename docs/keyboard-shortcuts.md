@@ -1,6 +1,6 @@
 # Keyboard shortcuts
 
-Kirodex registers global keyboard shortcuts via the `useKeyboardShortcuts` hook, attached once in `App.tsx`. Shortcuts are ignored when focus is in an `INPUT` or `SELECT` element. The chat textarea handles its own key events separately.
+Klaudex registers global keyboard shortcuts via the `useKeyboardShortcuts` hook, attached once in `App.tsx`. Shortcuts are ignored when focus is in an `INPUT` or `SELECT` element. The chat textarea handles its own key events separately.
 
 On Windows/Linux, replace Cmd with Ctrl.
 

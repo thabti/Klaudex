@@ -9,7 +9,7 @@ import { readPersistedTheme, applyTheme } from './lib/theme'
 applyTheme(readPersistedTheme())
 
 function showError(err: unknown) {
-  console.error('[Kirodex crash]', err)
+  console.error('[Klaudex crash]', err)
 }
 
 // Errors that are transient (HMR, StrictMode) and should auto-recover, not crash

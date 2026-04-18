@@ -10,7 +10,7 @@ export type Section = 'account' | 'general' | 'appearance' | 'keymap' | 'advance
 export const NAV: { id: Section; label: string; icon: typeof IconSettings2; description: string; sectionDescription: string; group?: string }[] = [
   { id: 'account', label: 'Account', icon: IconUser, description: 'Auth status, login', sectionDescription: 'Manage your authentication and account preferences.', group: 'account' },
   { id: 'general', label: 'General', icon: IconSettings2, description: 'CLI path, model, permissions', sectionDescription: 'Configure the CLI, default model, and permission behavior.', group: 'settings' },
-  { id: 'appearance', label: 'Appearance', icon: IconPaint, description: 'Theme, font size', sectionDescription: 'Customize the look and feel of Kirodex.', group: 'settings' },
+  { id: 'appearance', label: 'Appearance', icon: IconPaint, description: 'Theme, font size', sectionDescription: 'Customize the look and feel of Klaudex.', group: 'settings' },
   { id: 'keymap', label: 'Keyboard', icon: IconKeyboard, description: 'Shortcuts reference', sectionDescription: 'View all available keyboard shortcuts.', group: 'settings' },
   { id: 'advanced', label: 'Advanced', icon: IconTool, description: 'Privacy, git integration, and data management.', sectionDescription: 'Privacy, git integration, and data management.', group: 'settings' },
   { id: 'archives', label: 'Archives', icon: IconArchive, description: 'Deleted threads', sectionDescription: 'Restore or permanently remove deleted threads.', group: 'data' },
@@ -39,7 +39,7 @@ export const SEARCHABLE_SETTINGS: readonly SearchableItem[] = [
   { label: 'Sidebar position', description: 'Left or right sidebar placement', section: 'appearance', keywords: 'sidebar left right position layout' },
   { label: 'Keyboard shortcuts', description: 'View all available keyboard shortcuts', section: 'keymap', keywords: 'keyboard shortcuts hotkeys keybindings' },
   { label: 'Anonymous analytics', description: 'Share anonymous usage data', section: 'advanced', keywords: 'analytics privacy telemetry' },
-  { label: 'Co-authored-by', description: 'Append Kirodex trailer to every commit', section: 'advanced', keywords: 'git commit co-author trailer' },
+  { label: 'Co-authored-by', description: 'Append Klaudex trailer to every commit', section: 'advanced', keywords: 'git commit co-author trailer' },
   { label: 'Task completion report', description: 'Summary card when a task finishes', section: 'advanced', keywords: 'report summary task completion' },
   { label: 'Max question length', description: 'Character limit for /btw and /tangent questions', section: 'advanced', keywords: 'btw tangent question limit characters' },
   { label: 'Clear history', description: 'Delete all conversation threads', section: 'advanced', keywords: 'clear history delete conversations data' },

@@ -32,7 +32,7 @@ function getOrderedThreadIds(): string[] {
 }
 
 /**
- * Global keyboard shortcuts for Kirodex.
+ * Global keyboard shortcuts for Klaudex.
  * Attach once in App.tsx.
  */
 export function useKeyboardShortcuts() {

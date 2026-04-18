@@ -312,19 +312,19 @@ mod tests {
 
     #[test]
     fn scan_agents_nonexistent_dir_returns_empty() {
-        let tmp = std::env::temp_dir().join("kirodex_test_nonexistent_agents");
+        let tmp = std::env::temp_dir().join("klaudex_test_nonexistent_agents");
         assert!(super::scan_agents(&tmp, true).is_empty());
     }
 
     #[test]
     fn scan_skills_nonexistent_dir_returns_empty() {
-        let tmp = std::env::temp_dir().join("kirodex_test_nonexistent_skills");
+        let tmp = std::env::temp_dir().join("klaudex_test_nonexistent_skills");
         assert!(super::scan_skills(&tmp, false).is_empty());
     }
 
     #[test]
     fn scan_steering_nonexistent_dir_returns_empty() {
-        let tmp = std::env::temp_dir().join("kirodex_test_nonexistent_steering");
+        let tmp = std::env::temp_dir().join("klaudex_test_nonexistent_steering");
         assert!(super::scan_steering(&tmp, true).is_empty());
     }
 

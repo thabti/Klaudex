@@ -8,7 +8,7 @@ use agent_client_protocol as acp;
 use acp::Agent as _; // Brings initialize, new_session, prompt, cancel, set_session_mode into scope
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-use super::client::KirodexClient;
+use super::client::KlaudexClient;
 use super::sandbox::{extract_paths_from_message, friendly_prompt_error};
 use super::types::{
     AcpCommand, AcpState, AttachmentData, ConnectionHandle, PendingPermission, PermissionOption, PermissionReply,
@@ -239,7 +239,7 @@ pub(crate) async fn run_acp_connection(
 
     let allowed_paths = Arc::new(parking_lot::Mutex::new(BTreeSet::new()));
 
-    let client = KirodexClient {
+    let client = KlaudexClient {
         task_id: task_id.clone(),
         workspace: workspace.clone(),
         app: app.clone(),
@@ -263,7 +263,7 @@ pub(crate) async fn run_acp_connection(
 
     // Initialize
     let init_req = acp::InitializeRequest::new(acp::ProtocolVersion::V1)
-        .client_info(acp::Implementation::new("kirodex", "0.1.0").title("Kirodex"));
+        .client_info(acp::Implementation::new("klaudex", "0.1.0").title("Klaudex"));
     conn.initialize(init_req).await.map_err(|e| format!("Initialize failed: {e}"))?;
 
     // Create session

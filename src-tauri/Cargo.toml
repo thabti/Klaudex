@@ -1,14 +1,14 @@
 [package]
-name = "kirodex"
+name = "klaudex"
 version = "0.7.0"
 edition = "2021"
 
 [lib]
-name = "kirodex_lib"
+name = "klaudex_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [[bin]]
-name = "kirodex"
+name = "klaudex"
 path = "src/main.rs"
 
 [dependencies]

@@ -11,7 +11,7 @@ export const OnboardingWelcomeStep = ({ onNext }: OnboardingWelcomeStepProps) =>
       <IconStack2 size={40} stroke={1.5} className="text-primary" />
     </div>
     <div>
-      <h1 className="text-3xl font-semibold tracking-tight text-foreground">Welcome to Kirodex</h1>
+      <h1 className="text-3xl font-semibold tracking-tight text-foreground">Welcome to Klaudex</h1>
       <p className="mt-3 max-w-md text-[15px] leading-relaxed text-muted-foreground">
         A native desktop client for Kiro; the AI-powered coding assistant.
       </p>

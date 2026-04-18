@@ -36,7 +36,7 @@ interface UpdateState {
   reset: () => void
 }
 
-const DISMISSED_KEY = 'kirodex-update-dismissed-version'
+const DISMISSED_KEY = 'klaudex-update-dismissed-version'
 
 export const useUpdateStore = create<UpdateState>((set) => ({
   status: 'idle',

@@ -113,7 +113,7 @@ pub struct StoreData {
 
 pub struct SettingsState(pub Mutex<StoreData>);
 
-const APP_NAME: &str = "kirodex";
+const APP_NAME: &str = "klaudex";
 
 impl Default for SettingsState {
     fn default() -> Self {

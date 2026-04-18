@@ -87,7 +87,7 @@ pub fn task_create(
         system_prefix.push_str(concat!(
             "## Commits\n\n",
             "Every git commit must include the co-author trailer:\n\n",
-            "```\nCo-authored-by: Kirodex <274876363+kirodex@users.noreply.github.com>\n```\n\n",
+            "```\nCo-authored-by: Klaudex <274876363+klaudex@users.noreply.github.com>\n```\n\n",
             "Use conventional commit format: `type(scope): description`.\n\n",
             "---\n\n",
         ));
@@ -97,7 +97,7 @@ pub fn task_create(
             "\n\n## Completion report\n\n",
             "When you finish the task, append a JSON block at the very end of your final message.\n",
             "Use this exact format:\n\n",
-            "```kirodex-report\n",
+            "```klaudex-report\n",
             "{\n",
             "  \"status\": \"done\" | \"partial\" | \"blocked\",\n",
             "  \"summary\": \"one-line description of what was done\",\n",
@@ -504,7 +504,7 @@ pub fn list_models(
 
                 conn.initialize(
                     acp::InitializeRequest::new(acp::ProtocolVersion::V1)
-                        .client_info(acp::Implementation::new("kirodex", "0.1.0"))
+                        .client_info(acp::Implementation::new("klaudex", "0.1.0"))
                 ).await.map_err(|e| format!("Init failed: {e}"))?;
 
                 let session = conn.new_session(
@@ -589,7 +589,7 @@ pub fn probe_capabilities(
 
                 conn.initialize(
                     acp::InitializeRequest::new(acp::ProtocolVersion::V1)
-                        .client_info(acp::Implementation::new("kirodex", "0.1.0"))
+                        .client_info(acp::Implementation::new("klaudex", "0.1.0"))
                 ).await.map_err(|e| format!("Init failed: {e}"))?;
 
                 let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());

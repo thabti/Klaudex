@@ -232,7 +232,7 @@ pub fn git_commit(
     let parent = repo.head()?.peel_to_commit()?;
     let co_author = settings_state.0.lock().settings.co_author;
     let message = if co_author {
-        format!("{message}\n\nCo-authored-by: Kirodex <274876363+kirodex@users.noreply.github.com>")
+        format!("{message}\n\nCo-authored-by: Klaudex <274876363+klaudex@users.noreply.github.com>")
     } else {
         message
     };

@@ -33,7 +33,7 @@ export const OnboardingSetupStep = ({ themeChoice, isAnalyticsEnabled, onAnalyti
   return (
     <div className="flex w-full max-w-md flex-col gap-6">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight text-foreground">Set up Kirodex</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-foreground">Set up Klaudex</h2>
         <p className="mt-2 text-[14px] text-muted-foreground">Connect to kiro-cli and sign in to get started.</p>
       </div>
 
@@ -61,7 +61,7 @@ export const OnboardingSetupStep = ({ themeChoice, isAnalyticsEnabled, onAnalyti
         {isAuthenticated && isCliReady ? (
           <button type="button" onClick={finish}
             className="flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-8 py-3 text-[15px] font-medium text-primary-foreground transition-colors hover:bg-primary/90">
-            Launch Kirodex <IconArrowRight size={18} />
+            Launch Klaudex <IconArrowRight size={18} />
           </button>
         ) : isCliReady ? (
           <button type="button" onClick={finish}

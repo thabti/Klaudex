@@ -257,7 +257,7 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
         }
         return
       }
-      message = `<kirodex_tangent>${question.replace(/<\/?kirodex_tangent>/gi, '')}</kirodex_tangent>`
+      message = `<klaudex_tangent>${question.replace(/<\/?klaudex_tangent>/gi, '')}</klaudex_tangent>`
     }
     if (mentionBag.mentionedFiles.length > 0) {
       const missingRefs = mentionBag.mentionedFiles.filter((f) => !message.includes(`@${f.path}`))

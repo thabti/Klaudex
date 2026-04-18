@@ -1,8 +1,8 @@
-# CLAUDE.md — Kirodex
+# CLAUDE.md — Klaudex
 
 ## Project overview
 
-Kirodex is a native macOS desktop app for managing AI coding agents via the Agent Client Protocol (ACP). It features a chat interface, task management, diff viewer, integrated terminal, git operations, and a settings panel. Built with Tauri v2 (Rust backend) and React 19 (TypeScript frontend).
+Klaudex is a native macOS desktop app for managing AI coding agents via the Agent Client Protocol (ACP). It features a chat interface, task management, diff viewer, integrated terminal, git operations, and a settings panel. Built with Tauri v2 (Rust backend) and React 19 (TypeScript frontend).
 
 ## Tech stack
 
@@ -103,7 +103,7 @@ bun run clean         # Remove build artifacts
 - Accessibility: semantic HTML, ARIA attributes, keyboard navigation
 - Icons: use `@tabler/icons-react` exclusively. Never use `lucide-react`. Tabler icons use the `Icon` prefix (e.g., `IconPlus`, `IconCheck`, `IconChevronDown`).
 - Conventional Commits for git messages (`feat:`, `fix:`, `chore:`, etc.)
-- Every commit must include: `Co-authored-by: Kirodex <274876363+kirodex@users.noreply.github.com>`
+- Every commit must include: `Co-authored-by: Klaudex <274876363+klaudex@users.noreply.github.com>`
 
 ## Build validation
 
@@ -234,7 +234,7 @@ When deleting a thread or removing a project, call `ipc.cancelTask()` before `ip
 
 ### confy changes the config file location
 
-`confy` stores config at its own XDG/macOS-standard path (e.g., `~/Library/Application Support/rs.kirodex/default-config.toml` on macOS), not the previous custom path. If migrating from hand-rolled persistence, existing settings at the old path won't be found. Consider a one-time migration or document the new location.
+`confy` stores config at its own XDG/macOS-standard path (e.g., `~/Library/Application Support/rs.klaudex/default-config.toml` on macOS), not the previous custom path. If migrating from hand-rolled persistence, existing settings at the old path won't be found. Consider a one-time migration or document the new location.
 
 ### upsertTask must preserve client-side name
 

@@ -1,27 +1,27 @@
 <p align="center">
-  <a href="https://github.com/thabti/kirodex">
-    <img src="src-tauri/icons/prod/icon.png" alt="Kirodex" width="120" height="120" />
+  <a href="https://github.com/thabti/klaudex">
+    <img src="src-tauri/icons/prod/icon.png" alt="Klaudex" width="120" height="120" />
   </a>
-  <h1 align="center">Kirodex</h1>
+  <h1 align="center">Klaudex</h1>
   <p align="center">
     AI coding agents on your desktop — 12MB, ~0% CPU at idle
     <br />
     Inspired by <a href="https://github.com/openai/codex">OpenAI Codex</a> and <a href="https://github.com/pingdotgg/t3code">T3 Code</a>
     <br />
     <br />
-    <a href="https://thabti.github.io/kirodex/">Website</a>
+    <a href="https://thabti.github.io/klaudex/">Website</a>
     ·
-    <a href="https://github.com/thabti/kirodex/releases/latest">Download</a>
+    <a href="https://github.com/thabti/klaudex/releases/latest">Download</a>
     ·
-    <a href="https://github.com/thabti/kirodex/issues">Report Bug</a>
+    <a href="https://github.com/thabti/klaudex/issues">Report Bug</a>
     ·
-    <a href="https://github.com/thabti/kirodex/issues">Request Feature</a>
+    <a href="https://github.com/thabti/klaudex/issues">Request Feature</a>
   </p>
   </p>
   <table>
     <tr>
-      <td><img src="screenshots/main.png" alt="Kirodex main view" width="100%" /></td>
-      <td><img src="screenshots/chat-task-list-diff-panel.png" alt="Kirodex chat, task list, and diff panel" width="100%" /></td>
+      <td><img src="screenshots/main.png" alt="Klaudex main view" width="100%" /></td>
+      <td><img src="screenshots/chat-task-list-diff-panel.png" alt="Klaudex chat, task list, and diff panel" width="100%" /></td>
     </tr>
   </table>
 
@@ -42,15 +42,15 @@
 
 <div align="center">
 
-<a href="https://github.com/thabti/kirodex/releases/latest">
+<a href="https://github.com/thabti/klaudex/releases/latest">
   🍎 macOS (Apple Silicon) .dmg
 </a>
 <br />
-<a href="https://github.com/thabti/kirodex/releases/latest">
+<a href="https://github.com/thabti/klaudex/releases/latest">
   🐧 Linux x64 .deb / .AppImage
 </a>
 <br />
-<a href="https://github.com/thabti/kirodex/releases/latest">
+<a href="https://github.com/thabti/klaudex/releases/latest">
   🪟 Windows x64 .exe / .msi
 </a>
 
@@ -64,18 +64,18 @@
 **macOS (Homebrew):**
 
 ```bash
-brew install --cask thabti/tap/kirodex        # first install
-brew update && brew reinstall kirodex          # upgrade
+brew install --cask thabti/tap/klaudex        # first install
+brew update && brew reinstall klaudex          # upgrade
 ```
 
 **Linux:**
 
 ```bash
 # Debian / Ubuntu — download from releases
-sudo dpkg -i kirodex_*_amd64.deb
+sudo dpkg -i klaudex_*_amd64.deb
 
 # AppImage — download and run
-chmod +x Kirodex_*.AppImage && ./Kirodex_*.AppImage
+chmod +x Klaudex_*.AppImage && ./Klaudex_*.AppImage
 ```
 
 **Windows:**
@@ -146,14 +146,14 @@ chmod +x Kirodex_*.AppImage && ./Kirodex_*.AppImage
 ### Clone and run
 
 ```bash
-git clone https://github.com/thabti/kirodex.git
-cd kirodex
+git clone https://github.com/thabti/klaudex.git
+cd klaudex
 cargo install tauri-cli  # if not already installed
 bun install
 bun run dev
 ```
 
-This starts Vite on `localhost:5174`, compiles the Rust backend, and opens the Kirodex window.
+This starts Vite on `localhost:5174`, compiles the Rust backend, and opens the Klaudex window.
 The first build compiles ~430 crates and takes a few minutes. Subsequent builds are incremental (~2s).
 
 ### Commands
@@ -193,17 +193,7 @@ See [docs/architecture.md](docs/architecture.md) for the system diagram, backend
 | Rust compilation errors | Run `rustup update`. Requires Rust >= 1.78. |
 | Frontend type errors | Run `bun install`, then `bun run check:ts`. |
 | First build is slow | Normal. Initial `cargo build` compiles ~430 crates. |
-| macOS DMG won't open | Unsigned build — run `xattr -cr /path/to/Kirodex.app`. |
-
-## Feature requests (PRs welcomed)
-
-| Feature | Description |
-|---------|-------------|
-| Git worktree | Support for managing multiple working trees |
-| Agent library | Browse and install agents from a curated registry |
-| Skills library | Browse and install skills from a curated registry |
-| UI improvements | General polish, layout, and interaction enhancements |
-| Winget / Scoop | Windows package manager support |
+| macOS DMG won't open | Unsigned build — run `xattr -cr /path/to/Klaudex.app`. |
 
 ## Contributing
 

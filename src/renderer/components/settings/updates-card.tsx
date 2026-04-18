@@ -68,7 +68,7 @@ export const UpdatesCard = () => {
     if (status === 'downloading') return pct !== null ? `Downloading... ${pct}%` : 'Downloading...'
     if (status === 'ready') return 'Update installed — restart to finish'
     if (status === 'error') return error ?? 'Update check failed'
-    return 'Kirodex is up to date'
+    return 'Klaudex is up to date'
   })()
 
   return (

@@ -66,12 +66,12 @@ export const AboutDialog = ({ open, onOpenChange }: AboutDialogProps) => {
         <div className="flex flex-col items-center px-6 pt-8 pb-6">
           <img
             src={appIcon}
-            alt="Kirodex"
+            alt="Klaudex"
             className="size-20 rounded-2xl shadow-lg"
             draggable={false}
           />
           <DialogTitle className="mt-4 text-center text-lg font-semibold">
-            Kirodex
+            Klaudex
           </DialogTitle>
           <DialogDescription className="mt-1 text-center text-[13px] text-muted-foreground">
             {appVersion ? `Version ${appVersion}` : 'Loading…'}
@@ -133,10 +133,10 @@ export const AboutDialog = ({ open, onOpenChange }: AboutDialogProps) => {
             © 2026 Thabti
           </span>
           <a
-            href="https://github.com/thabti/kirodex"
+            href="https://github.com/thabti/klaudex"
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Kirodex on GitHub"
+            aria-label="Klaudex on GitHub"
             tabIndex={0}
             className={cn(
               'inline-flex size-6 items-center justify-center rounded-md',

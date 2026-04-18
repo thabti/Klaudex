@@ -4,83 +4,83 @@
 
 ### Features
 
-- add local branch delete to branch selector ([`2ea4ced`](https://github.com/thabti/kirodex/commit/2ea4ced34c6656fb10e4ad5219fc5b38114e93d5))
-- add emoji icon picker and improve btw overlay ([`d094b49`](https://github.com/thabti/kirodex/commit/d094b494e6894263d00f6808f1a1fa4da2779221))
-- render strReplace tool calls as git-style diffs ([`ff4daca`](https://github.com/thabti/kirodex/commit/ff4dacaa6fe8a036e36afd2301205528d864482d))
-- add tooltip to worktree icons in sidebar and header ([`3cbe1ed`](https://github.com/thabti/kirodex/commit/3cbe1ed4c22e2f89073f0d389e3fe14708732c4f))
+- add local branch delete to branch selector ([`2ea4ced`](https://github.com/thabti/klaudex/commit/2ea4ced34c6656fb10e4ad5219fc5b38114e93d5))
+- add emoji icon picker and improve btw overlay ([`d094b49`](https://github.com/thabti/klaudex/commit/d094b494e6894263d00f6808f1a1fa4da2779221))
+- render strReplace tool calls as git-style diffs ([`ff4daca`](https://github.com/thabti/klaudex/commit/ff4dacaa6fe8a036e36afd2301205528d864482d))
+- add tooltip to worktree icons in sidebar and header ([`3cbe1ed`](https://github.com/thabti/klaudex/commit/3cbe1ed4c22e2f89073f0d389e3fe14708732c4f))
 
 ### Bug fixes
 
-- raise paste placeholder threshold to 100 words / 10 lines ([`efcea1c`](https://github.com/thabti/kirodex/commit/efcea1c02138e32ab086aeab14bdaa0f7643413e))
-- improve Show more button visibility and increase collapse threshold ([`cdec0c2`](https://github.com/thabti/kirodex/commit/cdec0c26c58d9c4ccb3f3bc14750f8eeb21db164))
-- add missing /fork command and fix restoreTask assertion ([`869aeea`](https://github.com/thabti/kirodex/commit/869aeea99055870438cdb5c9b9ef642a93a42b39))
-- send images as proper ContentBlock::Image (#14) ([`0a2a5f9`](https://github.com/thabti/kirodex/commit/0a2a5f92e21a05783205c3bef5927cb60c48a6ab))
-- ignore Escape key when terminal is focused ([`8934ec3`](https://github.com/thabti/kirodex/commit/8934ec32ad9e8b4e22f9f231b8c5e0d1b7a74e3a))
-- show all project image files in file tab ([`4d437c8`](https://github.com/thabti/kirodex/commit/4d437c8cb3fad90915ffd40298cb715df1739863))
-- include features.html in website deployment ([`de58e75`](https://github.com/thabti/kirodex/commit/de58e752ae9ffc357ee8eccf8991102fd722d246))
-- render markdown links in changelog page ([`944ced6`](https://github.com/thabti/kirodex/commit/944ced6ce88e88b673723ff9c398ea95ae20e388))
-- type ipcMock.setAutoApprove with explicit signature ([`98927c8`](https://github.com/thabti/kirodex/commit/98927c83946c595045f132b56859a5cd76aa259f))
+- raise paste placeholder threshold to 100 words / 10 lines ([`efcea1c`](https://github.com/thabti/klaudex/commit/efcea1c02138e32ab086aeab14bdaa0f7643413e))
+- improve Show more button visibility and increase collapse threshold ([`cdec0c2`](https://github.com/thabti/klaudex/commit/cdec0c26c58d9c4ccb3f3bc14750f8eeb21db164))
+- add missing /fork command and fix restoreTask assertion ([`869aeea`](https://github.com/thabti/klaudex/commit/869aeea99055870438cdb5c9b9ef642a93a42b39))
+- send images as proper ContentBlock::Image (#14) ([`0a2a5f9`](https://github.com/thabti/klaudex/commit/0a2a5f92e21a05783205c3bef5927cb60c48a6ab))
+- ignore Escape key when terminal is focused ([`8934ec3`](https://github.com/thabti/klaudex/commit/8934ec32ad9e8b4e22f9f231b8c5e0d1b7a74e3a))
+- show all project image files in file tab ([`4d437c8`](https://github.com/thabti/klaudex/commit/4d437c8cb3fad90915ffd40298cb715df1739863))
+- include features.html in website deployment ([`de58e75`](https://github.com/thabti/klaudex/commit/de58e752ae9ffc357ee8eccf8991102fd722d246))
+- render markdown links in changelog page ([`944ced6`](https://github.com/thabti/klaudex/commit/944ced6ce88e88b673723ff9c398ea95ae20e388))
+- type ipcMock.setAutoApprove with explicit signature ([`98927c8`](https://github.com/thabti/klaudex/commit/98927c83946c595045f132b56859a5cd76aa259f))
 
 ### Styling
 
-- improve delete button hover UX ([`f363a0d`](https://github.com/thabti/kirodex/commit/f363a0da6b3873d2c0ceb83ac42dbe2653c54d5c))
+- improve delete button hover UX ([`f363a0d`](https://github.com/thabti/klaudex/commit/f363a0da6b3873d2c0ceb83ac42dbe2653c54d5c))
 
 ### CI
 
-- flatten artifact paths to just .dmg and .exe ([`57f9337`](https://github.com/thabti/kirodex/commit/57f9337b2715f5d243b5fc9bc0d15a145286d172))
-- add label-triggered PR build workflow (#16) ([`6d0faac`](https://github.com/thabti/kirodex/commit/6d0faac6d6b2b5f88c4e569d8ce474647b5b7c8a))
-- add label-triggered PR build workflow for DMG and EXE ([`54e71a1`](https://github.com/thabti/kirodex/commit/54e71a191e9fa568ca2c671848cc48722c4a4010))
+- flatten artifact paths to just .dmg and .exe ([`57f9337`](https://github.com/thabti/klaudex/commit/57f9337b2715f5d243b5fc9bc0d15a145286d172))
+- add label-triggered PR build workflow (#16) ([`6d0faac`](https://github.com/thabti/klaudex/commit/6d0faac6d6b2b5f88c4e569d8ce474647b5b7c8a))
+- add label-triggered PR build workflow for DMG and EXE ([`54e71a1`](https://github.com/thabti/klaudex/commit/54e71a191e9fa568ca2c671848cc48722c4a4010))
 
 ### Chores
 
-- update downloads.json ([`5b05992`](https://github.com/thabti/kirodex/commit/5b05992ddc65f24b281d69c28535e43ac6f736b0))
-- update downloads.json ([`72f21a4`](https://github.com/thabti/kirodex/commit/72f21a49ca68f77e23c2d2e38a78ee4539fc669e))
+- update downloads.json ([`5b05992`](https://github.com/thabti/klaudex/commit/5b05992ddc65f24b281d69c28535e43ac6f736b0))
+- update downloads.json ([`72f21a4`](https://github.com/thabti/klaudex/commit/72f21a49ca68f77e23c2d2e38a78ee4539fc669e))
 
 ### Other changes
 
-- merge: integrate remote changes with local CI workflow ([`4f94292`](https://github.com/thabti/kirodex/commit/4f9429247cc88d294068d38a9ab39e06ad16b14a))
-- activity update ([`8a12288`](https://github.com/thabti/kirodex/commit/8a122885b0ef7becd6388ba63eb00494c1191670))
-- erge branch 'main' of github.com:thabti/kirodex ([`78f9e81`](https://github.com/thabti/kirodex/commit/78f9e816cb54945a56ea50361f2afc7b08e818b9))
+- merge: integrate remote changes with local CI workflow ([`4f94292`](https://github.com/thabti/klaudex/commit/4f9429247cc88d294068d38a9ab39e06ad16b14a))
+- activity update ([`8a12288`](https://github.com/thabti/klaudex/commit/8a122885b0ef7becd6388ba63eb00494c1191670))
+- erge branch 'main' of github.com:thabti/klaudex ([`78f9e81`](https://github.com/thabti/klaudex/commit/78f9e816cb54945a56ea50361f2afc7b08e818b9))
 
 ## [v0.12.0] - 2026-04-18
 
 ### Features
 
-- link commit hashes to GitHub in release notes ([`8075333`](https://github.com/thabti/kirodex/commit/807533344773aa9434e2bf80030be656fe89f4ea))
-- workspace diff support and commit input ([`abeaeb5`](https://github.com/thabti/kirodex/commit/abeaeb5d7e28299cb577b084b19b2b24a2df8fe4))
-- add commit message generation utils with tests ([`dbd3341`](https://github.com/thabti/kirodex/commit/dbd334165e2a35af9b9e3c796dd2dfa82b2b4350))
-- stage button icon swap feedback and staged count in toolbar ([`4197010`](https://github.com/thabti/kirodex/commit/4197010e9e7e77a48174bed1b897ac88d95b5fe7))
-- add 'created' sort option as default ([`b8f33a3`](https://github.com/thabti/kirodex/commit/b8f33a369c6559408d1707f50bc9fc8dc4c1bfef))
-- expand open_in_editor with terminal emulators and cross-platform support ([`852ee96`](https://github.com/thabti/kirodex/commit/852ee963a649137796ccc1083efb1e5baf1d6b5c))
-- add useProjectIcon, extend useSlashAction and useChatInput ([`348536d`](https://github.com/thabti/kirodex/commit/348536d0515013470ba0b301ec7e833f0e5e9815))
-- replace xterm.js with ghostty-web WASM terminal ([`72faa70`](https://github.com/thabti/kirodex/commit/72faa702858e24abeb61b85a206507b167b835d1))
-- add Kiro ghost logo and sponsored-by Lastline to hero ([`35b43fd`](https://github.com/thabti/kirodex/commit/35b43fddb19093897b56a8d1337fc9737949fd11))
+- link commit hashes to GitHub in release notes ([`8075333`](https://github.com/thabti/klaudex/commit/807533344773aa9434e2bf80030be656fe89f4ea))
+- workspace diff support and commit input ([`abeaeb5`](https://github.com/thabti/klaudex/commit/abeaeb5d7e28299cb577b084b19b2b24a2df8fe4))
+- add commit message generation utils with tests ([`dbd3341`](https://github.com/thabti/klaudex/commit/dbd334165e2a35af9b9e3c796dd2dfa82b2b4350))
+- stage button icon swap feedback and staged count in toolbar ([`4197010`](https://github.com/thabti/klaudex/commit/4197010e9e7e77a48174bed1b897ac88d95b5fe7))
+- add 'created' sort option as default ([`b8f33a3`](https://github.com/thabti/klaudex/commit/b8f33a369c6559408d1707f50bc9fc8dc4c1bfef))
+- expand open_in_editor with terminal emulators and cross-platform support ([`852ee96`](https://github.com/thabti/klaudex/commit/852ee963a649137796ccc1083efb1e5baf1d6b5c))
+- add useProjectIcon, extend useSlashAction and useChatInput ([`348536d`](https://github.com/thabti/klaudex/commit/348536d0515013470ba0b301ec7e833f0e5e9815))
+- replace xterm.js with ghostty-web WASM terminal ([`72faa70`](https://github.com/thabti/klaudex/commit/72faa702858e24abeb61b85a206507b167b835d1))
+- add Kiro ghost logo and sponsored-by Lastline to hero ([`35b43fd`](https://github.com/thabti/klaudex/commit/35b43fddb19093897b56a8d1337fc9737949fd11))
 
 ### Bug fixes
 
-- merge staged and unstaged diffs to avoid double-counting ([`1722664`](https://github.com/thabti/kirodex/commit/17226644222421ee593a9533f0e1a26f994d5610))
+- merge staged and unstaged diffs to avoid double-counting ([`1722664`](https://github.com/thabti/klaudex/commit/17226644222421ee593a9533f0e1a26f994d5610))
 
 ### Refactoring
 
-- split taskStore into types, listeners, and core modules ([`4f81d87`](https://github.com/thabti/kirodex/commit/4f81d87434ff4c013484dff8f5eef6526de889b2))
-- extract DiffViewer sub-components and utilities ([`896ad0d`](https://github.com/thabti/kirodex/commit/896ad0d3364e3af5ce0a59f139b669b3762f438c))
-- extract kiro config sub-components and add project icon picker ([`57c3250`](https://github.com/thabti/kirodex/commit/57c3250d2dc3fbfe5e932fa81226bba72d508e6e))
-- extract settings sections into individual modules ([`d196e59`](https://github.com/thabti/kirodex/commit/d196e593f9e2227e707a98137781189b0dc94eec))
-- extract onboarding step components from monolithic Onboarding.tsx ([`b464d8a`](https://github.com/thabti/kirodex/commit/b464d8ac8148daf6b44ea14c896df9000d0a7f34))
-- split AppHeader into breadcrumb, toolbar, and user-menu modules ([`daec3c8`](https://github.com/thabti/kirodex/commit/daec3c894fc3fff5cfa0040d82d543116d1611ec))
-- extract chat sub-components from monolithic files ([`1dd5e51`](https://github.com/thabti/kirodex/commit/1dd5e516ac36310c354e051349910b0783a0a21f))
-- migrate std::sync::Mutex to parking_lot ([`039183c`](https://github.com/thabti/kirodex/commit/039183cecf9af8d15235a87f2dff2bf300030cb4))
-- split monolithic acp.rs into modular subfiles ([`a4973fe`](https://github.com/thabti/kirodex/commit/a4973fe929ed33a79de41726de841e555a8557c7))
+- split taskStore into types, listeners, and core modules ([`4f81d87`](https://github.com/thabti/klaudex/commit/4f81d87434ff4c013484dff8f5eef6526de889b2))
+- extract DiffViewer sub-components and utilities ([`896ad0d`](https://github.com/thabti/klaudex/commit/896ad0d3364e3af5ce0a59f139b669b3762f438c))
+- extract kiro config sub-components and add project icon picker ([`57c3250`](https://github.com/thabti/klaudex/commit/57c3250d2dc3fbfe5e932fa81226bba72d508e6e))
+- extract settings sections into individual modules ([`d196e59`](https://github.com/thabti/klaudex/commit/d196e593f9e2227e707a98137781189b0dc94eec))
+- extract onboarding step components from monolithic Onboarding.tsx ([`b464d8a`](https://github.com/thabti/klaudex/commit/b464d8ac8148daf6b44ea14c896df9000d0a7f34))
+- split AppHeader into breadcrumb, toolbar, and user-menu modules ([`daec3c8`](https://github.com/thabti/klaudex/commit/daec3c894fc3fff5cfa0040d82d543116d1611ec))
+- extract chat sub-components from monolithic files ([`1dd5e51`](https://github.com/thabti/klaudex/commit/1dd5e516ac36310c354e051349910b0783a0a21f))
+- migrate std::sync::Mutex to parking_lot ([`039183c`](https://github.com/thabti/klaudex/commit/039183cecf9af8d15235a87f2dff2bf300030cb4))
+- split monolithic acp.rs into modular subfiles ([`a4973fe`](https://github.com/thabti/klaudex/commit/a4973fe929ed33a79de41726de841e555a8557c7))
 
 ### Documentation
 
-- update activity log with session entries ([`216eb40`](https://github.com/thabti/kirodex/commit/216eb401c956037e6a4eef7e5abc19dca5ac7ba1))
-- add IPC reference, keyboard shortcuts, slash commands, and security audits ([`58a6fc4`](https://github.com/thabti/kirodex/commit/58a6fc4b1973e3e1e0b8dc9b8182eb25277ec2aa))
-- update main screenshot ([`823b82b`](https://github.com/thabti/kirodex/commit/823b82bf895817f28d57d2400cd6720f2b204c7d))
+- update activity log with session entries ([`216eb40`](https://github.com/thabti/klaudex/commit/216eb401c956037e6a4eef7e5abc19dca5ac7ba1))
+- add IPC reference, keyboard shortcuts, slash commands, and security audits ([`58a6fc4`](https://github.com/thabti/klaudex/commit/58a6fc4b1973e3e1e0b8dc9b8182eb25277ec2aa))
+- update main screenshot ([`823b82b`](https://github.com/thabti/klaudex/commit/823b82bf895817f28d57d2400cd6720f2b204c7d))
 
 ### Chores
 
-- update activity logs, plans, website, and build config ([`c3600d6`](https://github.com/thabti/kirodex/commit/c3600d63d1a50b669f38e38116608cdd6d4fe7ae))
+- update activity logs, plans, website, and build config ([`c3600d6`](https://github.com/thabti/klaudex/commit/c3600d63d1a50b669f38e38116608cdd6d4fe7ae))
 
 ## [v0.11.0] - 2026-04-16
 
@@ -159,7 +159,7 @@
 ### Chores
 
 - add slugify and xterm-addon-web-links
-- remove kirodex-rules steering file
+- remove klaudex-rules steering file
 
 ## [v0.9.1] - 2026-04-15
 

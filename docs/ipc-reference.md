@@ -1,6 +1,6 @@
-# Kirodex IPC reference
+# Klaudex IPC reference
 
-All frontend-to-backend communication in Kirodex uses Tauri's IPC bridge:
+All frontend-to-backend communication in Klaudex uses Tauri's IPC bridge:
 
 - **Commands** use `invoke()` to call Rust `#[tauri::command]` functions from the renderer. Each command has a TypeScript wrapper in `src/renderer/lib/ipc.ts`.
 - **Events** use `listen()` to subscribe to backend-emitted events. The `tauriListen` wrapper defers the `unlisten` call to avoid crashes during HMR and React StrictMode double-mount cycles.

@@ -103,7 +103,7 @@ export const SettingsPanel = () => {
         <nav data-testid="settings-nav" className="flex w-56 shrink-0 flex-col border-r border-border/60 px-3 pt-16 pb-4">
           <div className="mb-4 px-3">
             <h2 className="text-lg font-semibold text-foreground">Settings</h2>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Configure Kirodex</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Configure Klaudex</p>
           </div>
 
           {/* Search */}
@@ -179,9 +179,9 @@ export const SettingsPanel = () => {
             </button>
             <div className="flex items-center justify-between px-3 py-1">
               <button type="button" onClick={() => setIsAboutOpen(true)} className="text-left transition-colors hover:text-foreground">
-                <p className="text-[10px] text-muted-foreground">Kirodex {appVersion ? `v${appVersion}` : ''}</p>
+                <p className="text-[10px] text-muted-foreground">Klaudex {appVersion ? `v${appVersion}` : ''}</p>
               </button>
-              <a href="https://github.com/thabti/kirodex" target="_blank" rel="noopener noreferrer" aria-label="Kirodex on GitHub" tabIndex={0} className="text-muted-foreground transition-colors hover:text-foreground">
+              <a href="https://github.com/thabti/klaudex" target="_blank" rel="noopener noreferrer" aria-label="Klaudex on GitHub" tabIndex={0} className="text-muted-foreground transition-colors hover:text-foreground">
                 <IconBrandGithub className="size-3.5" />
               </a>
             </div>

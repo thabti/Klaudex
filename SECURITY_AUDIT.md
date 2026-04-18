@@ -1,4 +1,4 @@
-# Kirodex security audit
+# Klaudex security audit
 
 **Date:** 2026-04-17
 **Scope:** Full codebase — Tauri config, Rust backend commands, frontend IPC, dependencies, secrets handling
@@ -8,7 +8,7 @@
 
 ## Executive summary
 
-Kirodex is a Tauri v2 desktop app with a Rust backend and React frontend. The architecture is sound: IPC is mediated through Tauri's invoke system, git operations use libgit2 instead of shell commands, and the ACP sandbox has both loose and strict path-checking modes with good test coverage.
+Klaudex is a Tauri v2 desktop app with a Rust backend and React frontend. The architecture is sound: IPC is mediated through Tauri's invoke system, git operations use libgit2 instead of shell commands, and the ACP sandbox has both loose and strict path-checking modes with good test coverage.
 
 The main risks are **command injection in two `osascript` call sites**, **unrestricted file reads from the frontend**, and a **sandbox bypass when a user mentions `/`**. Most findings are medium severity and fixable with targeted changes.
 
@@ -134,7 +134,7 @@ The `cwd` is passed directly to `CommandBuilder::cwd()`. A compromised frontend 
 
 #### M2. macOS app sandbox is disabled
 
-**File:** `src-tauri/Kirodex.entitlements`
+**File:** `src-tauri/Klaudex.entitlements`
 
 ```xml
 <key>com.apple.security.app-sandbox</key>
@@ -184,7 +184,7 @@ This opens a data exfiltration channel. If an XSS vulnerability exists, attacker
 ```html
 <script>
     (function(){
-        var t='dark';try{t=localStorage.getItem('kirodex-theme')||'dark'}catch(e){}
+        var t='dark';try{t=localStorage.getItem('klaudex-theme')||'dark'}catch(e){}
         ...
     })();
 </script>
@@ -237,7 +237,7 @@ The updater uses HTTPS endpoints and a hardcoded Ed25519 public key. This is the
 
 **File:** `src-tauri/src/commands/settings.rs`
 
-Settings are persisted via `confy` to `~/Library/Application Support/rs.kirodex/default-config.toml`. The file contains `analytics_anon_id` and `kiro_bin` path but no secrets. Acceptable for a desktop app.
+Settings are persisted via `confy` to `~/Library/Application Support/rs.klaudex/default-config.toml`. The file contains `analytics_anon_id` and `kiro_bin` path but no secrets. Acceptable for a desktop app.
 
 **Recommendation:** If you ever store API keys or tokens in settings, encrypt the config file or use the OS keychain.
 

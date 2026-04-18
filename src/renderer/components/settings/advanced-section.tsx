@@ -33,7 +33,7 @@ export const AdvancedSection = ({ draft, updateDraft, onClose }: AdvancedSection
     <div>
       <SectionLabel title="Git" />
       <SettingsCard>
-        <SettingRow label="Co-authored-by Kirodex" description="Append trailer to every commit">
+        <SettingRow label="Co-authored-by Klaudex" description="Append trailer to every commit">
           <Switch
             checked={draft.coAuthor ?? true}
             onCheckedChange={(checked) => updateDraft({ coAuthor: checked })}

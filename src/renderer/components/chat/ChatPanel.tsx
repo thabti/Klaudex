@@ -223,7 +223,7 @@ export const ChatPanel = memo(function ChatPanel() {
     return (
       <Empty>
         <EmptyHeader>
-          <EmptyTitle>Kirodex</EmptyTitle>
+          <EmptyTitle>Klaudex</EmptyTitle>
           <EmptyDescription>Select a task or create a new one to get started.</EmptyDescription>
         </EmptyHeader>
       </Empty>

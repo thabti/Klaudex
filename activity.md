@@ -1,5 +1,23 @@
 # Activity Log
 
+## 2026-04-19 00:48 GST (Dubai)
+### Docs: Rename Kirodex → Klaudex in all .md files, remove plans
+Renamed Kirodex/kirodex to Klaudex/klaudex across 11 .md files (CHANGELOG, CONTRIBUTING, CLAUDE, AGENTS, SECURITY_AUDIT, docs/*, activity logs, .agents). Deleted `.plans/` directory (5 files) and `todo.md`. Removed Feature requests table from README.
+
+**Modified:** CHANGELOG.md, CONTRIBUTING.md, CLAUDE.md, AGENTS.md, SECURITY_AUDIT.md, README.md, docs/architecture.md, docs/ipc-reference.md, docs/keyboard-shortcuts.md, activity.md, src-tauri/activity.md, .agents/agents/react-expert/AGENT.md
+
+## 2026-04-19 00:47 GST (Dubai)
+### README: Rename Klaudex → Klaudex
+Updated all 20 references of Klaudex/klaudex to Klaudex/klaudex in README.md (display names, GitHub URLs, Homebrew commands, .deb filenames, .AppImage filenames, .app path, clone URL).
+
+**Modified:** README.md
+
+## 2026-04-19 00:39 GST (Dubai)
+### Rename: Klaudex → Klaudex across React and Rust files
+Renamed all references of Klaudex/klaudex to Klaudex/klaudex across 19 React/TypeScript files and 10 Rust files, plus Cargo.toml (lib/bin/package names). Covers PascalCase, camelCase, snake_case, and kebab-case variants (KlaudexClient→KlaudexClient, klaudex_lib→klaudex_lib, klaudex-report→klaudex-report, klaudex_tangent→klaudex_tangent, etc.). Vite build, cargo check, and 177 Rust tests all pass.
+
+**Modified:** src/renderer/App.tsx, src/renderer/main.tsx, src/renderer/components/chat/PendingChat.tsx, src/renderer/components/chat/TaskCompletionCard.tsx, src/renderer/components/chat/ChatPanel.tsx, src/renderer/components/settings/SettingsPanel.tsx, src/renderer/components/settings/AboutDialog.tsx, src/renderer/components/settings/advanced-section.tsx, src/renderer/components/settings/settings-shared.tsx, src/renderer/components/settings/updates-card.tsx, src/renderer/components/sidebar/RestartPromptDialog.tsx, src/renderer/components/OnboardingSetupStep.tsx, src/renderer/components/OnboardingWelcomeStep.tsx, src/renderer/hooks/useChatInput.ts, src/renderer/hooks/useKeyboardShortcuts.ts, src/renderer/lib/analytics.ts, src/renderer/lib/theme.ts, src/renderer/lib/timeline.ts, src/renderer/stores/updateStore.ts, src-tauri/Cargo.toml, src-tauri/src/main.rs, src-tauri/src/lib.rs, src-tauri/src/commands/acp/client.rs, src-tauri/src/commands/acp/commands.rs, src-tauri/src/commands/acp/connection.rs, src-tauri/src/commands/acp/tests.rs, src-tauri/src/commands/git.rs, src-tauri/src/commands/fs_ops.rs, src-tauri/src/commands/kiro_config.rs, src-tauri/src/commands/settings.rs
+
 ## 2026-04-18 17:48 GST (Dubai)
 ### BranchSelector: Add local branch delete button
 Added a trash icon button to each local branch row in the branch selector popup. The button appears on hover and deletes the branch locally via a new `git_delete_branch` Rust command using git2. Cannot delete the current branch or worktree-locked branches.
@@ -68,7 +86,7 @@ Added an "Emoji" tab to the icon picker dialog with 64 emojis across four catego
 
 ## 2026-04-18 02:41 GST (Dubai)
 ### CI: Add label-triggered PR build workflow for DMG and EXE
-Created `.github/workflows/pr-build.yml` that builds signed macOS `.dmg` and Windows `.exe` installers when the `build-test` label is added to a PR. Artifacts are uploaded as `kirodex-pr-{number}-{platform}` with 7-day retention. Created PR #16 against `fix/14-image-content-blocks` and added the label to trigger a test run.
+Created `.github/workflows/pr-build.yml` that builds signed macOS `.dmg` and Windows `.exe` installers when the `build-test` label is added to a PR. Artifacts are uploaded as `klaudex-pr-{number}-{platform}` with 7-day retention. Created PR #16 against `fix/14-image-content-blocks` and added the label to trigger a test run.
 
 **Modified:** `.github/workflows/pr-build.yml`
 
@@ -92,7 +110,7 @@ The icon picker's "Project File" tab showed "No image files found" due to three 
 
 ## 2026-04-18 02:20 GST (Dubai)
 ### Fix #14: Send images as proper ACP ContentBlock::Image
-When a user attaches an image in Kirodex, the image data was embedded as base64 inside a plain text string and sent as a single `ContentBlock::Text` to kiro-cli via ACP. The AI agent couldn't properly understand the image. Fixed by adding a parallel structured attachments channel in the IPC — the frontend now sends `IpcAttachment[]` alongside the text message, and the Rust backend builds proper `ContentBlock::Image` entries in the `PromptRequest`. Image tags are stripped from the text content block to avoid sending base64 data twice over the ACP pipe. Added 14 new tests (5 TypeScript, 9 Rust).
+When a user attaches an image in Klaudex, the image data was embedded as base64 inside a plain text string and sent as a single `ContentBlock::Text` to kiro-cli via ACP. The AI agent couldn't properly understand the image. Fixed by adding a parallel structured attachments channel in the IPC — the frontend now sends `IpcAttachment[]` alongside the text message, and the Rust backend builds proper `ContentBlock::Image` entries in the `PromptRequest`. Image tags are stripped from the text content block to avoid sending base64 data twice over the ACP pipe. Added 14 new tests (5 TypeScript, 9 Rust).
 
 **Modified:** `src/renderer/types/index.ts`, `src/renderer/components/chat/attachment-utils.ts`, `src/renderer/components/chat/attachment-utils.test.ts`, `src/renderer/lib/ipc.ts`, `src/renderer/hooks/useChatInput.ts`, `src/renderer/components/chat/ChatPanel.tsx`, `src/renderer/components/chat/PendingChat.tsx`, `src-tauri/src/commands/acp/types.rs`, `src-tauri/src/commands/acp/commands.rs`, `src-tauri/src/commands/acp/connection.rs`, `src-tauri/src/commands/acp/mod.rs`, `src-tauri/src/commands/acp/tests.rs`
 
@@ -276,7 +294,7 @@ Conducted a full 5-phase security audit of all 24 installed skills across ~/.kir
 ## 2026-04-17 23:49 GST (Dubai)
 ### Security: Full codebase security audit
 
-Conducted a comprehensive security audit of the entire Kirodex codebase covering Tauri config, all Rust backend commands, frontend IPC layer, dependencies, and secrets handling. Identified 1 critical finding (sandbox bypass via root path), 4 high findings (unrestricted file reads, command injection in osascript calls, git worktree shelling out), and 7 medium findings. Created SECURITY_AUDIT.md with prioritized remediation recommendations.
+Conducted a comprehensive security audit of the entire Klaudex codebase covering Tauri config, all Rust backend commands, frontend IPC layer, dependencies, and secrets handling. Identified 1 critical finding (sandbox bypass via root path), 4 high findings (unrestricted file reads, command injection in osascript calls, git worktree shelling out), and 7 medium findings. Created SECURITY_AUDIT.md with prioritized remediation recommendations.
 
 **Modified:** SECURITY_AUDIT.md
 

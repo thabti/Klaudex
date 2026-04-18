@@ -2,7 +2,7 @@
 
 ## System overview
 
-Kirodex is a native macOS desktop app for managing AI coding agents via the Agent Client Protocol (ACP). The app is built with Tauri v2: a Rust backend handles subprocess management, git operations, file system access, terminal emulation, and config persistence, while a React 19 frontend provides the UI. All communication between the two layers happens through Tauri's IPC (`invoke()` for commands, `listen()` for events). There are no Node.js APIs in the frontend.
+Klaudex is a native macOS desktop app for managing AI coding agents via the Agent Client Protocol (ACP). The app is built with Tauri v2: a Rust backend handles subprocess management, git operations, file system access, terminal emulation, and config persistence, while a React 19 frontend provides the UI. All communication between the two layers happens through Tauri's IPC (`invoke()` for commands, `listen()` for events). There are no Node.js APIs in the frontend.
 
 ```mermaid
 graph TD
@@ -70,7 +70,7 @@ Git operations via `git2` (libgit2 bindings). Supports branch listing, staging, 
 
 ### settings.rs
 
-Config persistence via `confy`. Stores settings at the platform-standard path (e.g., `~/Library/Application Support/rs.kirodex/default-config.toml` on macOS). Handles reading, writing, and resetting user preferences.
+Config persistence via `confy`. Stores settings at the platform-standard path (e.g., `~/Library/Application Support/rs.klaudex/default-config.toml` on macOS). Handles reading, writing, and resetting user preferences.
 
 ### fs_ops.rs
 

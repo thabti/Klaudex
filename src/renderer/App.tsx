@@ -100,7 +100,7 @@ function EmptyState() {
           <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
             {hasProjects
               ? "Pick a project and start chatting with Kiro"
-              : "Point Kirodex at any folder on your machine. The AI agent works directly with your files, runs commands, and helps you build."}
+              : "Point Klaudex at any folder on your machine. The AI agent works directly with your files, runs commands, and helps you build."}
           </p>
         </div>
         <LoginBanner />
@@ -138,7 +138,7 @@ function UpdateNotifier() {
   useEffect(() => {
     if (status === 'available' && updateInfo) {
       if (dismissedVersion === updateInfo.version) return;
-      toastIdRef.current = toast(`Kirodex v${updateInfo.version} available`, {
+      toastIdRef.current = toast(`Klaudex v${updateInfo.version} available`, {
         description: 'A new version is ready to install.',
         duration: Infinity,
         action: {

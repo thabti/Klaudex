@@ -13,7 +13,7 @@ use super::sandbox::{
 use super::types::{AcpState, PendingPermission, PermissionOption, PermissionReply};
 use super::now_millis;
 
-pub(crate) struct KirodexClient {
+pub(crate) struct KlaudexClient {
     pub(crate) task_id: String,
     pub(crate) workspace: String,
     pub(crate) app: tauri::AppHandle,
@@ -27,7 +27,7 @@ pub(crate) struct KirodexClient {
 }
 
 #[async_trait::async_trait(?Send)]
-impl acp::Client for KirodexClient {
+impl acp::Client for KlaudexClient {
     async fn session_notification(&self, args: acp::SessionNotification) -> acp::Result<()> {
         let tid = &self.task_id;
         // Serialize the update to JSON Value so we can inspect the sessionUpdate field

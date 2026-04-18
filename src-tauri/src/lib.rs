@@ -33,7 +33,7 @@ fn install_panic_hook() {
         );
         // Also write to stderr in case the log system is down
         eprintln!(
-            "[Kirodex PANIC] thread '{}' at {}: {}",
+            "[Klaudex PANIC] thread '{}' at {}: {}",
             name, location, payload
         );
         // Call the default hook so the backtrace still prints in dev
@@ -174,7 +174,7 @@ pub fn run() {
                 // Initial positioning of traffic lights
                 reposition_traffic_lights(ns_window);
             }
-            log::info!("Kirodex started (pid={})", std::process::id());
+            log::info!("Klaudex started (pid={})", std::process::id());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -261,7 +261,7 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
-            eprintln!("Failed to start Kirodex: {e}");
+            eprintln!("Failed to start Klaudex: {e}");
             std::process::exit(1);
         });
 }

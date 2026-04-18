@@ -1,12 +1,12 @@
-# Contributing to Kirodex
+# Contributing to Klaudex
 
 Thanks for your interest in contributing. This guide covers everything you need to get started.
 
 ## Getting started
 
 ```bash
-git clone https://github.com/thabti/kirodex.git
-cd kirodex
+git clone https://github.com/thabti/klaudex.git
+cd klaudex
 cargo install tauri-cli  # required for `bun run dev` and `bun run build`
 bun install
 bun run dev

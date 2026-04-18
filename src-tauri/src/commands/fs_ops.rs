@@ -146,7 +146,7 @@ pub fn open_in_editor(path: String, editor: String) -> Result<(), AppError> {
         }
         "tmux" => {
             // Create a detached session named after the directory, then attach in default terminal
-            let slug = path.split('/').last().unwrap_or("kirodex")
+            let slug = path.split('/').last().unwrap_or("klaudex")
                 .replace(|c: char| !c.is_alphanumeric() && c != '-', "-");
             let session = format!("kdx-{slug}");
             // Try to create session; if it already exists, that's fine

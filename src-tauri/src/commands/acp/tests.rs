@@ -570,8 +570,8 @@ fn both_block_unrelated() {
 #[test]
 fn loose_allows_backup_dir_strict_blocks() {
     let mut allowed = BTreeSet::new();
-    allowed.insert("/Users/sabeur/Desktop/kirodex/src/main.rs".to_string());
-    let backup_file = "/Users/sabeur/Desktop/kirodex/src/utils.rs";
+    allowed.insert("/Users/sabeur/Desktop/klaudex/src/main.rs".to_string());
+    let backup_file = "/Users/sabeur/Desktop/klaudex/src/utils.rs";
     assert!(is_path_allowed(&allowed, backup_file));
     assert!(!is_path_strictly_allowed(&allowed, backup_file));
 }
