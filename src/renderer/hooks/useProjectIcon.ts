@@ -13,7 +13,12 @@ interface FrameworkIcon {
   readonly id: string
 }
 
-export type ProjectIconResult = FaviconIcon | FrameworkIcon | null
+interface EmojiIcon {
+  readonly type: 'emoji'
+  readonly emoji: string
+}
+
+export type ProjectIconResult = FaviconIcon | FrameworkIcon | EmojiIcon | null
 
 /** Module-level cache so re-renders and remounts don't re-fetch. */
 const cache = new Map<string, ProjectIconResult>()
@@ -55,6 +60,14 @@ export const useProjectIcon = (cwd: string): ProjectIconResult => {
     // Handle framework override
     if (override?.type === 'framework') {
       const result: FrameworkIcon = { type: 'framework', id: override.id }
+      cache.set(cwd, result)
+      setIcon(result)
+      return
+    }
+
+    // Handle emoji override
+    if (override?.type === 'emoji') {
+      const result: EmojiIcon = { type: 'emoji', emoji: override.emoji }
       cache.set(cwd, result)
       setIcon(result)
       return

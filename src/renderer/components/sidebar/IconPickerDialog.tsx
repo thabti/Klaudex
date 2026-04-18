@@ -9,6 +9,7 @@ import { ipc } from '@/lib/ipc'
 type IconOverride =
   | { type: 'framework'; id: string }
   | { type: 'file'; path: string }
+  | { type: 'emoji'; emoji: string }
 
 interface IconPickerDialogProps {
   readonly open: boolean
@@ -32,7 +33,133 @@ const FRAMEWORK_LABELS: Record<string, string> = {
   typescript: 'TS', javascript: 'JS', php: 'PHP', cpp: 'C++', docker: 'Docker',
 }
 
-type TabId = 'frameworks' | 'file'
+type TabId = 'frameworks' | 'emoji' | 'file'
+
+const EMOJI_CATEGORIES = [
+  {
+    label: 'Dev & Tech',
+    emojis: ['💻', '🖥️', '⌨️', '🖱️', '💾', '📡', '🔌', '🧪', '🔬', '🤖', '🧠', '⚡', '🔧', '🛠️', '⚙️', '🔩'],
+  },
+  {
+    label: 'Fun & Creative',
+    emojis: ['🚀', '🎮', '🎯', '🎨', '🎭', '🎪', '🎬', '🎵', '🎸', '🎲', '🧩', '🪄', '✨', '💎', '🔮', '🌈'],
+  },
+  {
+    label: 'Nature & Animals',
+    emojis: ['🐱', '🐶', '🦊', '🐼', '🦄', '🐙', '🦋', '🐝', '🌸', '🌻', '🌵', '🍄', '🌍', '🌙', '☀️', '🔥'],
+  },
+  {
+    label: 'Objects & Symbols',
+    emojis: ['📦', '📚', '📝', '🗂️', '📁', '🏗️', '🏠', '🏰', '🗺️', '🧭', '⏱️', '💡', '🔑', '🛡️', '⚔️', '🏆'],
+  },
+  {
+    label: 'Food & Drinks',
+    emojis: ['☕', '🍕', '🍔', '🌮', '🍣', '🍩', '🧁', '🍪', '🍎', '🍋', '🥑', '🌶️', '🍺', '🧃', '🍷', '🧊'],
+  },
+  {
+    label: 'Faces & People',
+    emojis: ['😎', '🥳', '🤓', '😈', '👻', '💀', '👽', '🤠', '🧑‍💻', '🧑‍🚀', '🧑‍🎨', '🧑‍🔬', '🥷', '🦸', '🧙', '👾'],
+  },
+] as const
+
+const EMOJI_KEYWORDS: Record<string, readonly string[]> = {
+  '💻': ['laptop', 'computer', 'dev', 'code'],
+  '🖥️': ['desktop', 'monitor', 'screen', 'display'],
+  '⌨️': ['keyboard', 'type', 'input'],
+  '🖱️': ['mouse', 'click', 'cursor'],
+  '💾': ['save', 'disk', 'floppy', 'storage'],
+  '📡': ['satellite', 'signal', 'network', 'api'],
+  '🔌': ['plugin', 'power', 'connect', 'electric'],
+  '🧪': ['test', 'experiment', 'lab', 'science'],
+  '🔬': ['microscope', 'research', 'science', 'debug'],
+  '🤖': ['robot', 'bot', 'ai', 'automation'],
+  '🧠': ['brain', 'ai', 'smart', 'think', 'ml'],
+  '⚡': ['lightning', 'fast', 'power', 'energy', 'zap'],
+  '🔧': ['wrench', 'fix', 'tool', 'repair', 'config'],
+  '🛠️': ['tools', 'build', 'hammer', 'construct'],
+  '⚙️': ['gear', 'settings', 'config', 'engine'],
+  '🔩': ['bolt', 'nut', 'hardware', 'metal'],
+  '🚀': ['rocket', 'launch', 'deploy', 'fast', 'ship'],
+  '🎮': ['game', 'controller', 'play', 'gaming'],
+  '🎯': ['target', 'goal', 'aim', 'focus', 'dart'],
+  '🎨': ['art', 'paint', 'design', 'palette', 'creative'],
+  '🎭': ['theater', 'drama', 'mask', 'perform'],
+  '🎪': ['circus', 'tent', 'carnival', 'fun'],
+  '🎬': ['movie', 'film', 'video', 'action', 'camera'],
+  '🎵': ['music', 'note', 'song', 'audio', 'sound'],
+  '🎸': ['guitar', 'rock', 'music', 'band'],
+  '🎲': ['dice', 'random', 'game', 'chance', 'luck'],
+  '🧩': ['puzzle', 'piece', 'fit', 'solve', 'module'],
+  '🪄': ['wand', 'magic', 'wizard', 'spell'],
+  '✨': ['sparkle', 'star', 'new', 'shine', 'magic'],
+  '💎': ['gem', 'diamond', 'ruby', 'jewel', 'premium'],
+  '🔮': ['crystal', 'ball', 'predict', 'magic', 'future'],
+  '🌈': ['rainbow', 'color', 'pride', 'spectrum'],
+  '🐱': ['cat', 'kitten', 'meow', 'pet'],
+  '🐶': ['dog', 'puppy', 'woof', 'pet'],
+  '🦊': ['fox', 'firefox', 'clever', 'orange'],
+  '🐼': ['panda', 'bear', 'bamboo', 'cute'],
+  '🦄': ['unicorn', 'magic', 'horse', 'startup'],
+  '🐙': ['octopus', 'github', 'tentacle', 'sea'],
+  '🦋': ['butterfly', 'flutter', 'insect', 'transform'],
+  '🐝': ['bee', 'honey', 'buzz', 'busy', 'hive'],
+  '🌸': ['blossom', 'flower', 'cherry', 'spring', 'pink'],
+  '🌻': ['sunflower', 'flower', 'sun', 'yellow', 'happy'],
+  '🌵': ['cactus', 'desert', 'plant', 'prickly'],
+  '🍄': ['mushroom', 'fungus', 'toad', 'nature'],
+  '🌍': ['earth', 'globe', 'world', 'planet', 'global'],
+  '🌙': ['moon', 'night', 'dark', 'crescent', 'sleep'],
+  '☀️': ['sun', 'bright', 'light', 'day', 'warm'],
+  '🔥': ['fire', 'hot', 'flame', 'lit', 'trending'],
+  '📦': ['package', 'box', 'npm', 'cargo', 'ship', 'bundle'],
+  '📚': ['books', 'library', 'docs', 'read', 'learn'],
+  '📝': ['note', 'memo', 'write', 'edit', 'pencil'],
+  '🗂️': ['folder', 'tab', 'file', 'organize', 'index'],
+  '📁': ['folder', 'directory', 'file', 'open'],
+  '🏗️': ['construction', 'build', 'crane', 'wip'],
+  '🏠': ['house', 'home', 'building'],
+  '🏰': ['castle', 'fortress', 'kingdom', 'medieval'],
+  '🗺️': ['map', 'world', 'navigate', 'explore'],
+  '🧭': ['compass', 'navigate', 'direction', 'explore'],
+  '⏱️': ['timer', 'stopwatch', 'time', 'clock', 'fast'],
+  '💡': ['bulb', 'idea', 'light', 'tip', 'bright'],
+  '🔑': ['key', 'lock', 'auth', 'secret', 'access'],
+  '🛡️': ['shield', 'protect', 'security', 'guard', 'safe'],
+  '⚔️': ['sword', 'battle', 'fight', 'cross', 'duel'],
+  '🏆': ['trophy', 'win', 'champion', 'award', 'gold'],
+  '☕': ['coffee', 'java', 'drink', 'morning', 'cafe'],
+  '🍕': ['pizza', 'food', 'slice', 'italian'],
+  '🍔': ['burger', 'food', 'hamburger', 'fast'],
+  '🌮': ['taco', 'food', 'mexican'],
+  '🍣': ['sushi', 'food', 'japanese', 'fish'],
+  '🍩': ['donut', 'food', 'sweet', 'snack'],
+  '🧁': ['cupcake', 'cake', 'sweet', 'dessert'],
+  '🍪': ['cookie', 'sweet', 'snack', 'biscuit'],
+  '🍎': ['apple', 'fruit', 'red', 'mac'],
+  '🍋': ['lemon', 'fruit', 'yellow', 'sour', 'citrus'],
+  '🥑': ['avocado', 'fruit', 'green', 'guac'],
+  '🌶️': ['pepper', 'hot', 'spicy', 'chili'],
+  '🍺': ['beer', 'drink', 'pub', 'cheers'],
+  '🧃': ['juice', 'drink', 'box', 'straw'],
+  '🍷': ['wine', 'drink', 'glass', 'red'],
+  '🧊': ['ice', 'cold', 'cube', 'freeze', 'cool'],
+  '😎': ['cool', 'sunglasses', 'chill', 'awesome'],
+  '🥳': ['party', 'celebrate', 'birthday', 'confetti'],
+  '🤓': ['nerd', 'geek', 'smart', 'glasses'],
+  '😈': ['devil', 'evil', 'mischief', 'imp'],
+  '👻': ['ghost', 'boo', 'spooky', 'halloween'],
+  '💀': ['skull', 'dead', 'danger', 'skeleton'],
+  '👽': ['alien', 'ufo', 'space', 'extraterrestrial'],
+  '🤠': ['cowboy', 'hat', 'western', 'yeehaw'],
+  '🧑‍💻': ['developer', 'coder', 'programmer', 'hacker'],
+  '🧑‍🚀': ['astronaut', 'space', 'nasa', 'cosmonaut'],
+  '🧑‍🎨': ['artist', 'painter', 'creative', 'designer'],
+  '🧑‍🔬': ['scientist', 'lab', 'research', 'chemist'],
+  '🥷': ['ninja', 'stealth', 'warrior', 'silent'],
+  '🦸': ['hero', 'super', 'cape', 'power'],
+  '🧙': ['wizard', 'mage', 'magic', 'merlin'],
+  '👾': ['alien', 'invader', 'arcade', 'pixel', 'retro'],
+} as const
 
 const getMimeType = (ext: string): string => {
   const map: Record<string, string> = {
@@ -47,8 +174,10 @@ export const IconPickerDialog = memo(function IconPickerDialog({
 }: IconPickerDialogProps) {
   const [activeTab, setActiveTab] = useState<TabId>('frameworks')
   const [selectedFramework, setSelectedFramework] = useState<string | null>(null)
+  const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [emojiSearch, setEmojiSearch] = useState('')
   const [imageFiles, setImageFiles] = useState<Array<{ path: string; width: number; height: number }>>([])
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewError, setPreviewError] = useState(false)
@@ -58,8 +187,10 @@ export const IconPickerDialog = memo(function IconPickerDialog({
     if (!open) return
     setActiveTab('frameworks')
     setSelectedFramework(null)
+    setSelectedEmoji(null)
     setSelectedFile(null)
     setSearchQuery('')
+    setEmojiSearch('')
     setPreviewUrl(null)
     setPreviewError(false)
     let stale = false
@@ -105,6 +236,21 @@ export const IconPickerDialog = memo(function IconPickerDialog({
       .map((r) => r.file)
   }, [imageFiles, searchQuery])
 
+  const filteredEmojiCategories = useMemo(() => {
+    const query = emojiSearch.trim().toLowerCase()
+    if (!query) return EMOJI_CATEGORIES
+    return EMOJI_CATEGORIES
+      .map((cat) => ({
+        ...cat,
+        emojis: cat.emojis.filter((emoji) => {
+          const keywords = EMOJI_KEYWORDS[emoji]
+          if (!keywords) return false
+          return keywords.some((kw) => kw.includes(query))
+        }),
+      }))
+      .filter((cat) => cat.emojis.length > 0)
+  }, [emojiSearch])
+
   const selectedImage = useMemo(() => {
     if (!selectedFile) return null
     return imageFiles.find((f) => f.path === selectedFile) ?? null
@@ -112,6 +258,7 @@ export const IconPickerDialog = memo(function IconPickerDialog({
 
   const handleSelectFramework = useCallback((id: string) => {
     setSelectedFramework(id)
+    setSelectedEmoji(null)
     setSelectedFile(null)
     setPreviewUrl(null)
   }, [])
@@ -121,9 +268,22 @@ export const IconPickerDialog = memo(function IconPickerDialog({
     onSelect({ type: 'framework', id: selectedFramework })
   }, [selectedFramework, onSelect])
 
+  const handleSelectEmoji = useCallback((emoji: string) => {
+    setSelectedEmoji(emoji)
+    setSelectedFramework(null)
+    setSelectedFile(null)
+    setPreviewUrl(null)
+  }, [])
+
+  const handleConfirmEmoji = useCallback(() => {
+    if (!selectedEmoji) return
+    onSelect({ type: 'emoji', emoji: selectedEmoji })
+  }, [selectedEmoji, onSelect])
+
   const handleSelectFile = useCallback((path: string) => {
     setSelectedFile(path)
     setSelectedFramework(null)
+    setSelectedEmoji(null)
   }, [])
 
   const handleConfirmFile = useCallback(() => {
@@ -133,6 +293,7 @@ export const IconPickerDialog = memo(function IconPickerDialog({
 
   const handleReset = useCallback(() => {
     setSelectedFramework(null)
+    setSelectedEmoji(null)
     setSelectedFile(null)
     setPreviewUrl(null)
     onReset()
@@ -140,7 +301,11 @@ export const IconPickerDialog = memo(function IconPickerDialog({
 
   // Check if image exceeds max size — no longer needed, Rust filters by dimensions
 
-  const canConfirm = activeTab === 'frameworks' ? !!selectedFramework : !!selectedFile && !previewError
+  const canConfirm = activeTab === 'frameworks'
+    ? !!selectedFramework
+    : activeTab === 'emoji'
+      ? !!selectedEmoji
+      : !!selectedFile && !previewError
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -162,6 +327,18 @@ export const IconPickerDialog = memo(function IconPickerDialog({
             )}
           >
             Frameworks
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('emoji')}
+            className={cn(
+              'px-3 py-2 text-[12px] font-medium transition-colors border-b-2 -mb-px outline-none',
+              activeTab === 'emoji'
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+          >
+            Emoji
           </button>
           <button
             type="button"
@@ -213,6 +390,64 @@ export const IconPickerDialog = memo(function IconPickerDialog({
                   <div className="flex flex-col gap-0.5">
                     <span className="text-[12px] font-medium text-foreground">{FRAMEWORK_LABELS[selectedFramework]}</span>
                     <span className="text-[10px] text-muted-foreground">Framework icon</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Emoji tab */}
+          {activeTab === 'emoji' && (
+            <div className="flex flex-col gap-3">
+              <div className="relative">
+                <IconSearch className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                <input
+                  type="text"
+                  placeholder="Search emojis..."
+                  value={emojiSearch}
+                  onChange={(e) => setEmojiSearch(e.target.value)}
+                  aria-label="Search emojis by keyword"
+                  className="h-7 w-full rounded-md border border-input bg-transparent pl-8 pr-3 text-[12px] outline-none placeholder:text-muted-foreground/60 focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="max-h-[240px] overflow-y-auto flex flex-col gap-2.5">
+                {filteredEmojiCategories.length === 0 ? (
+                  <div className="flex items-center justify-center py-8 text-[11px] text-muted-foreground/60">
+                    No emojis match "{emojiSearch}"
+                  </div>
+                ) : filteredEmojiCategories.map((category) => (
+                  <div key={category.label} className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wider">{category.label}</span>
+                    <div className="grid grid-cols-8 gap-0.5">
+                      {category.emojis.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          aria-label={`Select ${emoji} emoji`}
+                          tabIndex={0}
+                          onClick={() => handleSelectEmoji(emoji)}
+                          className={cn(
+                            'flex items-center justify-center rounded-md p-1 text-lg transition-colors hover:bg-accent outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                            selectedEmoji === emoji && 'ring-1 ring-primary bg-accent',
+                          )}
+                        >
+                          <span aria-hidden>{emoji}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Preview */}
+              {selectedEmoji && (
+                <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 p-3">
+                  <div className="flex size-10 items-center justify-center rounded-full bg-background border border-border">
+                    <span className="text-xl" aria-hidden>{selectedEmoji}</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[12px] font-medium text-foreground">Emoji icon</span>
+                    <span className="text-[10px] text-muted-foreground">Custom emoji</span>
                   </div>
                 </div>
               )}
@@ -305,7 +540,7 @@ export const IconPickerDialog = memo(function IconPickerDialog({
             </button>
             <button
               type="button"
-              onClick={activeTab === 'frameworks' ? handleConfirmFramework : handleConfirmFile}
+              onClick={activeTab === 'frameworks' ? handleConfirmFramework : activeTab === 'emoji' ? handleConfirmEmoji : handleConfirmFile}
               disabled={!canConfirm}
               aria-label="Apply selected icon"
               className="flex h-7 items-center rounded-md bg-primary px-3 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40 disabled:pointer-events-none outline-none focus-visible:ring-1 focus-visible:ring-ring"

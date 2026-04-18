@@ -6,9 +6,17 @@ interface ProjectIconProps {
   readonly icon: ProjectIconResult
 }
 
-/** Renders a small circular project icon (favicon image or framework SVG). */
+/** Renders a small circular project icon (favicon image, framework SVG, or emoji). */
 export const ProjectIcon = memo(function ProjectIcon({ icon }: ProjectIconProps) {
   if (!icon) return null
+
+  if (icon.type === 'emoji') {
+    return (
+      <span className="size-3.5 shrink-0 flex items-center justify-center text-[13px] leading-none" aria-hidden>
+        {icon.emoji}
+      </span>
+    )
+  }
 
   if (icon.type === 'favicon') {
     return (

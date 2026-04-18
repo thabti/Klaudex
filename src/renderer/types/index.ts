@@ -127,7 +127,7 @@ export interface ProjectPrefs {
   worktreeEnabled?: boolean
   symlinkDirectories?: string[]
   tightSandbox?: boolean
-  iconOverride?: { type: 'framework'; id: string } | { type: 'file'; path: string } | null
+  iconOverride?: { type: 'framework'; id: string } | { type: 'file'; path: string } | { type: 'emoji'; emoji: string } | null
 }
 
 export type SidebarPosition = 'left' | 'right'

@@ -1,5 +1,60 @@
 # Activity Log
 
+## 2026-04-18 17:47 GST (Dubai)
+### BtwOverlay: Full-screen fixed overlay with centered card
+Reworked the /btw overlay to use `fixed inset-0` positioning with `bg-black/50 backdrop-blur-sm` for a proper full-screen dialog overlay. Card is centered with `max-w-2xl`, rounded corners, and entrance animations (`zoom-in-95`, `fade-in-0`). Added `data-state` and `pointerEvents: auto` for dialog overlay consistency.
+
+**Modified:**
+- `src/renderer/components/chat/BtwOverlay.tsx`
+
+## 2026-04-18 17:43 GST (Dubai)
+### IconPicker: Add Food & Drinks and Faces & People emoji categories
+Added two new emoji categories with 16 emojis each (32 total) plus searchable keywords for all new entries. Total emoji count is now 96 across six categories.
+
+**Modified:**
+- `src/renderer/components/sidebar/IconPickerDialog.tsx`
+
+## 2026-04-18 17:41 GST (Dubai)
+### IconPicker: Add emoji search with keyword matching
+Added a search input to the emoji tab that filters emojis by keyword (e.g., typing "rocket" finds 🚀, "ai" finds 🤖 and 🧠). Each emoji has a curated keyword list. Empty results show a "no match" message.
+
+**Modified:**
+- `src/renderer/components/sidebar/IconPickerDialog.tsx`
+
+## 2026-04-18 17:35 GST (Dubai)
+### IconPicker: Add emoji tab with categorized emoji grid
+Added an "Emoji" tab to the icon picker dialog with 64 emojis across four categories (Dev & Tech, Fun & Creative, Nature & Animals, Objects & Symbols). Extended the `iconOverride` type to support `{ type: 'emoji'; emoji: string }`, wired it through `useProjectIcon` and `ProjectIcon` so selected emojis render in the sidebar.
+
+**Modified:**
+- `src/renderer/types/index.ts`
+- `src/renderer/components/sidebar/IconPickerDialog.tsx`
+- `src/renderer/hooks/useProjectIcon.ts`
+- `src/renderer/components/sidebar/ProjectIcon.tsx`
+
+## 2026-04-18 17:43 GST (Dubai)
+### IconPicker: Add Food & Drinks and Faces & People emoji categories
+Added two new emoji categories with 16 emojis each (32 total) plus searchable keywords for all new entries. Total emoji count is now 96 across six categories.
+
+**Modified:**
+- `src/renderer/components/sidebar/IconPickerDialog.tsx`
+
+## 2026-04-18 17:41 GST (Dubai)
+### IconPicker: Add emoji search with keyword matching
+Added a search input to the emoji tab that filters emojis by keyword (e.g., typing "rocket" finds 🚀, "ai" finds 🤖 and 🧠). Each emoji has a curated keyword list. Empty results show a "no match" message.
+
+**Modified:**
+- `src/renderer/components/sidebar/IconPickerDialog.tsx`
+
+## 2026-04-18 17:35 GST (Dubai)
+### IconPicker: Add emoji tab with categorized emoji grid
+Added an "Emoji" tab to the icon picker dialog with 64 emojis across four categories (Dev & Tech, Fun & Creative, Nature & Animals, Objects & Symbols). Extended the `iconOverride` type to support `{ type: 'emoji'; emoji: string }`, wired it through `useProjectIcon` and `ProjectIcon` so selected emojis render in the sidebar.
+
+**Modified:**
+- `src/renderer/types/index.ts`
+- `src/renderer/components/sidebar/IconPickerDialog.tsx`
+- `src/renderer/hooks/useProjectIcon.ts`
+- `src/renderer/components/sidebar/ProjectIcon.tsx`
+
 ## 2026-04-18 02:41 GST (Dubai)
 ### CI: Add label-triggered PR build workflow for DMG and EXE
 Created `.github/workflows/pr-build.yml` that builds signed macOS `.dmg` and Windows `.exe` installers when the `build-test` label is added to a PR. Artifacts are uploaded as `kirodex-pr-{number}-{platform}` with 7-day retention. Created PR #16 against `fix/14-image-content-blocks` and added the label to trigger a test run.

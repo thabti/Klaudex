@@ -69,16 +69,18 @@ export const BtwOverlay = memo(function BtwOverlay() {
 
   return (
     <div
-      className="absolute inset-0 z-[400] flex items-center justify-center bg-black/20"
+      className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+      data-state="open"
       onClick={handleDismiss}
       role="dialog"
       aria-modal="true"
       aria-label="Side question"
+      style={{ pointerEvents: 'auto' }}
     >
       <div
         ref={overlayRef}
         tabIndex={-1}
-        className="mx-4 flex max-h-[70vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl outline-none"
+        className="mx-auto flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl outline-none animate-in zoom-in-95 fade-in-0 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
