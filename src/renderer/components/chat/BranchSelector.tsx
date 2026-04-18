@@ -143,6 +143,18 @@ export const BranchSelector = memo(function BranchSelector({ workspace, isWorktr
     else if (inlineMode === 'worktree') handleCreateWorktree(trimmed)
   }, [inlineMode, inlineValue, checkingOut, handleCreate, handleCreateWorktree])
 
+  const handleDelete = useCallback(async (branch: string) => {
+    if (!workspace || checkingOut) return
+    setCheckingOut(true); setError(null)
+    try {
+      await ipc.gitDeleteBranch(workspace, branch)
+      await fetchBranches()
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : String(err)
+      setError(friendlyGitError(raw).message)
+    } finally { setCheckingOut(false) }
+  }, [workspace, checkingOut, fetchBranches])
+
   const canCreate = search.trim().length > 0 && !data?.local.some((b) => b.name === search.trim()) && !checkingOut
   const currentBranch = data?.currentBranch || data?.local.find((b) => b.current)?.name
 
@@ -177,6 +189,7 @@ export const BranchSelector = memo(function BranchSelector({ workspace, isWorktr
             onSearchKeyDown={(e) => { if (e.key === 'Enter' && canCreate) { e.preventDefault(); handleCreate(search) } }}
             onCheckout={handleCheckout}
             onCreate={handleCreate}
+            onDelete={handleDelete}
           />
           <div className="border-t border-border">
             <CreateBranchDialog

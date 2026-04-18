@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react'
-import { IconGitBranch, IconSearch, IconPlus, IconCheck, IconLoader2 } from '@tabler/icons-react'
+import { IconGitBranch, IconSearch, IconPlus, IconCheck, IconLoader2, IconTrash } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 
 export interface LocalBranch { name: string; current: boolean; worktreeLocked: boolean }
@@ -20,29 +20,43 @@ interface BranchListProps {
   onSearchKeyDown: (e: React.KeyboardEvent) => void
   onCheckout: (branch: string, force?: boolean) => void
   onCreate: (name: string) => void
+  onDelete?: (branch: string) => void
 }
 
-const BranchItem = ({ name, isCurrent, badge, disabled, onClick }: { name: string; isCurrent: boolean; badge?: string; disabled?: boolean; onClick: () => void }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={disabled}
-    className={cn('flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent disabled:opacity-50', isCurrent ? 'text-foreground' : 'text-muted-foreground')}
-  >
-    <IconGitBranch className="size-3.5 shrink-0 text-muted-foreground/70" />
-    <span className="min-w-0 flex-1 truncate">{name}</span>
-    {isCurrent && <IconCheck className="size-3.5 shrink-0 text-foreground" />}
-    {badge && !isCurrent && (
-      <span className={cn('shrink-0 text-[10px]', badge === 'worktree' ? 'rounded bg-violet-500/15 px-1 py-0.5 text-violet-500 dark:text-violet-400' : 'text-muted-foreground')}>{badge}</span>
+const BranchItem = ({ name, isCurrent, badge, disabled, onClick, onDelete }: { name: string; isCurrent: boolean; badge?: string; disabled?: boolean; onClick: () => void; onDelete?: () => void }) => (
+  <div className="group flex w-full items-center">
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn('flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent disabled:opacity-50', isCurrent ? 'text-foreground' : 'text-muted-foreground')}
+    >
+      <IconGitBranch className="size-3.5 shrink-0 text-muted-foreground/70" />
+      <span className="min-w-0 flex-1 truncate">{name}</span>
+      {isCurrent && <IconCheck className="size-3.5 shrink-0 text-foreground" />}
+      {badge && !isCurrent && (
+        <span className={cn('shrink-0 text-[10px]', badge === 'worktree' ? 'rounded bg-violet-500/15 px-1 py-0.5 text-violet-500 dark:text-violet-400' : 'text-muted-foreground')}>{badge}</span>
+      )}
+    </button>
+    {onDelete && !isCurrent && (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onDelete() }}
+        aria-label={`Delete branch ${name}`}
+        tabIndex={0}
+        className="mr-1.5 flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 opacity-0 transition-all hover:bg-destructive/15 hover:text-destructive group-hover:opacity-100"
+      >
+        <IconTrash className="size-3" />
+      </button>
     )}
-  </button>
+  </div>
 )
 
 export const BranchList = memo(function BranchList({
   data, loading, search, checkingOut, isWorktree,
   error, conflictBranch, canCreate,
   inputRef, onSearchChange, onSearchKeyDown,
-  onCheckout, onCreate,
+  onCheckout, onCreate, onDelete,
 }: BranchListProps) {
   const normalizedSearch = search.trim().toLowerCase()
 
@@ -125,6 +139,7 @@ export const BranchList = memo(function BranchList({
                     disabled={checkingOut || branch.worktreeLocked || (!!isWorktree && !branch.current)}
                     badge={branch.worktreeLocked ? 'worktree' : undefined}
                     onClick={() => onCheckout(branch.name)}
+                    onDelete={!branch.current && !branch.worktreeLocked && onDelete ? () => onDelete(branch.name) : undefined}
                   />
                 ))}
               </div>

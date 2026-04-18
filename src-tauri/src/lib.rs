@@ -219,6 +219,7 @@ pub fn run() {
             git::git_list_branches,
             git::git_checkout,
             git::git_create_branch,
+            git::git_delete_branch,
             git::git_commit,
             git::git_push,
             git::git_pull,

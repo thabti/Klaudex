@@ -81,6 +81,8 @@ export const ipc = {
     invoke('git_checkout', { cwd, branch, force }),
   gitCreateBranch: (cwd: string, branch: string): Promise<{ branch: string }> =>
     invoke('git_create_branch', { cwd, branch }),
+  gitDeleteBranch: (cwd: string, branch: string): Promise<{ branch: string }> =>
+    invoke('git_delete_branch', { cwd, branch }),
   getTaskDiff: (taskId: string): Promise<string> =>
     invoke('task_diff', { taskId }),
   gitDiff: (cwd: string): Promise<string> =>

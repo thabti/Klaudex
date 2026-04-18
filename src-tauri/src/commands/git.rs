@@ -206,6 +206,17 @@ pub fn git_create_branch(cwd: String, branch: String) -> Result<BranchResult, Ap
 }
 
 #[tauri::command]
+pub fn git_delete_branch(cwd: String, branch: String) -> Result<BranchResult, AppError> {
+    let repo = Repository::open(&cwd)?;
+    let mut local_branch = repo.find_branch(&branch, git2::BranchType::Local)?;
+    if local_branch.is_head() {
+        return Err(AppError::Git(git2::Error::from_str("Cannot delete the currently checked-out branch")));
+    }
+    local_branch.delete()?;
+    Ok(BranchResult { branch })
+}
+
+#[tauri::command]
 pub fn git_commit(
     settings_state: tauri::State<'_, SettingsState>,
     cwd: String,

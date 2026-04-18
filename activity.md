@@ -1,5 +1,16 @@
 # Activity Log
 
+## 2026-04-18 17:48 GST (Dubai)
+### BranchSelector: Add local branch delete button
+Added a trash icon button to each local branch row in the branch selector popup. The button appears on hover and deletes the branch locally via a new `git_delete_branch` Rust command using git2. Cannot delete the current branch or worktree-locked branches.
+
+**Modified:**
+- `src-tauri/src/commands/git.rs`
+- `src-tauri/src/lib.rs`
+- `src/renderer/lib/ipc.ts`
+- `src/renderer/components/chat/BranchList.tsx`
+- `src/renderer/components/chat/BranchSelector.tsx`
+
 ## 2026-04-18 17:47 GST (Dubai)
 ### BtwOverlay: Full-screen fixed overlay with centered card
 Reworked the /btw overlay to use `fixed inset-0` positioning with `bg-black/50 backdrop-blur-sm` for a proper full-screen dialog overlay. Card is centered with `max-w-2xl`, rounded corners, and entrance animations (`zoom-in-95`, `fade-in-0`). Added `data-state` and `pointerEvents: auto` for dialog overlay consistency.
