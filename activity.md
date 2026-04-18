@@ -1,5 +1,11 @@
 # Activity Log
 
+## 2026-04-18 02:41 GST (Dubai)
+### CI: Add label-triggered PR build workflow for DMG and EXE
+Created `.github/workflows/pr-build.yml` that builds signed macOS `.dmg` and Windows `.exe` installers when the `build-test` label is added to a PR. Artifacts are uploaded as `kirodex-pr-{number}-{platform}` with 7-day retention. Created PR #16 against `fix/14-image-content-blocks` and added the label to trigger a test run.
+
+**Modified:** `.github/workflows/pr-build.yml`
+
 ## 2026-04-18 02:12 GST (Dubai)
 ### Shortcuts: Ignore Escape key when terminal is focused
 Added a guard to the global Escape keyboard shortcut so it doesn't stop the running agent when the user is typing in the terminal. Uses `closest('[data-testid="terminal-drawer"]')` to detect terminal focus.
