@@ -5,7 +5,7 @@ import { useSlashAction } from '@/hooks/useSlashAction'
 import { useAttachments } from '@/hooks/useAttachments'
 import { useFileMention } from '@/hooks/useFileMention'
 import { buildMessageWithInlineImages, extractIpcAttachments } from '@/components/chat/attachment-utils'
-import type { IpcAttachment } from '@/types'
+import type { Attachment, IpcAttachment } from '@/types'
 
 export interface PastedChunk {
   id: number
@@ -32,19 +32,23 @@ interface UseChatInputOptions {
   disabled?: boolean
   isRunning?: boolean
   initialValue?: string
+  initialAttachments?: Attachment[]
+  initialPastedChunks?: PastedChunk[]
   onSendMessage: (message: string, attachments?: IpcAttachment[]) => void
   onPause?: () => void
   onDraftChange?: (value: string) => void
+  onAttachmentsChange?: (attachments: Attachment[]) => void
+  onPastedChunksChange?: (chunks: PastedChunk[]) => void
 }
 
-export function useChatInput({ disabled, isRunning, initialValue, onSendMessage, onPause, onDraftChange }: UseChatInputOptions) {
+export function useChatInput({ disabled, isRunning, initialValue, initialAttachments, initialPastedChunks, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onPastedChunksChange }: UseChatInputOptions) {
   const [value, setValue] = useState(initialValue ?? '')
   const [slashIndex, setSlashIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const backendCommands = useSettingsStore((s) => s.availableCommands)
   const { panel, dismissPanel, execute, executeFullInput } = useSlashAction()
 
-  const attachmentsBag = useAttachments()
+  const attachmentsBag = useAttachments(initialAttachments)
   const mentionBag = useFileMention({ textareaRef, value, setValue })
 
   // ── Track Shift key for raw paste (Cmd+Shift+V) ────────────────
@@ -60,8 +64,12 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
     return () => { el.removeEventListener('keydown', handleDown); el.removeEventListener('keyup', handleUp); el.removeEventListener('blur', handleUp) }
   }, [])
   // ── Pasted text chunks ─────────────────────────────────────────
-  const [pastedChunks, setPastedChunks] = useState<PastedChunk[]>([])
-  const chunkCounterRef = useRef(0)
+  const [pastedChunks, setPastedChunks] = useState<PastedChunk[]>(initialPastedChunks ?? [])
+  const chunkCounterRef = useRef(
+    initialPastedChunks && initialPastedChunks.length > 0
+      ? Math.max(...initialPastedChunks.map((c) => c.id))
+      : 0,
+  )
 
   const handleTextPaste = useCallback((e: ClipboardEvent) => {
     const text = e.clipboardData.getData('text/plain')
@@ -156,6 +164,20 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
   useEffect(() => {
     return () => onDraftChangeRef.current?.(valueRef.current)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- intentional unmount-only effect
+
+  // ── Save attachments and pasted chunks to store on change ──────
+  const onAttachmentsChangeRef = useRef(onAttachmentsChange)
+  onAttachmentsChangeRef.current = onAttachmentsChange
+  const onPastedChunksChangeRef = useRef(onPastedChunksChange)
+  onPastedChunksChangeRef.current = onPastedChunksChange
+
+  useEffect(() => {
+    onAttachmentsChangeRef.current?.(attachmentsBag.attachments)
+  }, [attachmentsBag.attachments])
+
+  useEffect(() => {
+    onPastedChunksChangeRef.current?.(pastedChunks)
+  }, [pastedChunks])
 
   // ── Message history cycling (ArrowUp/Down) ─────────────────────
   // -1 = composing new message, 0 = most recent, 1 = second most recent, etc.
@@ -387,7 +409,9 @@ export function useChatInput({ disabled, isRunning, initialValue, onSendMessage,
   }, [showPicker, showFilePicker, detectSlashTrigger, mentionBag.detectMentionTrigger])
 
   // ── Auto-insert [Image filename] when images are added ───────
-  const prevAttachmentCountRef = useRef(0)
+  const prevAttachmentCountRef = useRef(
+    initialAttachments ? initialAttachments.filter((a) => a.type === 'image').length : 0,
+  )
   useEffect(() => {
     const images = attachmentsBag.attachments.filter((a) => a.type === 'image')
     if (images.length > prevAttachmentCountRef.current) {
