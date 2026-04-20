@@ -1,5 +1,5 @@
 {
-  "name": "kirodex-website",
+  "name": "klaudex-website",
   "private": true,
   "scripts": {
     "dev": "tailwindcss -i style.css -o dist/style.css --watch & bunx serve . -l 3000 -s",

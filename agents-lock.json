@@ -10,31 +10,31 @@
       "agentFolderHash": "976cd3bf3fa5a459a070cb081cefc908bb560348",
       "installs": {
         "amp": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "cline": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "codex": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "cursor": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "kimi-cli": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/.agents/agents/react-expert",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/.agents/agents/react-expert",
           "format": "none"
         },
         "warp": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "kiro-cli": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/.kiro/agents/react-expert.json",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/.kiro/agents/react-expert.json",
           "format": "json"
         }
       }
@@ -48,55 +48,55 @@
       "agentFolderHash": "87d8cdf8fc1e19a42e0ab80f6ff35748d2c9069d",
       "installs": {
         "antigravity": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "claude-code": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/.claude/agents/rust-architecture-reviewer.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/.claude/agents/rust-architecture-reviewer.md",
           "format": "flat-md"
         },
         "codex": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "gemini-cli": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/.gemini/agents/rust-architecture-reviewer.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/.gemini/agents/rust-architecture-reviewer.md",
           "format": "flat-md"
         },
         "kilo": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/.kilocode/agents/rust-architecture-reviewer",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/.kilocode/agents/rust-architecture-reviewer",
           "format": "none"
         },
         "kiro-cli": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/.kiro/agents/rust-architecture-reviewer.json",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/.kiro/agents/rust-architecture-reviewer.json",
           "format": "json"
         },
         "opencode": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/.opencode/agents/rust-architecture-reviewer.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/.opencode/agents/rust-architecture-reviewer.md",
           "format": "flat-md"
         },
         "trae": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/.trae/agents/rust-architecture-reviewer",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/.trae/agents/rust-architecture-reviewer",
           "format": "none"
         },
         "amp": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "cline": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "cursor": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "kimi-cli": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/.agents/agents/rust-architecture-reviewer",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/.agents/agents/rust-architecture-reviewer",
           "format": "none"
         },
         "warp": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         }
       }
@@ -110,31 +110,31 @@
       "agentFolderHash": "87d8cdf8fc1e19a42e0ab80f6ff35748d2c9069d",
       "installs": {
         "amp": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "cline": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "codex": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "cursor": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "kimi-cli": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/.agents/agents/rust-senior-engineer",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/.agents/agents/rust-senior-engineer",
           "format": "none"
         },
         "warp": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "kiro-cli": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/.kiro/agents/rust-senior-engineer.json",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/.kiro/agents/rust-senior-engineer.json",
           "format": "json"
         }
       }
@@ -148,39 +148,39 @@
       "agentFolderHash": "87d8cdf8fc1e19a42e0ab80f6ff35748d2c9069d",
       "installs": {
         "amp": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "cline": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "codex": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "cursor": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "kimi-cli": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/.agents/agents/rust-senior-engineer-reviewer",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/.agents/agents/rust-senior-engineer-reviewer",
           "format": "none"
         },
         "warp": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/AGENTS.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/AGENTS.md",
           "format": "agents-md"
         },
         "claude-code": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/.claude/agents/rust-senior-engineer-reviewer.md",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/.claude/agents/rust-senior-engineer-reviewer.md",
           "format": "flat-md"
         },
         "kilo": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/.kilocode/agents/rust-senior-engineer-reviewer",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/.kilocode/agents/rust-senior-engineer-reviewer",
           "format": "none"
         },
         "kiro-cli": {
-          "path": "/Users/sabeur/Documents/work/GitHub/personal/kirodex-tauri/.kiro/agents/rust-senior-engineer-reviewer.json",
+          "path": "/Users/sabeur/Documents/work/GitHub/personal/klaudex/.kiro/agents/rust-senior-engineer-reviewer.json",
           "format": "json"
         }
       }
