@@ -1,17 +1,17 @@
-import type { AgentTask } from '@/types'
+import type { AgentTask, SubagentInfo, SubagentStatus } from '@/types'
 import { ipc } from '@/lib/ipc'
 import { joinChunk } from '@/lib/utils'
 import { sendTaskNotification } from '@/lib/notifications'
 import { useDebugStore } from '@/stores/debugStore'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { useKiroStore } from '@/stores/kiroStore'
+import { useClaudeConfigStore } from '@/stores/claudeConfigStore'
 import { useDiffStore } from '@/stores/diffStore'
 import { useTaskStore } from './taskStore'
 import type { TaskStore } from './task-store-types'
 
 /** Pure state reducer for turn_end — exported for testing. */
 export const applyTurnEnd = (
-  s: Pick<TaskStore, 'tasks' | 'streamingChunks' | 'thinkingChunks' | 'liveToolCalls'>,
+  s: Pick<TaskStore, 'tasks' | 'streamingChunks' | 'thinkingChunks' | 'liveToolCalls' | 'liveSubagents'>,
   taskId: string,
   stopReason?: string,
   refusalRetry?: boolean,
@@ -45,10 +45,19 @@ export const applyTurnEnd = (
       timestamp: new Date().toISOString(),
     })
   }
+  // Status after turn ends:
+  // - refusal → 'paused' (user can retry with a different prompt)
+  // - max_tokens → 'paused' (hit limit, can continue)
+  // - cancelled → 'cancelled' (user-initiated stop)
+  // - end_turn / other → 'completed' (agent finished normally)
+  const finalStatus: import('@/types').TaskStatus =
+    stopReason === 'refusal' ? 'paused'
+    : stopReason === 'max_tokens' ? 'paused'
+    : stopReason === 'cancelled' ? 'cancelled'
+    : 'completed'
   const updatedTask: AgentTask = {
     ...task,
-    // On refusal: stay 'paused' so the user can send new messages (not 'error' which feels stuck)
-    status: stopReason === 'refusal' ? 'paused' : 'paused',
+    status: finalStatus,
     messages: newMessages,
     pendingPermission: undefined,
   }
@@ -57,8 +66,32 @@ export const applyTurnEnd = (
     streamingChunks: { ...s.streamingChunks, [taskId]: '' },
     thinkingChunks: { ...s.thinkingChunks, [taskId]: '' },
     liveToolCalls: { ...s.liveToolCalls, [taskId]: [] },
+    liveSubagents: { ...s.liveSubagents, [taskId]: [] },
   }
 }
+
+const VALID_STATUSES = new Set<SubagentStatus>(['pending', 'running', 'completed', 'failed'])
+
+/** Parse raw ACP subagent payload into typed SubagentInfo[]. Exported for testing. */
+export const parseSubagents = (raw: unknown[]): SubagentInfo[] =>
+  raw.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object').map((item) => {
+    const status = typeof item.status === 'string' && VALID_STATUSES.has(item.status as SubagentStatus)
+      ? item.status as SubagentStatus : 'pending'
+    const subName = typeof item.subName === 'string' ? item.subName
+      : typeof item.sub_name === 'string' ? item.sub_name : undefined
+    return {
+      name: typeof item.name === 'string' ? item.name : '',
+      subName,
+      status,
+      role: typeof item.role === 'string' ? item.role : undefined,
+      description: typeof item.prompt_template === 'string' ? item.prompt_template
+        : typeof item.description === 'string' ? item.description : undefined,
+      dependsOn: Array.isArray(item.depends_on) ? item.depends_on.filter((d): d is string => typeof d === 'string') : undefined,
+      currentToolCall: typeof item.currentToolCall === 'string' ? item.currentToolCall : undefined,
+      isThinking: typeof item.isThinking === 'boolean' ? item.isThinking : undefined,
+      raw: item,
+    }
+  })
 
 export function initTaskListeners(): () => void {
   useTaskStore.getState().setConnected(true)
@@ -87,14 +120,12 @@ export function initTaskListeners(): () => void {
     useTaskStore.setState((s) => {
       const next = { ...s.streamingChunks }
       for (const [id, text] of Object.entries(buf)) {
-        if (s.tasks[id]?.status !== 'running') continue
         next[id] = joinChunk(next[id] ?? '', text)
       }
       return { streamingChunks: next }
     })
   }
   const unsub2 = ipc.onMessageChunk(({ taskId, chunk }) => {
-    if (useTaskStore.getState().tasks[taskId]?.status !== 'running') return
     chunkBuf[taskId] = (chunkBuf[taskId] ?? '') + chunk
     if (!chunkRaf) chunkRaf = requestAnimationFrame(flushChunks)
   })
@@ -106,14 +137,12 @@ export function initTaskListeners(): () => void {
     useTaskStore.setState((s) => {
       const next = { ...s.thinkingChunks }
       for (const [id, text] of Object.entries(buf)) {
-        if (s.tasks[id]?.status !== 'running') continue
         next[id] = joinChunk(next[id] ?? '', text)
       }
       return { thinkingChunks: next }
     })
   }
   const unsub3 = ipc.onThinkingChunk(({ taskId, chunk }) => {
-    if (useTaskStore.getState().tasks[taskId]?.status !== 'running') return
     thinkBuf[taskId] = (thinkBuf[taskId] ?? '') + chunk
     if (!thinkRaf) thinkRaf = requestAnimationFrame(flushThinking)
   })
@@ -136,14 +165,19 @@ export function initTaskListeners(): () => void {
     useTaskStore.getState().updatePlan(taskId, plan)
   })
 
-  const unsub7 = ipc.onUsageUpdate(({ taskId, used, size }) => {
-    useTaskStore.getState().updateUsage(taskId, used, size)
+  const unsub7 = ipc.onUsageUpdate(({ taskId, used, size, cost, inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens }) => {
+    useTaskStore.getState().updateUsage(taskId, used, size, cost, { inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens })
   })
 
   // Track refusal retries per task — allows one automatic retry before giving up
   const refusalRetried: Record<string, boolean> = {}
 
   const unsub8 = ipc.onTurnEnd(({ taskId, stopReason }) => {
+    // Flush any pending rAF-buffered task updates so the task exists in the store
+    if (taskUpdateBuf[taskId] || Object.keys(taskUpdateBuf).length > 0) {
+      if (taskUpdateRaf) { cancelAnimationFrame(taskUpdateRaf); taskUpdateRaf = null }
+      flushTaskUpdates()
+    }
     // Flush any pending rAF-buffered chunks synchronously so turn_end sees them
     if (chunkBuf[taskId] || Object.keys(chunkBuf).length > 0) {
       if (chunkRaf) { cancelAnimationFrame(chunkRaf); chunkRaf = null }
@@ -267,7 +301,7 @@ export function initTaskListeners(): () => void {
         const serverName = entry.mcpServerName
           ?? knownServers.find((s) => text.toLowerCase().includes(s))
           ?? 'unknown'
-        useKiroStore.getState().setMcpError(serverName, 'OAuth setup needed — add http://127.0.0.1 as a redirect URI in your OAuth app, or disable in ~/.kiro/settings/mcp.json')
+        useClaudeConfigStore.getState().setMcpError(serverName, 'OAuth setup needed — add http://127.0.0.1 as a redirect URI in your OAuth app, or disable in ~/.claude/settings/mcp.json')
       }
     }
   })
@@ -276,7 +310,7 @@ export function initTaskListeners(): () => void {
     console.log('[session_init] received', { taskId, models, modes })
     if (models && typeof models === 'object') {
       const m = models as { availableModels?: Array<{ modelId: string; name: string; description?: string | null }>; currentModelId?: string }
-      if (m.availableModels) {
+      if (Array.isArray(m.availableModels)) {
         const existingModel = useSettingsStore.getState().currentModelId
         const validExistingModel = existingModel && m.availableModels.some((mod) => mod.modelId === existingModel)
         useSettingsStore.setState({
@@ -287,7 +321,7 @@ export function initTaskListeners(): () => void {
     }
     if (modes && typeof modes === 'object') {
       const md = modes as { availableModes?: Array<{ id: string; name: string; description?: string | null }>; currentModeId?: string }
-      if (md.availableModes) {
+      if (Array.isArray(md.availableModes)) {
         const existingMode = useSettingsStore.getState().currentModeId
         const validExistingMode = existingMode && md.availableModes.some((m) => m.id === existingMode)
         useSettingsStore.setState({
@@ -362,9 +396,20 @@ export function initTaskListeners(): () => void {
     }
   })
 
+  const unsub14 = ipc.onUserInputRequest(({ taskId, requestId, fields }) => {
+    useTaskStore.setState((s) => ({
+      pendingUserInputs: { ...s.pendingUserInputs, [taskId]: { requestId, fields } },
+    }))
+  })
+
+  const unsub15 = ipc.onSubagentUpdate(({ taskId, subagents }) => {
+    const parsed = parseSubagents(subagents)
+    useTaskStore.getState().updateSubagents(taskId, parsed)
+  })
+
   return () => {
     unsub1(); unsub2(); unsub3(); unsub4(); unsub5()
     unsub6(); unsub7(); unsub8(); unsub9(); unsub10(); unsub11(); unsub12()
-    unsub13()
+    unsub13(); unsub14(); unsub15()
   }
 }

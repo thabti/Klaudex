@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { AppSettings, ProjectPrefs } from '@/types'
 import { ipc } from '@/lib/ipc'
 import { track } from '@/lib/analytics'
+import { logStoreAction, logError } from '@/lib/debug-logger'
 
 export interface ModelOption {
   modelId: string
@@ -41,11 +42,11 @@ interface SettingsStore {
   operationalWorkspace: string | null
   availableCommands: SlashCommand[]
   liveMcpServers: LiveMcpServer[]
-  kiroAuth: { email: string | null; accountType: string; region?: string; startUrl?: string } | null
-  kiroAuthChecked: boolean
+  claudeAuth: { email: string | null; authMethod: string; subscriptionType?: string } | null
+  claudeAuthChecked: boolean
   loadSettings: () => Promise<void>
   saveSettings: (settings: AppSettings) => Promise<void>
-  fetchModels: (kiroBin?: string) => Promise<void>
+  fetchModels: (claudeBin?: string) => Promise<void>
   setActiveWorkspace: (workspace: string | null, operationalWs?: string | null) => void
   setProjectPref: (workspace: string, patch: Partial<ProjectPrefs>) => void
   checkAuth: () => Promise<void>
@@ -54,47 +55,56 @@ interface SettingsStore {
 }
 
 const defaultSettings: AppSettings = {
-  kiroBin: 'kiro-cli',
+  claudeBin: 'claude',
   agentProfiles: [],
   fontSize: 14,
   sidebarPosition: 'left',
   analyticsEnabled: true,
 }
 
+const FALLBACK_MODELS: ModelOption[] = [
+  { modelId: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', description: 'Best combination of speed and intelligence' },
+  { modelId: 'claude-opus-4-7', name: 'Claude Opus 4.7', description: 'Most capable for complex reasoning and agentic coding' },
+  { modelId: 'claude-haiku-4-5', name: 'Claude Haiku 4.5', description: 'Fastest with near-frontier intelligence' },
+]
+
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
   settings: defaultSettings,
   isLoaded: false,
-  availableModels: [],
-  currentModelId: null,
+  availableModels: FALLBACK_MODELS,
+  currentModelId: 'claude-sonnet-4-6',
   modelsLoading: false,
   modelsError: null,
   availableModes: [],
   currentModeId: null,
   activeWorkspace: null,
   operationalWorkspace: null,
-  kiroAuth: null,
-  kiroAuthChecked: false,
+  claudeAuth: null,
+  claudeAuthChecked: false,
   availableCommands: [],
   liveMcpServers: [],
 
   loadSettings: async () => {
     try {
       const settings = await ipc.getSettings()
+      logStoreAction('settingsStore', 'loadSettings', { loaded: true })
       set({ settings: { ...defaultSettings, ...settings }, isLoaded: true })
-    } catch {
+    } catch (err) {
+      logError('settingsStore.loadSettings', err)
       set({ isLoaded: true })
     }
   },
 
   saveSettings: async (settings) => {
     const prev = get().settings
+    logStoreAction('settingsStore', 'saveSettings')
     await ipc.saveSettings(settings)
     set({ settings })
     // Emit a settings_changed event per key that actually changed. We only
     // send the key name, never the value — e.g. the default model id is a
     // user-chosen string we don't need in analytics.
     const keys: Array<keyof AppSettings> = [
-      'kiroBin', 'defaultModel', 'autoApprove', 'respectGitignore',
+      'claudeBin', 'defaultModel', 'autoApprove', 'respectGitignore',
       'coAuthor', 'coAuthorJsonReport', 'notifications', 'fontSize',
       'sidebarPosition', 'analyticsEnabled', 'theme',
     ]
@@ -103,12 +113,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     }
   },
 
-  fetchModels: async (kiroBin?: string) => {
+  fetchModels: async (claudeBin?: string) => {
     set({ modelsLoading: true, modelsError: null })
     try {
-      const result = await ipc.listModels(kiroBin)
+      const result = await ipc.listModels(claudeBin)
       set({
-        availableModels: result.availableModels,
+        availableModels: Array.isArray(result.availableModels) ? result.availableModels : [],
         currentModelId: result.currentModelId,
         modelsLoading: false,
       })
@@ -154,64 +164,79 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   checkAuth: async () => {
     try {
       const { settings } = get()
-      console.log('[auth] checkAuth called with kiroBin:', settings.kiroBin)
-      const result = await ipc.kiroWhoami(settings.kiroBin)
-      console.log('[auth] whoami result:', JSON.stringify(result))
-      if (result.accountType) {
+      logStoreAction('settingsStore', 'checkAuth')
+      console.log('[auth] checkAuth called with claudeBin:', settings.claudeBin)
+      const result = await ipc.claudeWhoami(settings.claudeBin)
+      console.log('[auth] auth status result:', JSON.stringify(result))
+      if (result.loggedIn) {
         set({
-          kiroAuth: {
+          claudeAuth: {
             email: result.email ?? null,
-            accountType: result.accountType,
-            region: result.region,
-            startUrl: result.startUrl,
+            authMethod: result.authMethod ?? 'unknown',
+            subscriptionType: result.subscriptionType ?? undefined,
           },
-          kiroAuthChecked: true,
+          claudeAuthChecked: true,
         })
-        console.log('[auth] authenticated:', result.accountType, result.email)
+        console.log('[auth] authenticated:', result.authMethod, result.email)
       } else {
-        console.log('[auth] whoami returned no accountType')
-        set({ kiroAuth: null, kiroAuthChecked: true })
+        console.log('[auth] not logged in')
+        set({ claudeAuth: null, claudeAuthChecked: true })
       }
     } catch (err) {
+      logError('settingsStore.checkAuth', err)
       console.warn('[auth] checkAuth failed:', err)
-      set({ kiroAuth: null, kiroAuthChecked: true })
+      set({ claudeAuth: null, claudeAuthChecked: true })
     }
   },
 
   logout: async () => {
     try {
       const { settings } = get()
-      await ipc.kiroLogout(settings.kiroBin)
+      await ipc.claudeLogout(settings.claudeBin)
     } catch { /* ignore */ }
-    set({ kiroAuth: null })
+    set({ claudeAuth: null })
   },
 
   openLogin: async () => {
     const { settings } = get()
-    console.log('[auth] openLogin called with kiroBin:', settings.kiroBin)
-    // If already logged in, just refresh state instead of opening terminal
+    console.log('[auth] openLogin called with claudeBin:', settings.claudeBin)
+    // If already logged in, just refresh state
     try {
-      const result = await ipc.kiroWhoami(settings.kiroBin)
-      console.log('[auth] openLogin whoami check:', JSON.stringify(result))
-      if (result.accountType) {
+      const result = await ipc.claudeWhoami(settings.claudeBin)
+      console.log('[auth] openLogin auth check:', JSON.stringify(result))
+      if (result.loggedIn) {
         set({
-          kiroAuth: {
+          claudeAuth: {
             email: result.email ?? null,
-            accountType: result.accountType,
-            region: result.region,
-            startUrl: result.startUrl,
+            authMethod: result.authMethod ?? 'unknown',
+            subscriptionType: result.subscriptionType ?? undefined,
           },
-          kiroAuthChecked: true,
+          claudeAuthChecked: true,
         })
-        console.log('[auth] already logged in, skipping terminal')
+        console.log('[auth] already logged in')
         return
       }
     } catch (err) {
-      console.log('[auth] openLogin whoami failed (not logged in):', err)
+      console.log('[auth] not logged in, starting login flow:', err)
     }
-    console.log('[auth] opening terminal with:', `${settings.kiroBin} login`)
-    ipc.openTerminalWithCommand(`${settings.kiroBin} login`).catch((err) => {
-      console.error('[auth] openTerminalWithCommand failed:', err)
-    })
+    // Spawn claude auth login internally — it opens a browser for OAuth
+    // and we poll auth status until complete
+    console.log('[auth] starting claude auth login')
+    try {
+      const result = await ipc.claudeLogin(settings.claudeBin)
+      if (result.loggedIn) {
+        set({
+          claudeAuth: {
+            email: result.email ?? null,
+            authMethod: result.authMethod ?? 'unknown',
+            subscriptionType: result.subscriptionType ?? undefined,
+          },
+          claudeAuthChecked: true,
+        })
+        console.log('[auth] login succeeded:', result.authMethod, result.email)
+      }
+    } catch (err) {
+      console.warn('[auth] login failed or timed out:', err)
+    }
   },
 }))

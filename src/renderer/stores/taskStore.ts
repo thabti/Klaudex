@@ -6,6 +6,7 @@ import * as historyStore from '@/lib/history-store'
 import { useSettingsStore } from './settingsStore'
 import { track } from '@/lib/analytics'
 import { sendTaskNotification } from '@/lib/notifications'
+import { logStoreAction, logError } from '@/lib/debug-logger'
 import type { TaskStore } from './task-store-types'
 
 export type { TaskStore, BtwCheckpoint } from './task-store-types'
@@ -28,6 +29,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   streamingChunks: {},
   thinkingChunks: {},
   liveToolCalls: {},
+  liveSubagents: {},
   queuedMessages: {},
   activityFeed: [],
   connected: false,
@@ -38,13 +40,15 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   notifiedTaskIds: [],
   taskModes: {},
   isForking: false,
+  pendingUserInputs: {},
   worktreeCleanupPending: null,
 
   setSelectedTask: (id) => {
     if (get().selectedTaskId === id) return
+    logStoreAction('taskStore', 'setSelectedTask', { taskId: id })
     set({ selectedTaskId: id })
     const task = id ? get().tasks[id] : null
-    const modeId = id ? (get().taskModes[id] ?? 'kiro_default') : 'kiro_default'
+    const modeId = id ? (get().taskModes[id] ?? 'default') : 'default'
     const workspace = task ? (task.originalWorkspace ?? task.workspace) : null
     const operationalWs = task ? task.workspace : null
     useSettingsStore.getState().setActiveWorkspace(workspace, operationalWs)
@@ -58,7 +62,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   setSettingsOpen: (open, section) => set({ isSettingsOpen: open, settingsInitialSection: section ?? null }),
   addProject: (workspace) => {
     if (get().projects.includes(workspace)) return
-    if (workspace.includes('/.kiro/worktrees/')) return
+    if (workspace.includes('/.klaudex/worktrees/')) return
+    logStoreAction('taskStore', 'addProject', { workspace })
     const id = crypto.randomUUID()
     set((s) => ({
       projects: [...s.projects, workspace],
@@ -74,6 +79,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   removeProject: (workspace) => set((s) => {
+    logStoreAction('taskStore', 'removeProject', { workspace })
     const taskIds = Object.keys(s.tasks).filter((id) => {
       const t = s.tasks[id]
       const ws = t.originalWorkspace ?? t.workspace
@@ -173,6 +179,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         ...(prev?.projectId && !task.projectId ? { projectId: prev.projectId } : {}),
       }
       const statusChanged = !prev || prev.status !== task.status
+      if (statusChanged) {
+        logStoreAction('taskStore', 'statusChange', { taskId: task.id, from: prev?.status ?? 'new', to: task.status })
+      }
       if (statusChanged && (task.status === 'completed' || task.status === 'error' || task.status === 'cancelled')) {
         track('task_completed', { status: task.status })
       }
@@ -220,6 +229,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   archiveTask: (id) => {
     const task = get().tasks[id]
     if (!task || task.isArchived) return
+    logStoreAction('taskStore', 'archiveTask', { taskId: id, name: task.name })
     // Worktree threads: show confirmation dialog BEFORE deleting
     if (task.worktreePath && task.originalWorkspace) {
       const branch = task.worktreePath.split('/').pop() ?? 'unknown'
@@ -243,6 +253,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       streamingChunks: { ...s.streamingChunks, [id]: '' },
       thinkingChunks: { ...s.thinkingChunks, [id]: '' },
       liveToolCalls: { ...s.liveToolCalls, [id]: [] },
+      liveSubagents: { ...s.liveSubagents, [id]: [] },
     }))
     void ipc.deleteTask(id)
     get().persistHistory()
@@ -251,6 +262,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   softDeleteTask: (id) => {
     const task = get().tasks[id]
     if (!task) return
+    logStoreAction('taskStore', 'softDeleteTask', { taskId: id, name: task.name })
     // Worktree threads: show confirmation dialog BEFORE deleting
     if (task.worktreePath && task.originalWorkspace) {
       const branch = task.worktreePath.split('/').pop() ?? 'unknown'
@@ -274,6 +286,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const { [id]: _c, ...chunks } = state.streamingChunks
       const { [id]: _t, ...thinking } = state.thinkingChunks
       const { [id]: _tc, ...tools } = state.liveToolCalls
+      const { [id]: _sa, ...subagents } = state.liveSubagents
       const { [id]: _m, ...modes } = state.taskModes
       const deletedTaskIds = new Set(state.deletedTaskIds)
       deletedTaskIds.add(id)
@@ -286,6 +299,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         streamingChunks: chunks,
         thinkingChunks: thinking,
         liveToolCalls: tools,
+        liveSubagents: subagents,
         taskModes: modes,
         deletedTaskIds,
         softDeleted,
@@ -378,6 +392,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       }
     }),
 
+  updateSubagents: (taskId, subagents) =>
+    set((state) => {
+      const existing = state.liveSubagents[taskId] ?? []
+      if (existing.length === 0 && subagents.length === 0) return state
+      return { liveSubagents: { ...state.liveSubagents, [taskId]: subagents } }
+    }),
+
   updatePlan: (taskId, plan) =>
     set((state) => {
       const task = state.tasks[taskId]
@@ -387,16 +408,22 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       }
     }),
 
-  updateUsage: (taskId, used, size) =>
+  updateUsage: (taskId, used, size, cost, tokenBreakdown) =>
     set((state) => {
       const task = state.tasks[taskId]
       if (!task) return state
       const cu = task.contextUsage
-      if (cu && cu.used === used && cu.size === size) return state
-      // Reset compaction status to idle when new usage arrives post-compaction
+      const costChanged = cost !== undefined && cost !== task.totalCost
+      const tokensChanged = tokenBreakdown && (
+        cu?.inputTokens !== tokenBreakdown.inputTokens ||
+        cu?.outputTokens !== tokenBreakdown.outputTokens ||
+        cu?.cacheReadTokens !== tokenBreakdown.cacheReadTokens ||
+        cu?.cacheCreationTokens !== tokenBreakdown.cacheCreationTokens
+      )
+      if (cu && cu.used === used && cu.size === size && !costChanged && !tokensChanged) return state
       const resetCompaction = task.compactionStatus === 'completed' || task.compactionStatus === 'failed'
       return {
-        tasks: { ...state.tasks, [taskId]: { ...task, contextUsage: { used, size }, ...(resetCompaction ? { compactionStatus: 'idle' as const } : {}) } },
+        tasks: { ...state.tasks, [taskId]: { ...task, contextUsage: { used, size, ...tokenBreakdown }, ...(costChanged ? { totalCost: cost } : {}), ...(resetCompaction ? { compactionStatus: 'idle' as const } : {}) } },
       }
     }),
 
@@ -446,11 +473,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const hasChunks = !!state.streamingChunks[taskId]
       const hasThinking = !!state.thinkingChunks[taskId]
       const hasTools = state.liveToolCalls[taskId]?.length > 0
-      if (!hasChunks && !hasThinking && !hasTools) return state
+      const hasSubagents = state.liveSubagents[taskId]?.length > 0
+      if (!hasChunks && !hasThinking && !hasTools && !hasSubagents) return state
       return {
         streamingChunks: { ...state.streamingChunks, [taskId]: '' },
         thinkingChunks: { ...state.thinkingChunks, [taskId]: '' },
         liveToolCalls: { ...state.liveToolCalls, [taskId]: [] },
+        liveSubagents: { ...state.liveSubagents, [taskId]: [] },
       }
     }),
 
@@ -519,13 +548,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   setPendingWorkspace: (workspace) => {
+    logStoreAction('taskStore', 'setPendingWorkspace', { workspace })
     set({
       pendingWorkspace: workspace,
       selectedTaskId: null,
       view: 'chat' as const,
     })
     useSettingsStore.getState().setActiveWorkspace(workspace, workspace)
-    useSettingsStore.setState({ currentModeId: 'kiro_default' })
+    useSettingsStore.setState({ currentModeId: 'default' })
   },
 
   renameTask: (taskId, name) => {
@@ -539,6 +569,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   forkTask: async (taskId) => {
     if (get().isForking) return
+    logStoreAction('taskStore', 'forkTask', { taskId })
     set({ isForking: true })
     try {
       const task = get().tasks[taskId]
@@ -563,6 +594,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       })
       get().persistHistory()
     } catch (err) {
+      logError('taskStore.forkTask', err, { taskId })
       const msg = err instanceof Error ? err.message : String(err)
       const { selectedTaskId, tasks, upsertTask } = get()
       const tid = selectedTaskId ?? taskId
@@ -733,10 +765,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   clearHistory: async () => {
+    logStoreAction('taskStore', 'clearHistory')
     // Cancel all running tasks first
     const currentTasks = get().tasks
     for (const [id, task] of Object.entries(currentTasks)) {
-      if (task.status === 'running' || task.status === 'paused') {
+      if (task.status === 'running' || task.status === 'paused' || task.status === 'completed') {
         ipc.cancelTask(id).catch(() => {})
       }
     }
@@ -755,12 +788,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       streamingChunks: {},
       thinkingChunks: {},
       liveToolCalls: {},
+      liveSubagents: {},
       queuedMessages: {},
       terminalOpenTasks: new Set<string>(),
       isWorkspaceTerminalOpen: false,
       drafts: {},
       _suppressDraftSave: null,
       notifiedTaskIds: [],
+      pendingUserInputs: {},
     })
     // Reset settings to defaults and go back to onboarding
     const defaultSettings = { ...useSettingsStore.getState().settings, hasOnboardedV2: false, projectPrefs: {} }
@@ -771,6 +806,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   resolveWorktreeCleanup: (removeWorktree) => {
     const pending = get().worktreeCleanupPending
     if (!pending) return
+    logStoreAction('taskStore', 'resolveWorktreeCleanup', { taskId: pending.taskId, action: pending.action, removeWorktree })
     set({ worktreeCleanupPending: null })
     const { taskId, action, worktreePath, originalWorkspace } = pending
     // Proceed with the actual delete/archive
@@ -783,6 +819,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         streamingChunks: { ...s.streamingChunks, [taskId]: '' },
         thinkingChunks: { ...s.thinkingChunks, [taskId]: '' },
         liveToolCalls: { ...s.liveToolCalls, [taskId]: [] },
+        liveSubagents: { ...s.liveSubagents, [taskId]: [] },
       }))
       void ipc.deleteTask(taskId)
     } else {
@@ -793,6 +830,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         const { [taskId]: _c, ...chunks } = state.streamingChunks
         const { [taskId]: _t, ...thinking } = state.thinkingChunks
         const { [taskId]: _tc, ...tools } = state.liveToolCalls
+        const { [taskId]: _sa, ...subagents } = state.liveSubagents
         const { [taskId]: _m, ...modes } = state.taskModes
         const deletedTaskIds = new Set(state.deletedTaskIds)
         deletedTaskIds.add(taskId)
@@ -805,6 +843,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           streamingChunks: chunks,
           thinkingChunks: thinking,
           liveToolCalls: tools,
+          liveSubagents: subagents,
           taskModes: modes,
           deletedTaskIds,
           softDeleted,
@@ -823,12 +862,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   enterBtwMode: (taskId, question) => {
     const task = get().tasks[taskId]
     if (!task) return
+    logStoreAction('taskStore', 'enterBtwMode', { taskId, question })
     set({ btwCheckpoint: { taskId, messages: [...task.messages], question } })
   },
 
   exitBtwMode: (keepTail) => {
     const checkpoint = get().btwCheckpoint
     if (!checkpoint) return
+    logStoreAction('taskStore', 'exitBtwMode', { taskId: checkpoint.taskId, keepTail })
     const { taskId, messages: savedMessages } = checkpoint
     const task = get().tasks[taskId]
     if (!task) {

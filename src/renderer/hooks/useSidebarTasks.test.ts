@@ -59,9 +59,9 @@ describe('useSidebarTasks projectId grouping', () => {
         't1': makeTask({ id: 't1', workspace: '/project', projectId: '/project' }),
         't2': makeTask({
           id: 't2',
-          workspace: '/project/.kiro/worktrees/feat',
+          workspace: '/project/.klaudex/worktrees/feat',
           projectId: '/project',
-          worktreePath: '/project/.kiro/worktrees/feat',
+          worktreePath: '/project/.klaudex/worktrees/feat',
           originalWorkspace: '/project',
         }),
       },
@@ -78,9 +78,9 @@ describe('useSidebarTasks projectId grouping', () => {
       tasks: {
         't1': makeTask({
           id: 't1',
-          workspace: '/project/.kiro/worktrees/feat',
+          workspace: '/project/.klaudex/worktrees/feat',
           projectId: '/project',
-          worktreePath: '/project/.kiro/worktrees/feat',
+          worktreePath: '/project/.klaudex/worktrees/feat',
           originalWorkspace: '/project',
         }),
       },
@@ -96,9 +96,9 @@ describe('useSidebarTasks projectId grouping', () => {
       tasks: {
         't1': makeTask({
           id: 't1',
-          workspace: '/project/.kiro/worktrees/feat',
+          workspace: '/project/.klaudex/worktrees/feat',
           originalWorkspace: '/project',
-          worktreePath: '/project/.kiro/worktrees/feat',
+          worktreePath: '/project/.klaudex/worktrees/feat',
         }),
       },
       projects: ['/project'],
@@ -126,15 +126,15 @@ describe('useSidebarTasks projectId grouping', () => {
         't1': makeTask({ id: 't1', workspace: '/project', projectId: '/project' }),
         't2': makeTask({
           id: 't2',
-          workspace: '/project/.kiro/worktrees/feat-a',
+          workspace: '/project/.klaudex/worktrees/feat-a',
           projectId: '/project',
-          worktreePath: '/project/.kiro/worktrees/feat-a',
+          worktreePath: '/project/.klaudex/worktrees/feat-a',
         }),
         't3': makeTask({
           id: 't3',
-          workspace: '/project/.kiro/worktrees/feat-b',
+          workspace: '/project/.klaudex/worktrees/feat-b',
           projectId: '/project',
-          worktreePath: '/project/.kiro/worktrees/feat-b',
+          worktreePath: '/project/.klaudex/worktrees/feat-b',
         }),
       },
       projects: ['/project'],
@@ -186,9 +186,9 @@ describe('useSidebarTasks projectId grouping', () => {
         't1': makeTask({ id: 't1', workspace: '/project', projectId: uuid }),
         't2': makeTask({
           id: 't2',
-          workspace: '/project/.kiro/worktrees/feat',
+          workspace: '/project/.klaudex/worktrees/feat',
           projectId: uuid,
-          worktreePath: '/project/.kiro/worktrees/feat',
+          worktreePath: '/project/.klaudex/worktrees/feat',
         }),
       },
       projects: ['/project'],
@@ -206,13 +206,13 @@ describe('useSidebarTasks projectId grouping', () => {
       tasks: {
         't1': makeTask({
           id: 't1',
-          workspace: '/project/.kiro/worktrees/feat',
+          workspace: '/project/.klaudex/worktrees/feat',
           projectId: uuid,
-          worktreePath: '/project/.kiro/worktrees/feat',
+          worktreePath: '/project/.klaudex/worktrees/feat',
           originalWorkspace: '/project',
         }),
       },
-      projects: ['/project', '/project/.kiro/worktrees/feat'],
+      projects: ['/project', '/project/.klaudex/worktrees/feat'],
       projectIds: { '/project': uuid },
     })
     const { result } = renderHook(() => useSidebarTasks('recent'))

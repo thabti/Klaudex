@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { ipc } from '@/lib/ipc'
+import { logStoreAction, logError } from '@/lib/debug-logger'
 
 interface DiffStats {
   additions: number
@@ -52,8 +53,11 @@ export const useDiffStore = create<DiffStore>((set, get) => ({
     set({ loading: true })
     try {
       const diff = await ipc.getTaskDiff(taskId)
-      set({ diff, stats: computeStats(diff), loading: false })
-    } catch {
+      const stats = computeStats(diff)
+      logStoreAction('diffStore', 'fetchDiff', { taskId, fileCount: stats.fileCount, additions: stats.additions, deletions: stats.deletions })
+      set({ diff, stats, loading: false })
+    } catch (err) {
+      logError('diffStore.fetchDiff', err, { taskId })
       set({ diff: '', stats: { additions: 0, deletions: 0, fileCount: 0 }, loading: false })
     }
   },
@@ -71,6 +75,7 @@ export const useDiffStore = create<DiffStore>((set, get) => ({
 
   stageSelected: async (taskId: string) => {
     const files = Array.from(get().selectedFiles)
+    logStoreAction('diffStore', 'stageSelected', { taskId, files })
     await Promise.all(files.map((f) => ipc.gitStage(taskId, f)))
     set({ selectedFiles: new Set() })
     await get().fetchDiff(taskId)
@@ -78,6 +83,7 @@ export const useDiffStore = create<DiffStore>((set, get) => ({
 
   revertSelected: async (taskId: string) => {
     const files = Array.from(get().selectedFiles)
+    logStoreAction('diffStore', 'revertSelected', { taskId, files })
     await Promise.all(files.map((f) => ipc.gitRevert(taskId, f)))
     set({ selectedFiles: new Set() })
     await get().fetchDiff(taskId)
