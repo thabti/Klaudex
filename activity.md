@@ -1,5 +1,17 @@
 # Activity Log
 
+## 2026-04-21 01:16 GST (Dubai)
+### Git: Switch network ops (fetch/push/pull) to git CLI
+Replaced `git2` `RemoteCallbacks` + `Cred` credential handling with plain `git` CLI calls for fetch, push, and pull. `git2`/libssh2 can't access macOS Keychain passphrases for encrypted SSH keys, causing auth failures even when `ssh` works fine. The CLI inherits the user's full SSH agent, credential helpers, and Keychain integration. Local operations (diff, stage, branch, commit) still use `git2`. Removed `Cred`, `RemoteCallbacks` imports and the `make_remote_callbacks` function.
+
+**Modified:** `src-tauri/src/commands/git.rs`
+
+## 2026-04-21 01:11 GST (Dubai)
+### Git: Fix SSH transport support in fetch/push/pull
+Fixed `make_remote_callbacks` in `git.rs` to handle the `CredentialType::USERNAME` phase that `git2` requires before requesting SSH keys. Without this handler, SSH remotes fell through to the HTTPS credential check and failed with "no HTTPS credentials found." The fix adds a USERNAME handler returning the URL username (or "git" as default), separates the SSH attempt counter from the username phase, and improves error messages for both SSH and HTTPS failures.
+
+**Modified:** `src-tauri/src/commands/git.rs`
+
 ## 2026-04-21 01:05 GST (Dubai)
 ### Chat: Retain file/agent/skill mentions in draft threads on switch
 Added `draftMentionedFiles: Record<string, ProjectFile[]>` to the zustand store so that `@file`, `@agent:name`, and `@skill:name` mentions persist when switching between draft threads. Same pattern as the earlier attachments/pasted chunks fix: store saves on change, restores on remount.
