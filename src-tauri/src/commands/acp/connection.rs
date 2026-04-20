@@ -499,6 +499,13 @@ async fn handle_control_request(
 ) {
     let input = cr.request.input.clone().unwrap_or(Value::Object(Default::default()));
     if auto_approve.load(std::sync::atomic::Ordering::SeqCst) {
+        // Audit log: auto-approve bypasses manual permission check (CWE-862).
+        // Log the tool and input so operators can trace what was auto-approved.
+        let tool = cr.request.tool_name.clone().unwrap_or_else(|| "unknown".to_string());
+        eprintln!(
+            "[security:auto-approve] task={} tool={} request_id={}",
+            task_id, tool, cr.request_id
+        );
         let resp = ControlResponse {
             msg_type: "control_response".to_string(),
             response: ControlResponseBody {
@@ -647,17 +654,64 @@ pub(crate) async fn run_claude_connection(
     // Klaudex manages its own session state; skip Claude's disk persistence
     args.push("--no-session-persistence".into());
 
-    // Build a portable PATH that includes common binary locations
-    let extra_paths = if cfg!(target_os = "macos") {
+    // Build a sanitized PATH: start with known safe directories, then
+    // include only user PATH entries under trusted prefixes to prevent
+    // command injection via PATH manipulation (CWE-78).
+    let safe_prefixes: &[&str] = if cfg!(target_os = "macos") {
+        &["/usr/", "/bin", "/opt/", "/Applications/", "/Library/"]
+    } else {
+        &["/usr/", "/bin", "/opt/", "/snap/"]
+    };
+    let base_paths = if cfg!(target_os = "macos") {
         "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
     } else {
         "/usr/local/bin:/usr/bin:/bin"
     };
-    let path_env = format!(
-        "{}:{}",
-        extra_paths,
-        std::env::var("PATH").unwrap_or_default()
-    );
+    let filtered_user_paths: String = std::env::var("PATH")
+        .unwrap_or_default()
+        .split(':')
+        .filter(|p| safe_prefixes.iter().any(|prefix| p.starts_with(prefix)))
+        .collect::<Vec<_>>()
+        .join(":");
+    let path_env = if filtered_user_paths.is_empty() {
+        base_paths.to_string()
+    } else {
+        format!("{}:{}", base_paths, filtered_user_paths)
+    };
+
+    // Validate claude_bin to prevent arbitrary command execution (CWE-78).
+    // The binary must be an absolute path under a trusted directory.
+    let claude_path = std::path::Path::new(&claude_bin);
+    if !claude_path.is_absolute() {
+        return Err("Claude binary path must be absolute".to_string());
+    }
+    let allowed_bin_prefixes: &[&str] = if cfg!(target_os = "macos") {
+        &["/usr/local/bin/", "/opt/homebrew/bin/", "/Applications/"]
+    } else {
+        &["/usr/local/bin/", "/usr/bin/", "/opt/", "/snap/"]
+    };
+    let home_bin = dirs::home_dir()
+        .map(|h| h.join(".local/bin/").to_string_lossy().to_string());
+    let home_claude_bin = dirs::home_dir()
+        .map(|h| h.join(".claude/bin/").to_string_lossy().to_string());
+    let is_allowed = allowed_bin_prefixes.iter().any(|p| claude_bin.starts_with(p))
+        || home_bin.as_ref().map_or(false, |p| claude_bin.starts_with(p.as_str()))
+        || home_claude_bin.as_ref().map_or(false, |p| claude_bin.starts_with(p.as_str()));
+    if !is_allowed {
+        return Err(format!(
+            "Claude binary path is not in an approved location: {}",
+            claude_bin
+        ));
+    }
+
+    // Validate workspace directory exists (prevents cryptic spawn errors).
+    let workspace_path = std::path::Path::new(&workspace);
+    if !workspace_path.exists() {
+        return Err(format!("Workspace directory does not exist: {}", workspace));
+    }
+    if !workspace_path.is_dir() {
+        return Err(format!("Workspace path is not a directory: {}", workspace));
+    }
 
     // Spawn claude CLI subprocess (use .current_dir for working directory;
     // claude CLI has no --cwd flag)

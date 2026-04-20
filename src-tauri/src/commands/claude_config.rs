@@ -204,6 +204,22 @@ fn scan_memory_files(project_path: Option<&str>, claude_dir: &Path, is_global: b
     files
 }
 
+/// Allowed MCP server command basenames. Commands not in this list are
+/// flagged with an error so the UI can warn the user (CWE-78).
+const ALLOWED_MCP_COMMANDS: &[&str] = &[
+    "node", "npx", "npm", "bun", "bunx", "deno", "python", "python3",
+    "uvx", "uv", "docker", "podman", "cargo", "go",
+];
+
+/// Check if an MCP command is a known-safe executable.
+fn is_allowed_mcp_command(command: &str) -> bool {
+    let basename = std::path::Path::new(command)
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or(command);
+    ALLOWED_MCP_COMMANDS.contains(&basename)
+}
+
 fn load_mcp_file(file_path: &Path, enabled: bool, out: &mut Vec<ClaudeMcpServer>) {
     let Ok(content) = fs::read_to_string(file_path) else { return };
     let Ok(raw) = serde_json::from_str::<serde_json::Value>(&content) else { return };
@@ -211,12 +227,33 @@ fn load_mcp_file(file_path: &Path, enabled: bool, out: &mut Vec<ClaudeMcpServer>
     let fp = file_path.to_string_lossy().to_string();
     for (name, cfg) in servers {
         let has_url = cfg.get("url").and_then(|v| v.as_str()).is_some();
-        let has_command = cfg.get("command").and_then(|v| v.as_str()).is_some();
+        let command_str = cfg.get("command").and_then(|v| v.as_str());
+        let has_command = command_str.is_some();
         let error = if !has_url && !has_command {
             Some("Missing command or url".to_string())
         } else if has_url {
             let url = cfg["url"].as_str().unwrap_or("");
             if !url.starts_with("http") { Some("Invalid url".to_string()) } else { None }
+        } else if let Some(cmd) = command_str {
+            if !is_allowed_mcp_command(cmd) {
+                Some(format!("Untrusted command '{}': not in allowed list", cmd))
+            } else {
+                // Validate args don't contain shell metacharacters
+                let args = cfg.get("args").and_then(|v| v.as_array());
+                let has_shell_chars = args.map_or(false, |a| {
+                    a.iter().any(|v| {
+                        v.as_str().map_or(false, |s| {
+                            s.contains('|') || s.contains(';') || s.contains('`')
+                                || s.contains("$(") || s.contains("&&") || s.contains(">>")
+                        })
+                    })
+                });
+                if has_shell_chars {
+                    Some("Args contain suspicious shell metacharacters".to_string())
+                } else {
+                    None
+                }
+            }
         } else {
             None
         };
