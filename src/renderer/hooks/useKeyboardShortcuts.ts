@@ -96,28 +96,6 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // ── Cmd+O → New project ────────────────────────────────
-      if (key === 'o' && !e.shiftKey) {
-        e.preventDefault()
-        useTaskStore.getState().setNewProjectOpen(true)
-        return
-      }
-
-      // ── Cmd+N → New thread ─────────────────────────────────
-      if (key === 'n' && !e.shiftKey) {
-        e.preventDefault()
-        const state = useTaskStore.getState()
-        // Use the active project root or the first project
-        const task = state.selectedTaskId ? state.tasks[state.selectedTaskId] : null
-        const workspace = task
-          ? (task.originalWorkspace ?? task.workspace)
-          : state.projects[0]
-        if (workspace) {
-          state.setPendingWorkspace(workspace)
-        }
-        return
-      }
-
       // ── Cmd+W → Close thread/project ──────────────────────────
       if (key === 'w' && !e.shiftKey) {
         e.preventDefault()

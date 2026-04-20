@@ -1,5 +1,22 @@
 # Activity Log
 
+## 2026-04-21 00:35 GST (Dubai)
+### Multi-window: Add Cmd+Shift+N new window support and File menu commands
+Added multi-window support to Kirodex. Built a custom native menu in Rust replacing the auto-generated default, with New Window (⇧⌘N), New Thread (⌘N), and New Project (⌘O) in the File submenu. New windows share the same projects/threads via tauri-plugin-store's shared backend, with cross-window sync using LazyStore.onKeyChange and a 300ms debounce. Secondary windows close without quit confirmation; only the last window triggers the shutdown dialog. Removed conflicting Cmd+N/Cmd+O JS handlers since native menu accelerators now handle those keys.
+
+**Modified:**
+- `src-tauri/src/lib.rs` — Custom menu (build_app_menu), create_new_window with macOS styling, multi-window close handling
+- `src-tauri/capabilities/default.json` — Window glob pattern for new windows
+- `src/renderer/App.tsx` — Menu event listeners, cross-window sync subscription
+- `src/renderer/hooks/useKeyboardShortcuts.ts` — Removed Cmd+N and Cmd+O handlers
+- `src/renderer/lib/history-store.ts` — Added subscribeToChanges() for cross-window sync
+
+## 2026-04-21 00:34 GST (Dubai)
+### Chat: Fix draft threads losing attached images and pasted text on thread switch
+Attachments and pasted text chunks were stored in React local state (`useState`) inside `useAttachments` and `useChatInput` hooks. When switching threads, the component unmounted and this state was destroyed, leaving orphaned placeholders in the textarea. Fixed by lifting attachment and pasted chunk state into the zustand store (`draftAttachments` and `draftPastedChunks` maps keyed by workspace), with save-on-change callbacks wired through `PendingChat` → `ChatInput` → `useChatInput`.
+
+**Modified:** `src/renderer/stores/task-store-types.ts`, `src/renderer/stores/taskStore.ts`, `src/renderer/hooks/useAttachments.ts`, `src/renderer/hooks/useChatInput.ts`, `src/renderer/components/chat/ChatInput.tsx`, `src/renderer/components/chat/PendingChat.tsx`
+
 ## 2026-04-21 00:21 GST (Dubai)
 ### Tests: Fix 9 failing Vitest unit tests from CI #108
 Fixed 9 failing tests across `taskStore.test.ts` and `timeline.test.ts`. Root causes: (1) `applyTurnEnd` tests used `status:'running'` but the function now has a guard that returns `{}` for running tasks to prevent clobbering new turns; changed test base state to `status:'paused'` to match production flow. (2) `deriveTimeline` now suppresses the `working` row when there's live activity; updated test expectation. Added a new test for the running guard.

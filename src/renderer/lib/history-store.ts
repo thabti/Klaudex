@@ -191,6 +191,19 @@ export async function loadBackup(): Promise<BackupData> {
   }
 }
 
+// ── Cross-window sync ─────────────────────────────────────────
+
+/** Subscribe to changes made by other windows. Returns an unlisten function. */
+export async function subscribeToChanges(
+  onThreadsChanged: () => void,
+  onProjectsChanged: () => void,
+): Promise<() => void> {
+  const store = await getStore()
+  const unsub1 = await store.onKeyChange('threads', onThreadsChanged)
+  const unsub2 = await store.onKeyChange('projects', onProjectsChanged)
+  return () => { unsub1(); unsub2() }
+}
+
 // ── Helpers ──────────────────────────────────────────────────────
 
 function toSavedMessage(msg: TaskMessage): SavedMessage {
