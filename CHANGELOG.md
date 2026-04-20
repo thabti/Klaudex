@@ -1,5 +1,42 @@
 # Changelog
 
+## [v0.2.0] - 2026-04-21
+
+### Features
+
+- add AcpSubagentDisplay, PermissionCard, StatsPanel, UserInputCard ([`7ac041b`](https://github.com/thabti/klaudex/commit/7ac041ba8088cc2b25df8513034fc1c1ce1c7cbf))
+
+### Bug fixes
+
+- address Amazon Q review findings on PR #2 ([`981382d`](https://github.com/thabti/klaudex/commit/981382dfae227ee1f7c5cca670744efb765979b3))
+
+### Refactoring
+
+- update taskStore, settingsStore, diffStore and tests ([`e320513`](https://github.com/thabti/klaudex/commit/e3205133f0c9c89be55b8caf7b73237a948c6ec2))
+- update IPC layer, add debug-logger, update utilities ([`b7ee10e`](https://github.com/thabti/klaudex/commit/b7ee10e8ce979ee2ee3e3bc42ad821eb0d252ee3))
+- update settings, onboarding, debug, and dashboard components ([`792f28b`](https://github.com/thabti/klaudex/commit/792f28be7c388dfb6a0717a71b1f8fa69c053d5c))
+- update existing chat components and hooks for Claude CLI ([`7f03008`](https://github.com/thabti/klaudex/commit/7f030081d95dbf5b4317637bc2ee202a8d0e4595))
+- rename Kiro sidebar components to Claude ([`24cf5ab`](https://github.com/thabti/klaudex/commit/24cf5ab6bf27fea37962522d005c3d84cf76fd9d))
+- add Claude config store and update types ([`19552a0`](https://github.com/thabti/klaudex/commit/19552a06bbfd41bccc39ac6b055b74aca142f0ae))
+- rename kiro_config to claude_config ([`9c59020`](https://github.com/thabti/klaudex/commit/9c590204e0d776c1131b6dc62e5ca42da7d384bf))
+- replace ACP SDK with Claude CLI subprocess ([`2fe68da`](https://github.com/thabti/klaudex/commit/2fe68da1685bfaf34bb3f275330eaa9ade58da6e))
+- rename Kirodex to Klaudex across codebase ([`06a259b`](https://github.com/thabti/klaudex/commit/06a259b511e7136ea8c786c773d09d8961d94aec))
+
+### Documentation
+
+- update activity log with security fix entry ([`1fbd474`](https://github.com/thabti/klaudex/commit/1fbd47405c2253ad9070a94cb8bb133e2cc258dd))
+- update activity log with commit session entry ([`738d121`](https://github.com/thabti/klaudex/commit/738d1212ad819d93999232c3dcafb01f7557f6ed))
+
+### Chores
+
+- update activity log, downloads, agents-lock, and website ([`ce81251`](https://github.com/thabti/klaudex/commit/ce81251305638899f80044dbe6d3fcb342004f65))
+- update app icons for Klaudex branding ([`81d69ba`](https://github.com/thabti/klaudex/commit/81d69ba06ca7070ad33f3b5555a9270be3e83412))
+- rename Kirodex to Klaudex in config files ([`193aa86`](https://github.com/thabti/klaudex/commit/193aa86d44f3c5491a8eb4caef805d29929a2346))
+
+### Other changes
+
+- update docs ([`dfdd75f`](https://github.com/thabti/klaudex/commit/dfdd75fe487318f627268c1ce479b9e749835746))
+
 ## [v0.13.0] - 2026-04-18
 
 ### Features
