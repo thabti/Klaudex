@@ -1,3 +1,11 @@
+## 2026-04-20 23:40 GST (Dubai)
+
+### Security: fix 5 Amazon Q review findings on PR #2
+
+Addressed all critical security findings: sanitized PATH env to trusted prefixes only, validated claude_bin against approved directories, validated workspace existence before spawn, added audit logging for auto-approve bypass, and added MCP command allowlist with shell metacharacter rejection.
+
+**Modified:** `src-tauri/src/commands/acp/connection.rs`, `src-tauri/src/commands/claude_config.rs`
+
 ## 2026-04-20 23:30 GST (Dubai)
 
 ### Git: create 12 small commits and push refactor/rename-kirodex-to-klaudex
