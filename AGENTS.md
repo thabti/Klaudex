@@ -38,13 +38,13 @@ src/
 │   ├── stores/
 │   │   ├── taskStore.ts     # Tasks, streaming, connection state
 │   │   ├── settingsStore.ts # Agent profiles, models, appearance
-│   │   ├── kiroStore.ts     # .kiro/ config state
+│   │   ├── claudeStore.ts     # .claude/ config state
 │   │   ├── diffStore.ts     # Diff viewer state
 │   │   └── debugStore.ts    # Debug panel state
 │   └── components/
 │       ├── ui/              # Radix-based primitives (button, input, dialog, etc.)
 │       ├── chat/            # ChatPanel, MessageList, ChatInput, SlashPanels, etc.
-│       ├── sidebar/         # TaskSidebar, KiroConfigPanel
+│       ├── sidebar/         # TaskSidebar, ClaudeConfigPanel
 │       ├── code/            # CodePanel, DiffViewer
 │       ├── dashboard/       # Dashboard, TaskCard
 │       ├── settings/        # SettingsPanel
@@ -59,13 +59,13 @@ src-tauri/
 │   ├── main.rs              # Entry point
 │   ├── lib.rs               # Tauri app setup, command registration, window events
 │   └── commands/
-│       ├── acp.rs           # ACP protocol (kiro-cli subprocess, ~42KB)
+│       ├── acp.rs           # ACP protocol (claude subprocess, ~42KB)
 │       ├── error.rs         # Shared AppError type (thiserror)
 │       ├── pty.rs           # Terminal emulation (portable-pty)
 │       ├── git.rs           # Git operations via git2 (libgit2)
 │       ├── settings.rs      # Config persistence via confy
-│       ├── fs_ops.rs        # File ops, kiro-cli detection (which crate)
-│       └── kiro_config.rs   # .kiro/ config discovery (serde_yaml for frontmatter)
+│       ├── fs_ops.rs        # File ops, claude detection (which crate)
+│       └── claude_config.rs   # .claude/ config discovery (serde_yaml for frontmatter)
 ├── Cargo.toml
 ├── tauri.conf.json
 └── capabilities/            # Tauri v2 permission capabilities
@@ -135,7 +135,7 @@ Early versions cloned the `AcpState` into the permission handler closure. This c
 
 ### ACP notifications need method normalization
 
-The ACP SDK sometimes prefixes ext_notification methods with an underscore (e.g., `_kiro.dev/commands/available`). Always strip the leading `_` before matching: `method.strip_prefix('_').unwrap_or(method)`.
+The ACP SDK sometimes prefixes ext_notification methods with an underscore (e.g., `_claude.dev/commands/available`). Always strip the leading `_` before matching: `method.strip_prefix('_').unwrap_or(method)`.
 
 ### Backend task updates wipe client-side messages
 
@@ -162,7 +162,7 @@ The `commands/available` notification includes `mcpServers` with live `toolCount
 
 ### Window cleanup on close
 
-Tauri's `on_window_event` with `CloseRequested` is the place to kill ACP connections and PTY sessions. Drain the connections map and send `AcpCommand::Kill` to each, then clear the PTY state. Without this, orphaned `kiro-cli` processes survive after the app closes.
+Tauri's `on_window_event` with `CloseRequested` is the place to kill ACP connections and PTY sessions. Drain the connections map and send `AcpCommand::Kill` to each, then clear the PTY state. Without this, orphaned `claude` processes survive after the app closes.
 
 ### probe_capabilities guard
 

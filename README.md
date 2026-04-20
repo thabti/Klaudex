@@ -85,14 +85,14 @@ chmod +x Klaudex_*.AppImage && ./Klaudex_*.AppImage
 # winget and scoop support coming soon
 ```
 
-> Requires [kiro-cli](https://kiro.dev) installed and in your PATH.
+> Requires [claude CLI](https://claude.ai) installed and in your PATH.
 
 ---
 
 ## Features
 
 **Chat and agents**
-- Chat interface via the [Agent Client Protocol](https://github.com/anthropics/agent-client-protocol) SDK
+- Chat interface powered by Claude CLI
 - Threaded agentic development — each conversation runs as an independent agent thread with its own context, tool calls, and execution history
 - Empty thread splash screen with clickable slash commands and `@` mentions to get started fast
 - Slash commands (`/clear`, `/close`, `/model`, `/agent`, `/plan`, `/chat`) with fuzzy search across all pickers
@@ -102,7 +102,7 @@ chmod +x Klaudex_*.AppImage && ./Klaudex_*.AppImage
 - Thread archiving — `/close` preserves conversation history in a read-only view instead of deleting
 - Task management: create, pause, resume, cancel, delete
 - Question cards — agents can ask multi-choice questions; pick an option and reply inline
-- Kiro config sidebar — browse agents (grouped by stack), skills, steering rules, and MCP servers from `.kiro/`
+- Claude config sidebar — browse agents (grouped by stack), skills, steering rules, and MCP servers from `.claude/`
 
 **Code and diffs**
 - Syntax-highlighted inline and side-by-side diff views ([Shiki](https://shiki.style))
@@ -113,7 +113,7 @@ chmod +x Klaudex_*.AppImage && ./Klaudex_*.AppImage
 **Git**
 - Branch, stage, commit, push, pull, fetch through [git2](https://crates.io/crates/git2) with SSH + HTTPS credential support (no shell commands)
 - Live diff stats in the header bar, always visible when a project is open
-- Git worktree support — isolate each thread in its own working directory under `.kiro/worktrees/`
+- Git worktree support — isolate each thread in its own working directory under `.claude/worktrees/`
 - `/branch` command to create and checkout a new branch inline
 - `/worktree` command to create a worktree and spawn a new thread in it
 - "Use worktree" checkbox on new thread page with auto-generated slug from your message
@@ -141,7 +141,7 @@ chmod +x Klaudex_*.AppImage && ./Klaudex_*.AppImage
 - [Rust](https://rustup.rs) >= 1.78
 - [Bun](https://bun.sh) >= 1.0 (or Node >= 20)
 - [Tauri CLI](https://v2.tauri.app/start/create-project/#cargo): `cargo install tauri-cli`
-- [kiro-cli](https://kiro.dev) installed and in your PATH
+- [claude CLI](https://claude.ai) installed and in your PATH
 
 ### Clone and run
 
@@ -168,15 +168,15 @@ The first build compiles ~430 crates and takes a few minutes. Subsequent builds 
 | `bun run bump:patch` | Bump version (patch) across all files |
 | `bun run clean` | Remove build artifacts |
 
-### kiro-cli detection
+### Claude CLI detection
 
-The app auto-detects kiro-cli at these paths (in order):
+The app auto-detects claude at these paths (in order):
 
-1. `~/.local/bin/kiro-cli`
-2. `/usr/local/bin/kiro-cli`
-3. `~/.kiro/bin/kiro-cli`
-4. `/opt/homebrew/bin/kiro-cli`
-5. Falls back to `which kiro-cli`
+1. `~/.local/bin/claude`
+2. `/usr/local/bin/claude`
+3. `~/.claude/bin/claude`
+4. `/opt/homebrew/bin/claude`
+5. Falls back to `which claude`
 
 ---
 
@@ -189,7 +189,7 @@ See [docs/architecture.md](docs/architecture.md) for the system diagram, backend
 | Problem | Fix |
 |---------|-----|
 | `no such command: tauri` | Run `cargo install tauri-cli` to install the Tauri CLI. |
-| "Failed to spawn kiro-cli" | Check kiro-cli is installed. Run `kiro-cli --version`. |
+| "Failed to spawn claude" | Check claude CLI is installed. Run `claude --version`. |
 | Rust compilation errors | Run `rustup update`. Requires Rust >= 1.78. |
 | Frontend type errors | Run `bun install`, then `bun run check:ts`. |
 | First build is slow | Normal. Initial `cargo build` compiles ~430 crates. |

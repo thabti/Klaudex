@@ -1,12 +1,12 @@
-# Security Audit Report: ~/.kiro/skills/
+# Security Audit Report: ~/.claude/skills/
 
 **Audit Date:** 2026-04-17
-**Auditor:** Kiro CLI Security Audit
+**Auditor:** Claude CLI Security Audit
 **Risk Level:** CRITICAL
 
 ## Executive summary
 
-24 skills were audited across `~/.kiro/skills/` and the symlinked source `~/.agents/skills/`. One skill (`strapi-expert`) contains malware: two zip files bundling Windows executables with obfuscated Lua scripts, promoted for download via the README. The remaining 23 skills are clean or have minor, expected behaviors. The `~/.agents/` directory has no version control, making it impossible to trace when skills were added or modified.
+24 skills were audited across `~/.claude/skills/` and the symlinked source `~/.agents/skills/`. One skill (`strapi-expert`) contains malware: two zip files bundling Windows executables with obfuscated Lua scripts, promoted for download via the README. The remaining 23 skills are clean or have minor, expected behaviors. The `~/.agents/` directory has no version control, making it impossible to trace when skills were added or modified.
 
 **Immediate action required:** Remove `strapi-expert` and initialize git tracking on `~/.agents/`.
 
@@ -143,6 +143,6 @@
 
 ### Immediate actions
 
-1. **Delete strapi-expert:** `rm -rf ~/.agents/skills/strapi-expert && rm ~/.kiro/skills/strapi-expert`
+1. **Delete strapi-expert:** `rm -rf ~/.agents/skills/strapi-expert && rm ~/.claude/skills/strapi-expert`
 2. **Initialize version control:** `cd ~/.agents && git init && git add -A && git commit -m "chore: initial audit baseline"`
 3. **Restrict strapi-expert permissions** if recreated: Remove `Bash`, `Write`, `WebFetch` from allowed-tools

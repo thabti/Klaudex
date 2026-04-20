@@ -12,7 +12,7 @@ bun install
 bun run dev
 ```
 
-See the [README](README.md) for prerequisites (Rust, Bun, Tauri CLI, kiro-cli).
+See the [README](README.md) for prerequisites (Rust, Bun, Tauri CLI, claude).
 
 ## Development workflow
 
@@ -57,9 +57,9 @@ Include a scope when it helps: `feat(chat):`, `fix(git):`, `refactor(settings):`
 | Directory | What lives there |
 |-----------|-----------------|
 | `src/renderer/` | React frontend (components, stores, hooks, types) |
-| `src-tauri/src/commands/` | Rust backend modules (acp, git, settings, pty, fs_ops, kiro_config, error) |
+| `src-tauri/src/commands/` | Rust backend modules (acp, git, settings, pty, fs_ops, claude_config, error) |
 | `src/tailwind.css` | Theme tokens and global styles |
-| `.kiro/steering/` | Kiro agent steering rules |
+| `.claude/steering/` | Claude agent steering rules |
 
 ## Code style
 

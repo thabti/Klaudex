@@ -3,17 +3,17 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Kirodex</title>
+        <title>Klaudex</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet" />
         <script>
             // Apply theme before first paint to prevent flash
             (function(){
-                var t='dark';try{t=localStorage.getItem('kirodex-theme')||'dark'}catch(e){}
+                var t='dark';try{t=localStorage.getItem('klaudex-theme')||'dark'}catch(e){}
                 if(t==='system'){t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}
                 if(t==='dark'){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark')}
-                window.__kirodex_resolved_theme=t;
+                window.__klaudex_resolved_theme=t;
             })();
         </script>
     </head>
@@ -40,7 +40,7 @@
                     0 0 30px rgba(124, 106, 239, 0.4),
                     0 0 60px rgba(124, 106, 239, 0.2);
                 animation: glow 2s ease-in-out infinite alternate;
-            ">KIRODEX</span>
+            ">KLAUDEX</span>
             <style>
                 @keyframes glow {
                     from { text-shadow: 0 0 10px rgba(124,106,239,0.6), 0 0 30px rgba(124,106,239,0.4), 0 0 60px rgba(124,106,239,0.2); }

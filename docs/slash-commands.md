@@ -15,7 +15,7 @@ Unknown commands return `handled: false` and are forwarded to ACP as regular mes
 | /settings | Open settings panel | Yes |
 | /upload | Trigger file upload dialog | Yes |
 | /usage | Toggle context usage panel | Yes |
-| /plan | Toggle plan mode (switches between `kiro_planner` and `kiro_default`) | No (syncs via IPC) |
+| /plan | Toggle plan mode (switches between `claude_planner` and `claude_default`) | No (syncs via IPC) |
 | /close or /exit | Archive current thread (preserves history in read-only view) | Yes |
 | /fork | Fork current thread into a new conversation | Yes |
 | /branch | Open branch picker panel | Yes |

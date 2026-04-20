@@ -64,10 +64,10 @@ All frontend-to-backend communication in Klaudex uses Tauri's IPC bridge:
 |---|---|---|---|---|
 | `get_settings` | `ipc.getSettings` | none | `AppSettings` | Load the persisted application settings. |
 | `save_settings` | `ipc.saveSettings` | `settings: AppSettings` | `void` | Persist updated application settings. |
-| `get_kiro_config` | `ipc.getKiroConfig` | `projectPath?: string` | `KiroConfig` | Read the Kiro configuration for a project. |
-| `list_models` | `ipc.listModels` | `kiroBin?: string` | `{ availableModels: Model[], currentModelId: string }` | List available AI models and the currently selected one. |
+| `get_claude_config` | `ipc.getClaudeConfig` | `projectPath?: string` | `ClaudeConfig` | Read the Claude configuration for a project. |
+| `list_models` | `ipc.listModels` | `claudeBin?: string` | `{ availableModels: Model[], currentModelId: string }` | List available AI models and the currently selected one. |
 | `probe_capabilities` | `ipc.probeCapabilities` | none | `{ ok: boolean }` | Check whether the backend capabilities are available. |
-| `detect_kiro_cli` | `ipc.detectKiroCli` | none | `string \| null` | Locate the Kiro CLI binary on the system. |
+| `detect_claude_cli` | `ipc.detectClaudeCli` | none | `string \| null` | Locate the Claude CLI binary on the system. |
 
 ## 5. File system commands
 
@@ -91,8 +91,8 @@ All frontend-to-backend communication in Klaudex uses Tauri's IPC bridge:
 
 | Rust command | TypeScript wrapper | Parameters | Return type | Description |
 |---|---|---|---|---|
-| `kiro_whoami` | `ipc.kiroWhoami` | `kiroBin?: string` | `{ email?: string, accountType?: string, region?: string, startUrl?: string }` | Get the currently authenticated Kiro user's identity. |
-| `kiro_logout` | `ipc.kiroLogout` | `kiroBin?: string` | `void` | Log out the current Kiro user. |
+| `claude_whoami` | `ipc.claudeWhoami` | `claudeBin?: string` | `{ email?: string, accountType?: string, region?: string, startUrl?: string }` | Get the currently authenticated Claude user's identity. |
+| `claude_logout` | `ipc.claudeLogout` | `claudeBin?: string` | `void` | Log out the current Claude user. |
 
 ## 8. Events reference
 

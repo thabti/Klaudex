@@ -54,7 +54,7 @@
 - expand open_in_editor with terminal emulators and cross-platform support ([`852ee96`](https://github.com/thabti/klaudex/commit/852ee963a649137796ccc1083efb1e5baf1d6b5c))
 - add useProjectIcon, extend useSlashAction and useChatInput ([`348536d`](https://github.com/thabti/klaudex/commit/348536d0515013470ba0b301ec7e833f0e5e9815))
 - replace xterm.js with ghostty-web WASM terminal ([`72faa70`](https://github.com/thabti/klaudex/commit/72faa702858e24abeb61b85a206507b167b835d1))
-- add Kiro ghost logo and sponsored-by Lastline to hero ([`35b43fd`](https://github.com/thabti/klaudex/commit/35b43fddb19093897b56a8d1337fc9737949fd11))
+- add Claude ghost logo and sponsored-by Lastline to hero ([`35b43fd`](https://github.com/thabti/klaudex/commit/35b43fddb19093897b56a8d1337fc9737949fd11))
 
 ### Bug fixes
 
@@ -64,7 +64,7 @@
 
 - split taskStore into types, listeners, and core modules ([`4f81d87`](https://github.com/thabti/klaudex/commit/4f81d87434ff4c013484dff8f5eef6526de889b2))
 - extract DiffViewer sub-components and utilities ([`896ad0d`](https://github.com/thabti/klaudex/commit/896ad0d3364e3af5ce0a59f139b669b3762f438c))
-- extract kiro config sub-components and add project icon picker ([`57c3250`](https://github.com/thabti/klaudex/commit/57c3250d2dc3fbfe5e932fa81226bba72d508e6e))
+- extract claude config sub-components and add project icon picker ([`57c3250`](https://github.com/thabti/klaudex/commit/57c3250d2dc3fbfe5e932fa81226bba72d508e6e))
 - extract settings sections into individual modules ([`d196e59`](https://github.com/thabti/klaudex/commit/d196e593f9e2227e707a98137781189b0dc94eec))
 - extract onboarding step components from monolithic Onboarding.tsx ([`b464d8a`](https://github.com/thabti/klaudex/commit/b464d8ac8148daf6b44ea14c896df9000d0a7f34))
 - split AppHeader into breadcrumb, toolbar, and user-menu modules ([`daec3c8`](https://github.com/thabti/klaudex/commit/daec3c894fc3fff5cfa0040d82d543116d1611ec))
@@ -290,7 +290,7 @@
 - add fuzzy search to slash commands and agent/model panels
 - extract fuzzy search util and apply to @ mention picker
 - enhance agent mention pills with built-in agents and styled icons
-- archive threads on /close and show .kiro agents in /agent panel
+- archive threads on /close and show .claude agents in /agent panel
 - add archiveTask action to taskStore
 - add built-in agent picker to /agent slash panel
 - increase check frequency and add sidebar badge

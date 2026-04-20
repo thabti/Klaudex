@@ -94,7 +94,7 @@ pub fn open_terminal_with_command(command: String) -> Result<(), AppError> {
 
 The `command` parameter comes directly from the frontend. The escaping only handles `\` and `"` but not newlines, which can inject arbitrary AppleScript. On Linux, the command is passed to `sh -c` via terminal emulators, which is also injectable.
 
-**Recommendation:** If this is only used for `kiro-cli login`, hardcode the command or use an allowlist. Never pass arbitrary user strings into `osascript` or `sh -c`.
+**Recommendation:** If this is only used for `claude login`, hardcode the command or use an allowlist. Never pass arbitrary user strings into `osascript` or `sh -c`.
 
 #### H4. `git_worktree_create` and `git_worktree_remove` shell out to `git`
 
@@ -237,7 +237,7 @@ The updater uses HTTPS endpoints and a hardcoded Ed25519 public key. This is the
 
 **File:** `src-tauri/src/commands/settings.rs`
 
-Settings are persisted via `confy` to `~/Library/Application Support/rs.klaudex/default-config.toml`. The file contains `analytics_anon_id` and `kiro_bin` path but no secrets. Acceptable for a desktop app.
+Settings are persisted via `confy` to `~/Library/Application Support/rs.klaudex/default-config.toml`. The file contains `analytics_anon_id` and `claude_bin` path but no secrets. Acceptable for a desktop app.
 
 **Recommendation:** If you ever store API keys or tokens in settings, encrypt the config file or use the OS keychain.
 

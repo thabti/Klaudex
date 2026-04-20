@@ -13,12 +13,12 @@ graph TD
   end
 
   subgraph Backend["Backend — Rust (Tauri v2)"]
-    ACP["acp.rs\n(kiro-cli subprocess)"]
+    ACP["acp.rs\n(claude subprocess)"]
     PTY["pty.rs\n(portable-pty)"]
     Git["git.rs\n(git2 / libgit2)"]
     Settings["settings.rs\n(confy)"]
     FsOps["fs_ops.rs\n(file ops, which)"]
-    KiroConfig["kiro_config.rs\n(serde_yaml)"]
+    ClaudeConfig["claude_config.rs\n(serde_yaml)"]
     Error["error.rs\n(thiserror)"]
   end
 
@@ -27,9 +27,9 @@ graph TD
   Zustand -- "invoke()" --> Git
   Zustand -- "invoke()" --> Settings
   Zustand -- "invoke()" --> FsOps
-  Zustand -- "invoke()" --> KiroConfig
+  Zustand -- "invoke()" --> ClaudeConfig
 
-  ACP -- "stdin/stdout" --> KiroCLI["kiro-cli acp"]
+  ACP -- "stdin/stdout" --> ClaudeCLI["claude acp"]
   PTY -- "PTY I/O" --> Shell["User shell"]
   Git -- "libgit2 FFI" --> Repo["Git repository"]
 ```
@@ -44,7 +44,7 @@ sequenceDiagram
   participant Store as Zustand store
   participant IPC as Tauri IPC
   participant ACP as acp.rs
-  participant CLI as kiro-cli
+  participant CLI as claude
 
   UI->>Store: user sends message
   Store->>IPC: invoke("send_message")
@@ -62,7 +62,7 @@ All Rust modules live in `src-tauri/src/commands/`. Tauri commands return `Resul
 
 ### acp.rs
 
-The largest module (~108 KB). Spawns `kiro-cli acp` as a subprocess and implements the ACP `Client` trait. Each ACP connection runs on a dedicated OS thread with a single-threaded tokio runtime and `LocalSet` because the `agent-client-protocol` crate produces `!Send` futures. The Tauri async runtime communicates with connection threads via `mpsc::unbounded_channel`. Permission requests from ACP use `oneshot` channels; the permission handler accesses managed state via `app.try_state::<AcpState>()` to ensure it reads the same instance that Tauri commands use. An `AtomicBool` guard (`probe_running`) prevents concurrent `probe_capabilities` calls from spawning duplicate connections. ACP notification methods are normalized by stripping a leading `_` prefix before matching.
+The largest module (~108 KB). Spawns `claude acp` as a subprocess and implements the ACP `Client` trait. Each ACP connection runs on a dedicated OS thread with a single-threaded tokio runtime and `LocalSet` because the `agent-client-protocol` crate produces `!Send` futures. The Tauri async runtime communicates with connection threads via `mpsc::unbounded_channel`. Permission requests from ACP use `oneshot` channels; the permission handler accesses managed state via `app.try_state::<AcpState>()` to ensure it reads the same instance that Tauri commands use. An `AtomicBool` guard (`probe_running`) prevents concurrent `probe_capabilities` calls from spawning duplicate connections. ACP notification methods are normalized by stripping a leading `_` prefix before matching.
 
 ### git.rs
 
@@ -74,11 +74,11 @@ Config persistence via `confy`. Stores settings at the platform-standard path (e
 
 ### fs_ops.rs
 
-File operations and kiro-cli binary detection via the `which` crate. Also provides project file listing by reading the git2 index. Avoids shelling out to system commands for portability.
+File operations and claude binary detection via the `which` crate. Also provides project file listing by reading the git2 index. Avoids shelling out to system commands for portability.
 
-### kiro_config.rs
+### claude_config.rs
 
-Discovers and parses `.kiro/` project configuration. Reads agents, skills, steering rules, and MCP server definitions. Uses `serde_yaml` for YAML frontmatter parsing.
+Discovers and parses `.claude/` project configuration. Reads agents, skills, steering rules, and MCP server definitions. Uses `serde_yaml` for YAML frontmatter parsing.
 
 ### pty.rs
 
@@ -98,7 +98,7 @@ Zustand stores in `src/renderer/stores/` are the single source of truth. No Redu
 |-------|---------------|
 | `taskStore` | Tasks, messages, streaming state, ACP connection lifecycle |
 | `settingsStore` | Agent profiles, model selection, appearance preferences |
-| `kiroStore` | `.kiro/` config state (agents, skills, steering, MCP servers) |
+| `claudeStore` | `.claude/` config state (agents, skills, steering, MCP servers) |
 | `diffStore` | Diff viewer file selection and content |
 | `debugStore` | Debug panel log entries and filters |
 | `updateStore` | App update checking and installation state |
@@ -110,7 +110,7 @@ Components live in `src/renderer/components/`, organized by feature:
 
 - `ui/` — Radix UI primitives styled with `class-variance-authority`, composed via `clsx` + `tailwind-merge` (`cn()` helper)
 - `chat/` — ChatPanel, MessageList, ChatInput, slash command panels
-- `sidebar/` — TaskSidebar, KiroConfigPanel
+- `sidebar/` — TaskSidebar, ClaudeConfigPanel
 - `code/` — CodePanel, DiffViewer (Shiki for syntax highlighting)
 - `dashboard/` — Dashboard, TaskCard
 - `settings/` — SettingsPanel
@@ -154,7 +154,7 @@ When the ACP agent requests a permission (file write, command execution, etc.), 
 
 ### Window cleanup
 
-Tauri's `on_window_event` with `CloseRequested` drains all ACP connections (sending `AcpCommand::Kill` to each) and clears PTY state. Without this, orphaned `kiro-cli` processes survive after the app closes.
+Tauri's `on_window_event` with `CloseRequested` drains all ACP connections (sending `AcpCommand::Kill` to each) and clears PTY state. Without this, orphaned `claude` processes survive after the app closes.
 
 ## State management
 
