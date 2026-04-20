@@ -3,9 +3,11 @@ import {
   IconChevronDown, IconChevronRight, IconCheck, IconLoader2, IconX, IconBolt,
 } from '@tabler/icons-react'
 import type { ToolCall } from '@/types'
+import { useTaskStore } from '@/stores/taskStore'
 import { ToolCallEntry } from './ToolCallEntry'
 import { TaskListDisplay, isTaskListToolCall } from './TaskListDisplay'
 import { SubagentDisplay, isSubagentToolCall } from './SubagentDisplay'
+import { AcpSubagentDisplay } from './AcpSubagentDisplay'
 
 const MAX_VISIBLE_DEFAULT = 6
 
@@ -16,6 +18,13 @@ interface ToolCallDisplayProps {
 export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls }: ToolCallDisplayProps) {
   const [expanded, setExpanded] = useState(true)
   const [showAll, setShowAll] = useState(false)
+
+  const taskId = useTaskStore((s) => s.selectedTaskId)
+  const hasAcpSubagents = useTaskStore((s) => {
+    if (!taskId) return false
+    const subs = s.liveSubagents[taskId]
+    return !!subs && subs.length > 0
+  })
 
   if (!toolCalls.length) return null
 
@@ -36,62 +45,69 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls }: Tool
   const hasSubagent = useMemo(() => toolCalls.some(isSubagentToolCall), [toolCalls])
 
   return (
-    <div data-testid="tool-call-display" className="rounded-lg border border-border/60 bg-card">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left transition-colors hover:bg-accent/5"
-      >
-        {expanded ? (
-          <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground/70" />
-        ) : (
-          <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
-        )}
-        <IconBolt className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-        <span className="text-[13px] font-medium text-muted-foreground">
-          Tool calls
-        </span>
-        <span className="text-[11px] tabular-nums text-muted-foreground">
-          ({toolCalls.length})
-        </span>
-
-        <div className="flex-1" />
-        {runningCount > 0 && (
-          <span className="flex items-center gap-1 text-[11px] text-primary">
-            <IconLoader2 className="size-3 animate-spin" />
-            {runningCount}
-          </span>
-        )}
-        {failedCount > 0 && (
-          <span className="flex items-center gap-1 text-[11px] text-red-600 dark:text-red-400">
-            <IconX className="size-3" />
-            {failedCount}
-          </span>
-        )}
-        {completedCount > 0 && runningCount === 0 && failedCount === 0 && (
-          <IconCheck className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-        )}
-      </button>
-
-      {expanded && (
-        <div className="border-t border-border/50 py-1">
-          {visibleCalls.map((tc) => (
-            <ToolCallEntry key={tc.toolCallId} toolCall={tc} />
-          ))}
-          {hasMore && !showAll && (
-            <button
-              type="button"
-              onClick={() => setShowAll(true)}
-              className="w-full px-3 py-1.5 text-[11px] text-muted-foreground transition-colors hover:text-muted-foreground/80"
-            >
-              +{toolCalls.length - MAX_VISIBLE_DEFAULT} more
-            </button>
+    <>
+      <div data-testid="tool-call-display" className="rounded-lg border border-border/60 bg-card">
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left transition-colors hover:bg-accent/5"
+        >
+          {expanded ? (
+            <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground/70" />
+          ) : (
+            <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
           )}
+          <IconBolt className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span className="text-[13px] font-medium text-muted-foreground">
+            Tool calls
+          </span>
+          <span className="text-[11px] tabular-nums text-muted-foreground">
+            ({toolCalls.length})
+          </span>
+
+          <div className="flex-1" />
+          {runningCount > 0 && (
+            <span className="flex items-center gap-1 text-[11px] text-primary">
+              <IconLoader2 className="size-3 animate-spin" />
+              {runningCount}
+            </span>
+          )}
+          {failedCount > 0 && (
+            <span className="flex items-center gap-1 text-[11px] text-red-600 dark:text-red-400">
+              <IconX className="size-3" />
+              {failedCount}
+            </span>
+          )}
+          {completedCount > 0 && runningCount === 0 && failedCount === 0 && (
+            <IconCheck className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+          )}
+        </button>
+
+        {expanded && (
+          <div className="border-t border-border/50 py-1">
+            {visibleCalls.map((tc) => (
+              <ToolCallEntry key={tc.toolCallId} toolCall={tc} />
+            ))}
+            {hasMore && !showAll && (
+              <button
+                type="button"
+                onClick={() => setShowAll(true)}
+                className="w-full px-3 py-1.5 text-[11px] text-muted-foreground transition-colors hover:text-muted-foreground/80"
+              >
+                +{toolCalls.length - MAX_VISIBLE_DEFAULT} more
+              </button>
+            )}
+          </div>
+        )}
+
+        {hasTaskList && <TaskListDisplay allToolCalls={toolCalls} />}
+        {!hasAcpSubagents && hasSubagent && <SubagentDisplay allToolCalls={toolCalls} />}
+      </div>
+      {hasAcpSubagents && (
+        <div className="mt-2">
+          <AcpSubagentDisplay />
         </div>
       )}
-
-      {hasTaskList && <TaskListDisplay allToolCalls={toolCalls} />}
-      {hasSubagent && <SubagentDisplay allToolCalls={toolCalls} />}
-    </div>
+    </>
   )
 })

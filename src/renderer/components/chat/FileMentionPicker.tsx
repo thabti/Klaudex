@@ -3,14 +3,14 @@ import { IconRobot, IconTool, IconCode, IconListCheck, IconX } from '@tabler/ico
 import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { useKiroStore } from '@/stores/kiroStore'
+import { useClaudeConfigStore } from '@/stores/claudeConfigStore'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ProjectFile } from '@/types'
 
 // ── Built-in agents for @ mention ────────────────────────────────────
 const BUILT_IN_MENTION_AGENTS = [
-  { name: 'Default', id: 'kiro_default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-blue-600 dark:text-blue-400', bgCls: 'bg-blue-500/20' },
-  { name: 'Planner', id: 'kiro_planner', description: 'Plan before coding', icon: IconListCheck, color: 'text-teal-600 dark:text-teal-400', bgCls: 'bg-teal-500/20' },
+  { name: 'Default', id: 'default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-blue-600 dark:text-blue-400', bgCls: 'bg-blue-500/20' },
+  { name: 'Planner', id: 'plan', description: 'Plan before coding', icon: IconListCheck, color: 'text-teal-600 dark:text-teal-400', bgCls: 'bg-teal-500/20' },
 ] as const
 
 /** Resolve the icon + color for an agent mention pill by path */
@@ -243,13 +243,13 @@ export const FileMentionPicker = memo(function FileMentionPicker({
   const [loading, setLoading] = useState(false)
   const filesRef = useRef<ProjectFile[]>([])
   const respectGitignore = useSettingsStore((s) => s.settings.respectGitignore ?? true)
-  const agents = useKiroStore((s) => s.config.agents)
-  const skills = useKiroStore((s) => s.config.skills)
+  const agents = useClaudeConfigStore((s) => s.config.agents)
+  const commands = useClaudeConfigStore((s) => s.config.commands)
 
-  // Ensure kiro config is loaded
+  // Ensure claude config is loaded
   useEffect(() => {
-    if (!useKiroStore.getState().loaded) {
-      useKiroStore.getState().loadConfig(workspace ?? undefined)
+    if (!useClaudeConfigStore.getState().loaded) {
+      useClaudeConfigStore.getState().loadConfig(workspace ?? undefined)
     }
   }, [workspace])
 
@@ -269,50 +269,50 @@ export const FileMentionPicker = memo(function FileMentionPicker({
     return () => { cancelled = true }
   }, [workspace, respectGitignore])
 
-  // Build kiro items filtered by query — built-in agents first, then .kiro agents, then skills
+  // Build config items filtered by query — built-in agents first, then .claude agents, then skills
   const q = (query ?? '').replace(/^[@./]+/, '').trim()
-  type KiroItem = { type: 'agent' | 'skill'; name: string; description?: string; builtinIcon?: typeof IconRobot; builtinColor?: string; builtinBgCls?: string }
-  const scoredKiroItems: Array<{ item: KiroItem; score: number }> = []
+  type ConfigItem = { type: 'agent' | 'skill'; name: string; description?: string; builtinIcon?: typeof IconRobot; builtinColor?: string; builtinBgCls?: string }
+  const scoredConfigItems: Array<{ item: ConfigItem; score: number }> = []
   for (const b of BUILT_IN_MENTION_AGENTS) {
     if (!q) {
-      scoredKiroItems.push({ item: { type: 'agent', name: b.id, description: b.description, builtinIcon: b.icon, builtinColor: b.color, builtinBgCls: b.bgCls }, score: 0 })
+      scoredConfigItems.push({ item: { type: 'agent', name: b.id, description: b.description, builtinIcon: b.icon, builtinColor: b.color, builtinBgCls: b.bgCls }, score: 0 })
     } else {
       const nameScore = fuzzyScore(q, b.name)
       const idScore = fuzzyScore(q, b.id)
       const best = nameScore !== null && idScore !== null ? Math.min(nameScore, idScore) : nameScore ?? idScore
       if (best !== null) {
-        scoredKiroItems.push({ item: { type: 'agent', name: b.id, description: b.description, builtinIcon: b.icon, builtinColor: b.color, builtinBgCls: b.bgCls }, score: best })
+        scoredConfigItems.push({ item: { type: 'agent', name: b.id, description: b.description, builtinIcon: b.icon, builtinColor: b.color, builtinBgCls: b.bgCls }, score: best })
       }
     }
   }
   for (const a of agents) {
     if (!q) {
-      scoredKiroItems.push({ item: { type: 'agent', name: a.name, description: a.description }, score: 0 })
+      scoredConfigItems.push({ item: { type: 'agent', name: a.name, description: a.description }, score: 0 })
     } else {
       const nameScore = fuzzyScore(q, a.name)
       const descScore = fuzzyScore(q, a.description)
       const best = nameScore !== null && descScore !== null ? Math.min(nameScore, descScore + 50) : nameScore ?? (descScore !== null ? descScore + 50 : null)
       if (best !== null) {
-        scoredKiroItems.push({ item: { type: 'agent', name: a.name, description: a.description }, score: best })
+        scoredConfigItems.push({ item: { type: 'agent', name: a.name, description: a.description }, score: best })
       }
     }
   }
-  for (const s of skills) {
+  for (const s of commands) {
     if (!q) {
-      scoredKiroItems.push({ item: { type: 'skill', name: s.name }, score: 0 })
+      scoredConfigItems.push({ item: { type: 'skill', name: s.name }, score: 0 })
     } else {
       const score = fuzzyScore(q, s.name)
       if (score !== null) {
-        scoredKiroItems.push({ item: { type: 'skill', name: s.name }, score })
+        scoredConfigItems.push({ item: { type: 'skill', name: s.name }, score })
       }
     }
   }
-  if (q) scoredKiroItems.sort((a, b) => a.score - b.score)
-  const kiroItems = scoredKiroItems.map((s) => s.item)
+  if (q) scoredConfigItems.sort((a, b) => a.score - b.score)
+  const configItems = scoredConfigItems.map((s) => s.item)
 
   // Update filtered results when query changes
   const filtered = query ? searchFiles(filesRef.current, query) : filesRef.current.slice(0, 50)
-  const totalItems = kiroItems.length + filtered.length
+  const totalItems = configItems.length + filtered.length
 
   useEffect(() => {
     const el = listRef.current?.children[activeIndex] as HTMLElement | undefined
@@ -324,18 +324,18 @@ export const FileMentionPicker = memo(function FileMentionPicker({
     const handler = (e: Event) => {
       const idx = (e as CustomEvent).detail?.index ?? 0
       const normalizedIdx = idx % totalItems
-      if (normalizedIdx < kiroItems.length) {
-        const item = kiroItems[normalizedIdx]
+      if (normalizedIdx < configItems.length) {
+        const item = configItems[normalizedIdx]
         const prefix = item.type === 'agent' ? 'agent' : 'skill'
         onSelect({ path: `${prefix}:${item.name}`, name: item.name, dir: '', isDir: false, ext: '', gitStatus: '', linesAdded: 0, linesDeleted: 0, modifiedAt: 0 })
       } else {
-        const file = filtered[(normalizedIdx - kiroItems.length) % filtered.length]
+        const file = filtered[(normalizedIdx - configItems.length) % filtered.length]
         if (file) onSelect(file)
       }
     }
     document.addEventListener('file-mention-select', handler)
     return () => document.removeEventListener('file-mention-select', handler)
-  }, [filtered, kiroItems, totalItems, onSelect])
+  }, [filtered, configItems, totalItems, onSelect])
 
   if (loading) {
     return (
@@ -377,7 +377,7 @@ export const FileMentionPicker = memo(function FileMentionPicker({
         </button>
       </div>
       <ul ref={listRef} className="max-h-[280px] overflow-y-auto py-1">
-        {kiroItems.map((item, i) => {
+        {configItems.map((item, i) => {
           const isActive = i === activeIndex % totalItems
           const formatName = (name: string): string =>
             name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -412,11 +412,11 @@ export const FileMentionPicker = memo(function FileMentionPicker({
             </li>
           )
         })}
-        {kiroItems.length > 0 && filtered.length > 0 && (
+        {configItems.length > 0 && filtered.length > 0 && (
           <li className="mx-3 my-1 border-t border-border/50" role="separator" />
         )}
         {filtered.map((file, i) => {
-          const globalIdx = kiroItems.length + i
+          const globalIdx = configItems.length + i
           const isActive = globalIdx === activeIndex % totalItems
           return (
             <li

@@ -77,9 +77,9 @@ export const aggregateSubagentData = (allToolCalls: ToolCall[]): {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  kiro_default: 'Default',
-  kiro_planner: 'Planner',
-  kiro_guide: 'Guide',
+  default: 'Default',
+  plan: 'Planner',
+  guide: 'Guide',
 } as const
 
 const getRoleLabel = (role: string): string =>

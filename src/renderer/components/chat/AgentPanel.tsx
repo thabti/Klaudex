@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { fuzzyScore } from '@/lib/fuzzy-search'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
-import { useKiroStore } from '@/stores/kiroStore'
+import { useClaudeConfigStore } from '@/stores/claudeConfigStore'
 import { ipc } from '@/lib/ipc'
 import { PanelShell } from './PanelShell'
 
@@ -16,14 +16,14 @@ const STATUS_DOT: Record<string, { cls: string; label: string }> = {
 }
 
 const BUILT_IN_AGENTS = [
-  { id: 'kiro_default', name: 'Default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-blue-600 dark:text-blue-400' },
-  { id: 'kiro_planner', name: 'Planner', description: 'Plan before coding', icon: IconListCheck, color: 'text-teal-600 dark:text-teal-400' },
+  { id: 'default', name: 'Default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-blue-600 dark:text-blue-400' },
+  { id: 'plan', name: 'Planner', description: 'Plan before coding', icon: IconListCheck, color: 'text-teal-600 dark:text-teal-400' },
 ] as const
 
 export const AgentPanel = memo(function AgentPanel({ onDismiss }: { onDismiss: () => void }) {
   const servers = useSettingsStore((s) => s.liveMcpServers)
   const currentModeId = useSettingsStore((s) => s.currentModeId)
-  const kiroAgents = useKiroStore((s) => s.config.agents)
+  const claudeAgents = useClaudeConfigStore((s) => s.config.agents)
   const [query, setQuery] = useState('')
 
   const handleSelectAgent = useCallback((agentId: string) => {
@@ -40,7 +40,7 @@ export const AgentPanel = memo(function AgentPanel({ onDismiss }: { onDismiss: (
   const formatName = (name: string): string => name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 
   const q = query.trim()
-  const totalItems = BUILT_IN_AGENTS.length + kiroAgents.length + servers.length
+  const totalItems = BUILT_IN_AGENTS.length + claudeAgents.length + servers.length
   const hasSearch = totalItems > 5
 
   const filteredBuiltIn = useMemo(() => {
@@ -57,19 +57,19 @@ export const AgentPanel = memo(function AgentPanel({ onDismiss }: { onDismiss: (
       .map((r) => r.agent)
   }, [q])
 
-  const filteredKiro = useMemo(() => {
-    if (!q) return kiroAgents
-    return kiroAgents
+  const filteredClaude = useMemo(() => {
+    if (!q) return claudeAgents
+    return claudeAgents
       .map((a) => {
         const nameScore = fuzzyScore(q, a.name)
         const descScore = fuzzyScore(q, a.description)
         const best = nameScore !== null && descScore !== null ? Math.min(nameScore, descScore + 50) : nameScore ?? (descScore !== null ? descScore + 50 : null)
         return { agent: a, score: best }
       })
-      .filter((r): r is { agent: typeof kiroAgents[number]; score: number } => r.score !== null)
+      .filter((r): r is { agent: typeof claudeAgents[number]; score: number } => r.score !== null)
       .sort((a, b) => a.score - b.score)
       .map((r) => r.agent)
-  }, [q, kiroAgents])
+  }, [q, claudeAgents])
 
   const filteredServers = useMemo(() => {
     if (!q) return servers
@@ -106,12 +106,12 @@ export const AgentPanel = memo(function AgentPanel({ onDismiss }: { onDismiss: (
           </ul>
         </>
       )}
-      {filteredKiro.length > 0 && (
+      {filteredClaude.length > 0 && (
         <>
           <div className="mx-3 border-t border-border/40" />
-          <div className="px-3 pt-2 pb-1"><span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">.kiro Agents</span></div>
+          <div className="px-3 pt-2 pb-1"><span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">.claude Agents</span></div>
           <ul className="max-h-[160px] overflow-y-auto pb-1">
-            {filteredKiro.map((agent) => {
+            {filteredClaude.map((agent) => {
               const isActive = currentModeId === agent.name
               return (
                 <li key={`${agent.source}-${agent.name}`} role="option" aria-selected={isActive} onMouseDown={(e) => { e.preventDefault(); handleSelectAgent(agent.name) }} className={cn('flex cursor-pointer items-center gap-2.5 px-3 py-1.5 text-[12px] transition-colors', isActive ? 'text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground')}>
@@ -144,7 +144,7 @@ export const AgentPanel = memo(function AgentPanel({ onDismiss }: { onDismiss: (
           </div>
         </>
       )}
-      {filteredBuiltIn.length === 0 && filteredKiro.length === 0 && filteredServers.length === 0 && q && (
+      {filteredBuiltIn.length === 0 && filteredClaude.length === 0 && filteredServers.length === 0 && q && (
         <p className="px-3 py-3 text-xs text-muted-foreground/70">No matches for "{q}"</p>
       )}
     </PanelShell>

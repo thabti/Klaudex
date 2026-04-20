@@ -13,6 +13,7 @@ import { QueuedMessages } from './QueuedMessages'
 import { SearchBar } from './SearchBar'
 import { SearchQueryContext } from './HighlightText'
 import { BtwOverlay } from './BtwOverlay'
+import { UserInputCard } from './UserInputCard'
 import { useMessageSearch } from '@/hooks/useMessageSearch'
 import { ipc } from '@/lib/ipc'
 import type { TaskMessage, ToolCall, IpcAttachment } from '@/types'
@@ -22,6 +23,13 @@ const EMPTY_MESSAGES: TaskMessage[] = []
 const EMPTY_TOOL_CALLS: ToolCall[] = []
 const EMPTY_OPTIONS: Array<{ optionId: string; name: string; kind: string }> = []
 const EMPTY_QUEUE: string[] = []
+
+/** Format cost as USD with appropriate decimal places */
+const formatCost = (cost: number): string => {
+  if (cost < 0.01) return `$${cost.toFixed(4)}`
+  if (cost < 1) return `$${cost.toFixed(3)}`
+  return `$${cost.toFixed(2)}`
+}
 
 /**
  * Owns the streaming selectors so ChatPanel doesn't re-render on every token.
@@ -74,12 +82,12 @@ async function sendMessageDirect(msg: string, attachments?: IpcAttachment[]): Pr
     const projectRoot = task.originalWorkspace ?? task.workspace
     const projectPrefs = projectRoot ? settings.projectPrefs?.[projectRoot] : undefined
     const autoApprove = projectPrefs?.autoApprove !== undefined ? projectPrefs.autoApprove : settings.autoApprove
-    const modeId = currentModeId && currentModeId !== 'kiro_default' ? currentModeId : undefined
+    const modeId = currentModeId && currentModeId !== 'default' ? currentModeId : undefined
     const created = await ipc.createTask({ name: task.name, workspace: task.workspace, prompt: msg, autoApprove, modeId, attachments })
     const draft = useTaskStore.getState().tasks[task.id]
     const messages = draft?.messages.length ? draft.messages : [userMsg]
     state.upsertTask({ ...created, messages })
-    if (currentModeId && currentModeId !== 'kiro_default') {
+    if (currentModeId && currentModeId !== 'default') {
       useTaskStore.getState().setTaskMode(created.id, currentModeId)
     }
     state.setSelectedTask(created.id)
@@ -116,7 +124,7 @@ export const ChatPanel = memo(function ChatPanel() {
   const taskPlan = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.plan : null)
   const pendingPermission = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.pendingPermission : null)
   const contextUsage = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.contextUsage : null)
-  const isPlanMode = useSettingsStore((s) => s.currentModeId === 'kiro_planner')
+  const isPlanMode = useSettingsStore((s) => s.currentModeId === 'plan')
   const taskWorkspace = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.workspace : null)
   const isWorktree = useTaskStore((s) => selectedTaskId ? !!s.tasks[selectedTaskId]?.worktreePath : false)
   const messageCount = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.messages?.length ?? 0 : 0)
@@ -124,6 +132,8 @@ export const ChatPanel = memo(function ChatPanel() {
   const toggleTerminal = useTaskStore((s) => s.toggleTerminal)
   const queuedMessages = useTaskStore((s) => selectedTaskId ? s.queuedMessages[selectedTaskId] ?? EMPTY_QUEUE : EMPTY_QUEUE)
   const isBtwMode = useTaskStore((s) => s.btwCheckpoint !== null)
+  const totalCost = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.totalCost : undefined)
+  const pendingUserInput = useTaskStore((s) => selectedTaskId ? s.pendingUserInputs[selectedTaskId] : undefined)
 
   // Search state — timeline rows are pushed up from MessageList via callback
   const timelineRowsRef = useRef<TimelineRow[]>([])
@@ -278,6 +288,26 @@ export const ChatPanel = memo(function ChatPanel() {
             options={pendingPermission.options ?? EMPTY_OPTIONS}
             onSelect={handlePermissionSelect}
           />
+        )}
+
+        {!isArchived && pendingUserInput && selectedTaskId && (
+          <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 lg:max-w-4xl xl:max-w-5xl">
+            <UserInputCard
+              taskId={selectedTaskId}
+              requestId={pendingUserInput.requestId}
+              fields={pendingUserInput.fields}
+            />
+          </div>
+        )}
+
+        {!isArchived && totalCost !== undefined && totalCost > 0 && (
+          <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 lg:max-w-4xl xl:max-w-5xl">
+            <div className="flex justify-end pb-1">
+              <span className="text-[11px] tabular-nums text-muted-foreground/70">
+                {formatCost(totalCost)} spent
+              </span>
+            </div>
+          </div>
         )}
 
         {!isArchived && (

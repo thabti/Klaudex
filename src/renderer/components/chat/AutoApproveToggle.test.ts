@@ -11,19 +11,19 @@ vi.mock('@/lib/ipc', () => ({
 
 describe('selectAutoApprove', () => {
   it('returns false by default', () => {
-    const state = { activeWorkspace: null, settings: { kiroBin: '', agentProfiles: [], fontSize: 13 } } as any
+    const state = { activeWorkspace: null, settings: { claudeBin: '', agentProfiles: [], fontSize: 13 } } as any
     expect(selectAutoApprove(state)).toBe(false)
   })
 
   it('returns global autoApprove when no workspace', () => {
-    const state = { activeWorkspace: null, settings: { kiroBin: '', agentProfiles: [], fontSize: 13, autoApprove: true } } as any
+    const state = { activeWorkspace: null, settings: { claudeBin: '', agentProfiles: [], fontSize: 13, autoApprove: true } } as any
     expect(selectAutoApprove(state)).toBe(true)
   })
 
   it('returns project pref when workspace set', () => {
     const state = {
       activeWorkspace: '/ws',
-      settings: { kiroBin: '', agentProfiles: [], fontSize: 13, autoApprove: false, projectPrefs: { '/ws': { autoApprove: true } } },
+      settings: { claudeBin: '', agentProfiles: [], fontSize: 13, autoApprove: false, projectPrefs: { '/ws': { autoApprove: true } } },
     } as any
     expect(selectAutoApprove(state)).toBe(true)
   })
@@ -31,7 +31,7 @@ describe('selectAutoApprove', () => {
   it('falls back to global when project pref undefined', () => {
     const state = {
       activeWorkspace: '/ws',
-      settings: { kiroBin: '', agentProfiles: [], fontSize: 13, autoApprove: true, projectPrefs: { '/ws': {} } },
+      settings: { claudeBin: '', agentProfiles: [], fontSize: 13, autoApprove: true, projectPrefs: { '/ws': {} } },
     } as any
     expect(selectAutoApprove(state)).toBe(true)
   })
@@ -66,7 +66,7 @@ describe('toggle calls ipc.setAutoApprove for live tasks', () => {
     if (!selectedTaskId) return
     const task = tasks[selectedTaskId]
     if (!task) return
-    const isLive = task.status === 'running' || task.status === 'pending_permission' || task.status === 'paused'
+    const isLive = task.status === 'running' || task.status === 'pending_permission' || task.status === 'paused' || task.status === 'completed'
     if (isLive) {
       ipcMock.setAutoApprove(selectedTaskId, next)
     }
@@ -102,14 +102,14 @@ describe('toggle calls ipc.setAutoApprove for live tasks', () => {
     expect(ipcMock.setAutoApprove).toHaveBeenCalledWith('task-3', true)
   })
 
-  it('does NOT call setAutoApprove for a completed task', () => {
+  it('calls setAutoApprove for a completed task (connection still alive)', () => {
     const setProjectPref = vi.fn()
     const saveSettings = vi.fn()
     simulateToggle(
       { settings: { autoApprove: false }, activeWorkspace: null, setProjectPref, saveSettings },
       { selectedTaskId: 'task-4', tasks: { 'task-4': { status: 'completed' } } },
     )
-    expect(ipcMock.setAutoApprove).not.toHaveBeenCalled()
+    expect(ipcMock.setAutoApprove).toHaveBeenCalledWith('task-4', true)
   })
 
   it('does NOT call setAutoApprove when no task selected', () => {

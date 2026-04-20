@@ -5,7 +5,8 @@ import { cn } from '@/lib/utils'
 import { getModelIcon } from '@/lib/model-icons'
 
 export const ModelPicker = memo(function ModelPicker() {
-  const models = useSettingsStore((s) => s.availableModels)
+  const rawModels = useSettingsStore((s) => s.availableModels)
+  const models = Array.isArray(rawModels) ? rawModels : []
   const currentId = useSettingsStore((s) => s.currentModelId)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)

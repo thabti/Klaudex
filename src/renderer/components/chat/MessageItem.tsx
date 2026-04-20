@@ -7,7 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useKiroStore } from "@/stores/kiroStore";
+import { useClaudeConfigStore } from "@/stores/claudeConfigStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import ChatMarkdown from "./ChatMarkdown";
 import { ToolCallDisplay } from "./ToolCallDisplay";
@@ -28,7 +28,7 @@ const LOADING_WORDS = [
 ];
 
 function McpErrorLines() {
-  const mcpServers = useKiroStore((s) => s.config.mcpServers ?? []);
+  const mcpServers = useClaudeConfigStore((s) => s.config.mcpServers ?? []);
   const failed = mcpServers.filter(
     (m) => m.enabled && (m.status === "needs-auth" || m.status === "error"),
   );
@@ -45,7 +45,7 @@ function McpErrorLines() {
 }
 
 function GeneratingIndicator() {
-  const isPlan = useSettingsStore((s) => s.currentModeId) === 'kiro_planner'
+  const isPlan = useSettingsStore((s) => s.currentModeId) === 'plan'
   const [idx, setIdx] = useState(() =>
     Math.floor(Math.random() * LOADING_WORDS.length),
   );

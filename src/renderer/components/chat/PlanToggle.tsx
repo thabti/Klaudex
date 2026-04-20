@@ -14,10 +14,10 @@ const PlanIcon = () => (
 
 export const PlanToggle = memo(function PlanToggle() {
   const currentModeId = useSettingsStore((s) => s.currentModeId)
-  const isPlan = currentModeId === 'kiro_planner'
+  const isPlan = currentModeId === 'plan'
 
   const handleToggle = useCallback(() => {
-    const nextMode = isPlan ? 'kiro_default' : 'kiro_planner'
+    const nextMode = isPlan ? 'default' : 'plan'
     useSettingsStore.setState({ currentModeId: nextMode })
     const taskId = useTaskStore.getState().selectedTaskId
     if (taskId) {

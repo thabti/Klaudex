@@ -4,7 +4,7 @@ import { useTaskStore } from '@/stores/taskStore'
 import { ipc } from '@/lib/ipc'
 import { track } from '@/lib/analytics'
 
-export type SlashPanel = 'model' | 'agent' | 'usage' | 'branch' | 'worktree' | null
+export type SlashPanel = 'model' | 'agent' | 'usage' | 'stats' | 'branch' | 'worktree' | null
 
 export interface SlashActionResult {
   panel: SlashPanel
@@ -51,7 +51,7 @@ export const useSlashAction = (): SlashActionResult => {
     // Track every recognized slash command. The switch below rejects unknown
     // names by returning false, so we gate the track call on that path via
     // the `default` case.
-    const KNOWN = new Set(['clear', 'model', 'agent', 'settings', 'upload', 'plan', 'usage', 'close', 'exit', 'branch', 'worktree', 'btw', 'tangent', 'fork'])
+    const KNOWN = new Set(['clear', 'model', 'agent', 'settings', 'upload', 'plan', 'usage', 'stats', 'close', 'exit', 'branch', 'worktree', 'btw', 'tangent', 'fork', 'undo'])
     if (KNOWN.has(name)) {
       track('feature_used', { feature: 'slash_command', detail: name })
     }
@@ -88,12 +88,15 @@ export const useSlashAction = (): SlashActionResult => {
       case 'usage':
         setPanel((p) => (p === 'usage' ? null : 'usage'))
         return true
+      case 'stats':
+        setPanel((p) => (p === 'stats' ? null : 'stats'))
+        return true
       case 'plan': {
         const current = useSettingsStore.getState().currentModeId
-        if (current === 'kiro_planner') {
-          switchMode('kiro_default', 'Default')
+        if (current === 'plan') {
+          switchMode('default', 'Default')
         } else {
-          switchMode('kiro_planner', 'Plan')
+          switchMode('plan', 'Plan')
         }
         setPanel(null)
         return true
@@ -131,6 +134,31 @@ export const useSlashAction = (): SlashActionResult => {
       case 'fork': {
         const { selectedTaskId, forkTask } = useTaskStore.getState()
         if (selectedTaskId) void forkTask(selectedTaskId)
+        setPanel(null)
+        return true
+      }
+      case 'undo': {
+        const { selectedTaskId, tasks } = useTaskStore.getState()
+        if (!selectedTaskId) return true
+        const task = tasks[selectedTaskId]
+        if (!task || task.status === 'running') {
+          addSystemMessage('⚠️ Cannot undo while the agent is running')
+          return true
+        }
+        ipc.rollbackTask(selectedTaskId, 1).then(() => {
+          addSystemMessage('↩️ Rolled back the last turn')
+          // Remove the last assistant+user message pair from local state
+          const current = useTaskStore.getState().tasks[selectedTaskId]
+          if (!current) return
+          const msgs = [...current.messages]
+          // Remove trailing assistant message
+          if (msgs.length > 0 && msgs[msgs.length - 1].role === 'assistant') msgs.pop()
+          // Remove trailing user message
+          if (msgs.length > 0 && msgs[msgs.length - 1].role === 'user') msgs.pop()
+          useTaskStore.getState().upsertTask({ ...current, messages: msgs })
+        }).catch(() => {
+          addSystemMessage('⚠️ Failed to roll back')
+        })
         setPanel(null)
         return true
       }

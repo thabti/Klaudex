@@ -2,10 +2,13 @@ import { memo, useMemo, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { fuzzyScore } from '@/lib/fuzzy-search'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useTaskStore } from '@/stores/taskStore'
+import { ipc } from '@/lib/ipc'
 import { PanelShell } from './PanelShell'
 
 export const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { onDismiss: () => void }) {
-  const models = useSettingsStore((s) => s.availableModels)
+  const rawModels = useSettingsStore((s) => s.availableModels)
+  const models = Array.isArray(rawModels) ? rawModels : []
   const currentId = useSettingsStore((s) => s.currentModelId)
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -30,6 +33,11 @@ export const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { 
       setProjectPref(activeWorkspace, { modelId })
     } else {
       useSettingsStore.setState({ currentModelId: modelId })
+    }
+    // Switch model mid-session if a task is active
+    const taskId = useTaskStore.getState().selectedTaskId
+    if (taskId) {
+      ipc.setModel(taskId, modelId).catch(() => {})
     }
     onDismiss()
   }

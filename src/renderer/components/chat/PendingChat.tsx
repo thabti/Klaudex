@@ -66,7 +66,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
     const { settings: currentSettings, activeWorkspace, currentModeId } = useSettingsStore.getState()
     const prefs = activeWorkspace ? currentSettings.projectPrefs?.[activeWorkspace] : undefined
     const autoApprove = prefs?.autoApprove !== undefined ? prefs.autoApprove : currentSettings.autoApprove
-    const modeId = currentModeId && currentModeId !== 'kiro_default' ? currentModeId : undefined
+    const modeId = currentModeId && currentModeId !== 'default' ? currentModeId : undefined
 
     if (useWorktree && worktreeSlug && isValidWorktreeSlug(worktreeSlug)) {
       // Create worktree first, then create task in it
@@ -90,7 +90,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
             { role: 'system', content: `Working in worktree \`${wtResult.worktreePath}\` on branch \`${wtResult.branch}\``, timestamp: new Date().toISOString() },
           ],
         })
-        if (currentModeId && currentModeId !== 'kiro_default') {
+        if (currentModeId && currentModeId !== 'default') {
           useTaskStore.getState().setTaskMode(created.id, currentModeId)
         }
         useTaskStore.setState({ pendingWorkspace: null, selectedTaskId: created.id })
@@ -111,7 +111,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
             ...created.messages,
           ],
         })
-        if (currentModeId && currentModeId !== 'kiro_default') {
+        if (currentModeId && currentModeId !== 'default') {
           useTaskStore.getState().setTaskMode(created.id, currentModeId)
         }
         useTaskStore.setState({ pendingWorkspace: null, selectedTaskId: created.id })
@@ -125,7 +125,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
 
     const created = await ipc.createTask({ name, workspace, prompt: msg, autoApprove, modeId, attachments })
     upsertTask({ ...created, projectId: getProjectId(workspace) })
-    if (currentModeId && currentModeId !== 'kiro_default') {
+    if (currentModeId && currentModeId !== 'default') {
       useTaskStore.getState().setTaskMode(created.id, currentModeId)
     }
     useTaskStore.setState({ pendingWorkspace: null, selectedTaskId: created.id })
@@ -136,10 +136,10 @@ export function PendingChat({ workspace }: PendingChatProps) {
     }
   }, [workspace, upsertTask, removeDraft, useWorktree, worktreeSlug, getProjectId])
 
-  const kiroAuth = useSettingsStore((s) => s.kiroAuth)
-  const kiroAuthChecked = useSettingsStore((s) => s.kiroAuthChecked)
+  const claudeAuth = useSettingsStore((s) => s.claudeAuth)
+  const claudeAuthChecked = useSettingsStore((s) => s.claudeAuthChecked)
   const openLogin = useSettingsStore((s) => s.openLogin)
-  const isLoggedOut = kiroAuthChecked && !kiroAuth
+  const isLoggedOut = claudeAuthChecked && !claudeAuth
   const isSlugValid = !worktreeSlug || isValidWorktreeSlug(worktreeSlug)
 
   return (
@@ -154,14 +154,14 @@ export function PendingChat({ workspace }: PendingChatProps) {
             </div>
             <div>
               <p className="text-sm font-medium text-foreground/80">Sign in to start a conversation</p>
-              <p className="mt-1 text-xs text-muted-foreground">Kiro authentication is required to use AI agents</p>
+              <p className="mt-1 text-xs text-muted-foreground">Claude authentication is required to use AI agents</p>
             </div>
             <button
               type="button"
               onClick={openLogin}
               className="rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent"
             >
-              Sign in to Kiro
+              Sign in to Claude
             </button>
           </div>
         ) : (
@@ -190,7 +190,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
             {/* Slug row */}
             {useWorktree && (
               <div className="mt-2 flex items-center gap-1.5 border-t border-border/30 pt-2 pl-[26px]">
-                <span className="shrink-0 rounded bg-muted/50 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground/70">.kiro/worktrees/</span>
+                <span className="shrink-0 rounded bg-muted/50 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground/70">.klaudex/worktrees/</span>
                 {isEditingSlug ? (
                   <input
                     ref={slugInputRef}

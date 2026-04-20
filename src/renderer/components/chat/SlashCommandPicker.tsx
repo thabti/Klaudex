@@ -6,7 +6,7 @@ import type { SlashCommand } from '@/stores/settingsStore'
 // Strip leading slash from command name (ACP sends "/agent", we display "/agent" ourselves)
 const displayName = (name: string): string => name.replace(/^\/+/, '')
 
-// ── Kiro-accurate descriptions (fallback when ACP description is generic) ──
+// ── Accurate descriptions (fallback when ACP description is generic) ──
 const COMMAND_DESCRIPTIONS: Record<string, string> = {
   agent: 'Switch between agents or list available ones',
   branch: 'Create and checkout a new branch',
@@ -17,16 +17,18 @@ const COMMAND_DESCRIPTIONS: Record<string, string> = {
   compact: 'Summarize conversation to free up context',
   context: 'Manage context files or view token usage',
   feedback: 'Submit feedback, request features, or report issues',
-  help: 'Get help with Kiro CLI features and commands',
+  help: 'Get help with Claude CLI features and commands',
   knowledge: 'Add, search, or manage your knowledge base',
   model: 'Switch the active AI model',
   plan: 'Toggle plan mode on or off',
   prompts: 'Manage reusable prompt templates',
   settings: 'Open application settings',
+  stats: 'Detailed session stats: turns, messages, tool calls, cache rate, cost breakdown',
   tangent: 'Ask a side question (alias for /btw)',
   tools: 'View or configure available tools',
   usage: 'Show token and cost usage for this session',
   worktree: 'Create a worktree and new thread for isolated work',
+  undo: 'Roll back the last conversation turn',
 }
 
 // ── Per-command SVG icons ───────────────────────────────────────────
@@ -104,6 +106,11 @@ const COMMAND_ICONS: Record<string, () => React.ReactNode> = {
       <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
   ),
+  stats: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="12" width="4" height="9" rx="1" /><rect x="10" y="7" width="4" height="14" rx="1" /><rect x="17" y="3" width="4" height="18" rx="1" />
+    </svg>
+  ),
   tangent: () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -122,6 +129,11 @@ const COMMAND_ICONS: Record<string, () => React.ReactNode> = {
   worktree: () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="6" cy="6" r="3" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><line x1="6" y1="9" x2="6" y2="15" /><path d="M9 6h6" /><path d="M6 9c0 3 2 6 6 9" />
+    </svg>
+  ),
+  undo: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 7v6h6" /><path d="M3 13a9 9 0 1 0 3-7.7L3 7" />
     </svg>
   ),
 }

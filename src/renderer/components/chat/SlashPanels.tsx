@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { ModelPickerPanel } from './ModelPickerPanel'
 import { AgentPanel } from './AgentPanel'
 import { UsagePanel } from './UsagePanel'
+import { StatsPanel } from './StatsPanel'
 import { BranchPanel, WorktreePanel } from './GitPanels'
 import type { SlashPanel } from '@/hooks/useSlashAction'
 
@@ -20,6 +21,7 @@ export const SlashActionPanel = memo(function SlashActionPanel({
   if (panel === 'model') return <ModelPickerPanel onDismiss={onDismiss} />
   if (panel === 'agent') return <AgentPanel onDismiss={onDismiss} />
   if (panel === 'usage') return <UsagePanel onDismiss={onDismiss} />
+  if (panel === 'stats') return <StatsPanel onDismiss={onDismiss} />
   if (panel === 'branch') return <BranchPanel onDismiss={onDismiss} />
   if (panel === 'worktree') return <WorktreePanel onDismiss={onDismiss} />
   return null

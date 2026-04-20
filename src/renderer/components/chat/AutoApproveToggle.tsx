@@ -31,7 +31,7 @@ export const AutoApproveToggle = memo(function AutoApproveToggle() {
     if (!selectedTaskId) return
     const task = tasks[selectedTaskId]
     if (!task) return
-    const isLive = task.status === 'running' || task.status === 'pending_permission' || task.status === 'paused'
+    const isLive = task.status === 'running' || task.status === 'pending_permission' || task.status === 'paused' || task.status === 'completed'
     if (isLive) {
       ipc.setAutoApprove(selectedTaskId, next).catch(() => {})
     }

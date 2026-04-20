@@ -103,7 +103,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
   }, [textareaRef])
 
-  const isPlanMode = currentModeId === 'kiro_planner'
+  const isPlanMode = currentModeId === 'plan'
   const borderFocus = isPlanMode ? 'focus-within:border-teal-500/60' : 'focus-within:border-blue-500/60'
   const borderIdle = isPlanMode ? 'border-teal-500/25' : 'border-border'
 

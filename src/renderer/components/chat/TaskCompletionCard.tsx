@@ -13,7 +13,7 @@ interface KlaudexReport {
 const REPORT_REGEX = /```klaudex-report\s*\n([\s\S]*?)\n```/
 const JSON_FENCE_REGEX = /```json\s*\n([\s\S]*?)\n```/
 const BARE_JSON_REGEX = /\{[\s\S]*"status"\s*:\s*"(?:done|partial|blocked)"[\s\S]*"summary"\s*:\s*"[^"]+?"[\s\S]*\}/
-const KIRO_SUMMARY_REGEX = /<kiro_summary>[\s\S]*?<\/kiro_summary>/g
+const SUMMARY_TAG_REGEX = /<kiro_summary>[\s\S]*?<\/kiro_summary>/g
 
 const VALID_STATUSES = new Set(['done', 'partial', 'blocked'])
 
@@ -69,7 +69,7 @@ export const shouldRenderReportCard = (report: KlaudexReport): boolean =>
  *  Strips any report-like JSON regardless of whether it parses into a valid report. */
 export const stripReport = (text: string): string => {
   // Always strip <kiro_summary> tags
-  let cleaned = text.replace(KIRO_SUMMARY_REGEX, '').trimEnd()
+  let cleaned = text.replace(SUMMARY_TAG_REGEX, '').trimEnd()
   if (REPORT_REGEX.test(cleaned)) return cleaned.replace(REPORT_REGEX, '').trimEnd()
   const jsonFenceMatch = JSON_FENCE_REGEX.exec(cleaned)
   if (jsonFenceMatch) {

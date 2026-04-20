@@ -13,16 +13,16 @@ export const isPlanHandoff = (text: string): boolean =>
 
 export const PlanHandoffCard = memo(function PlanHandoffCard() {
   const currentModeId = useSettingsStore((s) => s.currentModeId)
-  const isPlan = currentModeId === 'kiro_planner'
+  const isPlan = currentModeId === 'plan'
   const [isSwitching, setIsSwitching] = useState(false)
 
   const handleSwitch = useCallback(() => {
     const taskId = useTaskStore.getState().selectedTaskId
     if (!taskId || isSwitching) return
     setIsSwitching(true)
-    useSettingsStore.setState({ currentModeId: 'kiro_default' })
-    useTaskStore.getState().setTaskMode(taskId, 'kiro_default')
-    ipc.setMode(taskId, 'kiro_default').then(() => {
+    useSettingsStore.setState({ currentModeId: 'default' })
+    useTaskStore.getState().setTaskMode(taskId, 'default')
+    ipc.setMode(taskId, 'default').then(() => {
       const state = useTaskStore.getState()
       const task = state.tasks[taskId]
       if (!task) return

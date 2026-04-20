@@ -15,7 +15,7 @@ const LOADING_WORDS = [
 ]
 
 export const WorkingRow = memo(function WorkingRow() {
-  const isPlan = useSettingsStore((s) => s.currentModeId) === 'kiro_planner'
+  const isPlan = useSettingsStore((s) => s.currentModeId) === 'plan'
   const [idx, setIdx] = useState(() =>
     Math.floor(Math.random() * LOADING_WORDS.length),
   )
