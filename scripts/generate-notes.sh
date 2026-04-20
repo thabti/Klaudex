@@ -14,10 +14,25 @@ if [ -z "$FROM" ]; then
   exit 1
 fi
 
-# Derive GitHub repo URL from remote
+# Derive GitHub repo URL and owner from remote
 REPO_URL=$(git remote get-url origin 2>/dev/null \
   | sed 's|git@github.com:|https://github.com/|' \
   | sed 's|\.git$||')
+REPO_SLUG=$(echo "$REPO_URL" | sed 's|https://github.com/||')
+REPO_OWNER=$(echo "$REPO_SLUG" | cut -d/ -f1)
+
+# Look up the PR author for a commit via gh CLI. Returns empty for
+# commits by the repo owner or when no associated PR is found.
+pr_author_for_commit() {
+  local hash="$1"
+  if ! command -v gh &>/dev/null; then return; fi
+  local author
+  author=$(gh pr list --repo "$REPO_SLUG" --state merged --search "$hash" \
+    --json author --jq '.[0].author.login' 2>/dev/null || true)
+  if [ -n "$author" ] && [ "$author" != "$REPO_OWNER" ] && [ "$author" != "null" ]; then
+    echo "$author"
+  fi
+}
 
 # Collect commit hash + subject, skip release commits and CI SKIP
 COMMITS=$(git log "${FROM}..${TO}" --pretty=format:"%H %s" \
@@ -42,7 +57,12 @@ while IFS= read -r line; do
   if [[ "$SUBJECT" =~ ^([a-z]+)(\(.+\))?!?:\ (.+)$ ]]; then
     TYPE="${BASH_REMATCH[1]}"
     DESC="${BASH_REMATCH[3]}"
-    ENTRY="$DESC ($LINK)"
+    AUTHOR=$(pr_author_for_commit "$HASH")
+    THANKS=""
+    if [ -n "$AUTHOR" ]; then
+      THANKS=" — thanks @${AUTHOR}"
+    fi
+    ENTRY="$DESC ($LINK)${THANKS}"
     case "$TYPE" in
       feat)     FEAT+=("$ENTRY") ;;
       fix)      FIX+=("$ENTRY") ;;
@@ -57,7 +77,12 @@ while IFS= read -r line; do
       *)        OTHER+=("$SUBJECT ($LINK)") ;;
     esac
   else
-    OTHER+=("$SUBJECT ($LINK)")
+    AUTHOR=$(pr_author_for_commit "$HASH")
+    THANKS=""
+    if [ -n "$AUTHOR" ]; then
+      THANKS=" — thanks @${AUTHOR}"
+    fi
+    OTHER+=("$SUBJECT ($LINK)${THANKS}")
   fi
 done <<< "$COMMITS"
 
