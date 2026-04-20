@@ -14,7 +14,7 @@ interface OnboardingSetupStepProps {
 }
 
 export const OnboardingSetupStep = ({ themeChoice, isAnalyticsEnabled, onAnalyticsChange }: OnboardingSetupStepProps) => {
-  const [bin, setBin] = useState('kiro-cli')
+  const [bin, setBin] = useState('claude')
   const [isCliReady, setIsCliReady] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
@@ -25,7 +25,7 @@ export const OnboardingSetupStep = ({ themeChoice, isAnalyticsEnabled, onAnalyti
 
   const finish = useCallback(async () => {
     const settings = useSettingsStore.getState().settings
-    await useSettingsStore.getState().saveSettings({ ...settings, kiroBin: bin, hasOnboardedV2: true, theme: themeChoice, analyticsEnabled: isAnalyticsEnabled })
+    await useSettingsStore.getState().saveSettings({ ...settings, claudeBin: bin, hasOnboardedV2: true, theme: themeChoice, analyticsEnabled: isAnalyticsEnabled })
     useSettingsStore.getState().checkAuth()
     ipc.probeCapabilities().catch(() => {})
   }, [bin, themeChoice, isAnalyticsEnabled])
@@ -34,7 +34,7 @@ export const OnboardingSetupStep = ({ themeChoice, isAnalyticsEnabled, onAnalyti
     <div className="flex w-full max-w-md flex-col gap-6">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight text-foreground">Set up Klaudex</h2>
-        <p className="mt-2 text-[14px] text-muted-foreground">Connect to kiro-cli and sign in to get started.</p>
+        <p className="mt-2 text-[14px] text-muted-foreground">Connect to Claude CLI and sign in to get started.</p>
       </div>
 
       <OnboardingCliSection onCliReady={handleCliReady} />

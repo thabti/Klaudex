@@ -18,8 +18,8 @@ export const HeaderUserMenu = memo(function HeaderUserMenu() {
   const [open, setOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const kiroAuth = useSettingsStore((s) => s.kiroAuth)
-  const kiroAuthChecked = useSettingsStore((s) => s.kiroAuthChecked)
+  const claudeAuth = useSettingsStore((s) => s.claudeAuth)
+  const claudeAuthChecked = useSettingsStore((s) => s.claudeAuthChecked)
   const checkAuth = useSettingsStore((s) => s.checkAuth)
   const logout = useSettingsStore((s) => s.logout)
   const openLogin = useSettingsStore((s) => s.openLogin)
@@ -43,13 +43,13 @@ export const HeaderUserMenu = memo(function HeaderUserMenu() {
             onClick={() => setOpen((v) => !v)}
             className={cn(
               "inline-flex size-6 items-center justify-center rounded-md transition-colors",
-              kiroAuth
+              claudeAuth
                 ? "text-muted-foreground hover:bg-accent hover:text-foreground"
                 : "text-muted-foreground/70 hover:bg-accent hover:text-foreground",
-              !kiroAuthChecked && "animate-pulse",
+              !claudeAuthChecked && "animate-pulse",
             )}
           >
-            {kiroAuth ? (
+            {claudeAuth ? (
               <IconUserCheck className="size-4" />
             ) : (
               <IconUser className="size-4" />
@@ -57,23 +57,23 @@ export const HeaderUserMenu = memo(function HeaderUserMenu() {
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          {kiroAuth
-            ? (kiroAuth.email ?? kiroAuth.accountType)
+          {claudeAuth
+            ? (claudeAuth.email ?? claudeAuth.authMethod)
             : "Not logged in"}
         </TooltipContent>
       </Tooltip>
 
       {open && (
         <div className="absolute right-0 top-full z-50 mt-1.5 w-56 overflow-hidden rounded-xl border border-border/60 bg-card shadow-xl shadow-black/20 animate-in fade-in-0 slide-in-from-top-1 duration-100">
-          {kiroAuth ? (
+          {claudeAuth ? (
             <>
               <div className="px-3 py-2.5 border-b border-border/60">
                 <p className="text-[12px] font-medium text-foreground/90 truncate">
-                  {kiroAuth.email ?? kiroAuth.accountType}
+                  {claudeAuth.email ?? claudeAuth.authMethod}
                 </p>
                 <p className="text-[10px] text-foreground/70">
-                  {kiroAuth.accountType}
-                  {kiroAuth.region ? ` · ${kiroAuth.region}` : ""}
+                  {claudeAuth.authMethod}
+                  {claudeAuth.subscriptionType ? ` · ${claudeAuth.subscriptionType}` : ""}
                 </p>
               </div>
               <div className="py-1">
@@ -114,7 +114,7 @@ export const HeaderUserMenu = memo(function HeaderUserMenu() {
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-[12px] text-foreground/60 transition-colors hover:bg-muted/30 hover:text-foreground/90"
               >
-                <IconLogin className="size-3.5" /> Login to Kiro
+                <IconLogin className="size-3.5" /> Login to Claude
               </button>
               <button
                 type="button"

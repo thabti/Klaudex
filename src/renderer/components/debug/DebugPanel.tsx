@@ -3,21 +3,21 @@ import { IconX, IconGripHorizontal } from '@tabler/icons-react'
 import { useDebugStore } from '@/stores/debugStore'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { KiroDebugTab } from './KiroDebugTab'
+import { ClaudeDebugTab } from './ClaudeDebugTab'
 import { JsDebugTab } from './JsDebugTab'
 
-type DebugTab = 'kiro' | 'js'
+type DebugTab = 'claude' | 'js'
 
 const TAB_LABELS: Record<DebugTab, string> = {
-  kiro: 'Kiro Debug',
+  claude: 'Claude Debug',
   js: 'JS Debug',
 } as const
 
-const TABS: DebugTab[] = ['kiro', 'js']
+const TABS: DebugTab[] = ['claude', 'js']
 
 export const DebugPanel = memo(function DebugPanel() {
   const setOpen = useDebugStore((s) => s.setOpen)
-  const [activeTab, setActiveTab] = useState<DebugTab>('kiro')
+  const [activeTab, setActiveTab] = useState<DebugTab>('claude')
   const [height, setHeight] = useState(320)
   const dragStartY = useRef<number | null>(null)
   const dragStartH = useRef(320)
@@ -92,7 +92,7 @@ export const DebugPanel = memo(function DebugPanel() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'kiro' ? <KiroDebugTab /> : <JsDebugTab />}
+      {activeTab === 'claude' ? <ClaudeDebugTab /> : <JsDebugTab />}
     </aside>
   )
 })

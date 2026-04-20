@@ -26,7 +26,7 @@ export interface SearchableItem {
 }
 
 export const SEARCHABLE_SETTINGS: readonly SearchableItem[] = [
-  { label: 'kiro-cli path', description: 'Path to the kiro-cli binary', section: 'general', keywords: 'cli binary connection detect' },
+  { label: 'Claude CLI path', description: 'Path to the Claude CLI binary', section: 'general', keywords: 'cli binary connection detect' },
   { label: 'Default model', description: 'Choose the default AI model', section: 'general', keywords: 'model ai llm' },
   { label: 'Auto-approve', description: 'Skip permission prompts for tool calls', section: 'general', keywords: 'permissions approve tools' },
   { label: 'Respect .gitignore', description: 'Hide gitignored files from @ mentions', section: 'general', keywords: 'gitignore files mentions' },

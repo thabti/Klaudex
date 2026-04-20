@@ -28,7 +28,7 @@ import { useTaskStore, initTaskListeners } from "@/stores/taskStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDebugStore } from "@/stores/debugStore";
 import { useDiffStore } from "@/stores/diffStore";
-import { useKiroStore, initKiroListeners } from "@/stores/kiroStore";
+import { useClaudeConfigStore, initClaudeConfigListeners } from "@/stores/claudeConfigStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useUpdateChecker } from "@/hooks/useUpdateChecker";
 import { RestartPromptDialog } from "@/components/sidebar/RestartPromptDialog";
@@ -49,11 +49,11 @@ const Onboarding = lazy(() =>
 );
 
 function LoginBanner() {
-  const kiroAuth = useSettingsStore((s) => s.kiroAuth);
-  const kiroAuthChecked = useSettingsStore((s) => s.kiroAuthChecked);
+  const claudeAuth = useSettingsStore((s) => s.claudeAuth);
+  const claudeAuthChecked = useSettingsStore((s) => s.claudeAuthChecked);
   const openLogin = useSettingsStore((s) => s.openLogin);
 
-  if (!kiroAuthChecked || kiroAuth) return null;
+  if (!claudeAuthChecked || claudeAuth) return null;
 
   return (
     <div className="mx-auto mb-3 flex w-full max-w-2xl items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 lg:max-w-3xl xl:max-w-4xl">
@@ -61,7 +61,7 @@ function LoginBanner() {
         <path d="M8 1.333A6.667 6.667 0 1 0 14.667 8 6.674 6.674 0 0 0 8 1.333Zm0 10.334a.667.667 0 1 1 0-1.334.667.667 0 0 1 0 1.334ZM8.667 8a.667.667 0 0 1-1.334 0V5.333a.667.667 0 0 1 1.334 0V8Z" fill="currentColor"/>
       </svg>
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-medium text-amber-700 dark:text-amber-200/90">Sign in to Kiro to start using AI agents</p>
+        <p className="text-[13px] font-medium text-amber-700 dark:text-amber-200/90">Sign in to Claude to start using AI agents</p>
         <p className="text-[11px] text-amber-600/70 dark:text-amber-400">Authentication is required to create threads and interact with agents</p>
       </div>
       <button
@@ -99,7 +99,7 @@ function EmptyState() {
           </h2>
           <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
             {hasProjects
-              ? "Pick a project and start chatting with Kiro"
+              ? "Pick a project and start chatting with Claude"
               : "Point Klaudex at any folder on your machine. The AI agent works directly with your files, runs commands, and helps you build."}
           </p>
         </div>
@@ -241,7 +241,7 @@ export function App() {
     useSettingsStore.getState().setActiveWorkspace(workspace, operationalWs);
     // Reset mode to default when entering a new/pending thread (no selectedTaskId)
     if (!selectedTaskId) {
-      useSettingsStore.setState({ currentModeId: 'kiro_default' });
+      useSettingsStore.setState({ currentModeId: 'default' });
     }
   }, [selectedTaskId, pendingWorkspace]);
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
@@ -255,13 +255,17 @@ export function App() {
   }, [diffIsOpen]);
 
   useEffect(() => {
+    // Register event listeners FIRST so we don't miss early emissions
+    const cleanupTask = initTaskListeners();
+    const cleanupClaude = initClaudeConfigListeners();
     useTaskStore.getState().loadTasks().then(() => {
       useTaskStore.getState().purgeExpiredSoftDeletes();
     });
     useSettingsStore.getState().loadSettings();
     useSettingsStore.getState().checkAuth();
-    // Pre-warm ACP to get models/modes before user creates a thread
-    ipc.probeCapabilities().catch(() => {});
+    // Pre-warm ACP to get models/modes before user creates a thread.
+    // Delay slightly to ensure Tauri listen() promises have resolved.
+    setTimeout(() => { ipc.probeCapabilities().catch(() => {}) }, 50);
     // Purge expired soft-deleted threads every hour
     const purgeInterval = setInterval(() => {
       useTaskStore.getState().purgeExpiredSoftDeletes();
@@ -283,13 +287,11 @@ export function App() {
       if (ids.length > 0) navigateToNotifiedTask(ids[ids.length - 1])
     };
     window.addEventListener("focus", handleWindowFocus);
-    const cleanupTask = initTaskListeners();
-    const cleanupKiro = initKiroListeners();
     return () => {
       window.removeEventListener("focus", handleWindowFocus);
       clearInterval(purgeInterval);
       cleanupTask();
-      cleanupKiro();
+      cleanupClaude();
     };
   }, []);
 

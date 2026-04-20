@@ -17,9 +17,14 @@ const categoryVariant: Record<string, 'destructive' | 'warning' | 'outline' | 's
   error: 'destructive',
   stderr: 'warning',
   lifecycle: 'info',
+  ipc: 'secondary',
+  store: 'outline',
+  git: 'info',
+  pty: 'info',
+  event: 'outline',
 }
 
-const CATEGORIES: Array<DebugCategory | 'all'> = ['all', 'notification', 'request', 'response', 'error', 'stderr', 'lifecycle']
+const CATEGORIES: Array<DebugCategory | 'all'> = ['all', 'notification', 'request', 'response', 'error', 'stderr', 'lifecycle', 'ipc', 'store', 'git', 'pty', 'event']
 
 // ── Time formatting ──────────────────────────────────────────────
 
@@ -175,7 +180,7 @@ const CopyAllButton = memo(function CopyAllButton({ entries }: { entries: DebugL
 
 // ── Main tab ─────────────────────────────────────────────────────
 
-export const KiroDebugTab = memo(function KiroDebugTab() {
+export const ClaudeDebugTab = memo(function ClaudeDebugTab() {
   const entries = useDebugStore((s) => s.entries)
   const filter = useDebugStore((s) => s.filter)
   const setFilter = useDebugStore((s) => s.setFilter)

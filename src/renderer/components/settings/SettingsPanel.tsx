@@ -17,7 +17,7 @@ import { AdvancedSection } from './advanced-section'
 import { ArchivesSection } from './archives-section'
 
 const defaultSettings: AppSettings = {
-  kiroBin: 'kiro-cli',
+  claudeBin: 'claude',
   agentProfiles: [],
   fontSize: 14,
   sidebarPosition: 'left',
@@ -28,7 +28,7 @@ export const SettingsPanel = () => {
   const open = useTaskStore((s) => s.isSettingsOpen)
   const setOpen = useTaskStore((s) => s.setSettingsOpen)
   const settingsInitialSection = useTaskStore((s) => s.settingsInitialSection)
-  const { settings, saveSettings, kiroAuthChecked, checkAuth } = useSettingsStore()
+  const { settings, saveSettings, claudeAuthChecked, checkAuth } = useSettingsStore()
 
   const [section, setSection] = useState<Section>('general')
   const [draft, setDraft] = useState<AppSettings>(settings)
@@ -37,7 +37,7 @@ export const SettingsPanel = () => {
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => { getVersion().then(setAppVersion).catch(() => {}) }, [])
-  useEffect(() => { if (open && !kiroAuthChecked) checkAuth() }, [open, kiroAuthChecked, checkAuth])
+  useEffect(() => { if (open && !claudeAuthChecked) checkAuth() }, [open, claudeAuthChecked, checkAuth])
   useEffect(() => { setDraft(settings) }, [settings])
 
   useEffect(() => {

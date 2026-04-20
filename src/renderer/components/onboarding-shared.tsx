@@ -23,23 +23,23 @@ export interface InstallCommand {
 
 export const INSTALL_COMMANDS: Record<Platform, { primary: InstallCommand; alternatives: InstallCommand[] }> = {
   macos: {
-    primary: { label: 'Homebrew', command: 'brew install kiro-cli' },
+    primary: { label: 'npm', command: 'npm install -g @anthropic-ai/claude-code' },
     alternatives: [
-      { label: 'curl', command: 'curl -fsSL https://kiro.dev/install.sh | sh' },
-      { label: 'Manual', command: 'Download from https://kiro.dev/docs/cli/installation/' },
+      { label: 'Homebrew', command: 'brew install claude' },
+      { label: 'Manual', command: 'Download from https://claude.ai/download' },
     ],
   },
   linux: {
-    primary: { label: 'curl', command: 'curl -fsSL https://kiro.dev/install.sh | sh' },
+    primary: { label: 'npm', command: 'npm install -g @anthropic-ai/claude-code' },
     alternatives: [
-      { label: 'apt', command: 'sudo apt install kiro-cli' },
-      { label: 'Manual', command: 'Download from https://kiro.dev/docs/cli/installation/' },
+      { label: 'curl', command: 'curl -fsSL https://claude.ai/install.sh | sh' },
+      { label: 'Manual', command: 'Download from https://claude.ai/download' },
     ],
   },
   windows: {
-    primary: { label: 'PowerShell', command: 'irm https://kiro.dev/install.ps1 | iex' },
+    primary: { label: 'npm', command: 'npm install -g @anthropic-ai/claude-code' },
     alternatives: [
-      { label: 'Manual', command: 'Download from https://kiro.dev/docs/cli/installation/' },
+      { label: 'Manual', command: 'Download from https://claude.ai/download' },
     ],
   },
 }

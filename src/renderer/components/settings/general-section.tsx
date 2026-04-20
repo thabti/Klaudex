@@ -28,14 +28,14 @@ export const GeneralSection = ({ draft, updateDraft }: GeneralSectionProps) => {
 
   const browseCli = async () => {
     const path = await ipc.pickFolder()
-    if (path) updateDraft({ kiroBin: path })
+    if (path) updateDraft({ claudeBin: path })
   }
 
   const handleAutoDetect = useCallback(async () => {
     setIsDetecting(true)
     try {
-      const path = await ipc.detectKiroCli()
-      if (path) updateDraft({ kiroBin: path })
+      const path = await ipc.detectClaudeCli()
+      if (path) updateDraft({ claudeBin: path })
     } finally { setIsDetecting(false) }
   }, [updateDraft])
 
@@ -47,13 +47,13 @@ export const GeneralSection = ({ draft, updateDraft }: GeneralSectionProps) => {
       <div>
         <SectionLabel title="Connection" />
         <SettingsCard className="!py-4">
-          <label className="mb-1.5 block text-[12px] font-medium text-foreground/70">kiro-cli path</label>
+          <label className="mb-1.5 block text-[12px] font-medium text-foreground/70">Claude CLI path</label>
           <div className="flex gap-2">
             <input
-              value={draft.kiroBin}
+              value={draft.claudeBin}
               data-testid="settings-cli-path-input"
-              onChange={(e) => updateDraft({ kiroBin: e.target.value })}
-              placeholder="kiro-cli"
+              onChange={(e) => updateDraft({ claudeBin: e.target.value })}
+              placeholder="claude"
               className="flex h-8 w-full flex-1 rounded-lg border border-input bg-background/50 px-3 font-mono text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
             <button onClick={browseCli} className="shrink-0 rounded-lg border border-input px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent">Browse</button>
@@ -98,7 +98,7 @@ export const GeneralSection = ({ draft, updateDraft }: GeneralSectionProps) => {
               <IconChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
             </div>
             <button
-              onClick={() => fetchModels(draft.kiroBin)}
+              onClick={() => fetchModels(draft.claudeBin)}
               disabled={modelsLoading}
               className="flex shrink-0 items-center gap-1 rounded-lg border border-input px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
             >
@@ -127,7 +127,7 @@ export const GeneralSection = ({ draft, updateDraft }: GeneralSectionProps) => {
       <div>
         <SectionLabel title="Worktrees" />
         <SettingsCard>
-          <SettingRow label="Use worktrees for new threads" description="Isolate each thread in its own git worktree under .kiro/worktrees/">
+          <SettingRow label="Use worktrees for new threads" description="Isolate each thread in its own git worktree under .claude/worktrees/">
             <Switch
               checked={draft.projectPrefs?.[activeWorkspace ?? '']?.worktreeEnabled ?? false}
               onCheckedChange={(checked) => {

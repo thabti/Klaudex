@@ -3,16 +3,16 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { SectionHeader, SettingsCard, SettingRow } from './settings-shared'
 
 export const AccountSection = () => {
-  const { kiroAuth, logout, openLogin } = useSettingsStore()
+  const { claudeAuth, logout, openLogin } = useSettingsStore()
 
   return (
     <>
       <SectionHeader section="account" />
       <SettingsCard>
-        {kiroAuth ? (
+        {claudeAuth ? (
           <SettingRow
-            label={kiroAuth.email ?? 'Authenticated'}
-            description={`${kiroAuth.accountType}${kiroAuth.region ? ` · ${kiroAuth.region}` : ''}`}
+            label={claudeAuth.email ?? 'Authenticated'}
+            description={`${claudeAuth.authMethod}${claudeAuth.subscriptionType ? ` · ${claudeAuth.subscriptionType}` : ''}`}
           >
             <button
               type="button"
@@ -26,7 +26,7 @@ export const AccountSection = () => {
         ) : (
           <SettingRow
             label="Not signed in"
-            description="Sign in to access Kiro features and sync your preferences."
+            description="Sign in to access Claude features and sync your preferences."
           >
             <button
               type="button"

@@ -13,7 +13,7 @@ export const OnboardingWelcomeStep = ({ onNext }: OnboardingWelcomeStepProps) =>
     <div>
       <h1 className="text-3xl font-semibold tracking-tight text-foreground">Welcome to Klaudex</h1>
       <p className="mt-3 max-w-md text-[15px] leading-relaxed text-muted-foreground">
-        A native desktop client for Kiro; the AI-powered coding assistant.
+        A native desktop client for Claude; the AI-powered coding assistant.
       </p>
     </div>
     <div className="flex flex-col gap-3 text-left text-[14px] text-muted-foreground">
