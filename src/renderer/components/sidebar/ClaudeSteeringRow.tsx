@@ -2,10 +2,10 @@ import { memo } from 'react'
 import { IconCircleDot, IconCircleDashed } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import type { KiroSteeringRule } from '@/types'
-import { type ViewerState, formatName, SourceDot } from './kiro-config-helpers'
+import type { ClaudeMemoryFile } from '@/types'
+import { type ViewerState, formatName, SourceDot } from './claude-config-helpers'
 
-export const SteeringRow = memo(function SteeringRow({ rule, onOpen }: { rule: KiroSteeringRule; onOpen: (v: ViewerState) => void }) {
+export const SteeringRow = memo(function SteeringRow({ rule, onOpen }: { rule: ClaudeMemoryFile; onOpen: (v: ViewerState) => void }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>

@@ -1,10 +1,10 @@
 import { memo } from 'react'
 import { IconBolt } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
-import type { KiroSkill } from '@/types'
-import { type ViewerState, formatName, SourceDot } from './kiro-config-helpers'
+import type { ClaudeCommand } from '@/types'
+import { type ViewerState, formatName, SourceDot } from './claude-config-helpers'
 
-export const SkillRow = memo(function SkillRow({ skill, onOpen }: { skill: KiroSkill; onOpen: (v: ViewerState) => void }) {
+export const SkillRow = memo(function SkillRow({ skill, onOpen }: { skill: ClaudeCommand; onOpen: (v: ViewerState) => void }) {
   return (
     <li
       role="button"

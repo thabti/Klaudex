@@ -2,13 +2,13 @@ import { memo, useState } from 'react'
 import { IconChevronRight } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import type { KiroAgent } from '@/types'
+import type { ClaudeAgent } from '@/types'
 import {
   type ViewerState, formatName, getAgentRole, getStackLabel,
   getRoleIcon, STACK_META, SourceDot,
-} from './kiro-config-helpers'
+} from './claude-config-helpers'
 
-export const AgentRow = memo(function AgentRow({ agent, onOpen }: { agent: KiroAgent; onOpen: (v: ViewerState) => void }) {
+export const AgentRow = memo(function AgentRow({ agent, onOpen }: { agent: ClaudeAgent; onOpen: (v: ViewerState) => void }) {
   const { icon: RoleIcon, color } = getRoleIcon(agent.name)
   return (
     <Tooltip>
@@ -38,7 +38,7 @@ export const AgentRow = memo(function AgentRow({ agent, onOpen }: { agent: KiroA
 })
 
 export const AgentStackGroup = memo(function AgentStackGroup({ stack, agents, onOpen }: {
-  stack: string; agents: KiroAgent[]; onOpen: (v: ViewerState) => void
+  stack: string; agents: ClaudeAgent[]; onOpen: (v: ViewerState) => void
 }) {
   const [open, setOpen] = useState(false)
   const meta = STACK_META[stack] ?? STACK_META.custom

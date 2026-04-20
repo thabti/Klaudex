@@ -197,7 +197,7 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
                   </div>
                   <div>
                     <p className="text-[12px] font-medium text-muted-foreground">No projects yet</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">Import a folder to start working with Kiro</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">Import a folder to start working with Claude</p>
                   </div>
                   <button
                     type="button"

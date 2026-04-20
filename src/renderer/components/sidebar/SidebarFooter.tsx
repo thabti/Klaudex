@@ -6,12 +6,12 @@ import { useTaskStore } from '@/stores/taskStore'
 import { useDebugStore } from '@/stores/debugStore'
 import { useUpdateStore, type UpdateStatus } from '@/stores/updateStore'
 import { useResizeHandle } from '@/hooks/useResizeHandle'
-import { KiroConfigPanel } from './KiroConfigPanel'
+import { ClaudeConfigPanel } from './ClaudeConfigPanel'
 
 const hasUpdateIndicator = (status: UpdateStatus): boolean =>
   status === 'available' || status === 'downloading' || status === 'ready'
 
-const KiroConfigFooter = memo(function KiroConfigFooter() {
+const ClaudeConfigFooter = memo(function ClaudeConfigFooter() {
   const [collapsed, setCollapsed] = useState(false)
   const [height, setHeight] = useState(160)
 
@@ -28,12 +28,12 @@ const KiroConfigFooter = memo(function KiroConfigFooter() {
       </div>
       {collapsed ? (
         <div className="px-1 py-1">
-          <KiroConfigPanel collapsed={collapsed} onToggleCollapse={toggleCollapse} />
+          <ClaudeConfigPanel collapsed={collapsed} onToggleCollapse={toggleCollapse} />
         </div>
       ) : (
         <ScrollArea style={{ height, maxHeight: '100%' }} className="min-h-0">
           <div className="px-1 py-1">
-            <KiroConfigPanel collapsed={collapsed} onToggleCollapse={toggleCollapse} />
+            <ClaudeConfigPanel collapsed={collapsed} onToggleCollapse={toggleCollapse} />
           </div>
         </ScrollArea>
       )}
@@ -55,7 +55,7 @@ export const SidebarFooter = memo(function SidebarFooter() {
 
   return (
     <>
-      <KiroConfigFooter />
+      <ClaudeConfigFooter />
       <div className="flex shrink-0 flex-col gap-1 px-2 pb-4 pt-1.5">
         <Tooltip>
           <TooltipTrigger asChild>

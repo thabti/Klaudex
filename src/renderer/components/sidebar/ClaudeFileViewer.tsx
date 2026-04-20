@@ -7,13 +7,13 @@ import { getPreferredEditor } from '@/components/OpenInEditorGroup'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
-interface KiroFileViewerProps {
+interface ClaudeFileViewerProps {
   filePath: string
   title: string
   onClose: () => void
 }
 
-export const KiroFileViewer = memo(function KiroFileViewer({ filePath, title, onClose }: KiroFileViewerProps) {
+export const ClaudeFileViewer = memo(function ClaudeFileViewer({ filePath, title, onClose }: ClaudeFileViewerProps) {
   const [content, setContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 

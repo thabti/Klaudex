@@ -24,8 +24,8 @@ vi.mock('@/hooks/useResizeHandle', () => ({
   useResizeHandle: () => vi.fn(),
 }))
 
-vi.mock('./KiroConfigPanel', () => ({
-  KiroConfigPanel: () => <div data-testid="kiro-config-panel" />,
+vi.mock('./ClaudeConfigPanel', () => ({
+  ClaudeConfigPanel: () => <div data-testid="claude-config-panel" />,
 }))
 
 import { SidebarFooter } from './SidebarFooter'

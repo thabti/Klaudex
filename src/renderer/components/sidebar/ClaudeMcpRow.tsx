@@ -2,10 +2,10 @@ import { memo } from 'react'
 import { IconCircle } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import type { KiroMcpServer } from '@/types'
-import { type ViewerState } from './kiro-config-helpers'
+import type { ClaudeMcpServer } from '@/types'
+import { type ViewerState } from './claude-config-helpers'
 
-export const McpRow = memo(function McpRow({ server, onOpen }: { server: KiroMcpServer; onOpen: (v: ViewerState) => void }) {
+export const McpRow = memo(function McpRow({ server, onOpen }: { server: ClaudeMcpServer; onOpen: (v: ViewerState) => void }) {
   const dotClass = !server.enabled
     ? 'fill-muted-foreground text-muted-foreground'
     : server.status === 'error' || server.status === 'needs-auth'

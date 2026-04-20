@@ -1,30 +1,30 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { IconRobot, IconBolt, IconCompass, IconChevronRight, IconSearch, IconPlug } from '@tabler/icons-react'
-import { useKiroStore } from '@/stores/kiroStore'
+import { useClaudeConfigStore } from '@/stores/claudeConfigStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { KiroFileViewer } from './KiroFileViewer'
-import { type ViewerState, EMPTY_ARRAY, getAgentStack, SectionToggle, InlineSearch } from './kiro-config-helpers'
-import { AgentRow, AgentStackGroup } from './KiroAgentSection'
-import { SkillRow } from './KiroSkillRow'
-import { SteeringRow } from './KiroSteeringRow'
-import { McpRow } from './KiroMcpRow'
+import { ClaudeFileViewer } from './ClaudeFileViewer'
+import { type ViewerState, EMPTY_ARRAY, getAgentStack, SectionToggle, InlineSearch } from './claude-config-helpers'
+import { AgentRow, AgentStackGroup } from './ClaudeAgentSection'
+import { SkillRow } from './ClaudeSkillRow'
+import { SteeringRow } from './ClaudeSteeringRow'
+import { McpRow } from './ClaudeMcpRow'
 
-export const KiroConfigPanel = memo(function KiroConfigPanel({
+export const ClaudeConfigPanel = memo(function ClaudeConfigPanel({
   collapsed,
   onToggleCollapse,
 }: {
   collapsed?: boolean
   onToggleCollapse?: () => void
 }) {
-  const agents = useKiroStore((s) => s.config.agents)
-  const skills = useKiroStore((s) => s.config.skills)
-  const steeringRules = useKiroStore((s) => s.config.steeringRules)
-  const mcpServersRaw = useKiroStore((s) => s.config.mcpServers)
+  const agents = useClaudeConfigStore((s) => s.config.agents)
+  const commands = useClaudeConfigStore((s) => s.config.commands)
+  const memoryFiles = useClaudeConfigStore((s) => s.config.memoryFiles)
+  const mcpServersRaw = useClaudeConfigStore((s) => s.config.mcpServers)
   const mcpServers = mcpServersRaw ?? EMPTY_ARRAY
-  const loaded = useKiroStore((s) => s.loaded)
-  const loadConfig = useKiroStore((s) => s.loadConfig)
+  const loaded = useClaudeConfigStore((s) => s.loaded)
+  const loadConfig = useClaudeConfigStore((s) => s.loadConfig)
   const activeWorkspace = useTaskStore((s) => {
     const id = s.selectedTaskId
     if (id) {
@@ -58,10 +58,10 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
     return Array.from(map.entries()).sort((a, b) => a[0] === 'custom' ? 1 : b[0] === 'custom' ? -1 : a[0].localeCompare(b[0]))
   }, [agents, lowerSearch])
 
-  const filteredSkills = useMemo(() =>
-    skills.filter((s) => !lowerSearch || s.name.toLowerCase().includes(lowerSearch)), [skills, lowerSearch])
-  const filteredRules = useMemo(() =>
-    steeringRules.filter((r) => !lowerSearch || r.name.toLowerCase().includes(lowerSearch) || r.excerpt.toLowerCase().includes(lowerSearch)), [steeringRules, lowerSearch])
+  const filteredCommands = useMemo(() =>
+    commands.filter((s: { name: string }) => !lowerSearch || s.name.toLowerCase().includes(lowerSearch)), [commands, lowerSearch])
+  const filteredMemory = useMemo(() =>
+    memoryFiles.filter((r: { name: string; excerpt: string }) => !lowerSearch || r.name.toLowerCase().includes(lowerSearch) || r.excerpt.toLowerCase().includes(lowerSearch)), [memoryFiles, lowerSearch])
   const filteredMcp = useMemo(() =>
     mcpServers.filter((m) => !lowerSearch || m.name.toLowerCase().includes(lowerSearch)), [mcpServers, lowerSearch])
 
@@ -78,9 +78,9 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
     )
   }
 
-  if (agents.length === 0 && skills.length === 0 && steeringRules.length === 0 && mcpServers.length === 0) return null
+  if (agents.length === 0 && commands.length === 0 && memoryFiles.length === 0 && mcpServers.length === 0) return null
 
-  const noResults = !!search && totalAgents === 0 && filteredSkills.length === 0 && filteredRules.length === 0 && filteredMcp.length === 0
+  const noResults = !!search && totalAgents === 0 && filteredCommands.length === 0 && filteredMemory.length === 0 && filteredMcp.length === 0
 
   return (
     <>
@@ -89,9 +89,9 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
           <button type="button" onClick={onToggleCollapse}
             className="flex h-6 flex-1 items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors">
             <IconChevronRight className={cn('size-3 shrink-0 transition-transform duration-150', !collapsed && 'rotate-90')} aria-hidden />
-            Kiro
+            Claude
           </button>
-          {!collapsed && (agents.length + skills.length + steeringRules.length + mcpServers.length) > 10 && (
+          {!collapsed && (agents.length + commands.length + memoryFiles.length + mcpServers.length) > 10 && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button type="button" onClick={() => setSearching((v) => !v)}
@@ -109,21 +109,21 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
           <>
             {searching && <InlineSearch value={search} onChange={setSearch} onClose={() => setSearching(false)} />}
 
-            {steeringRules.length > 0 && (filteredRules.length > 0 || !search) && (
-              <SectionToggle icon={IconCompass} iconColor="text-emerald-600 dark:text-emerald-400" label="Steering" count={filteredRules.length} expanded={rulesOpen} onToggle={() => setRulesOpen((v) => !v)} />
+            {memoryFiles.length > 0 && (filteredMemory.length > 0 || !search) && (
+              <SectionToggle icon={IconCompass} iconColor="text-emerald-600 dark:text-emerald-400" label="Memory" count={filteredMemory.length} expanded={rulesOpen} onToggle={() => setRulesOpen((v) => !v)} />
             )}
-            {rulesOpen && filteredRules.length > 0 && (
+            {rulesOpen && filteredMemory.length > 0 && (
               <ul className="flex min-w-0 flex-col gap-px border-l mx-1 px-1.5 py-px" style={{ borderColor: 'var(--border)' }}>
-                {filteredRules.map((rule) => <SteeringRow key={`${rule.source}-${rule.name}`} rule={rule} onOpen={openViewer} />)}
+                {filteredMemory.map((rule: any) => <SteeringRow key={`${rule.source}-${rule.name}`} rule={rule} onOpen={openViewer} />)}
               </ul>
             )}
 
-            {skills.length > 0 && (filteredSkills.length > 0 || !search) && (
-              <SectionToggle icon={IconBolt} iconColor="text-amber-600 dark:text-amber-400" label="Skills" count={filteredSkills.length} expanded={skillsOpen} onToggle={() => setSkillsOpen((v) => !v)} />
+            {commands.length > 0 && (filteredCommands.length > 0 || !search) && (
+              <SectionToggle icon={IconBolt} iconColor="text-amber-600 dark:text-amber-400" label="Commands" count={filteredCommands.length} expanded={skillsOpen} onToggle={() => setSkillsOpen((v) => !v)} />
             )}
-            {skillsOpen && filteredSkills.length > 0 && (
+            {skillsOpen && filteredCommands.length > 0 && (
               <ul className="flex min-w-0 flex-col gap-px border-l mx-1 px-1.5 py-px" style={{ borderColor: 'var(--border)' }}>
-                {filteredSkills.map((skill) => <SkillRow key={`${skill.source}-${skill.name}`} skill={skill} onOpen={openViewer} />)}
+                {filteredCommands.map((skill: any) => <SkillRow key={`${skill.source}-${skill.name}`} skill={skill} onOpen={openViewer} />)}
               </ul>
             )}
 
@@ -154,7 +154,7 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
         )}
       </div>
 
-      {viewer && <KiroFileViewer filePath={viewer.filePath} title={viewer.title} onClose={closeViewer} />}
+      {viewer && <ClaudeFileViewer filePath={viewer.filePath} title={viewer.title} onClose={closeViewer} />}
     </>
   )
 })
