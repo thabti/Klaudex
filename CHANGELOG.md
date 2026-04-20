@@ -1,5 +1,22 @@
 # Changelog
 
+## [v0.16.0] - 2026-04-21
+
+### Features
+
+- add multi-window support and native File menu commands ([`90db6f0`](https://github.com/thabti/kirodex/commit/90db6f0e543c60765823c6305771787a2f95d27f))
+
+### Bug fixes
+
+- remove redundant file header from diff panel ([`40557ef`](https://github.com/thabti/kirodex/commit/40557ef6f620a09bdc89eddd6f43d7c87d8cc29c))
+- retain file/agent/skill mentions in draft threads on switch ([`7ec8fc1`](https://github.com/thabti/kirodex/commit/7ec8fc1740e6ed3aa4697bf63633bfbb11fefb88))
+- persist draft attachments and pasted chunks across thread switches ([`e9410e2`](https://github.com/thabti/kirodex/commit/e9410e2ed1be091bd8bfef87768b08c229f2369c))
+- align applyTurnEnd and timeline tests with implementation [skip ci] ([`45e3884`](https://github.com/thabti/kirodex/commit/45e3884b5a5732561d06cb464fec971db11cc4a6))
+
+### Refactoring
+
+- replace git2 remote callbacks with git CLI for network ops ([`4812906`](https://github.com/thabti/kirodex/commit/481290631278f69e46abb47cc1379ea255e38e9c))
+
 ## [v0.15.0] - 2026-04-21
 
 ### Features
