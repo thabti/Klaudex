@@ -1,4 +1,4 @@
-import type { AgentTask, ActivityEntry, ToolCall, PlanStep, SoftDeletedThread, CompactionStatus } from '@/types'
+import type { AgentTask, ActivityEntry, ToolCall, PlanStep, SoftDeletedThread, CompactionStatus, SubagentInfo } from '@/types'
 
 export interface BtwCheckpoint {
   readonly taskId: string
@@ -27,6 +27,8 @@ export interface TaskStore {
   thinkingChunks: Record<string, string>
   /** Live tool calls for the current turn (by taskId) */
   liveToolCalls: Record<string, ToolCall[]>
+  /** Live subagent state from ACP extension notifications (by taskId) */
+  liveSubagents: Record<string, SubagentInfo[]>
   /** Queued messages per task — typed while agent is running, sent on turn end */
   queuedMessages: Record<string, string[]>
   activityFeed: ActivityEntry[]
@@ -40,10 +42,12 @@ export interface TaskStore {
   _suppressDraftSave: string | null
   /** Task IDs from desktop notifications pending click-to-navigate */
   notifiedTaskIds: string[]
-  /** Per-thread mode (e.g. 'kiro_planner') so toggling plan mode in one thread doesn't affect others */
+  /** Per-thread mode (e.g. 'plan') so toggling plan mode in one thread doesn't affect others */
   taskModes: Record<string, string>
   /** Whether a fork operation is in progress */
   isForking: boolean
+  /** Pending user input requests from the backend */
+  pendingUserInputs: Record<string, { requestId: string; fields: Array<{ name: string; label: string; type: string; required?: boolean; options?: string[] }> }>
   /** Pending worktree cleanup — set when a worktree thread is being deleted/archived */
   worktreeCleanupPending: { taskId: string; worktreePath: string; branch: string; originalWorkspace: string; action: 'archive' | 'delete'; hasChanges: boolean | null } | null
   setSelectedTask: (id: string | null) => void
@@ -65,8 +69,9 @@ export interface TaskStore {
   appendChunk: (taskId: string, chunk: string) => void
   appendThinkingChunk: (taskId: string, chunk: string) => void
   upsertToolCall: (taskId: string, toolCall: ToolCall) => void
+  updateSubagents: (taskId: string, subagents: SubagentInfo[]) => void
   updatePlan: (taskId: string, plan: PlanStep[]) => void
-  updateUsage: (taskId: string, used: number, size: number) => void
+  updateUsage: (taskId: string, used: number, size: number, cost?: number, tokenBreakdown?: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number }) => void
   updateCompactionStatus: (taskId: string, status: CompactionStatus, summary?: string) => void
   clearTurn: (taskId: string) => void
   enqueueMessage: (taskId: string, message: string) => void

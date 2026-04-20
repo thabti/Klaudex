@@ -70,6 +70,8 @@ export interface AgentTask {
     requestId: string
     toolName: string
     description: string
+    input?: Record<string, unknown>
+    decisionReason?: string
     options: Array<{ optionId: string; name: string; kind: string }>
   }
   /** Live tool calls for the current turn (cleared on turn end) */
@@ -78,8 +80,10 @@ export interface AgentTask {
   liveThinking?: string
   /** Current plan */
   plan?: PlanStep[]
-  /** Context usage: used / size */
-  contextUsage?: { used: number; size: number } | null
+  /** Context usage: used / size + optional token breakdown */
+  contextUsage?: { used: number; size: number; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number } | null
+  /** Cumulative cost in USD for this task */
+  totalCost?: number
   /** Current compaction status */
   compactionStatus?: CompactionStatus
   agentProfileId?: string
@@ -134,7 +138,7 @@ export type SidebarPosition = 'left' | 'right'
 export type ThemeMode = 'dark' | 'light' | 'system'
 
 export interface AppSettings {
-  kiroBin: string
+  claudeBin: string
   agentProfiles: AgentProfile[]
   fontSize: number
   defaultModel?: string | null
@@ -173,9 +177,9 @@ export interface ProjectFile {
   modifiedAt: number
 }
 
-// ── Kiro Configuration Types ──────────────────────────────────────
+// ── Claude Configuration Types ──────────────────────────────────────
 
-export interface KiroAgent {
+export interface ClaudeAgent {
   name: string
   description: string
   tools: string[]
@@ -183,13 +187,13 @@ export interface KiroAgent {
   filePath: string
 }
 
-export interface KiroSkill {
+export interface ClaudeCommand {
   name: string
   source: 'global' | 'local'
   filePath: string
 }
 
-export interface KiroSteeringRule {
+export interface ClaudeMemoryFile {
   name: string
   alwaysApply: boolean
   source: 'global' | 'local'
@@ -197,7 +201,7 @@ export interface KiroSteeringRule {
   filePath: string
 }
 
-export interface KiroMcpServer {
+export interface ClaudeMcpServer {
   name: string
   enabled: boolean
   transport: 'stdio' | 'http'
@@ -210,11 +214,28 @@ export interface KiroMcpServer {
   oauthUrl?: string
 }
 
-export interface KiroConfig {
-  agents: KiroAgent[]
-  skills: KiroSkill[]
-  steeringRules: KiroSteeringRule[]
-  mcpServers?: KiroMcpServer[]
+export interface ClaudeConfig {
+  agents: ClaudeAgent[]
+  commands: ClaudeCommand[]
+  memoryFiles: ClaudeMemoryFile[]
+  mcpServers?: ClaudeMcpServer[]
+}
+
+
+// ── Subagents (ACP extension: kiro.dev/subagent/list_update) ──────
+
+export type SubagentStatus = 'pending' | 'running' | 'completed' | 'failed'
+
+export interface SubagentInfo {
+  readonly name: string
+  readonly subName?: string
+  readonly status: SubagentStatus
+  readonly role?: string
+  readonly description?: string
+  readonly dependsOn?: readonly string[]
+  readonly currentToolCall?: string
+  readonly isThinking?: boolean
+  readonly raw: unknown
 }
 
 // ── Attachments ───────────────────────────────────────────────────
@@ -245,7 +266,7 @@ export interface IpcAttachment {
 
 // ── Debug Panel Types ─────────────────────────────────────────────
 
-export type DebugCategory = 'notification' | 'request' | 'response' | 'error' | 'stderr' | 'lifecycle'
+export type DebugCategory = 'notification' | 'request' | 'response' | 'error' | 'stderr' | 'lifecycle' | 'ipc' | 'store' | 'git' | 'pty' | 'event'
 
 export interface DebugLogEntry {
   id: number

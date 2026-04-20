@@ -1,18 +1,19 @@
 import { create } from 'zustand'
-import type { KiroConfig, KiroMcpServer } from '@/types'
+import type { ClaudeConfig, ClaudeMcpServer } from '@/types'
 import { ipc } from '@/lib/ipc'
+import { logStoreAction, logError } from '@/lib/debug-logger'
 
-type McpStatus = KiroMcpServer['status']
+type McpStatus = ClaudeMcpServer['status']
 
-const EMPTY_CONFIG: KiroConfig = { agents: [], skills: [], steeringRules: [], mcpServers: [] }
+const EMPTY_CONFIG: ClaudeConfig = { agents: [], commands: [], memoryFiles: [], mcpServers: [] }
 
-interface KiroStore {
+interface ClaudeConfigStore {
   /** Per-project config cache keyed by workspace path */
-  configs: Record<string, KiroConfig>
+  configs: Record<string, ClaudeConfig>
   /** Currently active project path */
   activeProject: string | null
   /** Derived config for the active project */
-  config: KiroConfig
+  config: ClaudeConfig
   loading: boolean
   loaded: boolean
   loadConfig: (projectPath?: string) => Promise<void>
@@ -21,7 +22,7 @@ interface KiroStore {
   updateMcpServer: (serverName: string, patch: Partial<{ status: McpStatus; error: string; oauthUrl: string }>) => void
 }
 
-const patchMcp = (config: KiroConfig, serverName: string, patch: object): KiroConfig => {
+const patchMcp = (config: ClaudeConfig, serverName: string, patch: object): ClaudeConfig => {
   const servers = config.mcpServers ?? []
   const idx = servers.findIndex((m) => m.name.toLowerCase() === serverName.toLowerCase())
   if (idx < 0) return config
@@ -31,8 +32,8 @@ const patchMcp = (config: KiroConfig, serverName: string, patch: object): KiroCo
 }
 
 /** Apply an MCP patch to all cached configs (MCP servers are global) */
-const patchAllConfigs = (configs: Record<string, KiroConfig>, serverName: string, patch: object): Record<string, KiroConfig> => {
-  const next: Record<string, KiroConfig> = {}
+const patchAllConfigs = (configs: Record<string, ClaudeConfig>, serverName: string, patch: object): Record<string, ClaudeConfig> => {
+  const next: Record<string, ClaudeConfig> = {}
   let changed = false
   for (const [key, cfg] of Object.entries(configs)) {
     const patched = patchMcp(cfg, serverName, patch)
@@ -42,14 +43,14 @@ const patchAllConfigs = (configs: Record<string, KiroConfig>, serverName: string
   return changed ? next : configs
 }
 
-const sanitizeConfig = (config: KiroConfig): KiroConfig => ({
+const sanitizeConfig = (config: ClaudeConfig): ClaudeConfig => ({
   agents: (config.agents ?? []).filter((a) => a.filePath),
-  skills: (config.skills ?? []).filter((s) => s.filePath),
-  steeringRules: (config.steeringRules ?? []).filter((r) => r.filePath),
+  commands: (config.commands ?? []).filter((s) => s.filePath),
+  memoryFiles: (config.memoryFiles ?? []).filter((r) => r.filePath),
   mcpServers: config.mcpServers ?? [],
 })
 
-export const useKiroStore = create<KiroStore>((set, get) => {
+export const useClaudeConfigStore = create<ClaudeConfigStore>((set, get) => {
   return {
     configs: {},
     activeProject: null,
@@ -68,16 +69,19 @@ export const useKiroStore = create<KiroStore>((set, get) => {
         return
       }
       if (get().loading) return
+      logStoreAction('claudeConfigStore', 'loadConfig', { projectPath: key })
       set({ loading: true, activeProject: key })
       try {
-        const raw = await ipc.getKiroConfig(projectPath)
+        const raw = await ipc.getClaudeConfig(projectPath)
         const safe = sanitizeConfig(raw)
+        logStoreAction('claudeConfigStore', 'loadConfig:done', { agents: safe.agents.length, commands: safe.commands.length, mcpServers: safe.mcpServers?.length ?? 0 })
         set((s) => ({
           configs: { ...s.configs, [key]: safe },
           config: safe,
           loaded: true,
         }))
-      } catch {
+      } catch (err) {
+        logError('claudeConfigStore.loadConfig', err)
         set({ loaded: true })
       } finally {
         set({ loading: false })
@@ -93,6 +97,7 @@ export const useKiroStore = create<KiroStore>((set, get) => {
     },
 
     setMcpError: (serverName, error) => set((s) => {
+      logStoreAction('claudeConfigStore', 'setMcpError', { serverName, error })
       const configs = patchAllConfigs(s.configs, serverName, { error, status: 'error' as const })
       const config = patchMcp(s.config, serverName, { error, status: 'error' as const })
       return { configs, config }
@@ -106,16 +111,16 @@ export const useKiroStore = create<KiroStore>((set, get) => {
   }
 })
 
-export function initKiroListeners(): () => void {
+export function initClaudeConfigListeners(): () => void {
   const unsub1 = ipc.onMcpConnecting(() => {
-    useKiroStore.setState((s) => {
-      const mcpPatch = (cfg: KiroConfig): KiroConfig => ({
+    useClaudeConfigStore.setState((s) => {
+      const mcpPatch = (cfg: ClaudeConfig): ClaudeConfig => ({
         ...cfg,
         mcpServers: (cfg.mcpServers ?? []).map((m) =>
           m.enabled ? { ...m, status: 'connecting' as const, error: undefined, oauthUrl: undefined } : m
         ),
       })
-      const configs: Record<string, KiroConfig> = {}
+      const configs: Record<string, ClaudeConfig> = {}
       for (const [key, cfg] of Object.entries(s.configs)) {
         configs[key] = mcpPatch(cfg)
       }
@@ -124,7 +129,7 @@ export function initKiroListeners(): () => void {
   })
 
   const unsub2 = ipc.onMcpUpdate(({ serverName, status, error, oauthUrl }) => {
-    useKiroStore.setState((s) => {
+    useClaudeConfigStore.setState((s) => {
       const patch = {
         status: status as McpStatus,
         ...(error !== undefined ? { error } : {}),
