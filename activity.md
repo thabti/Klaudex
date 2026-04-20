@@ -1,3 +1,11 @@
+## 2026-04-20 23:30 GST (Dubai)
+
+### Git: create 12 small commits and push refactor/rename-kirodex-to-klaudex
+
+Split all uncommitted changes into 12 logical commits covering: config renames (Kirodex→Klaudex), icon updates, ACP SDK→Claude CLI subprocess replacement, kiro_config→claude_config rename, frontend store/type renames, sidebar component renames (Kiro→Claude), new chat components (AcpSubagentDisplay, PermissionCard, StatsPanel, UserInputCard), chat component updates, settings/onboarding/debug updates, IPC layer rewrite, store updates with tests, and activity/downloads/website cleanup. Pushed to origin.
+
+**Modified:** 98 files across 12 commits
+
 ## 2026-04-20 17:30 GST (Dubai)
 
 ### ACP Subagent Display: live multi-agent orchestration UI
