@@ -4,7 +4,7 @@ use std::path::Path;
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct KiroAgent {
+pub struct ClaudeAgent {
     pub name: String,
     pub description: String,
     pub tools: Vec<String>,
@@ -14,7 +14,7 @@ pub struct KiroAgent {
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct KiroSkill {
+pub struct ClaudeCommand {
     pub name: String,
     pub source: String,
     pub file_path: String,
@@ -22,7 +22,7 @@ pub struct KiroSkill {
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct KiroSteeringRule {
+pub struct ClaudeMemoryFile {
     pub name: String,
     pub always_apply: bool,
     pub source: String,
@@ -32,7 +32,7 @@ pub struct KiroSteeringRule {
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct KiroMcpServer {
+pub struct ClaudeMcpServer {
     pub name: String,
     pub enabled: bool,
     pub transport: String,
@@ -49,18 +49,18 @@ pub struct KiroMcpServer {
 
 #[derive(Serialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct KiroConfig {
-    pub agents: Vec<KiroAgent>,
-    pub skills: Vec<KiroSkill>,
-    pub steering_rules: Vec<KiroSteeringRule>,
-    pub mcp_servers: Vec<KiroMcpServer>,
+pub struct ClaudeConfig {
+    pub agents: Vec<ClaudeAgent>,
+    pub commands: Vec<ClaudeCommand>,
+    pub memory_files: Vec<ClaudeMemoryFile>,
+    pub mcp_servers: Vec<ClaudeMcpServer>,
 }
 
 fn source_str(is_global: bool) -> &'static str {
     if is_global { "global" } else { "local" }
 }
 
-fn parse_steering_frontmatter(content: &str) -> (bool, String) {
+fn parse_frontmatter(content: &str) -> (bool, String) {
     let mut always_apply = false;
     let mut body = content;
     if content.starts_with("---") {
@@ -88,7 +88,7 @@ fn parse_steering_frontmatter(content: &str) -> (bool, String) {
     (always_apply, excerpt)
 }
 
-fn scan_agents(base: &Path, is_global: bool) -> Vec<KiroAgent> {
+fn scan_agents(base: &Path, is_global: bool) -> Vec<ClaudeAgent> {
     let dir = base.join("agents");
     let Ok(entries) = fs::read_dir(&dir) else { return vec![] };
     let source = source_str(is_global);
@@ -104,7 +104,7 @@ fn scan_agents(base: &Path, is_global: bool) -> Vec<KiroAgent> {
             let raw: serde_json::Value = serde_json::from_str(&fs::read_to_string(&fp).ok()?).ok()?;
             let obj = raw.as_object()?;
             let file_name = fp.file_stem()?.to_string_lossy().to_string();
-            Some(KiroAgent {
+            Some(ClaudeAgent {
                 name: obj.get("name").and_then(|v| v.as_str()).unwrap_or(&file_name).to_string(),
                 description: obj.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string(),
                 tools: obj.get("tools").and_then(|v| v.as_array()).map(|a| {
@@ -117,81 +117,94 @@ fn scan_agents(base: &Path, is_global: bool) -> Vec<KiroAgent> {
         .collect()
 }
 
-fn scan_skills(base: &Path, is_global: bool) -> Vec<KiroSkill> {
-    let dir = base.join("skills");
+/// Scan `.claude/commands/` for slash command markdown files.
+fn scan_commands(base: &Path, is_global: bool) -> Vec<ClaudeCommand> {
+    let dir = base.join("commands");
     let Ok(entries) = fs::read_dir(&dir) else { return vec![] };
     let source = source_str(is_global);
     entries
         .filter_map(|e| e.ok())
         .filter(|e| {
             let name = e.file_name();
-            !name.to_string_lossy().starts_with('.')
-                && (e.file_type().map_or(false, |t| t.is_dir() || t.is_symlink()))
+            let name = name.to_string_lossy();
+            name.ends_with(".md") && !name.starts_with('.')
         })
         .map(|e| {
-            let skill_md = e.path().join("SKILL.md");
-            let file_path = if skill_md.exists() {
-                skill_md.to_string_lossy().to_string()
-            } else {
-                e.path().to_string_lossy().to_string()
-            };
-            KiroSkill {
-                name: e.file_name().to_string_lossy().to_string(),
+            let fp = e.path();
+            ClaudeCommand {
+                name: fp.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default(),
                 source: source.to_string(),
-                file_path,
+                file_path: fp.to_string_lossy().to_string(),
             }
         })
         .collect()
 }
 
-fn scan_steering(base: &Path, is_global: bool) -> Vec<KiroSteeringRule> {
-    let dir = base.join("steering");
-    let Ok(entries) = fs::read_dir(&dir) else { return vec![] };
+/// Scan for CLAUDE.md memory files in project root and .claude/ directory.
+fn scan_memory_files(project_path: Option<&str>, claude_dir: &Path, is_global: bool) -> Vec<ClaudeMemoryFile> {
     let source = source_str(is_global);
-    entries
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_name().to_string_lossy().ends_with(".md"))
-        .filter_map(|e| {
-            let fp = e.path();
-            let content = fs::read_to_string(&fp).ok()?;
-            let (always_apply, excerpt) = parse_steering_frontmatter(&content);
-            Some(KiroSteeringRule {
-                name: fp.file_stem()?.to_string_lossy().to_string(),
-                always_apply,
-                source: source.to_string(),
-                excerpt,
-                file_path: fp.to_string_lossy().to_string(),
-            })
-        })
-        .collect()
-}
+    let mut files = Vec::new();
 
-fn scan_root_steering(kiro_dir: &Path, is_global: bool, existing: &[KiroSteeringRule]) -> Vec<KiroSteeringRule> {
-    let Ok(entries) = fs::read_dir(kiro_dir) else { return vec![] };
-    let source = source_str(is_global);
-    entries
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_name().to_string_lossy().ends_with(".md"))
-        .filter_map(|e| {
-            let fp = e.path();
-            let name = fp.file_stem()?.to_string_lossy().to_string();
-            if existing.iter().any(|r| r.name == name && r.source == source) {
-                return None;
+    // Check for CLAUDE.md in the project root (local only)
+    if !is_global {
+        if let Some(project) = project_path {
+            let claude_md = Path::new(project).join("CLAUDE.md");
+            if claude_md.exists() {
+                if let Ok(content) = fs::read_to_string(&claude_md) {
+                    let (always_apply, excerpt) = parse_frontmatter(&content);
+                    files.push(ClaudeMemoryFile {
+                        name: "CLAUDE.md".to_string(),
+                        always_apply: true, // root CLAUDE.md always applies
+                        source: source.to_string(),
+                        excerpt,
+                        file_path: claude_md.to_string_lossy().to_string(),
+                    });
+                    let _ = always_apply; // root CLAUDE.md is always-apply regardless
+                }
             }
-            let content = fs::read_to_string(&fp).ok()?;
-            let (always_apply, excerpt) = parse_steering_frontmatter(&content);
-            Some(KiroSteeringRule {
-                name,
+        }
+    }
+
+    // Check for CLAUDE.md inside .claude/ directory
+    let claude_md = claude_dir.join("CLAUDE.md");
+    if claude_md.exists() {
+        if let Ok(content) = fs::read_to_string(&claude_md) {
+            let (always_apply, excerpt) = parse_frontmatter(&content);
+            files.push(ClaudeMemoryFile {
+                name: ".claude/CLAUDE.md".to_string(),
                 always_apply,
                 source: source.to_string(),
                 excerpt,
-                file_path: fp.to_string_lossy().to_string(),
-            })
-        })
-        .collect()
+                file_path: claude_md.to_string_lossy().to_string(),
+            });
+        }
+    }
+
+    // Also scan .claude/*.md for additional memory files
+    if let Ok(entries) = fs::read_dir(claude_dir) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.ends_with(".md") && name_str != "CLAUDE.md" && !name_str.starts_with('.') {
+                let fp = entry.path();
+                if let Ok(content) = fs::read_to_string(&fp) {
+                    let (always_apply, excerpt) = parse_frontmatter(&content);
+                    files.push(ClaudeMemoryFile {
+                        name: name_str.to_string(),
+                        always_apply,
+                        source: source.to_string(),
+                        excerpt,
+                        file_path: fp.to_string_lossy().to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    files
 }
 
-fn load_mcp_file(file_path: &Path, enabled: bool, out: &mut Vec<KiroMcpServer>) {
+fn load_mcp_file(file_path: &Path, enabled: bool, out: &mut Vec<ClaudeMcpServer>) {
     let Ok(content) = fs::read_to_string(file_path) else { return };
     let Ok(raw) = serde_json::from_str::<serde_json::Value>(&content) else { return };
     let Some(servers) = raw.get("mcpServers").and_then(|v| v.as_object()) else { return };
@@ -207,7 +220,7 @@ fn load_mcp_file(file_path: &Path, enabled: bool, out: &mut Vec<KiroMcpServer>) 
         } else {
             None
         };
-        out.push(KiroMcpServer {
+        out.push(ClaudeMcpServer {
             name: name.clone(),
             enabled,
             transport: if has_url { "http".to_string() } else { "stdio".to_string() },
@@ -223,27 +236,27 @@ fn load_mcp_file(file_path: &Path, enabled: bool, out: &mut Vec<KiroMcpServer>) 
 }
 
 #[tauri::command]
-pub fn get_kiro_config(project_path: Option<String>) -> KiroConfig {
-    let mut config = KiroConfig::default();
+pub fn get_claude_config(project_path: Option<String>) -> ClaudeConfig {
+    let mut config = ClaudeConfig::default();
 
+    // Global: ~/.claude/
     if let Some(home) = dirs::home_dir() {
-        let global_kiro = home.join(".kiro");
-        config.agents.extend(scan_agents(&global_kiro, true));
-        config.skills.extend(scan_skills(&global_kiro, true));
-        config.steering_rules.extend(scan_steering(&global_kiro, true));
-        load_mcp_file(&global_kiro.join("settings").join("mcp.json"), true, &mut config.mcp_servers);
-        load_mcp_file(&global_kiro.join("settings").join("mcp-disabled.json"), false, &mut config.mcp_servers);
+        let global_claude = home.join(".claude");
+        config.agents.extend(scan_agents(&global_claude, true));
+        config.commands.extend(scan_commands(&global_claude, true));
+        config.memory_files.extend(scan_memory_files(None, &global_claude, true));
+        load_mcp_file(&global_claude.join("settings").join("mcp.json"), true, &mut config.mcp_servers);
+        load_mcp_file(&global_claude.join("settings").join("mcp-disabled.json"), false, &mut config.mcp_servers);
     }
 
+    // Local: <project>/.claude/
     if let Some(ref project) = project_path {
-        let local_kiro = Path::new(project).join(".kiro");
-        config.agents.extend(scan_agents(&local_kiro, false));
-        config.skills.extend(scan_skills(&local_kiro, false));
-        config.steering_rules.extend(scan_steering(&local_kiro, false));
-        let root_rules = scan_root_steering(&local_kiro, false, &config.steering_rules);
-        config.steering_rules.extend(root_rules);
-        load_mcp_file(&local_kiro.join("settings").join("mcp.json"), true, &mut config.mcp_servers);
-        load_mcp_file(&local_kiro.join("settings").join("mcp-disabled.json"), false, &mut config.mcp_servers);
+        let local_claude = Path::new(project).join(".claude");
+        config.agents.extend(scan_agents(&local_claude, false));
+        config.commands.extend(scan_commands(&local_claude, false));
+        config.memory_files.extend(scan_memory_files(Some(project), &local_claude, false));
+        load_mcp_file(&local_claude.join("settings").join("mcp.json"), true, &mut config.mcp_servers);
+        load_mcp_file(&local_claude.join("settings").join("mcp-disabled.json"), false, &mut config.mcp_servers);
     }
 
     config
@@ -256,7 +269,7 @@ mod tests {
     #[test]
     fn parse_frontmatter_with_always_apply_true() {
         let input = "---\nalwaysApply: true\n---\n# Title\nSome body text";
-        let (always_apply, excerpt) = parse_steering_frontmatter(input);
+        let (always_apply, excerpt) = parse_frontmatter(input);
         assert!(always_apply);
         assert_eq!(excerpt, "Some body text");
     }
@@ -264,7 +277,7 @@ mod tests {
     #[test]
     fn parse_frontmatter_with_always_apply_false() {
         let input = "---\nalwaysApply: false\n---\nBody here";
-        let (always_apply, excerpt) = parse_steering_frontmatter(input);
+        let (always_apply, excerpt) = parse_frontmatter(input);
         assert!(!always_apply);
         assert_eq!(excerpt, "Body here");
     }
@@ -272,7 +285,7 @@ mod tests {
     #[test]
     fn parse_frontmatter_missing_returns_false() {
         let input = "# No frontmatter\nJust content";
-        let (always_apply, excerpt) = parse_steering_frontmatter(input);
+        let (always_apply, excerpt) = parse_frontmatter(input);
         assert!(!always_apply);
         assert_eq!(excerpt, "Just content");
     }
@@ -280,7 +293,7 @@ mod tests {
     #[test]
     fn parse_frontmatter_skips_headings_in_excerpt() {
         let input = "---\nalwaysApply: true\n---\n# Heading\n## Subheading\nActual content";
-        let (_, excerpt) = parse_steering_frontmatter(input);
+        let (_, excerpt) = parse_frontmatter(input);
         assert_eq!(excerpt, "Actual content");
     }
 
@@ -288,15 +301,22 @@ mod tests {
     fn parse_frontmatter_truncates_long_excerpt() {
         let long_line = "a".repeat(200);
         let input = format!("---\nalwaysApply: false\n---\n{}", long_line);
-        let (_, excerpt) = parse_steering_frontmatter(&input);
+        let (_, excerpt) = parse_frontmatter(&input);
         assert_eq!(excerpt.len(), 120);
     }
 
     #[test]
     fn parse_frontmatter_empty_body() {
         let input = "---\nalwaysApply: true\n---\n";
-        let (always_apply, excerpt) = parse_steering_frontmatter(input);
+        let (always_apply, excerpt) = parse_frontmatter(input);
         assert!(always_apply);
+        assert_eq!(excerpt, "");
+    }
+
+    #[test]
+    fn parse_frontmatter_only_whitespace_body() {
+        let input = "---\nalwaysApply: false\n---\n   \n  \n";
+        let (_, excerpt) = parse_frontmatter(input);
         assert_eq!(excerpt, "");
     }
 
@@ -317,15 +337,15 @@ mod tests {
     }
 
     #[test]
-    fn scan_skills_nonexistent_dir_returns_empty() {
-        let tmp = std::env::temp_dir().join("klaudex_test_nonexistent_skills");
-        assert!(super::scan_skills(&tmp, false).is_empty());
+    fn scan_commands_nonexistent_dir_returns_empty() {
+        let tmp = std::env::temp_dir().join("klaudex_test_nonexistent_commands");
+        assert!(super::scan_commands(&tmp, false).is_empty());
     }
 
     #[test]
-    fn scan_steering_nonexistent_dir_returns_empty() {
-        let tmp = std::env::temp_dir().join("klaudex_test_nonexistent_steering");
-        assert!(super::scan_steering(&tmp, true).is_empty());
+    fn scan_memory_nonexistent_dir_returns_empty() {
+        let tmp = std::env::temp_dir().join("klaudex_test_nonexistent_memory");
+        assert!(super::scan_memory_files(None, &tmp, true).is_empty());
     }
 
     #[test]
@@ -346,17 +366,31 @@ mod tests {
     }
 
     #[test]
-    fn scan_steering_reads_md_files() {
+    fn scan_commands_reads_md_files() {
         let tmp = tempfile::tempdir().unwrap();
-        let dir = tmp.path().join("steering");
+        let dir = tmp.path().join("commands");
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("my-rule.md"), "---\nalwaysApply: true\n---\n# Rule\nDo this thing").unwrap();
-        let result = super::scan_steering(tmp.path(), false);
+        std::fs::write(dir.join("my-command.md"), "# My Command\nDo something").unwrap();
+        let result = super::scan_commands(tmp.path(), false);
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].name, "my-rule");
-        assert!(result[0].always_apply);
+        assert_eq!(result[0].name, "my-command");
         assert_eq!(result[0].source, "local");
-        assert_eq!(result[0].excerpt, "Do this thing");
+    }
+
+    #[test]
+    fn scan_memory_finds_claude_md() {
+        let tmp = tempfile::tempdir().unwrap();
+        let claude_dir = tmp.path().join(".claude");
+        std::fs::create_dir_all(&claude_dir).unwrap();
+        // Root CLAUDE.md
+        std::fs::write(tmp.path().join("CLAUDE.md"), "# Project\nProject instructions").unwrap();
+        // .claude/CLAUDE.md
+        std::fs::write(claude_dir.join("CLAUDE.md"), "---\nalwaysApply: true\n---\nInner instructions").unwrap();
+        let result = super::scan_memory_files(Some(tmp.path().to_str().unwrap()), &claude_dir, false);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].name, "CLAUDE.md");
+        assert!(result[0].always_apply); // root always applies
+        assert_eq!(result[1].name, ".claude/CLAUDE.md");
     }
 
     #[test]
@@ -412,17 +446,11 @@ mod tests {
     }
 
     #[test]
-    fn kiro_config_default_is_empty() {
-        let config = super::KiroConfig::default();
+    fn claude_config_default_is_empty() {
+        let config = super::ClaudeConfig::default();
         assert!(config.agents.is_empty());
         assert!(config.mcp_servers.is_empty());
-    }
-
-    #[test]
-    fn parse_frontmatter_only_whitespace_body() {
-        let input = "---\nalwaysApply: true\n---\n   \n  \n";
-        let (always_apply, excerpt) = super::parse_steering_frontmatter(input);
-        assert!(always_apply);
-        assert_eq!(excerpt, "");
+        assert!(config.commands.is_empty());
+        assert!(config.memory_files.is_empty());
     }
 }

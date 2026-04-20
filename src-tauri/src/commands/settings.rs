@@ -33,8 +33,10 @@ pub struct ProjectPrefs {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
-    #[serde(default = "default_kiro_bin")]
-    pub kiro_bin: String,
+    /// Path to the Claude CLI binary. Renamed from `kiroBin`; the old key is
+    /// accepted on deserialization for backward compatibility.
+    #[serde(default = "default_claude_bin", alias = "kiroBin")]
+    pub claude_bin: String,
     #[serde(default)]
     pub agent_profiles: Vec<AgentProfile>,
     #[serde(default = "default_font_size")]
@@ -70,8 +72,8 @@ pub struct AppSettings {
     pub theme: String,
 }
 
-fn default_kiro_bin() -> String {
-    "kiro-cli".to_string()
+fn default_claude_bin() -> String {
+    "claude".to_string()
 }
 fn default_font_size() -> u32 {
     13
@@ -86,7 +88,7 @@ fn default_true() -> bool {
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
-            kiro_bin: default_kiro_bin(),
+            claude_bin: default_claude_bin(),
             agent_profiles: vec![],
             font_size: default_font_size(),
             default_model: None,
@@ -150,7 +152,7 @@ mod tests {
     #[test]
     fn default_settings_values() {
         let s = AppSettings::default();
-        assert_eq!(s.kiro_bin, "kiro-cli");
+        assert_eq!(s.claude_bin, "claude");
         assert_eq!(s.font_size, 13);
         assert!(!s.auto_approve);
         assert!(s.respect_gitignore);
@@ -176,7 +178,7 @@ mod tests {
             },
         );
         let settings = AppSettings {
-            kiro_bin: "/usr/local/bin/kiro-cli".to_string(),
+            claude_bin: "/usr/local/bin/claude".to_string(),
             font_size: 16,
             auto_approve: true,
             has_onboarded_v2: true,
@@ -187,7 +189,7 @@ mod tests {
         };
         let json = serde_json::to_string(&settings).unwrap();
         let restored: AppSettings = serde_json::from_str(&json).unwrap();
-        assert_eq!(restored.kiro_bin, "/usr/local/bin/kiro-cli");
+        assert_eq!(restored.claude_bin, "/usr/local/bin/claude");
         assert_eq!(restored.font_size, 16);
         assert!(restored.auto_approve);
         assert!(restored.has_onboarded_v2);
@@ -201,6 +203,13 @@ mod tests {
     }
 
     #[test]
+    fn backward_compat_kiro_bin_alias() {
+        let json = r#"{"kiroBin": "/usr/local/bin/kiro-cli"}"#;
+        let settings: AppSettings = serde_json::from_str(json).unwrap();
+        assert_eq!(settings.claude_bin, "/usr/local/bin/kiro-cli");
+    }
+
+    #[test]
     fn tight_sandbox_defaults_to_none_when_missing() {
         let json = r#"{}"#;
         let prefs: ProjectPrefs = serde_json::from_str(json).unwrap();
@@ -209,9 +218,9 @@ mod tests {
 
     #[test]
     fn deserialize_with_missing_fields_uses_defaults() {
-        let json = r#"{"kiroBin": "/bin/kiro"}"#;
+        let json = r#"{"claudeBin": "/bin/claude"}"#;
         let settings: AppSettings = serde_json::from_str(json).unwrap();
-        assert_eq!(settings.kiro_bin, "/bin/kiro");
+        assert_eq!(settings.claude_bin, "/bin/claude");
         assert_eq!(settings.font_size, 13);
         assert!(settings.respect_gitignore);
         assert!(settings.co_author);
@@ -222,10 +231,10 @@ mod tests {
     fn camel_case_serialization() {
         let settings = AppSettings::default();
         let json = serde_json::to_string(&settings).unwrap();
-        assert!(json.contains("kiroBin"));
+        assert!(json.contains("claudeBin"));
         assert!(json.contains("fontSize"));
         assert!(json.contains("autoApprove"));
         assert!(json.contains("hasOnboardedV2"));
-        assert!(!json.contains("kiro_bin"));
+        assert!(!json.contains("claude_bin"));
     }
 }
