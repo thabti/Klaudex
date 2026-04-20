@@ -537,10 +537,10 @@ pub fn git_worktree_create(cwd: String, slug: String) -> Result<WorktreeResult, 
     validate_worktree_slug(&slug)?;
     let cwd_path = Path::new(&cwd);
     // Reject creating a worktree from inside another worktree
-    if cwd.contains("/.kiro/worktrees/") {
+    if cwd.contains("/.klaudex/worktrees/") {
         return Err(AppError::Other("Cannot create a worktree from inside another worktree. Use the project root.".to_string()));
     }
-    let worktree_dir = cwd_path.join(".kiro").join("worktrees").join(&slug);
+    let worktree_dir = cwd_path.join(".klaudex").join("worktrees").join(&slug);
     let worktree_path = worktree_dir.to_string_lossy().to_string();
     let branch = format!("worktree-{slug}");
     let output = Command::new("git")
@@ -668,8 +668,8 @@ pub fn git_worktree_setup(
             }
         }
     }
-    // Ensure .kiro/worktrees/ is in .gitignore
-    ensure_gitignore_entry(&cwd_path, ".kiro/worktrees/")?;
+    // Ensure .klaudex/worktrees/ is in .gitignore
+    ensure_gitignore_entry(&cwd_path, ".klaudex/worktrees/")?;
     Ok(WorktreeSetupResult { symlink_count, copied_files })
 }
 
@@ -799,43 +799,43 @@ mod tests {
     #[test]
     fn ensure_gitignore_creates_file_if_missing() {
         let dir = tempfile::tempdir().unwrap();
-        ensure_gitignore_entry(dir.path(), ".kiro/worktrees/").unwrap();
+        ensure_gitignore_entry(dir.path(), ".klaudex/worktrees/").unwrap();
         let content = std::fs::read_to_string(dir.path().join(".gitignore")).unwrap();
-        assert_eq!(content, ".kiro/worktrees/\n");
+        assert_eq!(content, ".klaudex/worktrees/\n");
     }
 
     #[test]
     fn ensure_gitignore_appends_if_not_present() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join(".gitignore"), "node_modules/\n").unwrap();
-        ensure_gitignore_entry(dir.path(), ".kiro/worktrees/").unwrap();
+        ensure_gitignore_entry(dir.path(), ".klaudex/worktrees/").unwrap();
         let content = std::fs::read_to_string(dir.path().join(".gitignore")).unwrap();
         assert!(content.contains("node_modules/"));
-        assert!(content.contains(".kiro/worktrees/"));
+        assert!(content.contains(".klaudex/worktrees/"));
     }
 
     #[test]
     fn ensure_gitignore_skips_if_already_present() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join(".gitignore"), ".kiro/worktrees/\n").unwrap();
-        ensure_gitignore_entry(dir.path(), ".kiro/worktrees/").unwrap();
+        std::fs::write(dir.path().join(".gitignore"), ".klaudex/worktrees/\n").unwrap();
+        ensure_gitignore_entry(dir.path(), ".klaudex/worktrees/").unwrap();
         let content = std::fs::read_to_string(dir.path().join(".gitignore")).unwrap();
-        assert_eq!(content.matches(".kiro/worktrees/").count(), 1);
+        assert_eq!(content.matches(".klaudex/worktrees/").count(), 1);
     }
 
     #[test]
     fn ensure_gitignore_handles_no_trailing_newline() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join(".gitignore"), "node_modules/").unwrap();
-        ensure_gitignore_entry(dir.path(), ".kiro/worktrees/").unwrap();
+        ensure_gitignore_entry(dir.path(), ".klaudex/worktrees/").unwrap();
         let content = std::fs::read_to_string(dir.path().join(".gitignore")).unwrap();
-        assert_eq!(content, "node_modules/\n.kiro/worktrees/\n");
+        assert_eq!(content, "node_modules/\n.klaudex/worktrees/\n");
     }
 
     #[test]
     fn worktree_create_rejects_worktree_path_as_cwd() {
         let result = git_worktree_create(
-            "/project/.kiro/worktrees/feat".to_string(),
+            "/project/.klaudex/worktrees/feat".to_string(),
             "new-branch".to_string(),
         );
         assert!(result.is_err());

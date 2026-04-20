@@ -8,19 +8,19 @@ use tauri_plugin_dialog::DialogExt;
 use super::error::AppError;
 
 #[tauri::command]
-pub fn detect_kiro_cli() -> Option<String> {
+pub fn detect_claude_cli() -> Option<String> {
     let candidates = [
-        dirs::home_dir().map(|h| h.join(".local/bin/kiro-cli")),
-        Some(PathBuf::from("/usr/local/bin/kiro-cli")),
-        dirs::home_dir().map(|h| h.join(".kiro/bin/kiro-cli")),
-        Some(PathBuf::from("/opt/homebrew/bin/kiro-cli")),
+        Some(PathBuf::from("/usr/local/bin/claude")),
+        Some(PathBuf::from("/opt/homebrew/bin/claude")),
+        dirs::home_dir().map(|h| h.join(".local/bin/claude")),
+        dirs::home_dir().map(|h| h.join(".claude/bin/claude")),
     ];
     for candidate in candidates.into_iter().flatten() {
         if candidate.exists() {
             return Some(candidate.to_string_lossy().to_string());
         }
     }
-    which::which("kiro-cli")
+    which::which("claude")
         .ok()
         .map(|p| p.to_string_lossy().to_string())
 }
@@ -673,63 +673,155 @@ pub fn list_project_files(root: String, respect_gitignore: bool) -> Result<Vec<P
     Ok(files)
 }
 
-// ── Kiro CLI authentication ──────────────────────────────────────
+// ── Claude CLI authentication ──────────────────────────────────────
 
+/// Matches the JSON output of `claude auth status`
 #[derive(Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct KiroIdentity {
+pub struct ClaudeAuthStatus {
+    #[serde(default)]
+    pub logged_in: bool,
+    #[serde(default)]
+    pub auth_method: Option<String>,
+    #[serde(default)]
+    pub api_provider: Option<String>,
+    #[serde(default)]
     pub email: Option<String>,
     #[serde(default)]
-    pub account_type: Option<String>,
+    pub org_id: Option<String>,
     #[serde(default)]
-    pub region: Option<String>,
+    pub org_name: Option<String>,
     #[serde(default)]
-    pub start_url: Option<String>,
+    pub subscription_type: Option<String>,
 }
 
 #[tauri::command]
-pub fn kiro_whoami(kiro_bin: Option<String>) -> Result<KiroIdentity, AppError> {
-    let bin = kiro_bin.unwrap_or_else(|| "kiro-cli".to_string());
-    log::info!("[auth] kiro_whoami called with bin: {}", bin);
+pub fn claude_whoami(claude_bin: Option<String>) -> Result<ClaudeAuthStatus, AppError> {
+    let bin = claude_bin.unwrap_or_else(|| "claude".to_string());
+    log::info!("[auth] claude_whoami called with bin: {}", bin);
     let output = std::process::Command::new(&bin)
-        .args(["whoami", "--format", "json"])
+        .args(["auth", "status"])
+        .env(
+            "PATH",
+            format!(
+                "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}",
+                std::env::var("PATH").unwrap_or_default()
+            ),
+        )
         .output()
         .map_err(|e| {
             log::error!("[auth] Failed to spawn {}: {}", bin, e);
             AppError::Other(format!("Failed to run {}: {}", bin, e))
         })?;
-    log::info!("[auth] whoami exit code: {}", output.status);
+    log::info!("[auth] auth status exit code: {}", output.status);
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        log::warn!("[auth] whoami failed: {}", stderr.trim());
+        log::warn!("[auth] auth status failed: {}", stderr.trim());
         return Err(AppError::Other(format!("Not authenticated: {}", stderr.trim())));
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
-    log::info!("[auth] whoami stdout: {}", stdout.trim());
-    // kiro-cli whoami --format json outputs JSON on the first line, then extra profile info on subsequent lines
-    let json_line = stdout.lines().next().unwrap_or("{}");
-    log::info!("[auth] parsing JSON line: {}", json_line);
-    let identity: KiroIdentity = serde_json::from_str(json_line)
-        .map_err(|e| {
-            log::error!("[auth] Failed to parse whoami JSON: {} — raw: {}", e, json_line);
-            AppError::Other(format!("Failed to parse whoami output: {}", e))
-        })?;
-    log::info!("[auth] parsed identity: {:?}", identity);
-    Ok(identity)
+    log::info!("[auth] auth status stdout: {}", stdout.trim());
+    // `claude auth status` may output a region line before the JSON object.
+    // Find the JSON by locating the first `{` and taking everything from there.
+    let json_str = stdout
+        .find('{')
+        .map(|start| &stdout[start..])
+        .unwrap_or("{}");
+    log::info!("[auth] parsing JSON: {}", json_str.trim());
+    let status: ClaudeAuthStatus = serde_json::from_str(json_str).map_err(|e| {
+        log::error!("[auth] Failed to parse auth status JSON: {} — raw: {}", e, json_str.trim());
+        AppError::Other(format!("Failed to parse auth status: {}", e))
+    })?;
+    log::info!("[auth] parsed auth status: {:?}", status);
+    Ok(status)
 }
 
 #[tauri::command]
-pub fn kiro_logout(kiro_bin: Option<String>) -> Result<(), AppError> {
-    let bin = kiro_bin.unwrap_or_else(|| "kiro-cli".to_string());
+pub fn claude_logout(claude_bin: Option<String>) -> Result<(), AppError> {
+    let bin = claude_bin.unwrap_or_else(|| "claude".to_string());
     let output = std::process::Command::new(&bin)
-        .arg("logout")
+        .args(["auth", "logout"])
+        .env(
+            "PATH",
+            format!(
+                "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}",
+                std::env::var("PATH").unwrap_or_default()
+            ),
+        )
         .output()
-        .map_err(|e| AppError::Other(format!("Failed to run {} logout: {}", bin, e)))?;
+        .map_err(|e| AppError::Other(format!("Failed to run {} auth logout: {}", bin, e)))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(AppError::Other(format!("Logout failed: {}", stderr.trim())));
     }
     Ok(())
+}
+
+/// Spawns `claude auth login` as a background process and polls `claude auth status`
+/// until the user completes login. Returns the auth status on success.
+#[tauri::command]
+pub async fn claude_login(
+    app: tauri::AppHandle,
+    claude_bin: Option<String>,
+) -> Result<ClaudeAuthStatus, String> {
+    let bin = claude_bin.unwrap_or_else(|| "claude".to_string());
+    let path_env = format!(
+        "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}",
+        std::env::var("PATH").unwrap_or_default()
+    );
+
+    // Spawn `claude auth login` — this opens a browser for OAuth
+    let mut child = tokio::process::Command::new(&bin)
+        .args(["auth", "login"])
+        .env("PATH", &path_env)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn claude auth login: {e}"))?;
+
+    // Poll `claude auth status` every 2 seconds for up to 5 minutes
+    let poll_bin = bin.clone();
+    let poll_path = path_env.clone();
+    for _ in 0..150 {
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+        let output = tokio::process::Command::new(&poll_bin)
+            .args(["auth", "status"])
+            .env("PATH", &poll_path)
+            .output()
+            .await;
+
+        if let Ok(out) = output {
+            if out.status.success() {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                if let Some(start) = stdout.find('{') {
+                    if let Ok(status) = serde_json::from_str::<ClaudeAuthStatus>(&stdout[start..]) {
+                        if status.logged_in {
+                            // Kill the login process if still running
+                            let _ = child.kill().await;
+                            use tauri::Emitter;
+                            let _ = app.emit("auth_changed", serde_json::json!({
+                                "loggedIn": true,
+                                "email": status.email,
+                                "authMethod": status.auth_method,
+                                "subscriptionType": status.subscription_type,
+                            }));
+                            return Ok(status);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check if the login process exited (user cancelled)
+        if let Ok(Some(_)) = child.try_wait() {
+            break;
+        }
+    }
+
+    let _ = child.kill().await;
+    Err("Login timed out or was cancelled".to_string())
 }
 
 #[tauri::command]

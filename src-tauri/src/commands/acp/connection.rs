@@ -2,16 +2,14 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use serde_json::Value;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{mpsc, oneshot};
 
-use agent_client_protocol as acp;
-use acp::Agent as _; // Brings initialize, new_session, prompt, cancel, set_session_mode into scope
-use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
-
-use super::client::KlaudexClient;
+use super::claude_types::*;
 use super::sandbox::{extract_paths_from_message, friendly_prompt_error};
 use super::types::{
-    AcpCommand, AcpState, AttachmentData, ConnectionHandle, PendingPermission, PermissionOption, PermissionReply,
+    AcpCommand, AcpState, AttachmentData, ConnectionHandle, PendingPermission, PermissionOption,
+    PermissionReply,
 };
 
 /// Strip embedded `<image src="data:..." />` tags and their `[Attached image: ...]` prefixes
@@ -21,106 +19,96 @@ pub(crate) fn strip_image_tags(text: &str) -> String {
     let mut i = 0;
     let bytes = text.as_bytes();
     while i < bytes.len() {
-        // Try to match [Attached image: ...]\n<image src="data:..." />
         if bytes[i] == b'[' && text[i..].starts_with("[Attached image: ") {
             if let Some(bracket_end) = text[i..].find("]\n<image src=\"data:") {
-                let tag_start = i + bracket_end + 1; // skip past ']'
+                let tag_start = i + bracket_end + 1;
                 if text[tag_start..].starts_with("\n<image src=\"data:") {
                     if let Some(tag_end) = text[tag_start..].find(" />") {
-                        i = tag_start + tag_end + 3; // skip past ' />'
-                        // Skip trailing newlines
-                        while i < bytes.len() && bytes[i] == b'\n' { i += 1; }
+                        i = tag_start + tag_end + 3;
+                        while i < bytes.len() && bytes[i] == b'\n' {
+                            i += 1;
+                        }
                         continue;
                     }
                 }
             }
         }
-        // Try to match standalone <image src="data:..." />
         if bytes[i] == b'<' && text[i..].starts_with("<image src=\"data:") {
             if let Some(tag_end) = text[i..].find(" />") {
                 i += tag_end + 3;
-                while i < bytes.len() && bytes[i] == b'\n' { i += 1; }
+                while i < bytes.len() && bytes[i] == b'\n' {
+                    i += 1;
+                }
                 continue;
             }
         }
         result.push(bytes[i] as char);
         i += 1;
     }
-    // Collapse multiple consecutive newlines into at most two
     while result.contains("\n\n\n") {
         result = result.replace("\n\n\n", "\n\n");
     }
     result.trim().to_string()
 }
 
-/// Build the content blocks for a PromptRequest: text (with image tags stripped) + image blocks.
-pub(crate) fn build_content_blocks(text: String, attachments: &[AttachmentData]) -> Vec<acp::ContentBlock> {
-    let clean_text = if attachments.is_empty() { text } else { strip_image_tags(&text) };
-    let mut blocks: Vec<acp::ContentBlock> = vec![clean_text.into()];
+/// Build content blocks for the Claude CLI input: text (with image tags stripped) + image blocks.
+pub(crate) fn build_content_blocks(
+    text: String,
+    attachments: &[AttachmentData],
+) -> Vec<ClaudeInputContent> {
+    let clean_text = if attachments.is_empty() {
+        text
+    } else {
+        strip_image_tags(&text)
+    };
+    let mut blocks: Vec<ClaudeInputContent> = vec![ClaudeInputContent::Text { text: clean_text }];
     for att in attachments {
-        blocks.push(acp::ContentBlock::Image(
-            acp::ImageContent::new(&att.base64, &att.mime_type),
-        ));
+        blocks.push(ClaudeInputContent::Image {
+            source: ImageSource {
+                source_type: "base64".to_string(),
+                data: att.base64.clone(),
+                media_type: att.mime_type.clone(),
+            },
+        });
     }
     blocks
 }
 
-// ── Spawn a kiro-cli ACP connection on a dedicated thread ──────────────
+// ── Spawn a Claude CLI connection on a dedicated thread ──────────────
 
 pub(crate) fn spawn_connection(
     task_id: String,
     workspace: String,
-    kiro_bin: String,
+    claude_bin: String,
     auto_approve: bool,
     app: tauri::AppHandle,
     initial_mode_id: Option<String>,
+    model: Option<String>,
     tight_sandbox: bool,
+    resume_session_id: Option<String>,
 ) -> Result<ConnectionHandle, String> {
     let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<AcpCommand>();
     let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
     let alive_clone = alive.clone();
     let auto_approve_flag = Arc::new(std::sync::atomic::AtomicBool::new(auto_approve));
-    let auto_approve_for_client = auto_approve_flag.clone();
 
     let (perm_tx, mut perm_rx) = mpsc::unbounded_channel::<(
         String,
-        acp::RequestPermissionRequest,
+        String,
+        String,
+        Vec<PermissionOption>,
         oneshot::Sender<PermissionReply>,
     )>();
 
     // Spawn permission handler on the Tauri async runtime.
-    // Uses the managed AcpState via app handle — NOT a cloned copy.
     let app2 = app.clone();
     let tid2 = task_id.clone();
     tauri::async_runtime::spawn(async move {
-        while let Some((request_id, req, reply_tx)) = perm_rx.recv().await {
-            let val = serde_json::to_value(&req).unwrap_or_default();
-            let tool_call = val.get("toolCall");
-            let tool_name = tool_call
-                .and_then(|tc| tc.get("title"))
-                .and_then(|t| t.as_str())
-                .unwrap_or("unknown")
-                .to_string();
-            let options: Vec<PermissionOption> = val.get("options")
-                .and_then(|v| v.as_array())
-                .map(|arr| arr.iter().filter_map(|o| {
-                    Some(PermissionOption {
-                        option_id: o.get("optionId")?.as_str()?.to_string(),
-                        name: o.get("name")?.as_str()?.to_string(),
-                        kind: o.get("kind")?.as_str()?.to_string(),
-                    })
-                }).collect())
-                .unwrap_or_default();
-            let description = if tool_name != "unknown" {
-                format!("{tool_name} requires permission")
-            } else {
-                "Permission requested".to_string()
-            };
-
-            // Access the MANAGED state — same instance that tauri commands use.
+        while let Some((request_id, tool_name, description, options, reply_tx)) =
+            perm_rx.recv().await
+        {
             use tauri::Manager;
             if let Some(managed_state) = app2.try_state::<AcpState>() {
-                // Update task status
                 {
                     let mut tasks = managed_state.tasks.lock();
                     if let Some(task) = tasks.get_mut(&tid2) {
@@ -135,8 +123,6 @@ pub(crate) fn spawn_connection(
                         let _ = app2.emit("task_update", task.clone());
                     }
                 }
-
-                // Store the reply sender in the MANAGED state
                 {
                     let mut resolvers = managed_state.permission_resolvers.lock();
                     resolvers.insert(request_id, reply_tx);
@@ -145,178 +131,675 @@ pub(crate) fn spawn_connection(
         }
     });
 
-    // Spawn the ACP connection on a dedicated OS thread with its own single-threaded runtime.
-    // Wrapped in catch_unwind to prevent silent thread death from orphaning channels.
+    // Spawn the connection on a dedicated OS thread.
     let app3 = app.clone();
     let tid3 = task_id.clone();
     let alive_for_panic = alive.clone();
+    let auto_approve_for_thread = auto_approve_flag.clone();
     std::thread::spawn(move || {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
-                .expect("Failed to create tokio runtime for ACP");
+                .expect("Failed to create tokio runtime");
 
             let local = tokio::task::LocalSet::new();
             local.block_on(&rt, async move {
-                let result = run_acp_connection(
-                    tid3.clone(), workspace, kiro_bin, auto_approve_for_client,
-                    app3.clone(), perm_tx, &mut cmd_rx, initial_mode_id,
+                let result = run_claude_connection(
+                    tid3.clone(),
+                    workspace,
+                    claude_bin,
+                    auto_approve_for_thread,
+                    app3.clone(),
+                    perm_tx,
+                    &mut cmd_rx,
+                    initial_mode_id,
+                    model,
                     tight_sandbox,
-                ).await;
+                    resume_session_id,
+                )
+                .await;
 
                 alive_clone.store(false, std::sync::atomic::Ordering::SeqCst);
 
                 if let Err(e) = result {
                     use tauri::Emitter;
-                    let _ = app3.emit("debug_log", serde_json::json!({
-                        "direction": "in", "category": "error", "type": "connection-error",
-                        "taskId": tid3, "summary": e, "payload": { "error": e }, "isError": true
-                    }));
+                    let _ = app3.emit(
+                        "debug_log",
+                        serde_json::json!({
+                            "direction": "in", "category": "error", "type": "connection-error",
+                            "taskId": tid3, "summary": e, "payload": { "error": e }, "isError": true
+                        }),
+                    );
                 }
             });
         }));
         if result.is_err() {
-            log::error!("[ACP] Connection thread panicked");
+            log::error!("[Claude] Connection thread panicked");
             alive_for_panic.store(false, std::sync::atomic::Ordering::SeqCst);
         }
     });
 
-    Ok(ConnectionHandle { cmd_tx, alive, auto_approve: auto_approve_flag })
+    Ok(ConnectionHandle {
+        cmd_tx,
+        alive,
+        auto_approve: auto_approve_flag,
+    })
 }
 
-pub(crate) async fn run_acp_connection(
+/// Process a single Claude ndjson message and emit the appropriate Tauri events.
+fn handle_claude_message(
+    msg: &ClaudeMessage,
+    task_id: &str,
+    app: &tauri::AppHandle,
+) {
+    use tauri::Emitter;
+    match msg {
+        ClaudeMessage::System(sys) => match sys.subtype.as_str() {
+            "init" => {
+                log::info!("[Claude] session init: {:?}", sys.session_id);
+                // Store session_id in the Task for resume support
+                if let Some(sid) = &sys.session_id {
+                    use tauri::Manager;
+                    if let Some(state) = app.try_state::<AcpState>() {
+                        let mut tasks = state.tasks.lock();
+                        if let Some(task) = tasks.get_mut(task_id) {
+                            task.session_id = Some(sid.clone());
+                        }
+                    }
+                }
+            }
+            "status" if sys.status.as_deref() == Some("compacting") => {
+                let _ = app.emit(
+                    "message_chunk",
+                    serde_json::json!({"taskId": task_id, "chunk": "Compacting..."}),
+                );
+            }
+            "compact_boundary" => {
+                let _ = app.emit(
+                    "usage_update",
+                    serde_json::json!({"taskId": task_id, "used": 0, "size": 200000}),
+                );
+                let _ = app.emit(
+                    "message_chunk",
+                    serde_json::json!({"taskId": task_id, "chunk": "\n\nCompacting completed."}),
+                );
+            }
+            "local_command_output" => {
+                if let Some(content) = &sys.content {
+                    let _ = app.emit(
+                        "message_chunk",
+                        serde_json::json!({"taskId": task_id, "chunk": content}),
+                    );
+                }
+            }
+            "session_state_changed" => {}
+            _ => {
+                log::debug!("[Claude] unhandled system subtype: {}", sys.subtype);
+            }
+        },
+
+        ClaudeMessage::StreamEvent(se) => match &se.event {
+            StreamEvent::ContentBlockStart {
+                content_block,
+                index,
+            } => match content_block {
+                ContentBlock::Text { .. } => {}
+                ContentBlock::Thinking { .. } => {}
+                ContentBlock::ToolUse { id, name, input } => {
+                    let (title, kind) = tool_title_and_kind(name, input);
+                    let _ = app.emit(
+                        "tool_call",
+                        serde_json::json!({
+                            "taskId": task_id,
+                            "toolCall": {
+                                "sessionUpdate": "tool_call",
+                                "toolCallId": id,
+                                "title": title,
+                                "kind": kind,
+                                "status": "pending",
+                                "rawInput": input,
+                            }
+                        }),
+                    );
+                }
+                _ => {}
+            },
+
+            StreamEvent::ContentBlockDelta { delta, .. } => match delta {
+                ContentDelta::TextDelta { text } => {
+                    if !text.is_empty() {
+                        let _ = app.emit(
+                            "message_chunk",
+                            serde_json::json!({"taskId": task_id, "chunk": text}),
+                        );
+                    }
+                }
+                ContentDelta::ThinkingDelta { thinking } => {
+                    if !thinking.is_empty() {
+                        let _ = app.emit(
+                            "thinking_chunk",
+                            serde_json::json!({"taskId": task_id, "chunk": thinking}),
+                        );
+                    }
+                }
+                ContentDelta::InputJsonDelta { .. } => {}
+                _ => {}
+            },
+
+            StreamEvent::MessageStart { message } => {
+                if let Some(usage) = &message.usage {
+                    let input = usage.input_tokens.unwrap_or(0);
+                    let output = usage.output_tokens.unwrap_or(0);
+                    let cache_read = usage.cache_read_input_tokens.unwrap_or(0);
+                    let cache_creation = usage.cache_creation_input_tokens.unwrap_or(0);
+                    let total = input + output + cache_read + cache_creation;
+                    let _ = app.emit(
+                        "usage_update",
+                        serde_json::json!({
+                            "taskId": task_id, "used": total, "size": 200000,
+                            "inputTokens": input,
+                            "outputTokens": output,
+                            "cacheReadTokens": cache_read,
+                            "cacheCreationTokens": cache_creation,
+                        }),
+                    );
+                }
+            }
+
+            StreamEvent::MessageDelta { usage, .. } => {
+                if let Some(usage) = usage {
+                    let total = usage.input_tokens.unwrap_or(0)
+                        + usage.output_tokens.unwrap_or(0)
+                        + usage.cache_read_input_tokens.unwrap_or(0)
+                        + usage.cache_creation_input_tokens.unwrap_or(0);
+                    let _ = app.emit(
+                        "usage_update",
+                        serde_json::json!({"taskId": task_id, "used": total, "size": 200000}),
+                    );
+                }
+            }
+
+            StreamEvent::ContentBlockStop { .. } | StreamEvent::MessageStop {} => {}
+        },
+
+        ClaudeMessage::Assistant(asst) => {
+            // Complete assistant messages contain text and/or tool_use blocks.
+            // Text blocks must be emitted as message_chunk so the frontend can display them;
+            // the streaming path (ContentBlockDelta) only fires for incremental responses.
+            if let Some(arr) = asst.message.content.as_array() {
+                for block in arr {
+                    let block_type = block.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                    match block_type {
+                        "text" => {
+                            if let Some(text) = block.get("text").and_then(|v| v.as_str()) {
+                                if !text.is_empty() {
+                                    let _ = app.emit(
+                                        "message_chunk",
+                                        serde_json::json!({"taskId": task_id, "chunk": text}),
+                                    );
+                                }
+                            }
+                        }
+                        "tool_use" | "server_tool_use" | "mcp_tool_use" => {
+                            let id = block.get("id").and_then(|v| v.as_str()).unwrap_or("");
+                            let name =
+                                block.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                            let input =
+                                block.get("input").cloned().unwrap_or(Value::Object(Default::default()));
+                            let (title, kind) = tool_title_and_kind(name, &input);
+                            let _ = app.emit(
+                                "tool_call",
+                                serde_json::json!({
+                                    "taskId": task_id,
+                                    "toolCall": {
+                                        "sessionUpdate": "tool_call",
+                                        "toolCallId": id,
+                                        "title": title,
+                                        "kind": kind,
+                                        "status": "pending",
+                                        "rawInput": input,
+                                    }
+                                }),
+                            );
+                        }
+                        "thinking" => {
+                            if let Some(thinking) = block.get("thinking").and_then(|v| v.as_str()) {
+                                if !thinking.is_empty() {
+                                    let _ = app.emit(
+                                        "thinking_chunk",
+                                        serde_json::json!({"taskId": task_id, "chunk": thinking}),
+                                    );
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        ClaudeMessage::User(user) => {
+            // Tool results from user messages
+            if let Some(arr) = user.message.content.as_array() {
+                for block in arr {
+                    let block_type = block.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                    if block_type == "tool_result" || block_type == "mcp_tool_result" {
+                        let tool_use_id = block
+                            .get("tool_use_id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
+                        let is_error = block
+                            .get("is_error")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false);
+                        let _ = app.emit(
+                            "tool_call_update",
+                            serde_json::json!({
+                                "taskId": task_id,
+                                "toolCall": {
+                                    "sessionUpdate": "tool_call_update",
+                                    "toolCallId": tool_use_id,
+                                    "status": if is_error { "failed" } else { "completed" },
+                                    "rawOutput": block.get("content"),
+                                }
+                            }),
+                        );
+                    }
+                }
+            }
+        }
+
+        ClaudeMessage::Result(res) => {
+            let stop_reason = res.stop_reason.as_deref().unwrap_or("end_turn");
+            // Accumulate cost
+            if let Some(turn_cost) = res.total_cost_usd {
+                use tauri::Manager;
+                if let Some(state) = app.try_state::<AcpState>() {
+                    let mut tasks = state.tasks.lock();
+                    if let Some(task) = tasks.get_mut(task_id) {
+                        task.total_cost += turn_cost;
+                    }
+                }
+            }
+            let cumulative_cost = {
+                use tauri::Manager;
+                app.try_state::<AcpState>()
+                    .and_then(|state| state.tasks.lock().get(task_id).map(|t| t.total_cost))
+                    .unwrap_or(0.0)
+            };
+            if let Some(usage) = &res.usage {
+                let total = usage.input_tokens
+                    + usage.output_tokens
+                    + usage.cache_read_input_tokens
+                    + usage.cache_creation_input_tokens;
+                let _ = app.emit(
+                    "usage_update",
+                    serde_json::json!({
+                        "taskId": task_id, "used": total, "size": 200000,
+                        "cost": res.total_cost_usd,
+                        "totalCost": cumulative_cost,
+                    }),
+                );
+            }
+            let _ = app.emit(
+                "turn_end",
+                serde_json::json!({"taskId": task_id, "stopReason": stop_reason}),
+            );
+        }
+
+        ClaudeMessage::ToolProgress(_)
+        | ClaudeMessage::ToolUseSummary(_)
+        | ClaudeMessage::AuthStatus(_)
+        | ClaudeMessage::PromptSuggestion(_)
+        | ClaudeMessage::RateLimitEvent(_) => {}
+        ClaudeMessage::ControlRequest(_) => {
+            // Actual handling (auto-approve or user prompt) is done in the read loop
+        }
+    }
+
+    // Debug log
+    let msg_type = match msg {
+        ClaudeMessage::System(s) => format!("system.{}", s.subtype),
+        ClaudeMessage::Result(r) => format!("result.{}", r.subtype),
+        ClaudeMessage::StreamEvent(_) => "stream_event".to_string(),
+        ClaudeMessage::User(_) => "user".to_string(),
+        ClaudeMessage::Assistant(_) => "assistant".to_string(),
+        ClaudeMessage::ToolProgress(_) => "tool_progress".to_string(),
+        ClaudeMessage::ToolUseSummary(_) => "tool_use_summary".to_string(),
+        ClaudeMessage::AuthStatus(_) => "auth_status".to_string(),
+        ClaudeMessage::PromptSuggestion(_) => "prompt_suggestion".to_string(),
+        ClaudeMessage::RateLimitEvent(_) => "rate_limit_event".to_string(),
+        ClaudeMessage::ControlRequest(cr) => format!("control_request.{}", cr.request_id),
+    };
+    let _ = app.emit(
+        "debug_log",
+        serde_json::json!({
+            "direction": "in", "category": "notification", "type": msg_type,
+            "taskId": task_id, "summary": msg_type, "isError": false
+        }),
+    );
+}
+
+/// Handle a control_request from the Claude CLI permission-prompt-tool protocol.
+/// If auto_approve is on, immediately sends an allow response.
+/// Otherwise, emits a permission event and waits for the user's decision.
+async fn handle_control_request(
+    cr: &ControlRequestMessage,
+    task_id: &str,
+    auto_approve: &std::sync::atomic::AtomicBool,
+    stdin_writer: &mut tokio::process::ChildStdin,
+    perm_tx: &mpsc::UnboundedSender<(
+        String,
+        String,
+        String,
+        Vec<PermissionOption>,
+        oneshot::Sender<PermissionReply>,
+    )>,
+) {
+    let input = cr.request.input.clone().unwrap_or(Value::Object(Default::default()));
+    if auto_approve.load(std::sync::atomic::Ordering::SeqCst) {
+        let resp = ControlResponse {
+            msg_type: "control_response".to_string(),
+            response: ControlResponseBody {
+                subtype: "success".to_string(),
+                request_id: cr.request_id.clone(),
+                response: ControlResponseAction::Allow {
+                    behavior: "allow".to_string(),
+                    updated_input: input,
+                },
+            },
+        };
+        let mut line = serde_json::to_string(&resp).unwrap_or_default();
+        line.push('\n');
+        let _ = stdin_writer.write_all(line.as_bytes()).await;
+        let _ = stdin_writer.flush().await;
+        return;
+    }
+    // Manual mode: emit permission request and wait for user response
+    let tool_name = cr.request.tool_name.clone().unwrap_or_default();
+    let description = cr.request.decision_reason.clone().unwrap_or_else(|| {
+        format!("{} wants to use {}", tool_name, serde_json::to_string(&input).unwrap_or_default())
+    });
+    let options = vec![
+        PermissionOption { option_id: "allow_once".to_string(), name: "Allow once".to_string(), kind: "allow_once".to_string() },
+        PermissionOption { option_id: "reject_once".to_string(), name: "Deny".to_string(), kind: "reject_once".to_string() },
+    ];
+    let (reply_tx, reply_rx) = oneshot::channel();
+    let _ = perm_tx.send((cr.request_id.clone(), tool_name, description, options, reply_tx));
+    let resp = match reply_rx.await {
+        Ok(reply) if reply.option_id.starts_with("allow") => ControlResponse {
+            msg_type: "control_response".to_string(),
+            response: ControlResponseBody {
+                subtype: "success".to_string(),
+                request_id: cr.request_id.clone(),
+                response: ControlResponseAction::Allow {
+                    behavior: "allow".to_string(),
+                    updated_input: input,
+                },
+            },
+        },
+        _ => ControlResponse {
+            msg_type: "control_response".to_string(),
+            response: ControlResponseBody {
+                subtype: "success".to_string(),
+                request_id: cr.request_id.clone(),
+                response: ControlResponseAction::Deny {
+                    behavior: "deny".to_string(),
+                    message: "User denied this action".to_string(),
+                },
+            },
+        },
+    };
+    let mut line = serde_json::to_string(&resp).unwrap_or_default();
+    line.push('\n');
+    let _ = stdin_writer.write_all(line.as_bytes()).await;
+    let _ = stdin_writer.flush().await;
+}
+
+pub(crate) async fn run_claude_connection(
     task_id: String,
     workspace: String,
-    kiro_bin: String,
+    claude_bin: String,
     auto_approve: Arc<std::sync::atomic::AtomicBool>,
     app: tauri::AppHandle,
-    perm_tx: mpsc::UnboundedSender<(String, acp::RequestPermissionRequest, oneshot::Sender<PermissionReply>)>,
+    perm_tx: mpsc::UnboundedSender<(
+        String,
+        String,
+        String,
+        Vec<PermissionOption>,
+        oneshot::Sender<PermissionReply>,
+    )>,
     cmd_rx: &mut mpsc::UnboundedReceiver<AcpCommand>,
     initial_mode_id: Option<String>,
+    model: Option<String>,
     tight_sandbox: bool,
+    resume_session_id: Option<String>,
 ) -> Result<(), String> {
-    // Spawn kiro-cli acp subprocess
-    let mut child = tokio::process::Command::new(&kiro_bin)
-        .arg("acp")
+    let allowed_paths = Arc::new(parking_lot::Mutex::new(BTreeSet::new()));
+
+    // Wait for the first prompt command before spawning claude
+    let (first_prompt, first_attachments) = loop {
+        match cmd_rx.recv().await {
+            Some(AcpCommand::Prompt(text, atts)) => break (text, atts),
+            Some(AcpCommand::Kill) | None => return Ok(()),
+            _ => continue,
+        }
+    };
+
+    // Extract paths from user message for sandbox
+    let external_paths = extract_paths_from_message(&first_prompt);
+    if !external_paths.is_empty() {
+        let mut allowed = allowed_paths.lock();
+        for p in &external_paths {
+            allowed.insert(p.clone());
+        }
+    }
+
+    // Build the content blocks
+    let content = build_content_blocks(first_prompt.clone(), &first_attachments);
+    // Build claude CLI args
+    // NOTE: Do NOT combine -p with --input-format stream-json.
+    // With stream-json input, claude ignores -p and waits for stdin JSON.
+    // We send the first prompt via stdin after spawning.
+    let mut args: Vec<String> = vec![
+        "--output-format".into(),
+        "stream-json".into(),
+        "--verbose".into(),
+        "--input-format".into(),
+        "stream-json".into(),
+    ];
+
+    // Set permission mode: always use permission-prompt-tool for control_request flow
+    args.push("--permission-prompt-tool".into());
+    args.push("stdio".into());
+
+    // Resume existing session if we have a session_id
+    if let Some(ref sid) = resume_session_id {
+        args.push("--resume".into());
+        args.push(sid.clone());
+    }
+
+    // Set model if specified
+    if let Some(ref m) = model {
+        if !m.is_empty() {
+            args.push("--model".into());
+            args.push(m.clone());
+        }
+    }
+
+    // Set initial mode (plan mode maps to --permission-mode plan,
+    // custom agents map to --agent)
+    if let Some(ref mode) = initial_mode_id {
+        match mode.as_str() {
+            "plan" => {
+                args.push("--permission-mode".into());
+                args.push("plan".into());
+            }
+            "default" | "" => {}
+            agent => {
+                args.push("--agent".into());
+                args.push(agent.to_string());
+            }
+        }
+    }
+
+    // Klaudex manages its own session state; skip Claude's disk persistence
+    args.push("--no-session-persistence".into());
+
+    // Build a portable PATH that includes common binary locations
+    let extra_paths = if cfg!(target_os = "macos") {
+        "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+    } else {
+        "/usr/local/bin:/usr/bin:/bin"
+    };
+    let path_env = format!(
+        "{}:{}",
+        extra_paths,
+        std::env::var("PATH").unwrap_or_default()
+    );
+
+    // Spawn claude CLI subprocess (use .current_dir for working directory;
+    // claude CLI has no --cwd flag)
+    let mut child = tokio::process::Command::new(&claude_bin)
+        .args(&args)
+        .current_dir(&workspace)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
-        .env("PATH", format!("/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}", std::env::var("PATH").unwrap_or_default()))
+        .env("PATH", &path_env)
         .spawn()
-        .map_err(|e| format!("Failed to spawn kiro-cli: {e}"))?;
+        .map_err(|e| format!("Failed to spawn claude: {e}"))?;
 
     let stdin = child.stdin.take().ok_or("No stdin")?;
     let stdout = child.stdout.take().ok_or("No stdout")?;
     let stderr = child.stderr.take().ok_or("No stderr")?;
 
+    // Send the first prompt via stdin JSON (required with --input-format stream-json)
+    let mut stdin_writer = stdin;
+    {
+        let content_value = serde_json::to_value(&content).unwrap_or_default();
+        let first_msg = serde_json::json!({
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": content_value
+            }
+        });
+        let mut line = serde_json::to_string(&first_msg).unwrap_or_default();
+        line.push('\n');
+        stdin_writer.write_all(line.as_bytes()).await
+            .map_err(|e| format!("Failed to write first prompt to stdin: {e}"))?;
+        stdin_writer.flush().await
+            .map_err(|e| format!("Failed to flush stdin: {e}"))?;
+    }
+
     // Pipe stderr to debug log
     let app_stderr = app.clone();
     let tid_stderr = task_id.clone();
     tokio::task::spawn_local(async move {
-        use tokio::io::AsyncReadExt;
-        let mut stderr = stderr;
-        let mut buf = vec![0u8; 4096];
+        let mut reader = BufReader::new(stderr);
+        let mut line = String::new();
         loop {
-            match stderr.read(&mut buf).await {
-                Ok(0) => break,
-                Ok(n) => {
-                    let text = String::from_utf8_lossy(&buf[..n]).to_string();
-                    use tauri::Emitter;
-                    let _ = app_stderr.emit("debug_log", serde_json::json!({
-                        "direction": "in", "category": "stderr", "type": "stderr",
-                        "taskId": tid_stderr, "summary": &text[..text.len().min(120)],
-                        "payload": text, "isError": false
-                    }));
+            line.clear();
+            match reader.read_line(&mut line).await {
+                Ok(0) | Err(_) => break,
+                Ok(_) => {
+                    let text = line.trim();
+                    if !text.is_empty() {
+                        use tauri::Emitter;
+                        let _ = app_stderr.emit(
+                            "debug_log",
+                            serde_json::json!({
+                                "direction": "in", "category": "stderr", "type": "stderr",
+                                "taskId": tid_stderr, "summary": &text[..text.len().min(120)],
+                                "payload": text, "isError": false
+                            }),
+                        );
+                    }
                 }
-                Err(_) => break,
             }
         }
     });
 
-    let outgoing = stdin.compat_write();
-    let incoming = stdout.compat();
-
-    let allowed_paths = Arc::new(parking_lot::Mutex::new(BTreeSet::new()));
-
-    let client = KlaudexClient {
-        task_id: task_id.clone(),
-        workspace: workspace.clone(),
-        app: app.clone(),
-        auto_approve,
-        perm_tx,
-        allowed_paths: allowed_paths.clone(),
-        tight_sandbox,
-    };
-
-    let (conn, io_future) = acp::ClientSideConnection::new(
-        client, outgoing, incoming,
-        |fut| { tokio::task::spawn_local(fut); },
-    );
-
-    // Run IO in background
-    tokio::task::spawn_local(async move {
-        if let Err(e) = io_future.await {
-            log::error!("[ACP] IO error for task: {e}");
-        }
-    });
-
-    // Initialize
-    let init_req = acp::InitializeRequest::new(acp::ProtocolVersion::V1)
-        .client_info(acp::Implementation::new("klaudex", "0.1.0").title("Klaudex"));
-    conn.initialize(init_req).await.map_err(|e| format!("Initialize failed: {e}"))?;
-
-    // Create session
-    let session = conn.new_session(
-        acp::NewSessionRequest::new(std::path::PathBuf::from(&workspace))
-    ).await.map_err(|e| format!("New session failed: {e}"))?;
-
-    let session_id = session.session_id.clone();
-
-    // Emit session-init with models/modes/configOptions
-    {
-        let session_val = serde_json::to_value(&session).unwrap_or_default();
-        let model_count = session_val.get("models")
-            .and_then(|m| m.get("availableModels"))
-            .and_then(|a| a.as_array())
-            .map(|a| a.len())
-            .unwrap_or(0);
-        let current_model = session_val.get("models")
-            .and_then(|m| m.get("currentModelId"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("none");
-        let mode_count = session_val.get("modes")
-            .and_then(|m| m.get("availableModes"))
-            .and_then(|a| a.as_array())
-            .map(|a| a.len())
-            .unwrap_or(0);
-        log::info!("[ACP] session_init for task={}: {} models (current={}), {} modes",
-            task_id, model_count, current_model, mode_count);
-        use tauri::Emitter;
-        let _ = app.emit("session_init", serde_json::json!({
-            "taskId": task_id,
-            "models": session_val.get("models"),
-            "modes": session_val.get("modes"),
-            "configOptions": session_val.get("configOptions"),
-        }));
-        let _ = app.emit("mcp_connecting", Value::Null);
-    }
-
-    // Apply initial mode if provided (e.g. user switched to /plan before first message)
-    if let Some(mode_id) = initial_mode_id {
-        let _ = conn.set_session_mode(
-            acp::SetSessionModeRequest::new(session_id.clone(), mode_id)
-        ).await;
-    }
-
-    // Process commands from the main thread.
-    // Uses tokio::select! during prompt so Cancel/Kill are handled immediately
-    // instead of queuing behind the blocking prompt future.
+    // Read ndjson from stdout and process messages
+    let mut stdout_reader = BufReader::new(stdout);
     let mut killed = false;
+    let mut line_buf = String::new();
+
+    // Process the initial prompt's response stream
+    loop {
+        line_buf.clear();
+        tokio::select! {
+            read_result = stdout_reader.read_line(&mut line_buf) => {
+                match read_result {
+                    Ok(0) => break, // EOF
+                    Ok(_) => {
+                        let trimmed = line_buf.trim();
+                        if trimmed.is_empty() { continue; }
+                        match serde_json::from_str::<ClaudeMessage>(trimmed) {
+                            Ok(msg) => {
+                                let is_result = matches!(&msg, ClaudeMessage::Result(_));
+                                let is_idle = matches!(&msg, ClaudeMessage::System(s) if s.subtype == "session_state_changed" && s.extra.get("state").and_then(|v| v.as_str()) == Some("idle"));
+                                handle_claude_message(&msg, &task_id, &app);
+                                if let ClaudeMessage::ControlRequest(ref cr) = msg {
+                                    handle_control_request(cr, &task_id, &auto_approve, &mut stdin_writer, &perm_tx).await;
+                                }
+                                if is_result || is_idle {
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                log::debug!("[Claude] Failed to parse ndjson: {} — line: {}", e, trimmed);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("[Claude] stdout read error: {}", e);
+                        break;
+                    }
+                }
+            }
+            maybe_cmd = cmd_rx.recv() => {
+                match maybe_cmd {
+                    Some(AcpCommand::Cancel) => {
+                        // Send interrupt - kill the process and break
+                        let _ = child.kill().await;
+                        use tauri::Emitter;
+                        let _ = app.emit("turn_end", serde_json::json!({"taskId": task_id, "stopReason": "cancelled"}));
+                        killed = true;
+                        break;
+                    }
+                    Some(AcpCommand::Kill) => {
+                        killed = true;
+                        break;
+                    }
+                    Some(AcpCommand::RespondUserInput(_req_id, response)) => {
+                        let mut line = serde_json::to_string(&response).unwrap_or_default();
+                        line.push('\n');
+                        let _ = stdin_writer.write_all(line.as_bytes()).await;
+                        let _ = stdin_writer.flush().await;
+                    }
+                    Some(_) => {} // ignore other commands during active prompt
+                    None => {
+                        killed = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if killed {
+        let _ = child.kill().await;
+        return Ok(());
+    }
+
+    // Process follow-up commands (multi-turn)
     while let Some(cmd) = cmd_rx.recv().await {
         match cmd {
             AcpCommand::Prompt(text, attachments) => {
-                // Extract absolute paths from user message to allow through the sandbox
+                // Extract paths for sandbox
                 let external_paths = extract_paths_from_message(&text);
                 if !external_paths.is_empty() {
                     let mut allowed = allowed_paths.lock();
@@ -324,118 +807,132 @@ pub(crate) async fn run_acp_connection(
                         allowed.insert(p.clone());
                     }
                 }
-                let prompt_req = acp::PromptRequest::new(
-                    session_id.clone(),
-                    build_content_blocks(text, &attachments),
-                );
-                // Race the prompt against incoming commands so Cancel arrives immediately
-                let prompt_fut = conn.prompt(prompt_req);
-                tokio::pin!(prompt_fut);
-                let mut deferred: Vec<AcpCommand> = Vec::new();
-                let prompt_result = loop {
+
+                let content = build_content_blocks(text, &attachments);
+
+                // Write the user message as ndjson to stdin
+                let content_value = serde_json::to_value(&content).unwrap_or_default();
+                let input_msg = serde_json::json!({
+                    "type": "user",
+                    "message": {
+                        "role": "user",
+                        "content": content_value
+                    }
+                });
+                let mut line = serde_json::to_string(&input_msg).unwrap_or_default();
+                line.push('\n');
+                if let Err(e) = stdin_writer.write_all(line.as_bytes()).await {
+                    log::error!("[Claude] Failed to write to stdin: {}", e);
+                    use tauri::Emitter;
+                    let _ = app.emit(
+                        "task_error",
+                        serde_json::json!({"taskId": task_id, "message": format!("Failed to send message: {e}")}),
+                    );
+                    break;
+                }
+                let _ = stdin_writer.flush().await;
+
+                // Read response stream
+                loop {
+                    line_buf.clear();
                     tokio::select! {
-                        result = &mut prompt_fut => {
-                            break Some(result);
+                        read_result = stdout_reader.read_line(&mut line_buf) => {
+                            match read_result {
+                                Ok(0) => { killed = true; break; }
+                                Ok(_) => {
+                                    let trimmed = line_buf.trim();
+                                    if trimmed.is_empty() { continue; }
+                                    match serde_json::from_str::<ClaudeMessage>(trimmed) {
+                                        Ok(msg) => {
+                                            let is_result = matches!(&msg, ClaudeMessage::Result(_));
+                                            let is_idle = matches!(&msg, ClaudeMessage::System(s) if s.subtype == "session_state_changed" && s.extra.get("state").and_then(|v| v.as_str()) == Some("idle"));
+                                            handle_claude_message(&msg, &task_id, &app);
+                                            if let ClaudeMessage::ControlRequest(ref cr) = msg {
+                                                handle_control_request(cr, &task_id, &auto_approve, &mut stdin_writer, &perm_tx).await;
+                                            }
+                                            if is_result || is_idle {
+                                                break;
+                                            }
+                                        }
+                                        Err(e) => {
+                                            log::debug!("[Claude] parse error: {} — {}", e, trimmed);
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    log::error!("[Claude] stdout read error: {}", e);
+                                    killed = true;
+                                    break;
+                                }
+                            }
                         }
                         maybe_cmd = cmd_rx.recv() => {
                             match maybe_cmd {
                                 Some(AcpCommand::Cancel) => {
-                                    let _ = conn.cancel(acp::CancelNotification::new(session_id.clone())).await;
-                                    // Let prompt_fut resolve with the cancelled result
+                                    let _ = child.kill().await;
+                                    use tauri::Emitter;
+                                    let _ = app.emit("turn_end", serde_json::json!({"taskId": task_id, "stopReason": "cancelled"}));
+                                    killed = true;
+                                    break;
                                 }
                                 Some(AcpCommand::Kill) => {
                                     killed = true;
-                                    break None;
+                                    break;
                                 }
-                                Some(other) => deferred.push(other),
-                                None => {
-                                    killed = true;
-                                    break None;
+                                Some(AcpCommand::RespondUserInput(_req_id, response)) => {
+                                    let mut line = serde_json::to_string(&response).unwrap_or_default();
+                                    line.push('\n');
+                                    let _ = stdin_writer.write_all(line.as_bytes()).await;
+                                    let _ = stdin_writer.flush().await;
                                 }
+                                Some(_) => {}
+                                None => { killed = true; break; }
                             }
                         }
                     }
-                };
-                if killed { break; }
-                // Handle the prompt result
-                match prompt_result {
-                    Some(Ok(result)) => {
-                        let result_val = serde_json::to_value(&result).unwrap_or_default();
-                        let stop_reason = result_val.get("stopReason")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("end_turn")
-                            .to_string();
-                        use tauri::Emitter;
-                        let _ = app.emit("turn_end", serde_json::json!({ "taskId": task_id, "stopReason": stop_reason }));
-                        let _ = app.emit("debug_log", serde_json::json!({
-                            "direction": "in", "category": "response", "type": "turn-end",
-                            "taskId": task_id, "summary": format!("turn ended: {stop_reason}"),
-                            "payload": result_val, "isError": false
-                        }));
-                    }
-                    Some(Err(e)) => {
-                        use tauri::Emitter;
-                        let err_str = e.to_string();
-                        let message = friendly_prompt_error(&err_str);
-                        let _ = app.emit("task_error", serde_json::json!({
-                            "taskId": task_id, "message": message
-                        }));
-                        let _ = app.emit("debug_log", serde_json::json!({
-                            "direction": "in", "category": "error", "type": "prompt-error",
-                            "taskId": task_id, "summary": err_str,
-                            "payload": { "error": err_str }, "isError": true
-                        }));
-                    }
-                    None => {} // killed during prompt
                 }
-                // Process any commands that arrived during the prompt
-                for deferred_cmd in deferred {
-                    match deferred_cmd {
-                        AcpCommand::SetMode(mode_id) => {
-                            let _ = conn.set_session_mode(
-                                acp::SetSessionModeRequest::new(session_id.clone(), mode_id)
-                            ).await;
-                        }
-                        AcpCommand::ForkSession(reply_tx) => {
-                            let result = conn.fork_session(
-                                acp::ForkSessionRequest::new(session_id.clone(), std::path::PathBuf::from(&workspace))
-                            ).await;
-                            match result {
-                                Ok(resp) => { let _ = reply_tx.send(Ok(resp.session_id.0.to_string())); }
-                                Err(e) => { let _ = reply_tx.send(Err(e.to_string())); }
-                            }
-                        }
-                        AcpCommand::Cancel => {
-                            let _ = conn.cancel(acp::CancelNotification::new(session_id.clone())).await;
-                        }
-                        AcpCommand::Prompt(..) => {} // discard stale prompts during active prompt
-                        AcpCommand::Kill => { killed = true; }
-                    }
+                if killed {
+                    break;
                 }
-                if killed { break; }
             }
             AcpCommand::Cancel => {
-                let _ = conn.cancel(acp::CancelNotification::new(session_id.clone())).await;
-            }
-            AcpCommand::SetMode(mode_id) => {
-                let _ = conn.set_session_mode(
-                    acp::SetSessionModeRequest::new(session_id.clone(), mode_id)
-                ).await;
-            }
-            AcpCommand::ForkSession(reply_tx) => {
-                let result = conn.fork_session(
-                    acp::ForkSessionRequest::new(session_id.clone(), std::path::PathBuf::from(&workspace))
-                ).await;
-                match result {
-                    Ok(resp) => { let _ = reply_tx.send(Ok(resp.session_id.0.to_string())); }
-                    Err(e) => { let _ = reply_tx.send(Err(e.to_string())); }
-                }
+                let _ = child.kill().await;
+                break;
             }
             AcpCommand::Kill => break,
+            AcpCommand::SetMode(_mode_id) => {
+                // Mode changes not directly supported in Claude CLI mid-session
+                log::debug!("[Claude] SetMode ignored (not supported mid-session)");
+            }
+            AcpCommand::ForkSession(reply_tx) => {
+                let _ = reply_tx.send(Err("Fork not supported in direct Claude mode".to_string()));
+            }
+            AcpCommand::RespondUserInput(_request_id, response) => {
+                let mut line = serde_json::to_string(&response).unwrap_or_default();
+                line.push('\n');
+                if let Err(e) = stdin_writer.write_all(line.as_bytes()).await {
+                    log::error!("[Claude] Failed to write user input response: {}", e);
+                }
+                let _ = stdin_writer.flush().await;
+            }
         }
     }
 
-    // Kill subprocess
-    let _ = child.kill().await;
+    // Check exit status and report errors
+    match child.try_wait() {
+        Ok(Some(status)) if !status.success() => {
+            use tauri::Emitter;
+            let _ = app.emit(
+                "task_error",
+                serde_json::json!({
+                    "taskId": task_id,
+                    "message": format!("Claude CLI exited with status: {}", status)
+                }),
+            );
+        }
+        _ => {
+            let _ = child.kill().await;
+        }
+    }
     Ok(())
 }

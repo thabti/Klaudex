@@ -1,5 +1,5 @@
 use super::*;
-use agent_client_protocol as acp;
+use super::claude_types::*;
 use std::collections::BTreeSet;
 
 // ── is_within_workspace: allowed paths ──────────────────────────
@@ -932,6 +932,10 @@ fn task_serializes_auto_approve_true() {
         auto_approve: Some(true),
         user_paused: None,
         parent_task_id: None,
+        pending_user_input: None,
+        model: None,
+        session_id: None,
+        total_cost: 0.0,
     };
     let json = serde_json::to_value(&task).unwrap();
     assert_eq!(json["autoApprove"], true);
@@ -952,6 +956,10 @@ fn task_serializes_auto_approve_false() {
         auto_approve: Some(false),
         user_paused: None,
         parent_task_id: None,
+        pending_user_input: None,
+        model: None,
+        session_id: None,
+        total_cost: 0.0,
     };
     let json = serde_json::to_value(&task).unwrap();
     assert_eq!(json["autoApprove"], false);
@@ -972,6 +980,10 @@ fn task_omits_auto_approve_when_none() {
         auto_approve: None,
         user_paused: None,
         parent_task_id: None,
+        pending_user_input: None,
+        model: None,
+        session_id: None,
+        total_cost: 0.0,
     };
     let json = serde_json::to_value(&task).unwrap();
     assert!(json.get("autoApprove").is_none());
@@ -992,6 +1004,10 @@ fn task_auto_approve_roundtrip() {
         auto_approve: Some(true),
         user_paused: None,
         parent_task_id: None,
+        pending_user_input: None,
+        model: None,
+        session_id: None,
+        total_cost: 0.0,
     };
     let json_str = serde_json::to_string(&task).unwrap();
     let restored: Task = serde_json::from_str(&json_str).unwrap();
@@ -1040,7 +1056,7 @@ fn build_content_blocks_text_only() {
     let blocks = build_content_blocks("hello".to_string(), &[]);
     assert_eq!(blocks.len(), 1);
     match &blocks[0] {
-        acp::ContentBlock::Text(t) => assert_eq!(t.text, "hello"),
+        ClaudeInputContent::Text { text } => assert_eq!(text, "hello"),
         _ => panic!("expected Text block"),
     }
 }
@@ -1053,9 +1069,9 @@ fn build_content_blocks_with_attachments() {
     let blocks = build_content_blocks("hello <image src=\"data:image/png;base64,abc\" />".to_string(), &atts);
     assert_eq!(blocks.len(), 2);
     match &blocks[1] {
-        acp::ContentBlock::Image(img) => {
-            assert_eq!(img.data, "abc");
-            assert_eq!(img.mime_type, "image/png");
+        ClaudeInputContent::Image { source } => {
+            assert_eq!(source.data, "abc");
+            assert_eq!(source.media_type, "image/png");
         }
         _ => panic!("expected Image block"),
     }

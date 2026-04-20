@@ -2,10 +2,6 @@ use serde_json::Value;
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
-use agent_client_protocol as acp;
-use acp::Agent as _;
-use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
-
 use super::connection::spawn_connection;
 use super::types::*;
 use super::now_rfc3339;
@@ -23,13 +19,17 @@ pub fn task_create(
     let now = now_rfc3339();
     let settings = settings_state.0.lock();
     let auto_approve = params.auto_approve.unwrap_or(settings.settings.auto_approve);
-    let kiro_bin = settings.settings.kiro_bin.clone();
+    let claude_bin = settings.settings.claude_bin.clone();
     let co_author = settings.settings.co_author;
     let co_author_json_report = settings.settings.co_author_json_report;
-    let tight_sandbox = settings.settings.project_prefs.as_ref()
-        .and_then(|p| p.get(&params.workspace))
+    let project_prefs = settings.settings.project_prefs.as_ref()
+        .and_then(|p| p.get(&params.workspace));
+    let tight_sandbox = project_prefs
         .and_then(|pp| pp.tight_sandbox)
         .unwrap_or(true);
+    let model = project_prefs
+        .and_then(|pp| pp.model_id.clone())
+        .or_else(|| settings.settings.default_model.clone());
     drop(settings);
 
     let task = Task {
@@ -51,20 +51,24 @@ pub fn task_create(
         auto_approve: Some(auto_approve),
         user_paused: None,
         parent_task_id: None,
+        pending_user_input: None,
+        model: model.clone(),
+        session_id: None,
+        total_cost: 0.0,
     };
 
     state.tasks.lock().insert(id.clone(), task.clone());
 
-    let _is_plan_mode = params.mode_id.as_deref() == Some("kiro_planner");
-
     let handle = spawn_connection(
         id.clone(),
         params.workspace,
-        kiro_bin,
+        claude_bin,
         auto_approve,
         app.clone(),
         params.mode_id,
+        model,
         tight_sandbox,
+        None,
     )?;
 
     // Send initial prompt with UI formatting rules prepended (not shown in UI)
@@ -161,19 +165,23 @@ pub fn task_send_message(
 
     if need_reconnect {
         let settings = settings_state.0.lock();
-        let kiro_bin = settings.settings.kiro_bin.clone();
+        let claude_bin = settings.settings.claude_bin.clone();
         let global_auto_approve = settings.settings.auto_approve;
 
-        let (workspace, task_auto_approve) = {
+        let (workspace, task_auto_approve, resume_sid) = {
             let tasks = state.tasks.lock();
             let t = tasks.get(&task_id).ok_or("Task not found")?;
-            (t.workspace.clone(), t.auto_approve.unwrap_or(global_auto_approve))
+            (t.workspace.clone(), t.auto_approve.unwrap_or(global_auto_approve), t.session_id.clone())
         };
 
-        let tight_sandbox = settings.settings.project_prefs.as_ref()
-            .and_then(|p| p.get(&workspace))
+        let project_prefs = settings.settings.project_prefs.as_ref()
+            .and_then(|p| p.get(&workspace));
+        let tight_sandbox = project_prefs
             .and_then(|pp| pp.tight_sandbox)
             .unwrap_or(true);
+        let model = project_prefs
+            .and_then(|pp| pp.model_id.clone())
+            .or_else(|| settings.settings.default_model.clone());
         drop(settings);
 
         // Destroy old connection
@@ -182,8 +190,8 @@ pub fn task_send_message(
         }
 
         let handle = spawn_connection(
-            task_id.clone(), workspace, kiro_bin, task_auto_approve,
-            app.clone(), None, tight_sandbox,
+            task_id.clone(), workspace, claude_bin, task_auto_approve,
+            app.clone(), None, model, tight_sandbox, resume_sid,
         )?;
         let _ = handle.cmd_tx.send(AcpCommand::Prompt(message, attachments.unwrap_or_default()));
         state.connections.lock().insert(task_id.clone(), handle);
@@ -220,10 +228,50 @@ pub fn task_pause(
 pub fn task_resume(
     app: tauri::AppHandle,
     state: tauri::State<'_, AcpState>,
+    settings_state: tauri::State<'_, crate::commands::settings::SettingsState>,
     task_id: String,
 ) -> Result<Task, String> {
-    if let Some(h) = state.connections.lock().get(&task_id) {
-        let _ = h.cmd_tx.send(AcpCommand::Prompt("continue".to_string(), vec![]));
+    // Check if connection is alive; reconnect if dead (pause kills the process)
+    let is_alive = {
+        let conns = state.connections.lock();
+        conns.get(&task_id)
+            .map(|h| h.alive.load(std::sync::atomic::Ordering::SeqCst))
+            .unwrap_or(false)
+    };
+    if is_alive {
+        let conns = state.connections.lock();
+        if let Some(h) = conns.get(&task_id) {
+            let _ = h.cmd_tx.send(AcpCommand::Prompt("continue".to_string(), vec![]));
+        }
+    } else {
+        // Connection is dead (pause killed it), spawn a new one
+        let settings = settings_state.0.lock();
+        let claude_bin = settings.settings.claude_bin.clone();
+        let global_auto_approve = settings.settings.auto_approve;
+        let (workspace, task_auto_approve, resume_sid) = {
+            let tasks = state.tasks.lock();
+            let t = tasks.get(&task_id).ok_or("Task not found")?;
+            (t.workspace.clone(), t.auto_approve.unwrap_or(global_auto_approve), t.session_id.clone())
+        };
+        let project_prefs = settings.settings.project_prefs.as_ref()
+            .and_then(|p| p.get(&workspace));
+        let tight_sandbox = project_prefs
+            .and_then(|pp| pp.tight_sandbox)
+            .unwrap_or(true);
+        let model = project_prefs
+            .and_then(|pp| pp.model_id.clone())
+            .or_else(|| settings.settings.default_model.clone());
+        drop(settings);
+        // Destroy old connection
+        if let Some(old) = state.connections.lock().remove(&task_id) {
+            let _ = old.cmd_tx.send(AcpCommand::Kill);
+        }
+        let handle = spawn_connection(
+            task_id.clone(), workspace, claude_bin, task_auto_approve,
+            app.clone(), None, model, tight_sandbox, resume_sid,
+        )?;
+        let _ = handle.cmd_tx.send(AcpCommand::Prompt("continue".to_string(), vec![]));
+        state.connections.lock().insert(task_id.clone(), handle);
     }
     let mut tasks = state.tasks.lock();
     let task = tasks.get_mut(&task_id).ok_or("Task not found")?;
@@ -323,11 +371,15 @@ pub async fn task_fork(
     let now = now_rfc3339();
     let settings = settings_state.0.lock();
     let auto_approve = parent_auto_approve.unwrap_or(settings.settings.auto_approve);
-    let kiro_bin = settings.settings.kiro_bin.clone();
-    let tight_sandbox = settings.settings.project_prefs.as_ref()
-        .and_then(|p| p.get(&workspace))
+    let claude_bin = settings.settings.claude_bin.clone();
+    let fork_project_prefs = settings.settings.project_prefs.as_ref()
+        .and_then(|p| p.get(&workspace));
+    let tight_sandbox = fork_project_prefs
         .and_then(|pp| pp.tight_sandbox)
         .unwrap_or(true);
+    let model = fork_project_prefs
+        .and_then(|pp| pp.model_id.clone())
+        .or_else(|| settings.settings.default_model.clone());
     drop(settings);
     let fork_task = Task {
         id: new_id.clone(),
@@ -352,16 +404,22 @@ pub async fn task_fork(
         auto_approve: Some(auto_approve),
         user_paused: None,
         parent_task_id: Some(task_id.clone()),
+        pending_user_input: None,
+        model: model.clone(),
+        session_id: None,
+        total_cost: 0.0,
     };
     state.tasks.lock().insert(new_id.clone(), fork_task.clone());
     let handle = spawn_connection(
         new_id.clone(),
         workspace,
-        kiro_bin,
+        claude_bin,
         auto_approve,
         app,
         None,
+        model,
         tight_sandbox,
+        None,
     )?;
     state.connections.lock().insert(new_id, handle);
     Ok(fork_task)
@@ -453,84 +511,159 @@ pub fn set_mode(
 }
 
 #[tauri::command]
+pub fn task_set_model(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AcpState>,
+    settings_state: tauri::State<'_, crate::commands::settings::SettingsState>,
+    task_id: String,
+    model_id: String,
+) -> Result<Task, String> {
+    // Kill existing connection
+    if let Some(old) = state.connections.lock().remove(&task_id) {
+        let _ = old.cmd_tx.send(AcpCommand::Kill);
+    }
+    // Update the stored model on the task
+    let (workspace, task_auto_approve) = {
+        let mut tasks = state.tasks.lock();
+        let task = tasks.get_mut(&task_id).ok_or("Task not found")?;
+        task.model = Some(model_id.clone());
+        task.status = "paused".to_string();
+        use tauri::Emitter;
+        let _ = app.emit("task_update", task.clone());
+        let aa = task.auto_approve.unwrap_or(false);
+        (task.workspace.clone(), aa)
+    };
+    // Spawn a new connection with the new model (will be used on next message)
+    let settings = settings_state.0.lock();
+    let claude_bin = settings.settings.claude_bin.clone();
+    let project_prefs = settings.settings.project_prefs.as_ref()
+        .and_then(|p| p.get(&workspace));
+    let tight_sandbox = project_prefs
+        .and_then(|pp| pp.tight_sandbox)
+        .unwrap_or(true);
+    drop(settings);
+    let handle = spawn_connection(
+        task_id.clone(),
+        workspace,
+        claude_bin,
+        task_auto_approve,
+        app,
+        None,
+        Some(model_id),
+        tight_sandbox,
+        None,
+    )?;
+    state.connections.lock().insert(task_id.clone(), handle);
+    let tasks = state.tasks.lock();
+    tasks.get(&task_id).cloned().ok_or_else(|| "Task not found".to_string())
+}
+
+#[tauri::command]
+pub fn task_rollback(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AcpState>,
+    task_id: String,
+    num_turns: usize,
+) -> Result<Task, String> {
+    // Kill the current connection since we're modifying conversation history
+    if let Some(old) = state.connections.lock().remove(&task_id) {
+        let _ = old.cmd_tx.send(AcpCommand::Kill);
+    }
+    let mut tasks = state.tasks.lock();
+    let task = tasks.get_mut(&task_id).ok_or("Task not found")?;
+    // Remove last N*2 messages (N user + N assistant per turn)
+    let remove_count = num_turns * 2;
+    let new_len = task.messages.len().saturating_sub(remove_count);
+    task.messages.truncate(new_len);
+    task.status = "paused".to_string();
+    task.pending_permission = None;
+    task.pending_user_input = None;
+    use tauri::Emitter;
+    let _ = app.emit("task_update", task.clone());
+    Ok(task.clone())
+}
+
+#[tauri::command]
+pub fn task_respond_user_input(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AcpState>,
+    task_id: String,
+    request_id: String,
+    answers: Value,
+) -> Result<(), String> {
+    let response = serde_json::json!({
+        "type": "control_response",
+        "response": {
+            "subtype": "success",
+            "request_id": request_id,
+            "response": { "answers": answers }
+        }
+    });
+    // Send the response via the connection's command channel
+    let conns = state.connections.lock();
+    if let Some(h) = conns.get(&task_id) {
+        let _ = h.cmd_tx.send(AcpCommand::RespondUserInput(request_id.clone(), response));
+    }
+    drop(conns);
+    // Clear pending user input from task
+    let mut tasks = state.tasks.lock();
+    if let Some(task) = tasks.get_mut(&task_id) {
+        task.status = "running".to_string();
+        task.pending_user_input = None;
+        use tauri::Emitter;
+        let _ = app.emit("task_update", task.clone());
+    }
+    // Remove the resolver
+    state.user_input_resolvers.lock().remove(&request_id);
+    Ok(())
+}
+
+#[tauri::command]
 pub fn list_models(
     app: tauri::AppHandle,
     settings_state: tauri::State<'_, crate::commands::settings::SettingsState>,
-    kiro_bin: Option<String>,
+    claude_bin: Option<String>,
 ) -> Result<Value, String> {
-    let bin = match kiro_bin {
+    let bin = match claude_bin {
         Some(b) => b,
-        None => settings_state.0.lock().settings.kiro_bin.clone(),
+        None => settings_state.0.lock().settings.claude_bin.clone(),
     };
 
-    let (tx, rx) = std::sync::mpsc::channel();
-    let _app_clone = app.clone();
+    // Use `claude models list --output-format json` to get available models.
+    // Falls back to a hardcoded default list if the command fails.
+    let output = std::process::Command::new(&bin)
+        .args(["models", "list", "--output-format", "json"])
+        .env(
+            "PATH",
+            format!(
+                "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}",
+                std::env::var("PATH").unwrap_or_default()
+            ),
+        )
+        .output();
 
-    std::thread::spawn(move || {
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .expect("Failed to create tokio runtime for list_models");
-            let local = tokio::task::LocalSet::new();
-            local.block_on(&rt, async {
-                let mut child = tokio::process::Command::new(&bin)
-                    .arg("acp")
-                    .stdin(std::process::Stdio::piped())
-                    .stdout(std::process::Stdio::piped())
-                    .stderr(std::process::Stdio::null())
-                    .env("PATH", format!("/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}", std::env::var("PATH").unwrap_or_default()))
-                    .spawn()
-                    .map_err(|e| format!("Failed to spawn: {e}"))?;
-
-                let stdin = child.stdin.take().ok_or("No stdin")?;
-                let stdout = child.stdout.take().ok_or("No stdout")?;
-
-                struct MinimalClient;
-                #[async_trait::async_trait(?Send)]
-                impl acp::Client for MinimalClient {
-                    async fn session_notification(&self, _: acp::SessionNotification) -> acp::Result<()> { Ok(()) }
-                    async fn request_permission(&self, _: acp::RequestPermissionRequest) -> acp::Result<acp::RequestPermissionResponse> {
-                        Ok(acp::RequestPermissionResponse::new(acp::RequestPermissionOutcome::Cancelled))
-                    }
-                    async fn ext_notification(&self, _: acp::ExtNotification) -> acp::Result<()> { Ok(()) }
-                }
-
-                let (conn, io_future) = acp::ClientSideConnection::new(
-                    MinimalClient, stdin.compat_write(), stdout.compat(),
-                    |fut| { tokio::task::spawn_local(fut); },
-                );
-                tokio::task::spawn_local(async { let _ = io_future.await; });
-
-                conn.initialize(
-                    acp::InitializeRequest::new(acp::ProtocolVersion::V1)
-                        .client_info(acp::Implementation::new("klaudex", "0.1.0"))
-                ).await.map_err(|e| format!("Init failed: {e}"))?;
-
-                let session = conn.new_session(
-                    acp::NewSessionRequest::new(std::env::current_dir().unwrap_or_default())
-                ).await.map_err(|e| format!("Session failed: {e}"))?;
-
-                let session_val = serde_json::to_value(&session).unwrap_or_default();
-                let models = session_val.get("models").cloned().unwrap_or(Value::Null);
-
-                let _ = child.kill().await;
-                Ok::<Value, String>(models)
-            })
-        }));
-        match result {
-            Ok(inner) => { let _ = tx.send(inner); }
-            Err(_) => { let _ = tx.send(Err("list_models thread panicked".to_string())); }
+    match output {
+        Ok(out) if out.status.success() => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            if let Ok(models_val) = serde_json::from_str::<Value>(stdout.trim()) {
+                return Ok(serde_json::json!({
+                    "availableModels": models_val,
+                    "currentModelId": models_val.as_array().and_then(|a| a.first()).and_then(|m| m.get("modelId")).cloned()
+                }));
+            }
         }
-    });
+        _ => {}
+    }
 
-    rx.recv_timeout(std::time::Duration::from_secs(30))
-        .map_err(|e| format!("list_models timed out or channel closed: {e}"))?.map(|models| {
-        serde_json::json!({
-            "availableModels": models.get("availableModels").unwrap_or(&Value::Array(vec![])),
-            "currentModelId": models.get("currentModelId")
-        })
-    })
+    // Fallback: return a default model list
+    Ok(serde_json::json!({
+        "availableModels": [
+            {"modelId": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "description": "Best combination of speed and intelligence"},
+            {"modelId": "claude-opus-4-7", "name": "Claude Opus 4.7", "description": "Most capable for complex reasoning and agentic coding"},
+            {"modelId": "claude-haiku-4-5", "name": "Claude Haiku 4.5", "description": "Fastest with near-frontier intelligence"},
+        ],
+        "currentModelId": "claude-sonnet-4-6"
+    }))
 }
 
 #[tauri::command]
@@ -539,103 +672,87 @@ pub fn probe_capabilities(
     state: tauri::State<'_, AcpState>,
     settings_state: tauri::State<'_, crate::commands::settings::SettingsState>,
 ) -> Result<Value, String> {
-    // Prevent concurrent probes (React StrictMode, HMR reloads)
-    if state.probe_running.swap(true, std::sync::atomic::Ordering::SeqCst) {
-        log::info!("[ACP] probe_capabilities skipped (already running)");
+    if state
+        .probe_running
+        .swap(true, std::sync::atomic::Ordering::SeqCst)
+    {
+        log::info!("[Claude] probe_capabilities skipped (already running)");
         return Ok(serde_json::json!({ "ok": true, "skipped": true }));
     }
 
-    let bin = settings_state.0.lock().settings.kiro_bin.clone();
-    log::info!("[ACP] probe_capabilities starting with bin={}", bin);
+    let bin = settings_state.0.lock().settings.claude_bin.clone();
+    log::info!("[Claude] probe_capabilities starting with bin={}", bin);
 
     let app_for_flag = app.clone();
     let app_clone = app.clone();
 
     std::thread::spawn(move || {
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .expect("Failed to create tokio runtime for probe");
-            let local = tokio::task::LocalSet::new();
-            local.block_on(&rt, async {
-                let mut child = tokio::process::Command::new(&bin)
-                    .arg("acp")
-                    .stdin(std::process::Stdio::piped())
-                    .stdout(std::process::Stdio::piped())
-                    .stderr(std::process::Stdio::null())
-                    .env("PATH", format!("/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}", std::env::var("PATH").unwrap_or_default()))
-                    .spawn()
-                    .map_err(|e| format!("Failed to spawn: {e}"))?;
+        // Try to get models via CLI
+        let models_result = std::process::Command::new(&bin)
+            .args(["models", "list", "--output-format", "json"])
+            .env(
+                "PATH",
+                format!(
+                    "{}:{}",
+                    if cfg!(target_os = "macos") { "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin" }
+                    else { "/usr/local/bin:/usr/bin:/bin" },
+                    std::env::var("PATH").unwrap_or_default()
+                ),
+            )
+            .output();
 
-                let stdin = child.stdin.take().ok_or("No stdin")?;
-                let stdout = child.stdout.take().ok_or("No stdout")?;
+        let models = match models_result {
+            Ok(out) if out.status.success() => {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                serde_json::from_str::<Value>(stdout.trim()).ok()
+            }
+            _ => None,
+        };
 
-                struct ProbeClient;
-                #[async_trait::async_trait(?Send)]
-                impl acp::Client for ProbeClient {
-                    async fn session_notification(&self, _: acp::SessionNotification) -> acp::Result<()> { Ok(()) }
-                    async fn request_permission(&self, _: acp::RequestPermissionRequest) -> acp::Result<acp::RequestPermissionResponse> {
-                        Ok(acp::RequestPermissionResponse::new(acp::RequestPermissionOutcome::Cancelled))
-                    }
-                    async fn ext_notification(&self, _: acp::ExtNotification) -> acp::Result<()> { Ok(()) }
-                }
+        let available_models = models.unwrap_or_else(|| {
+            serde_json::json!([
+                {"modelId": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "description": "Best combination of speed and intelligence"},
+                {"modelId": "claude-opus-4-7", "name": "Claude Opus 4.7", "description": "Most capable for complex reasoning and agentic coding"},
+                {"modelId": "claude-haiku-4-5", "name": "Claude Haiku 4.5", "description": "Fastest with near-frontier intelligence"},
+            ])
+        });
 
-                let (conn, io_future) = acp::ClientSideConnection::new(
-                    ProbeClient, stdin.compat_write(), stdout.compat(),
-                    |fut| { tokio::task::spawn_local(fut); },
-                );
-                tokio::task::spawn_local(async { let _ = io_future.await; });
+        let current_model = available_models
+            .as_array()
+            .and_then(|a| a.first())
+            .and_then(|m| m.get("modelId"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("claude-sonnet-4-6");
 
-                conn.initialize(
-                    acp::InitializeRequest::new(acp::ProtocolVersion::V1)
-                        .client_info(acp::Implementation::new("klaudex", "0.1.0"))
-                ).await.map_err(|e| format!("Init failed: {e}"))?;
+        use tauri::Emitter;
+        let _ = app_clone.emit(
+            "session_init",
+            serde_json::json!({
+                "taskId": "__probe__",
+                "models": {
+                    "availableModels": available_models,
+                    "currentModelId": current_model,
+                },
+                "modes": {
+                    "currentModeId": "default",
+                    "availableModes": [
+                        {"id": "default", "name": "Default", "description": "Standard behavior"},
+                        {"id": "plan", "name": "Plan Mode", "description": "Planning mode"},
+                    ]
+                },
+            }),
+        );
 
-                let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-                let session = conn.new_session(
-                    acp::NewSessionRequest::new(std::path::PathBuf::from(&home))
-                ).await.map_err(|e| format!("Session failed: {e}"))?;
-
-                let session_val = serde_json::to_value(&session).unwrap_or_default();
-
-                let model_count = session_val.get("models")
-                    .and_then(|m| m.get("availableModels"))
-                    .and_then(|a| a.as_array())
-                    .map(|a| a.len())
-                    .unwrap_or(0);
-                let current_model = session_val.get("models")
-                    .and_then(|m| m.get("currentModelId"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("none");
-                log::info!("[ACP] probe session_init: {} models (current={})", model_count, current_model);
-
-                use tauri::Emitter;
-                let _ = app_clone.emit("session_init", serde_json::json!({
-                    "taskId": "__probe__",
-                    "models": session_val.get("models"),
-                    "modes": session_val.get("modes"),
-                    "configOptions": session_val.get("configOptions"),
-                }));
-
-                let _ = child.kill().await;
-                Ok::<(), String>(())
-            })
-        }));
-
-        // ALWAYS reset the probe guard when the thread exits (even on panic)
+        // Reset the probe guard
         use tauri::Manager;
         if let Some(acp_state) = app_for_flag.try_state::<AcpState>() {
-            acp_state.probe_running.store(false, std::sync::atomic::Ordering::SeqCst);
+            acp_state
+                .probe_running
+                .store(false, std::sync::atomic::Ordering::SeqCst);
         }
 
-        match result {
-            Ok(Ok(())) => log::info!("[ACP] probe_capabilities succeeded"),
-            Ok(Err(e)) => log::warn!("[ACP] probe_capabilities failed: {}", e),
-            Err(_) => log::error!("[ACP] probe_capabilities thread panicked"),
-        }
+        log::info!("[Claude] probe_capabilities completed");
     });
 
-    // Return immediately — models/modes arrive via session_init event
     Ok(serde_json::json!({ "ok": true, "async": true }))
 }

@@ -85,6 +85,14 @@ pub struct Task {
     pub user_paused: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_task_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_user_input: Option<PendingUserInput>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    #[serde(default)]
+    pub total_cost: f64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -110,8 +118,30 @@ pub enum AcpCommand {
     Prompt(String, Vec<AttachmentData>),
     Cancel,
     SetMode(String),
+    RespondUserInput(String, Value),
     ForkSession(oneshot::Sender<Result<String, String>>),
     Kill,
+}
+
+// ── Structured user input request types ────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UserInputField {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub field_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub options: Option<Vec<String>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingUserInput {
+    pub request_id: String,
+    pub fields: Vec<UserInputField>,
 }
 
 // ── Per-task connection handle ─────────────────────────────────────────
@@ -128,6 +158,7 @@ pub struct AcpState {
     pub tasks: Mutex<HashMap<String, Task>>,
     pub connections: Mutex<HashMap<String, ConnectionHandle>>,
     pub permission_resolvers: Mutex<HashMap<String, oneshot::Sender<PermissionReply>>>,
+    pub user_input_resolvers: Mutex<HashMap<String, mpsc::UnboundedSender<AcpCommand>>>,
     /// Guard to prevent concurrent probe_capabilities calls
     pub probe_running: std::sync::atomic::AtomicBool,
 }
@@ -142,6 +173,7 @@ impl Default for AcpState {
             tasks: Mutex::new(HashMap::new()),
             connections: Mutex::new(HashMap::new()),
             permission_resolvers: Mutex::new(HashMap::new()),
+            user_input_resolvers: Mutex::new(HashMap::new()),
             probe_running: std::sync::atomic::AtomicBool::new(false),
         }
     }

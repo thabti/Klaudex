@@ -1,4 +1,4 @@
-mod client;
+pub mod claude_types;
 mod commands;
 mod connection;
 mod sandbox;

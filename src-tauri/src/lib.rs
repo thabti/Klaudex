@@ -6,7 +6,7 @@ extern crate objc;
 
 mod commands;
 
-use commands::{acp, fs_ops, git, kiro_config, pty, settings};
+use commands::{acp, claude_config, fs_ops, git, pty, settings};
 use tauri::Manager;
 
 /// Install a global panic hook that logs the panic message and backtrace.
@@ -67,6 +67,16 @@ fn shutdown_app(app: &tauri::AppHandle) {
             resolvers.clear(); // Dropping oneshot::Sender causes Err on the receiver
             if count > 0 {
                 log::info!("Dropped {} pending permission resolver(s)", count);
+            }
+        }
+
+        // Drop all pending user input resolvers
+        {
+            let mut resolvers = acp_state.user_input_resolvers.lock();
+            let count = resolvers.len();
+            resolvers.clear();
+            if count > 0 {
+                log::info!("Dropped {} pending user input resolver(s)", count);
             }
         }
     }
@@ -200,7 +210,7 @@ pub fn run() {
             settings::get_settings,
             settings::save_settings,
             // File ops
-            fs_ops::detect_kiro_cli,
+            fs_ops::detect_claude_cli,
             fs_ops::read_text_file,
             fs_ops::read_file_base64,
             fs_ops::pick_folder,
@@ -209,8 +219,9 @@ pub fn run() {
             fs_ops::detect_editors,
             fs_ops::detect_editors_background,
             fs_ops::list_project_files,
-            fs_ops::kiro_whoami,
-            fs_ops::kiro_logout,
+            fs_ops::claude_whoami,
+            fs_ops::claude_logout,
+            fs_ops::claude_login,
             fs_ops::open_terminal_with_command,
             fs_ops::detect_project_icon,
             fs_ops::list_small_images,
@@ -248,6 +259,9 @@ pub fn run() {
             acp::task_allow_permission,
             acp::task_deny_permission,
             acp::task_set_auto_approve,
+            acp::task_set_model,
+            acp::task_rollback,
+            acp::task_respond_user_input,
             acp::set_mode,
             acp::list_models,
             acp::probe_capabilities,
@@ -256,8 +270,8 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_kill,
-            // Kiro config
-            kiro_config::get_kiro_config,
+            // Claude config
+            claude_config::get_claude_config,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

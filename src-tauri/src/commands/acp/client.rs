@@ -226,7 +226,7 @@ impl acp::Client for KlaudexClient {
 
         let _ = self.app.emit("debug_log", serde_json::json!({
             "direction": "in", "category": "notification", "type": format!("ext:{method}"),
-            "taskId": self.task_id, "summary": format!("kiro notification: {method}"),
+            "taskId": self.task_id, "summary": format!("claude notification: {method}"),
             "payload": params, "isError": false
         }));
 
