@@ -1,4 +1,12 @@
 {
-  "updated_at": "2026-04-19T00:00:00Z",
-  "releases": []
+  "updated_at": "2026-04-21T07:07:16Z",
+  "releases": [],
+  "totals": {
+    "all": 0,
+    "update_checks": 0,
+    "macos": 0,
+    "windows": 0,
+    "linux": 0
+  },
+  "homebrew_tap": null
 }
