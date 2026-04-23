@@ -1,5 +1,21 @@
 # Changelog
 
+## [v0.30.0] - 2026-04-23
+
+### Features
+
+- crash recovery UI and corrupted store detection ([`df477a6`](https://github.com/thabti/kirodex/commit/df477a6da6e5be39e09c6dd6d9e3a8e12e6567bc))
+- improve project item and task sidebar ([`fd0e3f0`](https://github.com/thabti/kirodex/commit/fd0e3f07b4975ac4d2f996dced40019d3ff04d3f))
+
+### Chores
+
+- reduce release artifacts from 20 to 11 ([`aabb3ce`](https://github.com/thabti/kirodex/commit/aabb3ce7ded660a2ac7fe2726d5df8d11dbd86eb))
+- update downloads.json ([`9f3486a`](https://github.com/thabti/kirodex/commit/9f3486ac91d6590bcae9c0dbbc166cf5dbe9aace))
+
+### Other changes
+
+- Merge branch 'main' of github.com:thabti/kirodex ([`dcee9fa`](https://github.com/thabti/kirodex/commit/dcee9fabc0f158b5945610ce47e384101ebf192a))
+
 ## [v0.29.0] - 2026-04-22
 
 No notable changes.
