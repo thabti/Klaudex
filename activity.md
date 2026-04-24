@@ -1,5 +1,17 @@
 # Activity Log
 
+## 2026-04-24 10:55 GST (Dubai)
+### ChatInput: add folder drag-and-drop support
+Added folder detection when dragging paths onto the chat input. Folders are displayed as pills with an IconFolder icon and the folder name (full path on hover). On send, folder paths are prepended as `[Folder: /path]` references. Added `is_directory` Rust IPC command, updated `useAttachments`, `useChatInput`, `ChatInput`, `ChatTextarea`, and `PillsRow`.
+
+**Modified:** `src-tauri/src/commands/fs_ops.rs`, `src-tauri/src/lib.rs`, `src/renderer/lib/ipc.ts`, `src/renderer/hooks/useAttachments.ts`, `src/renderer/hooks/useChatInput.ts`, `src/renderer/components/chat/ChatInput.tsx`, `src/renderer/components/chat/ChatTextarea.tsx`, `src/renderer/components/chat/PillsRow.tsx`, `src/renderer/components/chat/PillsRow.test.tsx`
+
+## 2026-04-24 10:59 GST (Dubai)
+### Git: single commit for all pending changes
+Staged and committed all 31 changed files in one conventional commit covering folder drop support, WorkingRow streaming indicator, dev/prod icon split, website favicon PNG switch, and CLAUDE.md refresh.
+
+**Modified:** all 31 files (see commit `1d30a80`)
+
 ## 2026-04-24 10:58 GST (Dubai)
 ### Icons: aggressive edge-to-edge trim on both prod and dev
 Trimmed both source PNGs to exact content bounds (no padding), squared the canvas, and scaled to fill 1024x1024. Regenerated all formats and propagated to root icons and website.

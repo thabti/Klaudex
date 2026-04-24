@@ -37,8 +37,10 @@ interface ChatTextareaProps {
   imageAttachments: readonly Attachment[]
   nonImageAttachments: readonly Attachment[]
   pastedChunks: readonly PastedChunk[]
+  folderPaths: readonly string[]
   onRemoveAttachment: (id: string) => void
   onRemoveMention: (path: string) => void
+  onRemoveFolder: (path: string) => void
   onRemoveChunk: (id: number) => void
   // Handlers
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
@@ -56,7 +58,8 @@ export const ChatTextarea = memo(function ChatTextarea({
   showFilePicker, mentionTrigger, mentionIndex, mentionedFiles, workspace, onSelectFile, onDismissMention,
   panel, onDismissPanel,
   imageAttachments, nonImageAttachments, pastedChunks,
-  onRemoveAttachment, onRemoveMention, onRemoveChunk,
+  folderPaths,
+  onRemoveAttachment, onRemoveMention, onRemoveFolder, onRemoveChunk,
   onChange, onKeyDown, onSelect, onPaste,
 }: ChatTextareaProps) {
   const [hasScrollShadow, setHasScrollShadow] = useState(false)
@@ -120,13 +123,15 @@ export const ChatTextarea = memo(function ChatTextarea({
         </div>
       )}
       {/* Pills row */}
-      {(mentionedFiles.length > 0 || nonImageAttachments.length > 0 || pastedChunks.length > 0) && (
+      {(mentionedFiles.length > 0 || nonImageAttachments.length > 0 || pastedChunks.length > 0 || folderPaths.length > 0) && (
         <PillsRow
           mentionedFiles={mentionedFiles}
           nonImageAttachments={nonImageAttachments}
           pastedChunks={pastedChunks}
+          folderPaths={folderPaths}
           onRemoveMention={onRemoveMention}
           onRemoveAttachment={onRemoveAttachment}
+          onRemoveFolder={onRemoveFolder}
           onRemoveChunk={onRemoveChunk}
         />
       )}
