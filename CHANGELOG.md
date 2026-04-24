@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.33.1] - 2026-04-24
+
+### Bug fixes
+
+- match dev and prod icon sizing and spacing ([`b727cc1`](https://github.com/thabti/kirodex/commit/b727cc131177aaeab6d7f52d198992a0fcb08a29))
+
 ## [v0.33.0] - 2026-04-24
 
 ### Features
