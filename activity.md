@@ -1,5 +1,29 @@
 # Activity Log
 
+## 2026-04-24 15:19 GST (Dubai)
+### Timeline: move working indicator dot above tool calls
+Reordered the live streaming section of `deriveTimeline()` so the working indicator row (pulsing dot / cycling words) renders above live tool calls instead of below them. The timeline order is now: live text → working dot → live tool calls.
+
+**Modified:** `src/renderer/lib/timeline.ts`
+
+## 2026-04-24 15:09 GST (Dubai)
+### Icons: replace /btw lightning bolt with message-circle-question
+Replaced the lightning bolt icon for `/btw` and `/tangent` with `IconMessageCircleQuestion` (speech bubble with question mark) across SlashCommandPicker, BtwOverlay, and EmptyThreadSplash. This differentiates the "side question" feature from skills which use the zap/bolt icon.
+
+**Modified:** `src/renderer/components/chat/SlashCommandPicker.tsx`, `src/renderer/components/chat/BtwOverlay.tsx`, `src/renderer/components/chat/EmptyThreadSplash.tsx`
+
+## 2026-04-24 15:08 GST (Dubai)
+### Skills: show "skill: Name" in mention pills
+Updated the `FileMentionPill` component so skill pills display `skill: Formatted Name` instead of the raw skill name.
+
+**Modified:** `src/renderer/components/chat/FileMentionPicker.tsx`
+
+## 2026-04-24 15:06 GST (Dubai)
+### Skills: replace wrench icon with zap (IconBolt) across all skill surfaces
+Replaced IconTool (wrench) with IconBolt (zap) for skills in the `@` mention picker, skill mention pills in the input area, and inline skill mentions in chat messages. The sidebar (KiroConfigPanel, KiroSkillRow) already used IconBolt. Remaining IconTool usages are for tool calls, settings, and onboarding — unrelated to skills. Build passes with zero errors.
+
+**Modified:** `src/renderer/components/chat/FileMentionPicker.tsx`, `src/renderer/components/chat/UserMessageRow.tsx`
+
 ## 2026-04-24 12:38 GST (Dubai)
 ### Icons: match open-source macOS app standard (824×824 at +100+100)
 Audited 6 open-source macOS apps (IINA, Ghostty, Rectangle, Maccy, Zed, MonitorControl) — all use 824×824 hard-edge squircle at +100+100 on 1024×1024 canvas. Resized Kirodex dev/prod icons to match exactly. Regenerated .icns and .ico for both variants.
