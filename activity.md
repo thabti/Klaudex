@@ -1,5 +1,45 @@
 # Activity Log
 
+## 2026-04-24 12:38 GST (Dubai)
+### Icons: match open-source macOS app standard (824×824 at +100+100)
+Audited 6 open-source macOS apps (IINA, Ghostty, Rectangle, Maccy, Zed, MonitorControl) — all use 824×824 hard-edge squircle at +100+100 on 1024×1024 canvas. Resized Kirodex dev/prod icons to match exactly. Regenerated .icns and .ico for both variants.
+
+**Modified:** `src-tauri/icons/dev/icon.png`, `src-tauri/icons/dev/icon.icns`, `src-tauri/icons/dev/icon.ico`, `src-tauri/icons/prod/icon.png`, `src-tauri/icons/prod/icon.icns`, `src-tauri/icons/prod/icon.ico`
+
+## 2026-04-24 12:33 GST (Dubai)
+### Icons: audit open-source macOS app squircle sizing
+Measured the exact squircle sizing in 6 popular open-source macOS apps (IINA, Rectangle, Maccy, Ghostty, Zed, MonitorControl). All use the Apple HIG standard: 824x824 hard-edge squircle body centered on a 1024x1024 canvas (100px margin per side = ~80.5% fill). Anti-aliased soft edge extends to ~872px (~85% fill). This confirms the Apple template standard.
+
+**Modified:** (analysis only, no code changes)
+
+## 2026-04-24 12:22 GST (Dubai)
+### Icons: full bleed squircle to match macOS Dock sizing
+Icon appeared smaller than other Dock apps (WhatsApp, Spotify, Figma) because of excessive padding. Followed Apple `.icon` format approach: squircle fills entire 1024×1024 canvas edge-to-edge — macOS handles Dock spacing externally. Regenerated .icns and .ico for both dev and prod.
+
+**Modified:** `src-tauri/icons/dev/icon.png`, `src-tauri/icons/dev/icon.icns`, `src-tauri/icons/dev/icon.ico`, `src-tauri/icons/prod/icon.png`, `src-tauri/icons/prod/icon.icns`, `src-tauri/icons/prod/icon.ico`
+
+## 2026-04-24 12:20 GST (Dubai)
+### Icons: exact Apple HIG 824×824 squircle at +100+100
+Squircle was 795×824 (not perfectly square) due to aspect-ratio-preserving resize. Switched to fill-crop (`-resize 824x824^` + `-extent 824x824`) so the squircle fills exactly 824×824, centered at +100+100 in the 1024×1024 canvas — matching Apple's macOS Big Sur+ icon grid spec and the reference `.icon` file. Regenerated .icns and .ico for both dev and prod.
+
+## 2026-04-24 12:17 GST (Dubai)
+### Icons: resize to Apple HIG 824×824 spec per Big Sur+ guidelines
+Icons were too small — artwork filled ~64% of the 1024×1024 canvas (~657×681px) instead of Apple's recommended ~80% (824×824). Scaled artwork up to fit 824×824, centered on 1024×1024 transparent canvas with ~100px padding per side. Regenerated .icns (all 10 macOS sizes via iconutil) and .ico (7 Windows sizes via ImageMagick) for both dev and prod.
+
+**Modified:** `src-tauri/icons/dev/icon.png`, `src-tauri/icons/dev/icon.icns`, `src-tauri/icons/dev/icon.ico`, `src-tauri/icons/prod/icon.png`, `src-tauri/icons/prod/icon.icns`, `src-tauri/icons/prod/icon.ico`
+
+## 2026-04-24 11:47 GST (Dubai)
+### Icons: edge-to-edge fill to match other macOS dock icons
+Previous icons had transparent padding baked in, making them appear smaller than other dock apps (WhatsApp, Spotify, Figma, etc.). Switched to edge-to-edge fill of the 1024×1024 canvas so macOS renders them at the same visual size as other apps. Regenerated .icns and .ico for both dev and prod.
+
+**Modified:** `src-tauri/icons/dev/icon.png`, `src-tauri/icons/dev/icon.icns`, `src-tauri/icons/dev/icon.ico`, `src-tauri/icons/prod/icon.png`, `src-tauri/icons/prod/icon.icns`, `src-tauri/icons/prod/icon.ico`
+
+## 2026-04-24 11:46 GST (Dubai)
+### Icons: exact Apple HIG sizing (824×824 at +100+100 in 1024×1024)
+Resized dev and prod icons to exactly match Apple's macOS icon spec: 824×824 content centered at +100+100 in a 1024×1024 canvas. Used fill-mode resize (`-resize 824x824^`) with center crop to ensure the rounded rect fills the full 824×824 grid square. Regenerated .icns and .ico for both variants.
+
+**Modified:** `src-tauri/icons/dev/icon.png`, `src-tauri/icons/dev/icon.icns`, `src-tauri/icons/dev/icon.ico`, `src-tauri/icons/prod/icon.png`, `src-tauri/icons/prod/icon.icns`, `src-tauri/icons/prod/icon.ico`
+
 ## 2026-04-24 11:18 GST (Dubai)
 ### Icons: match dev and prod icon sizing and spacing
 Replaced edge-to-edge icon.png files with the properly-spaced source versions (dev.png/prod.png) that have macOS-style transparent padding around the rounded square. Regenerated .icns (via iconutil) and .ico (via ImageMagick) for both dev and prod. Both icons now have identical sizing and spacing; only the color differs (teal for dev, blue for prod).
