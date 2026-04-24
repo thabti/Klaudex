@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
-import { IconBolt, IconX, IconCheck } from '@tabler/icons-react'
+import { IconMessageCircleQuestion, IconX, IconCheck } from '@tabler/icons-react'
 import { useTaskStore } from '@/stores/taskStore'
 import ChatMarkdown from './ChatMarkdown'
 import { parseReport, stripReport } from './TaskCompletionCard'
@@ -85,7 +85,7 @@ export const BtwOverlay = memo(function BtwOverlay() {
       >
         {/* Header */}
         <div className="flex shrink-0 items-center gap-2 border-b border-border/50 px-4 py-2.5">
-          <IconBolt className="size-4 text-yellow-500" />
+          <IconMessageCircleQuestion className="size-4 text-yellow-500" />
           <span className="text-[13px] font-medium text-yellow-500">btw</span>
           <span className="flex-1 truncate text-[12px] text-muted-foreground">Side question — not saved to conversation</span>
           <button
