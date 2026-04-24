@@ -90,8 +90,12 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls }: Tool
         </div>
       )}
 
-      {hasTaskList && <TaskListDisplay allToolCalls={toolCalls} />}
-      {hasSubagent && <SubagentDisplay allToolCalls={toolCalls} />}
+      {(hasTaskList || hasSubagent) && (
+        <div className={expanded ? 'px-1.5 pb-1.5' : 'border-t border-border/50 px-1.5 py-1.5'}>
+          {hasTaskList && <TaskListDisplay allToolCalls={toolCalls} />}
+          {hasSubagent && <SubagentDisplay allToolCalls={toolCalls} />}
+        </div>
+      )}
     </div>
   )
 })

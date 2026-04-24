@@ -112,7 +112,7 @@ export const SubagentDisplay = memo(function SubagentDisplay({ allToolCalls }: S
       description: summarizePrompt(stage.prompt_template),
     })), [stages])
   return (
-    <div className="my-1 ml-1 rounded-lg border border-border/60 bg-card/60">
+    <div className="rounded-lg border border-border/60 bg-card/60">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
