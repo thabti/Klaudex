@@ -1,5 +1,11 @@
 # Activity Log
 
+## 2026-04-24 10:08 GST (Dubai)
+### Chat: fix unreadable yellow text on skill mention pills
+Skill mention pills (e.g. `update-agent-learning`) used `text-yellow-300` on a `bg-yellow-500/15` background, making the text nearly invisible. Changed to `text-yellow-600 dark:text-yellow-400` to match the icon color and ensure readable contrast.
+
+**Modified:** `src/renderer/components/chat/FileMentionPicker.tsx`
+
 ## 2026-04-23 14:55 GST (Dubai)
 ### Chat: fix question card options clipped by overflow-y-hidden
 The inner wrapper in MessageList.tsx had `overflow-x-auto overflow-y-hidden` which created a scroll container. Per CSS spec, when one overflow axis is non-visible, the other is treated as auto, not visible. The `overflow-y-hidden` clipped vertical content, hiding QuestionCard options, input, and footer below the question text. Removed both overflow properties since code blocks already handle horizontal scrolling via `.chat-markdown pre { overflow-x: auto }`.
