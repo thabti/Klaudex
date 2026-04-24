@@ -1,5 +1,35 @@
 # Activity Log
 
+## 2026-04-24 16:14 GST (Dubai)
+### AutoApproveToggle: rewrite as dropdown with explicit labels and better icons
+Replaced the vague "Full"/"Ask" toggle button with a dropdown picker matching PlanToggle's pattern. Labels are now "Auto-approve" and "Ask first" with short descriptions. Icons changed from shield to IconHandStop/IconMessageQuestion. Auto-approve state uses amber color treatment.
+
+**Modified:** `src/renderer/components/chat/AutoApproveToggle.tsx`
+
+## 2026-04-24 16:12 GST (Dubai)
+### ModelPicker: add retry button when models fail to load
+Added a 10-second timeout to ModelPicker; after the timeout the pulsing skeleton is replaced with a Retry button that calls `ipc.probeCapabilities()`. Timer resets when models arrive or retry is clicked. Also added a Retry button to ModelPickerPanel's empty state alongside the "No models available" text.
+
+**Modified:** `src/renderer/components/chat/ModelPicker.tsx`, `src/renderer/components/chat/ModelPickerPanel.tsx`
+
+## 2026-04-24 16:11 GST (Dubai)
+### Kbd: restyle all kbd elements to shadcn v4 discrete typography
+Updated the `Kbd` component to match shadcn v4 (no border, no shadow, `rounded-sm`, `bg-muted`, tooltip-aware styling). Added `KbdGroup` component. Updated all 8 inline `<kbd>` usages across 7 files to remove borders and shadows. Tooltip kbds use `bg-background/15` for contrast.
+
+**Modified:** `src/renderer/components/ui/kbd.tsx`, `src/renderer/App.tsx`, `src/renderer/components/chat/BtwOverlay.tsx`, `src/renderer/components/chat/ChatToolbar.tsx`, `src/renderer/components/chat/EmptyThreadSplash.tsx`, `src/renderer/components/chat/QuestionCards.tsx`, `src/renderer/components/header-breadcrumb.tsx`, `src/renderer/components/settings/SettingsPanel.tsx`
+
+## 2026-04-24 16:10 GST (Dubai)
+### KeymapSection: replace card-on-card kbd with discrete typography
+Removed the bordered/shadowed `<kbd>` elements in the keyboard shortcuts settings section. Replaced with a plain `<span>` using `font-mono text-[11px] text-muted-foreground/70` to eliminate the card-on-card visual clash inside `SettingsCard`.
+
+**Modified:** `src/renderer/components/settings/keymap-section.tsx`
+
+## 2026-04-24 16:09 GST (Dubai)
+### PlanToggle: replace toggle button with explicit mode dropdown
+Rewrote PlanToggle from a simple toggle button (that showed "Plan" in both states) to a dropdown that explicitly displays the current mode name ("Code" or "Plan") with an icon and chevron. Uses the same dropdown pattern as ModelPicker. No more guessing which mode is active.
+
+**Modified:** `src/renderer/components/chat/PlanToggle.tsx`
+
 ## 2026-04-24 15:19 GST (Dubai)
 ### Timeline: move working indicator dot above tool calls
 Reordered the live streaming section of `deriveTimeline()` so the working indicator row (pulsing dot / cycling words) renders above live tool calls instead of below them. The timeline order is now: live text → working dot → live tool calls.

@@ -1,6 +1,5 @@
-import { memo, useCallback } from 'react'
-import { IconShieldCheck, IconShieldOff } from '@tabler/icons-react'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { memo, useState, useRef, useEffect, useCallback } from 'react'
+import { IconChevronDown, IconHandStop, IconMessageQuestion } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -12,50 +11,117 @@ export const selectAutoApprove = (s: ReturnType<typeof useSettingsStore.getState
   return projectPref !== undefined ? projectPref : (s.settings.autoApprove ?? false)
 }
 
-export const AutoApproveToggle = memo(function AutoApproveToggle() {
-  const active = useSettingsStore(selectAutoApprove)
+interface PermissionEntry {
+  readonly id: 'auto-approve' | 'ask-first'
+  readonly label: string
+  readonly description: string
+  readonly icon: typeof IconHandStop
+}
 
-  const toggle = useCallback(() => {
+const PERMISSIONS: readonly PermissionEntry[] = [
+  { id: 'ask-first', label: 'Ask first', description: 'Confirm before running tools', icon: IconMessageQuestion },
+  { id: 'auto-approve', label: 'Auto-approve', description: 'Run all tools without asking', icon: IconHandStop },
+] as const
+
+export const AutoApproveToggle = memo(function AutoApproveToggle() {
+  const isAutoApprove = useSettingsStore(selectAutoApprove)
+  const [isOpen, setIsOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setIsOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
+  const handleSelect = useCallback((permissionId: string) => {
+    const next = permissionId === 'auto-approve'
     const { settings, activeWorkspace, setProjectPref, saveSettings } = useSettingsStore.getState()
     const current = activeWorkspace
       ? (settings.projectPrefs?.[activeWorkspace]?.autoApprove ?? settings.autoApprove ?? false)
       : (settings.autoApprove ?? false)
-    const next = !current
+    if (next === current) {
+      setIsOpen(false)
+      return
+    }
     if (activeWorkspace) {
       setProjectPref(activeWorkspace, { autoApprove: next })
     } else {
       saveSettings({ ...settings, autoApprove: next })
     }
-    // Push the change to any running ACP connection so it takes effect immediately
     const { selectedTaskId, tasks } = useTaskStore.getState()
-    if (!selectedTaskId) return
-    const task = tasks[selectedTaskId]
-    if (!task) return
-    const isLive = task.status === 'running' || task.status === 'pending_permission' || task.status === 'paused'
-    if (isLive) {
-      ipc.setAutoApprove(selectedTaskId, next).catch(() => {})
+    if (selectedTaskId) {
+      const task = tasks[selectedTaskId]
+      const isLive = task && (task.status === 'running' || task.status === 'pending_permission' || task.status === 'paused')
+      if (isLive) {
+        ipc.setAutoApprove(selectedTaskId, next).catch(() => {})
+      }
     }
+    setIsOpen(false)
   }, [])
 
+  const currentId = isAutoApprove ? 'auto-approve' : 'ask-first'
+  const current = PERMISSIONS.find((p) => p.id === currentId) ?? PERMISSIONS[0]
+  const CurrentIcon = current.icon
+
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={toggle}
-          data-testid="auto-approve-toggle"
-          className={cn(
-            'flex items-center gap-1 rounded-lg px-1.5 py-1 text-[14px] font-medium transition-colors',
-            active
-              ? 'text-foreground/70 hover:text-foreground'
-              : 'text-muted-foreground/80 hover:text-muted-foreground',
-          )}
+    <div ref={ref} data-testid="auto-approve-toggle" className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        aria-label={`Permissions: ${current.label}`}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        className={cn(
+          'flex items-center gap-1 rounded-lg px-1.5 py-1 text-[14px] font-medium transition-colors',
+          isAutoApprove
+            ? 'text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300'
+            : 'text-muted-foreground hover:text-foreground',
+        )}
+      >
+        <CurrentIcon className="size-3.5" aria-hidden />
+        <span>{current.label}</span>
+        <IconChevronDown className="size-3 shrink-0 opacity-50" aria-hidden />
+      </button>
+
+      {isOpen && (
+        <div
+          role="listbox"
+          aria-label="Select permissions"
+          className="absolute bottom-full left-0 z-[200] mb-2 min-w-[180px] rounded-xl border border-border bg-popover py-1.5 shadow-xl"
         >
-          {active ? <IconShieldCheck className="size-3.5" /> : <IconShieldOff className="size-3.5" />}
-          <span>{active ? 'Full' : 'Ask'}</span>
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top">{active ? 'Auto-approve all tools \u2014 click to require confirmation' : 'Ask before running tools \u2014 click to auto-approve'}</TooltipContent>
-    </Tooltip>
+          {PERMISSIONS.map((p) => {
+            const isActive = p.id === currentId
+            const Icon = p.icon
+            return (
+              <button
+                key={p.id}
+                type="button"
+                role="option"
+                aria-selected={isActive}
+                onMouseDown={(e) => {
+                  e.stopPropagation()
+                  handleSelect(p.id)
+                }}
+                className={cn(
+                  'flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors hover:bg-accent',
+                  isActive ? 'font-medium text-foreground' : 'text-muted-foreground',
+                  p.id === 'auto-approve' && isActive && 'text-amber-600 dark:text-amber-400',
+                )}
+              >
+                <Icon className="size-3.5 shrink-0" aria-hidden />
+                <div className="flex flex-col items-start">
+                  <span>{p.label}</span>
+                  <span className="text-[10px] text-muted-foreground/70">{p.description}</span>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 })
