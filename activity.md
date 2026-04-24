@@ -1,5 +1,11 @@
 # Activity Log
 
+## 2026-04-24 18:34 GST (Dubai)
+### Website: add smart OS-detecting download cards
+Replaced the static "Download for macOS" hero button with 4 platform download cards (DMG, EXE, .deb, AppImage). Inline JS detects the visitor's OS via `navigator.userAgent`, highlights the matching card, and fetches the latest release version + asset URLs from the GitHub API. Non-detected platforms render muted but remain clickable.
+
+**Modified:** website/index.html, website/style.css, website/dist/style.css
+
 ## 2026-04-24 16:50 GST (Dubai)
 ### AppHeader: remove traffic light padding in fullscreen mode
 Added fullscreen detection via `onResized` + `isFullscreen()` in `AppHeader`. When macOS enters fullscreen (traffic lights hidden), the left padding drops from `74px` to `8px` so the header content uses the full width.
