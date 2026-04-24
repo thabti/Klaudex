@@ -2,95 +2,215 @@
 
 ## Project overview
 
-Kirodex is a native macOS desktop app for managing AI coding agents via the Agent Client Protocol (ACP). It features a chat interface, task management, diff viewer, integrated terminal, git operations, and a settings panel. Built with Tauri v2 (Rust backend) and React 19 (TypeScript frontend).
+Kirodex is a cross-platform native desktop app (macOS, Windows, Linux) for managing AI coding agents via the Agent Client Protocol (ACP). It features a chat interface with threaded conversations, task management, diff viewer, integrated terminal (ghostty-web), git operations (git2), analytics dashboard (recharts + redb), onboarding wizard, multi-window support, and a full settings panel. Built with Tauri v2 (Rust backend) and React 19 (TypeScript frontend). ~12MB binary, ~0% CPU at idle.
 
 ## Tech stack
 
 - **Desktop framework**: Tauri v2 (Rust backend, WebView frontend)
 - **Backend**: Rust 2021 edition
-- **Frontend**: React 19, TypeScript 5, Vite 6
-- **Styling**: Tailwind CSS 4 (utility-first, dark theme)
-- **UI components**: Radix UI primitives, Tabler icons (`@tabler/icons-react`)
+- **Frontend**: React 19, TypeScript 5 (strict mode, ES2022 target)
+- **Styling**: Tailwind CSS 4 (utility-first, dark theme via `@custom-variant dark`)
+- **UI components**: Radix UI primitives (dialog, checkbox, switch, tooltip, scroll-area, label, separator, slot), Tabler icons (`@tabler/icons-react`)
 - **State management**: Zustand 5 (stores in `src/renderer/stores/`)
 - **Markdown**: react-markdown + remark-gfm
 - **Virtualization**: @tanstack/react-virtual
 - **Diffing**: diff + @pierre/diffs
-- **Terminal**: xterm + @xterm/addon-fit + portable-pty (Rust)
-- **Code highlighting**: Shiki
-- **Build**: Vite (renderer), Cargo (Rust backend), bun as package manager
-- **Protocol**: agent-client-protocol crate for ACP subprocess management
-- **Rust crates**: git2 (libgit2 bindings), thiserror (error types), which (binary detection), serde_yaml (YAML parsing), confy (config persistence)
+- **Terminal**: ghostty-web (WebAssembly terminal emulator) + portable-pty (Rust)
+- **Code highlighting**: Shiki (stubbed via shiki-stub Vite plugin to reduce bundle ~8MB)
+- **Analytics**: posthog-js (client telemetry), recharts (charts), redb (Rust ACID-compliant local DB)
+- **Toasts**: sonner
+- **Slugs**: slugify (worktree branch names)
+- **Font**: @fontsource-variable/dm-sans
+- **Build**: Vite 6 (via `rolldown-vite` override), Cargo (Rust backend), bun as package manager. Build target: `safari16`. Manual chunks for vendor splitting (analytics, diffs, react, markdown, terminal, tauri, icons)
+- **Testing**: Vitest 4 with jsdom, @testing-library/react, v8 coverage
+- **Protocol**: agent-client-protocol crate (v0.10.4) for ACP subprocess management with unstable session model, usage, fork, cancel, and message ID features
+- **Rust crates**: git2 (libgit2 bindings), thiserror (error types), which (binary detection), confy (config persistence), redb (analytics DB), parking_lot (fast mutexes), imagesize (image dimensions), window-vibrancy, ignore (gitignore-aware file walking), base64, uuid, open, dirs
+- **Tauri plugins**: tauri-plugin-store (LazyStore persistence), tauri-plugin-notification (native notifications), tauri-plugin-updater (auto-update), tauri-plugin-process (relaunch), tauri-plugin-log (Rust→WebView log forwarding), tauri-plugin-dialog (folder picker)
+- **macOS-specific**: cocoa + objc crates for traffic light repositioning and content view corner radius
 
 ## Project structure
 
 ```
 src/
 ├── renderer/                # React frontend
-│   ├── main.tsx             # React entry
-│   ├── App.tsx              # Root layout
-│   ├── types/index.ts       # Shared types (TaskStatus, AgentTask, etc.)
+│   ├── main.tsx             # React entry (splash screen fade, dark theme init)
+│   ├── App.tsx              # Root layout (sidebar + main panel routing)
+│   ├── env.d.ts             # Vite env type declarations
+│   ├── types/
+│   │   ├── index.ts         # Shared types (TaskStatus, AgentTask, ToolCall, etc.)
+│   │   └── analytics.ts     # AnalyticsEvent types
 │   ├── lib/
-│   │   ├── ipc.ts           # Tauri invoke/listen wrappers
+│   │   ├── ipc.ts           # Tauri invoke/listen wrappers (~60 commands, ~20 events)
+│   │   ├── history-store.ts # LazyStore persistence (tauri-plugin-store) with self-write guard
 │   │   ├── timeline.ts      # Timeline rendering logic
-│   │   └── utils.ts         # cn() helper
+│   │   ├── utils.ts         # cn() helper (clsx + tailwind-merge)
+│   │   ├── analytics.ts     # PostHog analytics wrapper
+│   │   ├── analytics-collector.ts  # Event collection for local analytics
+│   │   ├── analytics-aggregators.ts # Chart data aggregation
+│   │   ├── fuzzy-search.ts  # Fuzzy matching for pickers
+│   │   ├── question-parser.ts # Parse agent question cards
+│   │   ├── notifications.ts # Native notification helpers
+│   │   ├── theme.ts         # Theme management (dark/light/system)
+│   │   ├── sounds.ts        # UI sound effects
+│   │   ├── model-icons.tsx  # Model provider SVG icons
+│   │   ├── framework-icons.tsx # Framework/language SVG icons
+│   │   ├── jsInterceptors.ts # Console/network interceptors for debug panel
+│   │   ├── open-external.ts # Open URLs in default browser
+│   │   ├── relaunch.ts      # App relaunch helper
+│   │   ├── shiki-stub.ts    # Lightweight Shiki stub (saves ~8MB)
+│   │   └── shikijs-transformers-stub.ts
 │   ├── hooks/
-│   │   └── useSlashAction.ts # Client-side slash command handler
+│   │   ├── useSidebarTasks.ts    # Sidebar task list with grouping/filtering
+│   │   ├── useUpdateChecker.ts   # Auto-update checker (tauri-plugin-updater)
+│   │   ├── useChatInput.ts       # Chat input state, submission, slash commands
+│   │   ├── useFileMention.ts     # @ file mention picker logic
+│   │   ├── useKeyboardShortcuts.ts # Global keyboard shortcuts
+│   │   ├── useAttachments.ts     # File/image attachment handling
+│   │   ├── useSlashAction.ts     # Client-side slash command handler
+│   │   ├── useSessionTracker.ts  # Analytics session tracking
+│   │   ├── useProjectIcon.ts     # Auto-detect project icon from files
+│   │   ├── useMessageSearch.ts   # Search within chat messages
+│   │   └── useResizeHandle.ts    # Draggable panel resize
 │   ├── stores/
-│   │   ├── taskStore.ts     # Tasks, streaming, connection state
-│   │   ├── settingsStore.ts # Agent profiles, models, appearance
-│   │   ├── kiroStore.ts     # .kiro/ config state
-│   │   ├── diffStore.ts     # Diff viewer state
-│   │   └── debugStore.ts    # Debug panel state
+│   │   ├── taskStore.ts          # Tasks, streaming, connection state (~39KB)
+│   │   ├── task-store-types.ts   # TaskStore type definitions
+│   │   ├── task-store-listeners.ts # IPC event listener setup for taskStore
+│   │   ├── settingsStore.ts      # Agent profiles, models, appearance
+│   │   ├── kiroStore.ts          # .kiro/ config state
+│   │   ├── diffStore.ts          # Diff viewer state
+│   │   ├── debugStore.ts         # Debug panel state (Kiro logs)
+│   │   ├── jsDebugStore.ts       # JS console/network debug state
+│   │   ├── analyticsStore.ts     # Analytics dashboard state
+│   │   └── updateStore.ts        # App update state
 │   └── components/
-│       ├── ui/              # Radix-based primitives (button, input, dialog, etc.)
-│       ├── chat/            # ChatPanel, MessageList, ChatInput, SlashPanels, etc.
-│       ├── sidebar/         # TaskSidebar, KiroConfigPanel
-│       ├── code/            # CodePanel, DiffViewer
+│       ├── ui/              # Radix-based primitives (button, input, dialog, card, badge, etc.)
+│       ├── chat/            # ChatPanel, MessageList, ChatInput, SlashPanels, BranchSelector, etc.
+│       ├── sidebar/         # TaskSidebar, KiroConfigPanel, IconPickerDialog, WorktreeCleanupDialog
+│       ├── code/            # CodePanel, DiffViewer, DiffToolbar, DiffFileSidebar, DebugLog
+│       ├── analytics/       # AnalyticsDashboard, chart components (9 chart types)
+│       ├── unified-title-bar/ # Cross-platform title bar (macOS/Windows/Linux)
+│       ├── settings/        # SettingsPanel with sections (general, appearance, keymap, advanced, etc.)
 │       ├── dashboard/       # Dashboard, TaskCard
-│       ├── settings/        # SettingsPanel
 │       ├── diff/            # DiffPanel
-│       ├── debug/           # DebugPanel
+│       ├── debug/           # DebugPanel, JsDebugTab, KiroDebugTab
 │       ├── task/            # NewProjectSheet
+│       ├── Onboarding.tsx   # First-run onboarding wizard
+│       ├── OnboardingWelcomeStep.tsx
+│       ├── OnboardingSetupStep.tsx
+│       ├── OnboardingCliSection.tsx
+│       ├── OnboardingAuthSection.tsx
+│       ├── OnboardingThemeStep.tsx
+│       ├── onboarding-shared.tsx
 │       ├── AppHeader.tsx
+│       ├── header-breadcrumb.tsx
+│       ├── header-toolbar.tsx
+│       ├── header-ghost-toolbar.tsx
+│       ├── header-user-menu.tsx
+│       ├── GitActionsGroup.tsx
+│       ├── OpenInEditorGroup.tsx
 │       ├── ErrorBoundary.tsx
 │       └── Playground.tsx
 src-tauri/
 ├── src/
 │   ├── main.rs              # Entry point
-│   ├── lib.rs               # Tauri app setup, command registration, window events
+│   ├── lib.rs               # Tauri app setup, command registration, window events, native menu, multi-window, panic hook, shutdown
 │   └── commands/
-│       ├── acp.rs           # ACP protocol (kiro-cli subprocess, ~42KB)
+│       ├── mod.rs           # Module declarations (acp, analytics, error, fs_ops, git, kiro_config, pty, settings)
+│       ├── acp/             # ACP protocol module (split into submodules)
+│       │   ├── mod.rs       # Re-exports, utility functions
+│       │   ├── client.rs    # ACP client wrapper
+│       │   ├── commands.rs  # Tauri command handlers (~60 commands)
+│       │   ├── connection.rs # Connection lifecycle, message handling
+│       │   ├── sandbox.rs   # Path sandboxing for permissions
+│       │   ├── types.rs     # AcpState, AcpCommand, ConnectionHandle types
+│       │   └── tests.rs     # ACP unit tests
+│       ├── analytics.rs     # Analytics persistence (redb ACID-compliant DB)
 │       ├── error.rs         # Shared AppError type (thiserror)
 │       ├── pty.rs           # Terminal emulation (portable-pty)
-│       ├── git.rs           # Git operations via git2 (libgit2)
-│       ├── settings.rs      # Config persistence via confy
-│       ├── fs_ops.rs        # File ops, kiro-cli detection (which crate)
+│       ├── git.rs           # Git operations via git2 (libgit2) — branches, worktrees, stage, commit, push, pull
+│       ├── settings.rs      # Config persistence via confy, recent projects
+│       ├── fs_ops.rs        # File ops, kiro-cli detection (which crate), editor detection, project file listing
 │       └── kiro_config.rs   # .kiro/ config discovery (serde_yaml for frontmatter)
 ├── Cargo.toml
 ├── tauri.conf.json
-└── capabilities/            # Tauri v2 permission capabilities
+├── tauri.ci.conf.json       # CI-specific Tauri config overrides
+├── Kirodex.entitlements     # macOS entitlements
+├── Info.plist               # macOS Info.plist
+├── capabilities/            # Tauri v2 permission capabilities
+├── icons/                   # App icons (prod + dev variants)
+└── apps/                    # Bundled app resources
+scripts/
+├── bump-version.sh          # Version bump across package.json, Cargo.toml, tauri.conf.json
+├── release.sh               # Tag + push release workflow
+└── generate-notes.sh        # Generate changelog from git log
+website/                     # Static marketing website (separate bun project)
+docs/
+├── architecture.md          # System diagram, backend module reference
+├── ipc-reference.md         # Full IPC command/event reference
+├── slash-commands.md         # Slash command documentation
+├── keyboard-shortcuts.md     # Keyboard shortcut reference
+└── pr-guidelines.md         # PR review guidelines
 ```
 
 ## Commands
 
 ```bash
-bun run dev           # Start dev (Vite + Tauri)
-bun run build         # Production build (.app + .dmg)
-bun run check:ts      # TypeScript type check
-bun run check:rust    # Rust type check
-bun run test:rust     # Run Rust tests
-bun run clean         # Remove build artifacts
+# Development
+bun run dev               # Start dev (Vite + Tauri)
+bun run dev:renderer      # Start Vite dev server only (no Rust)
+
+# Build
+bun run build             # Production build (.app / .dmg / .exe / .deb)
+bun run build:rust        # Cargo build (debug)
+bun run build:rust:release # Cargo build (release, stripped + LTO)
+bun run package           # Alias for `cargo tauri build`
+
+# Type checking
+bun run check             # Run both check:ts and check:rust
+bun run check:ts          # TypeScript type check (tsc --noEmit)
+bun run check:rust        # Rust type check (cargo check)
+bun run check:web         # TypeScript check + Vite build
+
+# Testing
+bun run test              # Run all tests (Vitest + cargo test)
+bun run test:ui           # Vitest (frontend tests only)
+bun run test:rust         # Rust tests only (cargo test)
+bun run test:coverage     # Vitest with v8 coverage report
+
+# Versioning
+bun run bump              # Interactive version bump
+bun run bump:patch        # Bump patch (0.7.0 → 0.7.1)
+bun run bump:minor        # Bump minor (0.7.0 → 0.8.0)
+bun run bump:major        # Bump major (0.7.0 → 1.0.0)
+bun run release           # Tag + push (triggers CI release)
+
+# Website
+bun run website:dev       # Dev server for marketing website
+bun run website:build     # Build website
+bun run website:preview   # Build + open website
+
+# Cleanup
+bun run clean             # Remove dist/ and cargo clean
 ```
 
 ## Architecture decisions
 
-- **Tauri IPC**: All frontend↔backend communication uses `invoke()` for commands and `listen()` for events. No direct Node.js APIs.
+- **Tauri IPC**: All frontend↔backend communication uses `invoke()` for commands and `listen()` for events. No direct Node.js APIs. The `ipc.ts` wrapper provides typed functions for all ~60 commands and ~20 event listeners.
 - **ACP on dedicated OS threads**: The ACP Rust SDK uses `!Send` futures, so each connection runs on a dedicated OS thread with a single-threaded tokio runtime + `LocalSet`. Communication with the Tauri async runtime happens via `mpsc` channels.
+- **ACP module split**: The ACP code is split into `acp/{mod.rs, client.rs, commands.rs, connection.rs, sandbox.rs, types.rs, tests.rs}` for maintainability. `commands.rs` holds Tauri command handlers, `connection.rs` manages lifecycle, `sandbox.rs` handles path permission validation, `client.rs` wraps the SDK client.
 - **Permission handling**: Permission requests from ACP go through a `oneshot` channel. The permission handler runs on the Tauri async runtime and accesses managed state via `app.try_state::<AcpState>()`, not a cloned copy.
-- **State**: Zustand stores are the single source of truth. No Redux, no Context for global state.
-- **Styling**: Tailwind utility classes only. No custom CSS files for components. Theme tokens in `src/tailwind.css`.
+- **State**: Zustand stores are the single source of truth. No Redux, no Context for global state. The taskStore is the largest (~39KB) with extracted types (`task-store-types.ts`) and IPC listeners (`task-store-listeners.ts`).
+- **Persistence**: `tauri-plugin-store` (LazyStore) persists tasks, projects, and soft-deleted threads. A self-write guard (`_selfWriteCount`) prevents reload loops from autoSave-triggered `onKeyChange` events.
+- **Analytics pipeline**: Frontend collects events via `analytics-collector.ts`, aggregates via `analytics-aggregators.ts`, and renders via recharts. Backend persists events in a redb database (`analytics.rs`) with ACID guarantees.
+- **Multi-window**: `lib.rs` supports creating new windows via `create_new_window()` with per-platform configuration (macOS traffic lights, corner radius).
+- **Native menu**: `build_app_menu()` creates File menu with New Window, New Thread, New Project, and a dynamic Recent Projects submenu populated from `SettingsState`.
+- **Styling**: Tailwind utility classes only. No custom CSS files for components. Theme tokens in `src/tailwind.css` using CSS custom properties under `:root` and `.dark`. Uses `@custom-variant dark (&:is(.dark, .dark *))` for dark mode.
 - **Components**: Radix UI primitives with `class-variance-authority` for variants, `clsx` + `tailwind-merge` via `cn()` helper.
+- **Cross-platform title bar**: `unified-title-bar/` provides platform-specific title bars (macOS traffic lights, Windows controls, Linux fallback).
+- **Onboarding**: Multi-step wizard (Welcome → Setup → CLI detection → Auth → Theme) for first-run experience.
 - **Path aliases**: `@/*` maps to `./src/renderer/*` (configured in tsconfig.json and vite.config.ts).
+- **Vite config**: shiki-stub plugin redirects all shiki imports to lightweight stubs. Manual chunks split vendor code (analytics, diffs, react, markdown, terminal, tauri, icons). Dev server on port 5174. Watch ignores README.md, activity.md, and src-tauri/.
+- **CI pipeline**: 3-stage sequential pipeline (check → test-ui → test-rust) with PR comment bot summarizing results. Runs on ubuntu-latest with system deps for WebKit.
 
 ## Conventions
 
@@ -112,6 +232,11 @@ A task is not done until both pass with zero errors:
 ```bash
 bun run check:ts
 bun run build         # or: npx vite build
+```
+
+For frontend-only changes, also run:
+```bash
+bun run test:ui       # Vitest frontend tests
 ```
 
 ## Critical rules

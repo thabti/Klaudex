@@ -1,5 +1,71 @@
 # Activity Log
 
+## 2026-04-24 10:58 GST (Dubai)
+### Icons: aggressive edge-to-edge trim on both prod and dev
+Trimmed both source PNGs to exact content bounds (no padding), squared the canvas, and scaled to fill 1024x1024. Regenerated all formats and propagated to root icons and website.
+
+**Modified:** `src-tauri/icons/prod/icon.{png,icns,ico}`, `src-tauri/icons/dev/icon.{png,icns,ico}`, `src-tauri/icons/icon.{png,icns,ico}`, `website/assets/icon.png`
+
+## 2026-04-24 10:56 GST (Dubai)
+### Icons: tighter trim on both prod and dev icons
+Increased content size from 860px to 960px within the 1024x1024 canvas (~3% padding per side). Regenerated all formats (png, icns, ico) for both prod and dev, updated root-level icons and website asset.
+
+**Modified:** `src-tauri/icons/prod/icon.{png,icns,ico}`, `src-tauri/icons/dev/icon.{png,icns,ico}`, `src-tauri/icons/icon.{png,icns,ico}`, `website/assets/icon.png`
+
+## 2026-04-24 10:54 GST (Dubai)
+### Website: switch to blue prod PNG icon
+Copied trimmed prod icon.png to `website/assets/` and updated all three HTML pages (index, changelog, features) to use `icon.png` instead of `icon.svg` for both favicon and header logo.
+
+**Modified:** `website/assets/icon.png`, `website/index.html`, `website/changelog.html`, `website/features.html`
+
+## 2026-04-24 10:51 GST (Dubai)
+### Icons: replace root-level icons with trimmed dev versions
+Copied trimmed dev icon.png, icon.icns, and icon.ico to the root `src-tauri/icons/` directory, replacing the old untrimmed versions.
+
+**Modified:** `src-tauri/icons/icon.png`, `src-tauri/icons/icon.icns`, `src-tauri/icons/icon.ico`
+
+## 2026-04-24 10:48 GST (Dubai)
+### Icons: trim and regenerate prod icons
+Trimmed white space from prod.png (same 656x682 content in 1024x1024 canvas), resized to 860px and re-centered with ~8% uniform padding on transparent background. Regenerated icon.icns and icon.ico to match the dev icon treatment.
+
+**Modified:** `src-tauri/icons/prod/icon.png`, `src-tauri/icons/prod/icon.icns`, `src-tauri/icons/prod/icon.ico`
+
+## 2026-04-24 10:46 GST (Dubai)
+### Icons: trim white space and regenerate dev icons
+Trimmed excess white/transparent padding from dev.png (content was 657x681 in a 1024x1024 canvas). Resized content to 860px and re-centered on a 1024x1024 transparent canvas with uniform ~8% padding. Regenerated icon.icns and icon.ico from the trimmed source.
+
+**Modified:** `src-tauri/icons/dev/icon.png`, `src-tauri/icons/dev/icon.icns`, `src-tauri/icons/dev/icon.ico`
+
+## 2026-04-24 10:45 GST (Dubai)
+### Config: update tauri.conf.json for dev icons and identifier
+Updated bundle icon paths to `icons/dev/icon.*` and changed identifier from `com.kirodex.app` to `com.kirodex.dev` so dev and prod builds can coexist on the same machine.
+
+**Modified:** `src-tauri/tauri.conf.json`
+
+## 2026-04-24 10:44 GST (Dubai)
+### Icons: generate dev icon files (png, icns, ico)
+Generated all required icon formats for the dev build from the teal geometric K icon. Created icon.png (1024x1024), icon.icns (1.6MB, all macOS sizes 16-1024px with @2x retina), and icon.ico (372KB, sizes 16-256px) in `src-tauri/icons/dev/`.
+
+**Modified:** `src-tauri/icons/dev/icon.png`, `src-tauri/icons/dev/icon.icns`, `src-tauri/icons/dev/icon.ico`
+
+## 2026-04-24 10:27 GST (Dubai)
+### Icons: update website favicon and verify dev icons
+Copied squircle SVG to `website/assets/icon.svg` replacing old rounded-rect. Verified all dev icon files (png, icns, ico, svg) are valid squircles. Cleared macOS icon cache to force dock refresh on next launch.
+
+**Modified:** `website/assets/icon.svg`
+
+## 2026-04-24 10:20 GST (Dubai)
+### Docs: comprehensive CLAUDE.md update from codebase discovery
+Ran the update-claude-md-after-install skill to systematically discover actual project patterns and cross-reference against CLAUDE.md. Fixed project overview (cross-platform, not macOS-only), expanded tech stack with all actual dependencies (ghostty-web, posthog-js, recharts, redb, sonner, slugify, all Tauri plugins, macOS crates), rewrote project structure to show all 9 stores, 11 hooks, 17 lib files, and missing component directories (analytics, unified-title-bar, onboarding). Expanded commands from 6 to 25+ scripts. Added architecture decisions for ACP module split, persistence, analytics pipeline, multi-window, native menu, cross-platform title bar, onboarding, Vite config, and CI pipeline.
+
+**Modified:** `CLAUDE.md`
+
+## 2026-04-24 10:11 GST (Dubai)
+### Chat: keep activity indicator visible whenever agent is running
+The "Synthesizing..." cycling text disappeared when the agent started streaming text or thinking, even though the green pause button was still visible. Fixed by always emitting the `working` timeline row when `isRunning` is true. When streaming content exists, the row renders as a subtle pulsing dot instead of the cycling words, so activity feedback is always present.
+
+**Modified:** `src/renderer/lib/timeline.ts`, `src/renderer/components/chat/WorkingRow.tsx`, `src/renderer/components/chat/MessageList.tsx`, `src/renderer/components/chat/WorkingRow.test.tsx`
+
 ## 2026-04-24 10:05 GST (Dubai)
 ### TaskStore: fix broken restored threads after soft-delete
 Soft-deleted threads called `ipc.deleteTask` which destroyed the backend ACP connection, but `restoreTask` never re-created it. The restored task kept `status: 'completed'` and existing messages, so `sendMessageDirect` tried `ipc.sendMessage` on a dead connection. Fixed by adding a `needsNewConnection` flag to `AgentTask`, setting `status: 'paused'` and `needsNewConnection: true` in `restoreTask`, and making `sendMessageDirect` create a fresh ACP connection via `ipc.createTask` for flagged tasks.

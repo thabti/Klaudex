@@ -1,5 +1,6 @@
 import { memo, useState, useRef, useEffect } from 'react'
 import { useSettingsStore } from '@/stores/settingsStore'
+import type { WorkingRow as WorkingRowData } from '@/lib/timeline'
 
 const LOADING_WORDS = [
   'Thinking',
@@ -14,7 +15,7 @@ const LOADING_WORDS = [
   'Crafting',
 ]
 
-export const WorkingRow = memo(function WorkingRow() {
+export const WorkingRow = memo(function WorkingRow({ row }: { row: WorkingRowData }) {
   const isPlan = useSettingsStore((s) => s.currentModeId) === 'kiro_planner'
   const [idx, setIdx] = useState(() =>
     Math.floor(Math.random() * LOADING_WORDS.length),
@@ -23,6 +24,7 @@ export const WorkingRow = memo(function WorkingRow() {
   const fadeRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    if (row.hasStreamingContent) return
     const cycle = () => {
       setVisible(false)
       fadeRef.current = setTimeout(() => {
@@ -35,7 +37,18 @@ export const WorkingRow = memo(function WorkingRow() {
       clearInterval(t)
       if (fadeRef.current) clearTimeout(fadeRef.current)
     }
-  }, [])
+  }, [row.hasStreamingContent])
+
+  if (row.hasStreamingContent) {
+    return (
+      <div className="py-2 select-none" data-timeline-row-kind="working">
+        <span
+          className={`inline-block size-1.5 animate-pulse rounded-full ${isPlan ? 'bg-teal-500' : 'bg-primary'}`}
+          aria-label="Agent is working"
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="py-2 select-none" data-timeline-row-kind="working">

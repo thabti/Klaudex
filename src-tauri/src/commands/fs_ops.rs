@@ -38,6 +38,11 @@ pub fn read_file_base64(path: String) -> Option<String> {
 }
 
 #[tauri::command]
+pub fn is_directory(path: String) -> bool {
+    Path::new(&path).is_dir()
+}
+
+#[tauri::command]
 pub async fn pick_folder(app: tauri::AppHandle) -> Option<String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     app.dialog().file().pick_folder(move |folder| {

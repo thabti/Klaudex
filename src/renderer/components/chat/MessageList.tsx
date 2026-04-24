@@ -223,7 +223,7 @@ const TimelineRowRenderer = memo(function TimelineRowRenderer({ row }: { row: Ti
     case 'work':
       return <WorkGroupRow row={row} />
     case 'working':
-      return <WorkingRow />
+      return <WorkingRow row={row} />
     case 'changed-files':
       return <ChangedFilesSummary row={row} />
   }
