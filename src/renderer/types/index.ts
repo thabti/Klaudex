@@ -95,6 +95,8 @@ export interface AgentTask {
   originalWorkspace?: string
   /** Canonical project workspace path — threads always group under this */
   projectId?: string
+  /** True for restored threads whose backend ACP connection was destroyed */
+  needsNewConnection?: boolean
 }
 
 // ── Soft-deleted threads ──────────────────────────────────────────

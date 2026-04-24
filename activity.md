@@ -1,5 +1,11 @@
 # Activity Log
 
+## 2026-04-24 10:05 GST (Dubai)
+### TaskStore: fix broken restored threads after soft-delete
+Soft-deleted threads called `ipc.deleteTask` which destroyed the backend ACP connection, but `restoreTask` never re-created it. The restored task kept `status: 'completed'` and existing messages, so `sendMessageDirect` tried `ipc.sendMessage` on a dead connection. Fixed by adding a `needsNewConnection` flag to `AgentTask`, setting `status: 'paused'` and `needsNewConnection: true` in `restoreTask`, and making `sendMessageDirect` create a fresh ACP connection via `ipc.createTask` for flagged tasks.
+
+**Modified:** `src/renderer/types/index.ts`, `src/renderer/stores/taskStore.ts`, `src/renderer/components/chat/ChatPanel.tsx`
+
 ## 2026-04-24 10:08 GST (Dubai)
 ### Chat: fix unreadable yellow text on skill mention pills
 Skill mention pills (e.g. `update-agent-learning`) used `text-yellow-300` on a `bg-yellow-500/15` background, making the text nearly invisible. Changed to `text-yellow-600 dark:text-yellow-400` to match the icon color and ensure readable contrast.

@@ -350,7 +350,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         ? state.projects
         : [...state.projects, projectWorkspace]
       return {
-        tasks: { ...state.tasks, [id]: { ...entry.task, isArchived: false } },
+        tasks: { ...state.tasks, [id]: { ...entry.task, isArchived: false, status: 'paused' as const, needsNewConnection: true } },
         softDeleted: remaining,
         deletedTaskIds,
         projects,
