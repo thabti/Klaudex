@@ -1,5 +1,47 @@
 # Activity Log
 
+## 2026-04-24 16:50 GST (Dubai)
+### AppHeader: remove traffic light padding in fullscreen mode
+Added fullscreen detection via `onResized` + `isFullscreen()` in `AppHeader`. When macOS enters fullscreen (traffic lights hidden), the left padding drops from `74px` to `8px` so the header content uses the full width.
+
+**Modified:** `src/renderer/components/AppHeader.tsx`
+
+## 2026-04-24 16:47 GST (Dubai)
+### ToolCallDisplay: fix collapsed card overlap with TaskList/Subagent
+Wrapped TaskListDisplay and SubagentDisplay in a container div with proper padding so they don't clash with the parent ToolCallDisplay border when collapsed. Added `border-t` separator when collapsed, removed `my-1 ml-1` from both child components since the parent wrapper now handles spacing.
+
+**Modified:** `src/renderer/components/chat/ToolCallDisplay.tsx`, `src/renderer/components/chat/TaskListDisplay.tsx`, `src/renderer/components/chat/SubagentDisplay.tsx`
+
+## 2026-04-24 16:46 GST (Dubai)
+### Window: revert custom traffic lights changes
+Reverted all traffic light changes (custom component, hidden native buttons, background color, darkened CSS). Back to native macOS traffic lights with original styling.
+
+**Modified:** `src-tauri/src/lib.rs`, `src/renderer/components/AppHeader.tsx`, `src/tailwind.css`
+
+## 2026-04-24 16:40 GST (Dubai)
+### Window: replace native traffic lights with custom darker ones
+Hid native macOS traffic lights via `setHidden:true` in Rust and rendered the custom `TrafficLights` component in `AppHeader`. Darkened unfocused colors: light mode `#d4d4d4` → `#a3a3a3`, dark mode `#4a4a4a` → `#3a3a3a`.
+
+**Modified:** `src-tauri/src/lib.rs`, `src/renderer/components/AppHeader.tsx`, `src/tailwind.css`
+
+## 2026-04-24 16:36 GST (Dubai)
+### Window: fix macOS traffic lights appearance when unfocused
+Set the NSWindow background color to `#0D0D0D` (matching the dark theme `--background`) in both the main window setup and `create_new_window`. The title bar area behind native traffic lights now blends seamlessly when the window loses focus instead of showing a mismatched system chrome color.
+
+**Modified:** `src-tauri/src/lib.rs`
+
+## 2026-04-24 16:33 GST (Dubai)
+### Timeline tests: fix 3 failing tests to match current deriveTimeline behavior
+Updated three timeline.test.ts expectations to match the current implementation where the `working` row is always emitted when `isRunning` is true (placed before live tool calls) with a `hasStreamingContent` flag instead of being suppressed.
+
+**Modified:** `src/renderer/lib/timeline.test.ts`
+
+## 2026-04-24 16:16 GST (Dubai)
+### ModelPicker: shake animation on error with refresh icon
+Added shake keyframes to tailwind.css. ModelPicker now subscribes to `modelsError`; on error it shakes and shows a destructive-colored Retry button with IconRefresh. Also keeps the 10s timeout fallback. ModelPickerPanel shows the error message in destructive color with shake and a Retry button.
+
+**Modified:** `src/tailwind.css`, `src/renderer/components/chat/ModelPicker.tsx`, `src/renderer/components/chat/ModelPickerPanel.tsx`
+
 ## 2026-04-24 16:14 GST (Dubai)
 ### AutoApproveToggle: rewrite as dropdown with explicit labels and better icons
 Replaced the vague "Full"/"Ask" toggle button with a dropdown picker matching PlanToggle's pattern. Labels are now "Auto-approve" and "Ask first" with short descriptions. Icons changed from shield to IconHandStop/IconMessageQuestion. Auto-approve state uses amber color treatment.
