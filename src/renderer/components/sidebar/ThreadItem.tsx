@@ -1,6 +1,8 @@
 import { memo, useState, useRef, useEffect, useCallback } from 'react'
-import { IconPencil, IconTrash, IconArchive, IconGitBranch } from '@tabler/icons-react'
+import { IconPencil, IconTrash, IconArchive, IconGitBranch, IconLayoutColumns, IconArrowsSplit } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useTaskStore } from '@/stores/taskStore'
+import { SplitThreadPicker } from '@/components/chat/SplitThreadPicker'
 import { cn } from '@/lib/utils'
 import type { SidebarTask } from '@/hooks/useSidebarTasks'
 
@@ -24,12 +26,13 @@ function relativeTime(iso: string): string {
 interface ThreadItemProps {
   task: SidebarTask
   isActive: boolean
+  jumpLabel?: string | null
   onSelect: () => void
   onDelete: () => void
   onRename: (name: string) => void
 }
 
-export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, onDelete, onRename }: ThreadItemProps) {
+export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, onSelect, onDelete, onRename }: ThreadItemProps) {
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(task.name)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
@@ -89,6 +92,20 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
     setCtxMenu(null)
   }, [])
 
+  const [splitPicker, setSplitPicker] = useState<{ x: number; y: number } | null>(null)
+
+  const isInSplit = useTaskStore((s) => s.splitTaskId === task.id || s.selectedTaskId === task.id && s.splitTaskId !== null)
+
+  const handleNewSplitView = useCallback(() => {
+    setCtxMenu(null)
+    setSplitPicker(ctxMenu ? { x: ctxMenu.x, y: ctxMenu.y } : { x: 200, y: 200 })
+  }, [ctxMenu])
+
+  const handleUnsplit = useCallback(() => {
+    setCtxMenu(null)
+    useTaskStore.getState().closeSplit()
+  }, [])
+
   return (
     <li className="group/thread relative min-w-0">
       <div
@@ -122,6 +139,9 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
             <TooltipContent side="top">Worktree</TooltipContent>
           </Tooltip>
         )}
+        {isInSplit && (
+          <IconLayoutColumns className="size-3 shrink-0 text-primary/60" aria-label="In split view" />
+        )}
         {editing ? (
           <input
             ref={inputRef}
@@ -140,7 +160,11 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
             <TooltipContent side="top" align="start">{task.name}</TooltipContent>
           </Tooltip>
         )}
-        {task.isDraft ? (
+        {jumpLabel ? (
+          <kbd className="pointer-events-none shrink-0 rounded-sm bg-muted px-1 font-mono text-[10px] font-medium text-muted-foreground select-none">
+            {jumpLabel}
+          </kbd>
+        ) : task.isDraft ? (
           <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground group-hover/thread:hidden" aria-hidden="true">
             Draft
           </span>
@@ -209,6 +233,24 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
                     <IconPencil className="size-3.5" /> Rename
                   </button>
                   <div className="my-1 border-t border-border/50" />
+                  {isInSplit ? (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                      onClick={handleUnsplit}
+                    >
+                      <IconArrowsSplit className="size-3.5" /> Unsplit
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                      onClick={handleNewSplitView}
+                    >
+                      <IconLayoutColumns className="size-3.5" /> New split view
+                    </button>
+                  )}
+                  <div className="my-1 border-t border-border/50" />
                 </>
               )}
               <button
@@ -221,6 +263,13 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
             </>
           )}
         </div>
+      )}
+      {splitPicker && (
+        <SplitThreadPicker
+          anchorTaskId={task.id}
+          position={splitPicker}
+          onClose={() => setSplitPicker(null)}
+        />
       )}
     </li>
   )
