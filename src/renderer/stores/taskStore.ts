@@ -43,10 +43,36 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   isForking: false,
   lastAddedProject: null,
   worktreeCleanupPending: null,
+  splitTaskId: null,
+  splitRatio: 0.6,
+  focusedPanel: 'left' as const,
+  lastSplitPair: null,
 
   setSelectedTask: (id) => {
     if (get().selectedTaskId === id) return
-    set({ selectedTaskId: id })
+    const { splitTaskId, lastSplitPair, tasks } = get()
+    const updates: Partial<import('./task-store-types').TaskStore> = { selectedTaskId: id }
+    if (!id && splitTaskId) {
+      // Clearing selection closes split
+      updates.splitTaskId = null
+      updates.splitRatio = 0.6
+      updates.focusedPanel = 'left'
+    } else if (id && id === splitTaskId) {
+      // Clicking the split thread: swap it to left, put old left in right
+      updates.splitTaskId = get().selectedTaskId
+      updates.focusedPanel = 'left'
+    } else if (id && !splitTaskId && lastSplitPair) {
+      // Restore split if clicking a thread that was part of the last pair
+      const other = lastSplitPair.left === id ? lastSplitPair.right
+        : lastSplitPair.right === id ? lastSplitPair.left
+        : null
+      if (other && tasks[other]) {
+        updates.splitTaskId = other
+        updates.focusedPanel = 'left'
+        updates.lastSplitPair = null
+      }
+    }
+    set(updates)
     const task = id ? get().tasks[id] : null
     const modeId = id ? (get().taskModes[id] ?? 'kiro_default') : 'kiro_default'
     const workspace = task ? (task.originalWorkspace ?? task.workspace) : null
@@ -333,6 +359,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         deletedTaskIds,
         softDeleted,
         selectedTaskId: state.selectedTaskId === id ? null : state.selectedTaskId,
+        splitTaskId: state.splitTaskId === id ? null : state.splitTaskId,
       }
     })
     get().persistHistory()
@@ -553,6 +580,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set((state) => ({
       tasks: { ...state.tasks, [id]: draft },
       selectedTaskId: id,
+      splitTaskId: null,
+      splitRatio: 0.6,
+      focusedPanel: 'left' as const,
+      lastSplitPair: state.splitTaskId && state.selectedTaskId
+        ? { left: state.selectedTaskId, right: state.splitTaskId }
+        : state.lastSplitPair,
       view: 'chat' as const,
       activityFeed: [
         { taskId: id, taskName: name, status: 'paused' as const, timestamp: draft.createdAt },
@@ -1019,6 +1052,24 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         tasks: { ...s.tasks, [taskId]: { ...task, messages: [...savedMessages] } },
       }))
     }
+  },
+
+  setSplitTask: (id) => {
+    if (get().splitTaskId === id) return
+    set({ splitTaskId: id, focusedPanel: id ? 'right' : 'left' })
+  },
+  setSplitRatio: (ratio) => {
+    const clamped = Math.max(0.2, Math.min(0.8, ratio))
+    if (get().splitRatio === clamped) return
+    set({ splitRatio: clamped })
+  },
+  setFocusedPanel: (panel) => {
+    if (get().focusedPanel === panel) return
+    set({ focusedPanel: panel })
+  },
+  closeSplit: () => {
+    if (!get().splitTaskId) return
+    set({ splitTaskId: null, splitRatio: 0.6, focusedPanel: 'left', lastSplitPair: null })
   },
 }))
 
