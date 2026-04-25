@@ -1,5 +1,23 @@
 # Activity Log
 
+## 2026-04-25 22:30 GST (Dubai)
+### Split-screen: persistent split views that survive navigation
+Refactored split-screen from ephemeral `splitTaskId` to persistent `splitViews` array model. Split pairings are now saved entries that survive thread creation and navigation. New store fields: `splitViews` (array of `{id, left, right, ratio}`), `activeSplitId` (which split is displayed). New actions: `createSplitView`, `removeSplitView`, `setActiveSplit`. Creating a new thread just deactivates the split without removing the pairing. Added "SPLIT VIEWS" section to the sidebar above projects showing all saved pairings with click-to-activate and X-to-remove.
+
+**Modified:** `src/renderer/stores/task-store-types.ts`, `src/renderer/stores/taskStore.ts`, `src/renderer/components/chat/SplitChatLayout.tsx`, `src/renderer/App.tsx`, `src/renderer/components/header-toolbar.tsx`, `src/renderer/components/chat/SplitThreadPicker.tsx`, `src/renderer/components/sidebar/ThreadItem.tsx`, `src/renderer/components/sidebar/TaskSidebar.tsx`, `src/renderer/hooks/useKeyboardShortcuts.ts`, `src/renderer/lib/history-store.ts`
+
+## 2026-04-25 22:24 GST (Dubai)
+### Chat: remember scroll position per thread
+Added in-memory scroll position tracking so switching between threads or views preserves where you left off. Saves `scrollTop` to a per-thread map in the task store on thread switch and unmount, restores it when switching back. Uses `isProgrammaticScrollRef` to prevent the restore from triggering the "not near bottom" state.
+
+**Modified:** `src/renderer/stores/task-store-types.ts`, `src/renderer/stores/taskStore.ts`, `src/renderer/components/chat/MessageList.tsx`, `src/renderer/components/chat/ChatPanel.tsx`
+
+## 2026-04-25 22:20 GST (Dubai)
+### Git: commit all pending changes in seven logical commits
+Organized all uncommitted changes into seven conventional commits: split-screen core (store state, ChatPanel refactor, layout components), split-screen UI (toolbar toggle, thread picker, context menu), sidebar improvements (Move Up/Down replacing drag-to-reorder, thread jump labels), chat UI polish (container queries, compact dropdowns, context ring fix, row heights), keyboard shortcuts (Cmd+\\, Cmd+Shift+D, Cmd+1-9), tests (reorder and custom sort), and docs (README, website, activity log). Total: 29 modified files, 4 new files, ~1,070 additions, ~251 deletions.
+
+**Modified:** `activity.md`
+
 ## 2026-04-25 18:00 GST (Dubai)
 ### Docs: update README and website with missing features
 Added /btw side questions, /tangent alias, /fork, split-screen, multi-window, message queue, folder drag-drop, crash recovery, recent projects, Cmd+B shortcut, mode dropdown, and error state with retry to README.md. Updated website index.html with a multi-window feature card and message queue mention. Updated features.html with five new Chat cards, a multi-window section, crash recovery and recent projects in Settings, and corrected Cmd+N to "New window."

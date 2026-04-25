@@ -87,9 +87,7 @@ export const SplitThreadPicker = memo(function SplitThreadPicker({
 
   const handleSelect = useCallback((taskId: string) => {
     const state = useTaskStore.getState()
-    state.setSelectedTask(anchorTaskId)
-    state.setSplitTask(taskId)
-    state.setFocusedPanel('right')
+    state.createSplitView(anchorTaskId, taskId)
     onClose()
   }, [anchorTaskId, onClose])
 

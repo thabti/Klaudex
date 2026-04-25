@@ -7,9 +7,10 @@ import { SplitDivider } from './SplitDivider'
 const MIN_PANEL_PX = 400
 
 export const SplitChatLayout = memo(function SplitChatLayout() {
-  const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
-  const splitTaskId = useTaskStore((s) => s.splitTaskId)
-  const splitRatio = useTaskStore((s) => s.splitRatio)
+  const activeSplit = useTaskStore((s) => {
+    if (!s.activeSplitId) return null
+    return s.splitViews.find((sv) => sv.id === s.activeSplitId) ?? null
+  })
   const focusedPanel = useTaskStore((s) => s.focusedPanel)
   const setSplitRatio = useTaskStore((s) => s.setSplitRatio)
   const setFocusedPanel = useTaskStore((s) => s.setFocusedPanel)
@@ -31,9 +32,6 @@ export const SplitChatLayout = memo(function SplitChatLayout() {
   }, [closeSplit])
 
   const handleReset = useCallback(() => setSplitRatio(0.6), [setSplitRatio])
-
-  // Use onMouseDown instead of onClick to set focus before any child handlers fire.
-  // Bail-out guard: only call set if the panel isn't already focused.
   const handleFocusLeft = useCallback(() => {
     if (useTaskStore.getState().focusedPanel !== 'left') setFocusedPanel('left')
   }, [setFocusedPanel])
@@ -41,10 +39,11 @@ export const SplitChatLayout = memo(function SplitChatLayout() {
     if (useTaskStore.getState().focusedPanel !== 'right') setFocusedPanel('right')
   }, [setFocusedPanel])
 
-  if (!selectedTaskId || !splitTaskId) return null
+  if (!activeSplit) return null
 
-  const leftWidth = `${splitRatio * 100}%`
-  const rightWidth = `${(1 - splitRatio) * 100}%`
+  const { left, right, ratio } = activeSplit
+  const leftWidth = `${ratio * 100}%`
+  const rightWidth = `${(1 - ratio) * 100}%`
 
   return (
     <div ref={containerRef} className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -55,21 +54,11 @@ export const SplitChatLayout = memo(function SplitChatLayout() {
         role="region"
         aria-label="Left chat panel"
       >
-        <SplitPanelHeader
-          taskId={selectedTaskId}
-          isFocused={focusedPanel === 'left'}
-          onClose={closeSplit}
-          onFocus={handleFocusLeft}
-        />
-        <ChatPanel taskId={selectedTaskId} />
+        <SplitPanelHeader taskId={left} isFocused={focusedPanel === 'left'} onClose={closeSplit} onFocus={handleFocusLeft} />
+        <ChatPanel taskId={left} />
       </div>
 
-      <SplitDivider
-        containerWidth={containerWidth}
-        ratio={splitRatio}
-        onRatioChange={setSplitRatio}
-        onReset={handleReset}
-      />
+      <SplitDivider containerWidth={containerWidth} ratio={ratio} onRatioChange={setSplitRatio} onReset={handleReset} />
 
       <div
         className="flex min-h-0 min-w-0 flex-col overflow-hidden"
@@ -78,13 +67,8 @@ export const SplitChatLayout = memo(function SplitChatLayout() {
         role="region"
         aria-label="Right chat panel"
       >
-        <SplitPanelHeader
-          taskId={splitTaskId}
-          isFocused={focusedPanel === 'right'}
-          onClose={closeSplit}
-          onFocus={handleFocusRight}
-        />
-        <ChatPanel taskId={splitTaskId} />
+        <SplitPanelHeader taskId={right} isFocused={focusedPanel === 'right'} onClose={closeSplit} onFocus={handleFocusRight} />
+        <ChatPanel taskId={right} />
       </div>
     </div>
   )

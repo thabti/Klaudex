@@ -94,7 +94,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
 
   const [splitPicker, setSplitPicker] = useState<{ x: number; y: number } | null>(null)
 
-  const isInSplit = useTaskStore((s) => s.splitTaskId === task.id || s.selectedTaskId === task.id && s.splitTaskId !== null)
+  const isInSplit = useTaskStore((s) => s.splitViews.some((sv) => sv.left === task.id || sv.right === task.id))
 
   const handleNewSplitView = useCallback(() => {
     setCtxMenu(null)
@@ -103,8 +103,10 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
 
   const handleUnsplit = useCallback(() => {
     setCtxMenu(null)
-    useTaskStore.getState().closeSplit()
-  }, [])
+    const state = useTaskStore.getState()
+    const sv = state.splitViews.find((v) => v.left === task.id || v.right === task.id)
+    if (sv) state.removeSplitView(sv.id)
+  }, [task.id])
 
   return (
     <li className="group/thread relative min-w-0">

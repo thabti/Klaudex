@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react'
-import { IconPlus, IconArrowsUpDown, IconCheck, IconLayoutSidebarLeftCollapse, IconLayoutSidebarRightCollapse, IconFolderOpen } from '@tabler/icons-react'
+import { IconPlus, IconArrowsUpDown, IconCheck, IconLayoutSidebarLeftCollapse, IconLayoutSidebarRightCollapse, IconFolderOpen, IconLayoutColumns, IconX } from '@tabler/icons-react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useShallow } from 'zustand/react/shallow'
@@ -73,6 +73,60 @@ interface TaskSidebarProps {
   onResize: (width: number) => void
   position?: 'left' | 'right'
 }
+
+/** Sidebar section showing saved split view pairings */
+const SplitViewsList = memo(function SplitViewsList() {
+  const splitViews = useTaskStore((s) => s.splitViews)
+  const activeSplitId = useTaskStore((s) => s.activeSplitId)
+  const tasks = useTaskStore((s) => s.tasks)
+  const setActiveSplit = useTaskStore((s) => s.setActiveSplit)
+  const removeSplitView = useTaskStore((s) => s.removeSplitView)
+
+  if (splitViews.length === 0) return null
+
+  return (
+    <div className="px-2 pb-1">
+      <div className="flex items-center gap-1.5 px-2 pb-1.5 pt-1">
+        <IconLayoutColumns className="size-3 text-muted-foreground/60" />
+        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">Split Views</span>
+      </div>
+      <ul className="flex flex-col gap-0.5">
+        {splitViews.map((sv) => {
+          const leftName = tasks[sv.left]?.name ?? 'Thread'
+          const rightName = tasks[sv.right]?.name ?? 'Thread'
+          const isActive = sv.id === activeSplitId
+          return (
+            <li key={sv.id} className="group/sv relative">
+              <button
+                type="button"
+                onClick={() => setActiveSplit(sv.id)}
+                className={cn(
+                  'flex min-w-0 h-7 w-full items-center gap-1.5 rounded-lg px-2 text-[12px] select-none transition-colors',
+                  isActive
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+              >
+                <IconLayoutColumns className="size-3 shrink-0" />
+                <span className="min-w-0 truncate">{leftName}</span>
+                <span className="shrink-0 text-muted-foreground/40">·</span>
+                <span className="min-w-0 truncate">{rightName}</span>
+              </button>
+              <button
+                type="button"
+                aria-label="Remove split view"
+                onClick={(e) => { e.stopPropagation(); removeSplitView(sv.id) }}
+                className="absolute right-1 top-1/2 -translate-y-1/2 hidden size-4 items-center justify-center rounded text-muted-foreground/50 hover:bg-accent hover:text-foreground group-hover/sv:flex"
+              >
+                <IconX className="size-2.5" />
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+})
 
 export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position = 'left' }: TaskSidebarProps) {
   const isRight = position === 'right'
@@ -192,6 +246,7 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
           </Tooltip>
         </div>
       </div>
+      <SplitViewsList />
       <ScrollArea className="min-h-0 flex-1 overflow-hidden px-2">
         <div className="min-w-0 pb-2">
           <div className="relative flex min-w-0 flex-col">
