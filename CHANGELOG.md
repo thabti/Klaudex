@@ -1,5 +1,42 @@
 # Changelog
 
+## [v0.36.0] - 2026-04-25
+
+### Features
+
+- persistent split views with sidebar entries and Cmd+\ shortcut ([`a7e3b6d`](https://github.com/thabti/kirodex/commit/a7e3b6d30c992536b2d78ef99007435b41117ebd))
+- add Cmd+\ split toggle, Cmd+Shift+D debug, Cmd+1-9 thread jump ([`0a58f05`](https://github.com/thabti/kirodex/commit/0a58f0509b0f2a8f80c4a8266aa967541369668d))
+- add toolbar toggle, thread picker, and context menu split options ([`aeb1ff8`](https://github.com/thabti/kirodex/commit/aeb1ff8f8d696f4038e9b40737bce5f5039f2cfb))
+- add split-screen core with store state, ChatPanel refactor, and layout components ([`b5f3f50`](https://github.com/thabti/kirodex/commit/b5f3f50693b1a486cb042821bb4d7b2e6b0328f8))
+- drag-to-reorder projects and Cmd+N project jumping ([`ee68cc4`](https://github.com/thabti/kirodex/commit/ee68cc4ceb380c5eb53b1d872d9107532f94544c))
+- add git init support for non-git projects ([`b7ef3f3`](https://github.com/thabti/kirodex/commit/b7ef3f3f8a51fcd5d4f0f5d80aca3556ef5c851e))
+
+### Bug fixes
+
+- deactivate split on thread click and set 50:50 ratio ([`a2ce519`](https://github.com/thabti/kirodex/commit/a2ce51975d2382ac511b9551b13cdb0c55f44a0a))
+
+### Styling
+
+- add container queries for compact toolbar and polish spacing ([`0efd666`](https://github.com/thabti/kirodex/commit/0efd666f849458e9b581bc58ff1eaf39ac0ba202))
+- improve queue reorder chevron UX ([`40136f2`](https://github.com/thabti/kirodex/commit/40136f2e1a6416cbf30ef9a4af9fb77eceee52ed))
+
+### Refactoring
+
+- replace drag-to-reorder with Move Up/Down context menu ([`d31906e`](https://github.com/thabti/kirodex/commit/d31906e1819c0a3810ff7343a9d3309b66305a39))
+
+### Documentation
+
+- update README, website, and activity log with new features ([`d2474e6`](https://github.com/thabti/kirodex/commit/d2474e68b4ae1b713f7a60eb9e15d831726646f0))
+
+### Tests
+
+- add split view and scroll position unit tests ([`92d8e4d`](https://github.com/thabti/kirodex/commit/92d8e4dc023fe01b30d5bbb412df85f43aed33f3))
+- add reorder and custom sort tests ([`7cdea39`](https://github.com/thabti/kirodex/commit/7cdea39d24a36948f13a10d61768a28b55caaac8))
+
+### Chores
+
+- update downloads.json ([`e3b70d8`](https://github.com/thabti/kirodex/commit/e3b70d8f1a8377b5b0f056a8537ab0e2fff70346))
+
 ## [v0.35.0] - 2026-04-25
 
 ### Features
