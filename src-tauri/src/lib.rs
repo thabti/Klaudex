@@ -219,6 +219,10 @@ fn build_app_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tau
         .id("new_project")
         .accelerator("CmdOrCtrl+O")
         .build(app)?;
+    let clone_from_github = MenuItemBuilder::new("Clone from GitHub…")
+        .id("clone_from_github")
+        .accelerator("CmdOrCtrl+Shift+O")
+        .build(app)?;
 
     // Build "Recent Projects" submenu from persisted data
     let recent_projects: Vec<String> = app
@@ -286,6 +290,7 @@ fn build_app_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tau
         .item(&new_window)
         .item(&new_thread)
         .item(&new_project)
+        .item(&clone_from_github)
         .separator()
         .item(&recent_submenu)
         .separator()
@@ -388,6 +393,9 @@ pub fn run() {
                     }
                     "new_project" => {
                         let _ = app_handle.emit("menu-new-project", ());
+                    }
+                    "clone_from_github" => {
+                        let _ = app_handle.emit("menu-clone-from-github", ());
                     }
                     "clear_recent" => {
                         if let Some(state) = app_handle.try_state::<settings::SettingsState>() {
@@ -520,6 +528,7 @@ pub fn run() {
             // Git
             git::git_detect,
             git::git_init,
+            git::git_clone,
             git::git_list_branches,
             git::git_checkout,
             git::git_create_branch,

@@ -79,6 +79,8 @@ export const ipc = {
     invoke('git_detect', { path }),
   gitInit: (path: string): Promise<void> =>
     invoke('git_init', { path }),
+  gitClone: (url: string, targetDir: string): Promise<string> =>
+    invoke('git_clone', { url, targetDir }),
   gitListBranches: (cwd: string): Promise<{
     local: Array<{ name: string; current: boolean; worktreeLocked: boolean }>;
     remotes: Record<string, Array<{ name: string; fullRef: string }>>;
