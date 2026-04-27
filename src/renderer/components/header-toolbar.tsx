@@ -61,7 +61,7 @@ const SplitToggleButton = memo(function SplitToggleButton() {
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          {isSplit ? "Close split view" : "Split view · compare two threads"}
+          {isSplit ? "Close split view" : "Split view · work on two threads at once"}
         </TooltipContent>
       </Tooltip>
       {pickerPos && selectedTaskId && (
