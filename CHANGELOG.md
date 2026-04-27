@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.40.1] - 2026-04-28
+
+### Bug fixes
+
+- add missing AgentTask fields to BtwOverlay fixtures ([`5e39a64`](https://github.com/thabti/kirodex/commit/5e39a64ef4fb667eea6c7e05953da17984120ea4))
+
 ## [v0.40.0] - 2026-04-28
 
 ### Other changes
