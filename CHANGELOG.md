@@ -1,5 +1,37 @@
 # Changelog
 
+## [v0.39.0] - 2026-04-27
+
+### Features
+
+- persistent sidebar badges until thread visited ([`48139b1`](https://github.com/thabti/kirodex/commit/48139b1b721df1a9e2e9cbec25a4144c2982ed1c))
+- wire zoom limit, What's New, and Clone dialogs into App ([`be07c2d`](https://github.com/thabti/kirodex/commit/be07c2d602095a92d0f163949de2a3d702df5e0c))
+- add cleaning review card component ([`aa62518`](https://github.com/thabti/kirodex/commit/aa62518c8827cf814b2cf2e30ad669b1da94377e))
+- add clone from GitHub dialog and git_clone command ([`56c5f1a`](https://github.com/thabti/kirodex/commit/56c5f1a0edf2458d78ad83c057434276a02d92b6))
+- add What's New dialog for post-upgrade highlights ([`b3f42fe`](https://github.com/thabti/kirodex/commit/b3f42fe0a542f4d89b0c8028c425a174f2390fc9))
+- add webview zoom level limits (50%-100%) ([`d26144e`](https://github.com/thabti/kirodex/commit/d26144eb2d5e2350c408788882ccf63c0e087007))
+- add blue dot indicator for pending questions ([`71d2d76`](https://github.com/thabti/kirodex/commit/71d2d760dda8898edda5d4102b8f4862de37e951))
+
+### Bug fixes
+
+- move question cards to bottom of message for visibility ([`151fea4`](https://github.com/thabti/kirodex/commit/151fea481548675c41d653cad7fe4189e1e93ac0))
+- clear notification badges on focus without switching threads ([`c3f9f54`](https://github.com/thabti/kirodex/commit/c3f9f54b1422f87f66bea7411da75412ae80f018))
+
+### Documentation
+
+- update activity log ([`7bcd2e4`](https://github.com/thabti/kirodex/commit/7bcd2e46b2bd542df5ac83d2fc107ef18ed435bb))
+- update activity log ([`4b3c134`](https://github.com/thabti/kirodex/commit/4b3c134795abd97344c2a6542472c5dcc7d03e3f))
+
+### Chores
+
+- remove unused CleaningReviewCard component ([`4d177c5`](https://github.com/thabti/kirodex/commit/4d177c52ca798aba0f9ba072a98743c637467cba))
+- update downloads.json ([`b276ae6`](https://github.com/thabti/kirodex/commit/b276ae6a21c4e7a907c20248a1a30877fc700466))
+- update downloads.json ([`4ea3af4`](https://github.com/thabti/kirodex/commit/4ea3af4128685f8ea6591b915307a51b2d06e02d))
+
+### Other changes
+
+- Merge branch 'main' of github.com:thabti/kirodex ([`2e6d0ca`](https://github.com/thabti/kirodex/commit/2e6d0ca83bada6701eeeeca090a7ac7da3465b25))
+
 ## [v0.38.0] - 2026-04-26
 
 ### Features
