@@ -98,6 +98,8 @@ export const MessageList = memo(function MessageList({
   // Save scroll position on unmount (e.g., switching to dashboard/analytics)
   useEffect(() => {
     return () => {
+      // Cancel any in-flight scroll retry loop
+      scrollGenRef.current++
       const id = prevTaskIdRef.current
       if (id && parentRef.current) {
         useTaskStore.getState().saveScrollPosition(id, parentRef.current.scrollTop)
@@ -132,24 +134,50 @@ export const MessageList = memo(function MessageList({
     overscan: 5,
   })
 
-  const scrollToBottom = useCallback(() => {
-    const el = parentRef.current
-    if (!el) return
+  /** Cancellation token for in-flight scroll-to-bottom retry loops.
+   *  Incrementing this aborts any loop started with a previous value. */
+  const scrollGenRef = useRef(0)
+
+  /** Scroll to the last virtualizer item, retrying until scrollHeight stabilizes.
+   *  Each call increments the generation counter, cancelling any prior loop. */
+  const scrollToBottomStable = useCallback((maxRetries: number) => {
+    const gen = ++scrollGenRef.current
+    isProgrammaticScrollRef.current = true
     isNearBottomRef.current = true
     setShowScrollBtn(false)
-    isProgrammaticScrollRef.current = true
-    // Use scrollToIndex for accurate positioning with the virtualizer
-    if (timelineRows.length > 0) {
-      virtualizer.scrollToIndex(timelineRows.length - 1, { align: 'end' })
+    if (timelineRows.length === 0) {
+      const el = parentRef.current
+      if (el) el.scrollTop = el.scrollHeight
+      requestAnimationFrame(() => { isProgrammaticScrollRef.current = false })
+      return
     }
-    // Also set raw scrollTop as a fallback after virtualizer settles
-    requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight
+    let retries = 0
+    let lastScrollHeight = parentRef.current?.scrollHeight ?? 0
+    const tick = (): void => {
+      if (gen !== scrollGenRef.current) return // cancelled
+      const el = parentRef.current
+      if (!el) { isProgrammaticScrollRef.current = false; return }
+      virtualizer.scrollToIndex(timelineRows.length - 1, { align: 'end' })
       requestAnimationFrame(() => {
-        isProgrammaticScrollRef.current = false
+        if (gen !== scrollGenRef.current) return
+        if (!parentRef.current) { isProgrammaticScrollRef.current = false; return }
+        parentRef.current.scrollTop = parentRef.current.scrollHeight
+        const h = parentRef.current.scrollHeight
+        retries++
+        if (h !== lastScrollHeight && retries < maxRetries) {
+          lastScrollHeight = h
+          requestAnimationFrame(tick)
+        } else {
+          requestAnimationFrame(() => { isProgrammaticScrollRef.current = false })
+        }
       })
-    })
+    }
+    requestAnimationFrame(tick)
   }, [timelineRows.length, virtualizer])
+
+  const scrollToBottom = useCallback(() => {
+    scrollToBottomStable(10)
+  }, [scrollToBottomStable])
 
   useEffect(() => {
     const el = parentRef.current
@@ -167,35 +195,30 @@ export const MessageList = memo(function MessageList({
   }, [])
 
   // Execute pending scroll after the virtualizer has laid out the new content.
-  // We wait two frames: one for React to commit, one for the virtualizer to measure.
+  // For scroll-to-bottom on long threads, the virtualizer's total size is based on
+  // estimated row heights. After the initial scroll, visible items get measured,
+  // total size changes, and the scroll position drifts. scrollToBottomStable retries
+  // until scrollHeight stabilizes.
   useEffect(() => {
     if (pendingScrollRef.current === null) return
     if (timelineRows.length === 0) return
     const target = pendingScrollRef.current
     pendingScrollRef.current = null
-    isProgrammaticScrollRef.current = true
-    // First frame: let virtualizer measure
-    requestAnimationFrame(() => {
-      const el = parentRef.current
-      if (!el) { isProgrammaticScrollRef.current = false; return }
-      if (target === 'bottom') {
-        virtualizer.scrollToIndex(timelineRows.length - 1, { align: 'end' })
-        // Second frame: ensure we're truly at the bottom after virtualizer settles
-        requestAnimationFrame(() => {
-          el.scrollTop = el.scrollHeight
-          isNearBottomRef.current = true
-          setShowScrollBtn(false)
-          requestAnimationFrame(() => { isProgrammaticScrollRef.current = false })
-        })
-      } else {
+    if (target === 'bottom') {
+      scrollToBottomStable(15)
+    } else {
+      isProgrammaticScrollRef.current = true
+      requestAnimationFrame(() => {
+        const el = parentRef.current
+        if (!el) { isProgrammaticScrollRef.current = false; return }
         el.scrollTop = target
         const distFromBottom = el.scrollHeight - target - el.clientHeight
         isNearBottomRef.current = distFromBottom < AUTO_SCROLL_THRESHOLD
         setShowScrollBtn(!isNearBottomRef.current)
         requestAnimationFrame(() => { isProgrammaticScrollRef.current = false })
-      }
-    })
-  }, [taskId, timelineRows.length, virtualizer])
+      })
+    }
+  }, [taskId, timelineRows.length, scrollToBottomStable])
 
   // Auto-scroll when new content arrives and user is near bottom.
   useEffect(() => {

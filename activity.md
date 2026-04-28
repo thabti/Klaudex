@@ -1,5 +1,41 @@
 # Activity Log
 
+## 2026-04-28 09:15 GST (Dubai)
+### Updater: Fix "Restart now" button hanging and crashing the app
+The restart flow was double-flushing: `prepareForRelaunch()` flushed state to disk, then `relaunch()` triggered `CloseRequested`, and the Rust handler emitted `app://flush-before-quit` expecting an ack from a webview that was already being torn down. The ack never arrived, causing a 2s timeout followed by `shutdown_app()` blocking on ACP cleanup. Fixed by skipping the flush-before-quit/ack cycle when `RelaunchFlag` is set, since the frontend already flushed before calling `relaunch()`.
+
+**Modified:** src-tauri/src/lib.rs
+
+## 2026-04-28 08:44 GST (Dubai)
+### MessageList: Deduplicate scroll retry logic and add cancellation
+Reviewed the scroll-to-bottom retry loops and found three issues: (1) no cancellation on unmount or rapid thread switching, so stale loops fought with new ones; (2) duplicated `scrollUntilStable` logic in both `scrollToBottom` and the pending scroll effect; (3) `lastScrollHeight` started at 0, wasting one retry. Extracted a shared `scrollToBottomStable` callback with a generation counter (`scrollGenRef`) that cancels prior loops on each new call. Unmount cleanup increments the counter to abort in-flight loops.
+
+**Modified:** src/renderer/components/chat/MessageList.tsx
+
+## 2026-04-28 08:28 GST (Dubai)
+### MessageList: Fix scroll-to-bottom on thread switch for long threads
+The virtualizer's estimated row heights caused scroll-to-bottom to land in the middle on long threads. After the initial scroll, visible items get measured, total size changes, and the position drifts. Replaced the single-rAF scroll with a retry loop (`scrollUntilStable`) that keeps calling `scrollToIndex` + `scrollTop = scrollHeight` until `scrollHeight` stops changing between frames (max 15 retries for thread switch, 10 for button click).
+
+**Modified:** src/renderer/components/chat/MessageList.tsx
+
+## 2026-04-28 08:10 GST (Dubai)
+### SidebarFooter: Memory spike indicator on Settings button
+When renderer memory exceeds 100 MB, the sidebar Settings button changes to "Memory Spike" in red with a pulsing red dot. The tooltip explains the spike and tells the user to purge threads or clear debug buffers. Clicking navigates directly to the Memory settings section.
+
+**Modified:** src/renderer/components/sidebar/SidebarFooter.tsx
+
+## 2026-04-28 08:01 GST (Dubai)
+### Settings/Memory: Redesign with stronger visual identity and cleaner structure
+Rewrote memory-section.tsx with a hero total card, colored stat card grid with accent borders and icons, breakdown section with category icon badges and taller bars, per-thread rows with status badges and hot-thread highlighting, and an empty state. Terminal and Reclaim sections use consistent rounded-lg styling. Build passes clean.
+
+**Modified:** src/renderer/components/settings/memory-section.tsx
+
+## 2026-04-28 08:00 GST (Dubai)
+### TaskStore: Stop restoring archived threads when re-adding a project
+Removed the soft-deleted thread restoration block from `addProject`. Re-adding a project now only adds it to the projects list and projectIds map without pulling archived threads back into the sidebar. Updated the corresponding test to assert threads stay soft-deleted.
+
+**Modified:** src/renderer/stores/taskStore.ts, src/renderer/stores/taskStore.test.ts
+
 ## 2026-04-28 02:11 GST (Dubai)
 ### Tests: Fix BtwOverlay AgentTask fixtures missing required fields
 CI lint/build failed because `BtwOverlay.test.tsx` task fixtures lacked `name` and `createdAt`, which are required on `AgentTask`. Added both fields to every inline task object so `bunx tsc --noEmit` and `vite build` pass.

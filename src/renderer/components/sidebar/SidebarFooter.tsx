@@ -1,13 +1,18 @@
-import { memo, useState, useCallback } from 'react'
+import { memo, useState, useCallback, useEffect } from 'react'
 import { IconSettings, IconBug } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useTaskStore } from '@/stores/taskStore'
 import { useDebugStore } from '@/stores/debugStore'
+import { useJsDebugStore } from '@/stores/jsDebugStore'
 import { useUpdateStore, type UpdateStatus } from '@/stores/updateStore'
 import { useResizeHandle } from '@/hooks/useResizeHandle'
 import { useModifierKeys } from '@/hooks/useModifierKeys'
+import { measureMemory, formatBytes } from '@/lib/thread-memory'
 import { KiroConfigPanel } from './KiroConfigPanel'
+
+const MEMORY_SPIKE_THRESHOLD = 100 * 1024 * 1024
+const MEMORY_CHECK_INTERVAL_MS = 5000
 
 const hasUpdateIndicator = (status: UpdateStatus): boolean =>
   status === 'available' || status === 'downloading' || status === 'ready'
@@ -49,6 +54,28 @@ export const SidebarFooter = memo(function SidebarFooter() {
   const triggerDownload = useUpdateStore((s) => s.triggerDownload)
   const isIndicatorVisible = hasUpdateIndicator(updateStatus)
   const isMetaHeld = useModifierKeys()
+  const [isMemorySpike, setIsMemorySpike] = useState(false)
+  const [spikeTotal, setSpikeTotal] = useState('')
+
+  useEffect(() => {
+    const check = () => {
+      const report = measureMemory(
+        useTaskStore.getState(),
+        useDebugStore.getState(),
+        useJsDebugStore.getState(),
+      )
+      const isHot = report.grandTotal >= MEMORY_SPIKE_THRESHOLD
+      setIsMemorySpike(isHot)
+      if (isHot) setSpikeTotal(formatBytes(report.grandTotal))
+    }
+    check()
+    const id = window.setInterval(check, MEMORY_CHECK_INTERVAL_MS)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const handleSettingsClick = useCallback(() => {
+    setSettingsOpen(true, isMemorySpike ? 'memory' : undefined)
+  }, [setSettingsOpen, isMemorySpike])
 
   const handleUpdateClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -74,11 +101,17 @@ export const SidebarFooter = memo(function SidebarFooter() {
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button type="button" onClick={() => setSettingsOpen(true)}
+            <button type="button" onClick={handleSettingsClick}
               className="flex w-full h-8 cursor-pointer items-center gap-2 overflow-hidden rounded-lg px-2 text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <span className="relative">
-                <IconSettings className="size-4" aria-hidden />
-                {isIndicatorVisible && (
+                <IconSettings className={isMemorySpike ? 'size-4 text-destructive' : 'size-4'} aria-hidden />
+                {isMemorySpike && (
+                  <span className="absolute -right-0.5 -top-0.5 flex size-2.5 items-center justify-center" aria-label="Memory spike">
+                    <span className="absolute size-full animate-ping rounded-full bg-destructive/40" />
+                    <span className="relative size-1.5 rounded-full bg-destructive" />
+                  </span>
+                )}
+                {!isMemorySpike && isIndicatorVisible && (
                   <span
                     data-testid="update-indicator-dot"
                     className="absolute -right-0.5 -top-0.5 flex size-2.5 items-center justify-center"
@@ -89,7 +122,9 @@ export const SidebarFooter = memo(function SidebarFooter() {
                   </span>
                 )}
               </span>
-              <span className="text-[13px]">Settings</span>
+              <span className={isMemorySpike ? 'text-[13px] font-medium text-destructive' : 'text-[13px]'}>
+                {isMemorySpike ? 'Memory Spike' : 'Settings'}
+              </span>
               {isMetaHeld && !isUpdateAvailable && (
                 <kbd className="pointer-events-none ml-auto shrink-0 rounded-sm bg-muted px-1 font-mono text-[10px] font-medium text-muted-foreground select-none">⌘,</kbd>
               )}
@@ -107,7 +142,13 @@ export const SidebarFooter = memo(function SidebarFooter() {
               )}
             </button>
           </TooltipTrigger>
-          <TooltipContent side="top">{isUpdateAvailable ? 'Update available — click badge to install' : 'Open settings'}</TooltipContent>
+          <TooltipContent side="top">
+            {isMemorySpike
+              ? `Memory spike: ${spikeTotal} held — purge old threads or clear debug buffers to free memory`
+              : isUpdateAvailable
+                ? 'Update available — click badge to install'
+                : 'Open settings'}
+          </TooltipContent>
         </Tooltip>
       </div>
     </>
