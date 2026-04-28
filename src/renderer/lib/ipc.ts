@@ -145,6 +145,10 @@ export const ipc = {
     invoke('pty_count'),
   getKiroConfig: (projectPath?: string): Promise<KiroConfig> =>
     invoke('get_kiro_config', { projectPath }),
+  watchKiroPath: (path: string): Promise<void> =>
+    invoke('watch_kiro_path', { path }),
+  unwatchKiroPath: (path: string): Promise<void> =>
+    invoke('unwatch_kiro_path', { path }),
   readFile: (filePath: string): Promise<string | null> =>
     invoke('read_text_file', { path: filePath }),
   readFileBase64: (filePath: string): Promise<string | null> =>
@@ -226,4 +230,6 @@ export const ipc = {
     tauriListen('compaction_status', cb),
   onEditorsUpdated: (cb: (bins: string[]) => void): UnsubscribeFn =>
     tauriListen('editors-updated', cb),
+  onKiroConfigChanged: (cb: (data: { projectPath: string | null }) => void): UnsubscribeFn =>
+    tauriListen('kiro-config-changed', cb),
 }

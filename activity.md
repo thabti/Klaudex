@@ -1,5 +1,11 @@
 # Activity Log
 
+## 2026-04-29 00:13 GST (Dubai)
+### Kiro Watcher: Auto-refresh agents, skills, steering, and MCP when .kiro files change
+Added a file watcher using the `notify` crate that watches `~/.kiro` (global, always) and project `.kiro` directories (per-project, on demand). When files change, the Rust backend emits a `kiro-config-changed` Tauri event. The frontend's kiroStore listens for this event, invalidates the cached config, and re-fetches from disk. The sidebar panel and mention picker automatically reflect new/modified/deleted agents, skills, steering rules, and MCP servers without restarting the app.
+
+**Modified:** `src-tauri/Cargo.toml`, `src-tauri/src/commands/kiro_watcher.rs` (new), `src-tauri/src/commands/mod.rs`, `src-tauri/src/lib.rs`, `src/renderer/lib/ipc.ts`, `src/renderer/stores/kiroStore.ts`, `src/renderer/components/sidebar/KiroConfigPanel.tsx`
+
 ## 2026-04-28 13:19 GST (Dubai)
 ### Model Icons: Add GLM, Qwen, and MiniMax provider icons
 Added three new model providers to `model-icons.tsx`: GLM/ChatGLM (Zhipu AI, #4268FA), Qwen (Alibaba, #615CED), and MiniMax (#F23F5D). Each gets a Provider type entry, regex detection pattern, branded SVG component, and ICON_MAP entry. Build passes clean.

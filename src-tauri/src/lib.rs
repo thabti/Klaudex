@@ -6,7 +6,7 @@ extern crate objc;
 
 mod commands;
 
-use commands::{acp, analytics, fs_ops, git, kiro_config, pty, settings};
+use commands::{acp, analytics, fs_ops, git, kiro_config, kiro_watcher, pty, settings};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
 use tauri::Emitter;
@@ -118,6 +118,9 @@ fn shutdown_app(app: &tauri::AppHandle) {
             log::info!("Killed {} PTY session(s)", total);
         }
     }
+
+    // Stop all file watchers
+    kiro_watcher::stop_all(app);
 
     log::info!("Shutdown completed in {:?}", start.elapsed());
 }
@@ -387,6 +390,7 @@ pub fn run() {
         .manage(acp::AcpState::default())
         .manage(pty::PtyState::default())
         .manage(RelaunchFlag::default())
+        .manage(kiro_watcher::KiroWatcherState::default())
         .setup(|app| {
             let _window = app.get_webview_window("main")
                 .ok_or_else(|| "main window not found".to_string())?;
@@ -450,6 +454,8 @@ pub fn run() {
                 reposition_traffic_lights(ns_window);
             }
             log::info!("Kirodex started (pid={})", std::process::id());
+            // Start watching global ~/.kiro for config changes
+            kiro_watcher::watch_global_kiro(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -584,6 +590,9 @@ pub fn run() {
             pty::pty_count,
             // Kiro config
             kiro_config::get_kiro_config,
+            // Kiro watcher
+            kiro_watcher::watch_kiro_path,
+            kiro_watcher::unwatch_kiro_path,
             // Analytics
             analytics::analytics_save,
             analytics::analytics_load,

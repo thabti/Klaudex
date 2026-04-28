@@ -136,5 +136,23 @@ export function initKiroListeners(): () => void {
     })
   })
 
-  return () => { unsub1(); unsub2() }
+  // Auto-reload config when .kiro files change on disk
+  const unsub3 = ipc.onKiroConfigChanged(({ projectPath }) => {
+    const store = useKiroStore.getState()
+    // Invalidate the affected cache entry so loadConfig re-fetches
+    if (projectPath) {
+      store.invalidateConfig(projectPath)
+    } else {
+      // Global change — invalidate all cached configs
+      useKiroStore.setState({ configs: {} })
+    }
+    // Re-fetch the active project's config
+    const activeKey = store.activeProject
+    if (activeKey) {
+      const path = activeKey === '__global__' ? undefined : activeKey
+      store.loadConfig(path)
+    }
+  })
+
+  return () => { unsub1(); unsub2(); unsub3() }
 }

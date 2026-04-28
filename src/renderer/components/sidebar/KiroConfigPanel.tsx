@@ -1,7 +1,8 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { IconRobot, IconBolt, IconCompass, IconChevronRight, IconSearch, IconPlug } from '@tabler/icons-react'
 import { useKiroStore } from '@/stores/kiroStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { ipc } from '@/lib/ipc'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { KiroFileViewer } from './KiroFileViewer'
@@ -43,6 +44,27 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
   const [viewer, setViewer] = useState<ViewerState | null>(null)
 
   useEffect(() => { void loadConfig(activeWorkspace ?? undefined) }, [loadConfig, activeWorkspace])
+
+  // Start/stop watching the project's .kiro directory
+  const prevWatchedRef = useRef<string | null>(null)
+  useEffect(() => {
+    const prev = prevWatchedRef.current
+    if (prev && prev !== activeWorkspace) {
+      ipc.unwatchKiroPath(prev).catch(() => {})
+    }
+    if (activeWorkspace) {
+      ipc.watchKiroPath(activeWorkspace).catch(() => {})
+      prevWatchedRef.current = activeWorkspace
+    } else {
+      prevWatchedRef.current = null
+    }
+    return () => {
+      if (prevWatchedRef.current) {
+        ipc.unwatchKiroPath(prevWatchedRef.current).catch(() => {})
+        prevWatchedRef.current = null
+      }
+    }
+  }, [activeWorkspace])
 
   const lowerSearch = search.toLowerCase()
 

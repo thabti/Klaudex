@@ -4,5 +4,6 @@ pub mod error;
 pub mod fs_ops;
 pub mod git;
 pub mod kiro_config;
+pub mod kiro_watcher;
 pub mod pty;
 pub mod settings;
