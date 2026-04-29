@@ -1,5 +1,11 @@
 # Activity Log
 
+## 2026-04-29 13:39 GST (Dubai)
+### Website: Condense changelog and add collapsible UI
+Replaced the live-fetch markdown parser on the changelog page with a pre-processed data file (`changelog-data.js`). Merged 40 versions into 25 entries by folding patches into their minor versions and filtering noise (downloads.json, activity log, merge commits, empty releases). The first five entries show expanded; older releases collapse behind a "Show N older releases" pill button with keyboard and aria support.
+
+**Modified:** website/changelog-data.js, website/changelog.html, website/style.css
+
 ## 2026-04-29 07:52 GST (Dubai)
 ### Tests: Fix 14 failing unit tests across 3 test files
 Fixed test failures caused by source code evolving ahead of test mocks. kiroStore.test.ts needed `onKiroConfigChanged` added to the ipc mock (3 failures). taskStore.test.ts needed the `persistHistory` assertion updated from 3 to 6 args matching the new `saveThreads` signature (1 failure). SidebarFooter.test.tsx needed mocks for `jsDebugStore`, `useModifierKeys`, and `thread-memory` to prevent `measureMemory` crashing on undefined `tasks` (10 failures). All 822 tests now pass.

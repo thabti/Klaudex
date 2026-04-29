@@ -203,6 +203,36 @@ html.light .changelog-bullet::before {
   background: rgba(0, 0, 0, 0.2);
 }
 
+/* Changelog toggle */
+.changelog-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 1rem;
+  padding: 10px 20px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.changelog-toggle:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--foreground);
+}
+.changelog-toggle-icon {
+  transition: transform 0.2s ease;
+}
+html.light .changelog-toggle {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+html.light .changelog-toggle:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
 /* Features page kbd */
 html.light kbd.kbd-bg {
   background: #f0f0f0;
