@@ -1,15 +1,101 @@
 {
-  "updated_at": "2026-04-28T07:18:59Z",
+  "updated_at": "2026-04-29T07:15:50Z",
   "releases": [
+    {
+      "tag": "v0.40.4",
+      "published": "2026-04-29T05:25:12Z",
+      "total": 3,
+      "update_checks": 10,
+      "assets": [
+        {
+          "name": "Kirodex_0.40.4_aarch64.dmg",
+          "downloads": 1,
+          "platform": "macos"
+        },
+        {
+          "name": "Kirodex_0.40.4_amd64.AppImage",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Kirodex_0.40.4_amd64.AppImage.tar.gz",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Kirodex_0.40.4_amd64.deb",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Kirodex_0.40.4_x64-setup.exe",
+          "downloads": 1,
+          "platform": "windows"
+        },
+        {
+          "name": "Kirodex_0.40.4_x64-setup.nsis.zip",
+          "downloads": 0,
+          "platform": "windows"
+        },
+        {
+          "name": "Kirodex_aarch64.app.tar.gz",
+          "downloads": 1,
+          "platform": "macos"
+        }
+      ]
+    },
+    {
+      "tag": "v0.40.3",
+      "published": "2026-04-28T20:43:54Z",
+      "total": 7,
+      "update_checks": 47,
+      "assets": [
+        {
+          "name": "Kirodex_0.40.3_aarch64.dmg",
+          "downloads": 2,
+          "platform": "macos"
+        },
+        {
+          "name": "Kirodex_0.40.3_amd64.AppImage",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Kirodex_0.40.3_amd64.AppImage.tar.gz",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Kirodex_0.40.3_amd64.deb",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Kirodex_0.40.3_x64-setup.exe",
+          "downloads": 1,
+          "platform": "windows"
+        },
+        {
+          "name": "Kirodex_0.40.3_x64-setup.nsis.zip",
+          "downloads": 1,
+          "platform": "windows"
+        },
+        {
+          "name": "Kirodex_aarch64.app.tar.gz",
+          "downloads": 3,
+          "platform": "macos"
+        }
+      ]
+    },
     {
       "tag": "v0.40.2",
       "published": "2026-04-28T05:25:11Z",
-      "total": 2,
-      "update_checks": 5,
+      "total": 5,
+      "update_checks": 110,
       "assets": [
         {
           "name": "Kirodex_0.40.2_aarch64.dmg",
-          "downloads": 1,
+          "downloads": 3,
           "platform": "macos"
         },
         {
@@ -39,7 +125,7 @@
         },
         {
           "name": "Kirodex_aarch64.app.tar.gz",
-          "downloads": 1,
+          "downloads": 2,
           "platform": "macos"
         }
       ]
@@ -2409,10 +2495,10 @@
     }
   ],
   "totals": {
-    "all": 484,
-    "update_checks": 1739,
-    "macos": 230,
-    "windows": 131,
+    "all": 497,
+    "update_checks": 1901,
+    "macos": 240,
+    "windows": 134,
     "linux": 123
   },
   "homebrew_tap": null
