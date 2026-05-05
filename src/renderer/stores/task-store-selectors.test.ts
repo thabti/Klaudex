@@ -230,3 +230,132 @@ describe('selectTaskIdsForWorkspace', () => {
     expect(selectTaskIdsForWorkspace(state, '/project')).toContain('task-1')
   })
 })
+
+describe('selectTaskShell — edge cases', () => {
+  it('includes worktreePath and originalWorkspace when present', () => {
+    const task = makeTask({
+      worktreePath: '/project/.kiro/worktrees/feature',
+      originalWorkspace: '/project',
+      projectId: 'proj-123',
+    })
+    const state = makeState({ tasks: { 'task-1': task } })
+    const shell = selectTaskShell(state, 'task-1')
+    expect(shell?.worktreePath).toBe('/project/.kiro/worktrees/feature')
+    expect(shell?.originalWorkspace).toBe('/project')
+    expect(shell?.projectId).toBe('proj-123')
+  })
+
+  it('returns consistent shape regardless of messages', () => {
+    const task = makeTask({
+      messages: Array.from({ length: 100 }, (_, i) => ({
+        role: 'user' as const,
+        content: `message ${i}`,
+        timestamp: '2024-01-01',
+      })),
+    })
+    const state = makeState({ tasks: { 'task-1': task } })
+    const shell = selectTaskShell(state, 'task-1')
+    // Shell should not contain messages
+    expect(Object.keys(shell!)).not.toContain('messages')
+    expect(Object.keys(shell!)).not.toContain('contextUsage')
+    expect(Object.keys(shell!)).not.toContain('pendingPermission')
+  })
+})
+
+describe('selectPendingPermission', () => {
+  it('returns null for null taskId', () => {
+    expect(selectPendingPermission(makeState(), null)).toBeNull()
+  })
+
+  it('returns null when task has no permission', () => {
+    const state = makeState({ tasks: { 'task-1': makeTask() } })
+    expect(selectPendingPermission(state, 'task-1')).toBeNull()
+  })
+
+  it('returns permission when present', () => {
+    const perm = { requestId: 'r1', toolName: 'write_file', description: 'Write to foo.ts' }
+    const task = makeTask({ pendingPermission: perm as any })
+    const state = makeState({ tasks: { 'task-1': task } })
+    expect(selectPendingPermission(state, 'task-1')).toEqual(perm)
+  })
+})
+
+describe('selectTaskPlan', () => {
+  it('returns null for null taskId', () => {
+    expect(selectTaskPlan(makeState(), null)).toBeNull()
+  })
+
+  it('returns null when task has no plan', () => {
+    const state = makeState({ tasks: { 'task-1': makeTask() } })
+    expect(selectTaskPlan(state, 'task-1')).toBeNull()
+  })
+
+  it('returns plan when present', () => {
+    const plan = [{ content: 'Step 1', status: 'pending' as const, priority: 'medium' as const }]
+    const task = makeTask({ plan })
+    const state = makeState({ tasks: { 'task-1': task } })
+    expect(selectTaskPlan(state, 'task-1')).toBe(plan)
+  })
+})
+
+describe('selectStreamingChunk — edge cases', () => {
+  it('returns empty string for missing task', () => {
+    const state = makeState({ streamingChunks: { 'task-1': 'hello' } })
+    expect(selectStreamingChunk(state, 'task-2')).toBe('')
+  })
+
+  it('does not suppress when BTW is for different task', () => {
+    const state = makeState({
+      streamingChunks: { 'task-1': 'hello' },
+      btwCheckpoint: { taskId: 'task-2', messages: [], question: 'q' },
+    })
+    expect(selectStreamingChunk(state, 'task-1')).toBe('hello')
+  })
+})
+
+describe('selectLiveToolCalls — edge cases', () => {
+  it('returns empty array for null taskId', () => {
+    expect(selectLiveToolCalls(makeState(), null)).toEqual([])
+  })
+
+  it('returns tool calls when not in BTW mode', () => {
+    const tools = [{ toolCallId: 'tc1', title: 'Edit', status: 'in_progress' as const }]
+    const state = makeState({ liveToolCalls: { 'task-1': tools } })
+    expect(selectLiveToolCalls(state, 'task-1')).toBe(tools)
+  })
+})
+
+describe('selectTaskIdsForWorkspace — edge cases', () => {
+  it('returns stable empty array reference for unknown workspace', () => {
+    const state = makeState()
+    const result1 = selectTaskIdsForWorkspace(state, '/unknown')
+    const result2 = selectTaskIdsForWorkspace(state, '/also-unknown')
+    // Both should be the same EMPTY_IDS reference
+    expect(result1).toBe(result2)
+  })
+
+  it('does not include archived tasks from archivedMeta', () => {
+    // archivedMeta tasks are not in state.tasks
+    const state = makeState({
+      tasks: { 'task-1': makeTask({ id: 'task-1', workspace: '/project' }) },
+      archivedMeta: { 'task-2': { id: 'task-2', name: 'Old', workspace: '/project', createdAt: '', lastActivityAt: '', messageCount: 0 } as any },
+    })
+    const ids = selectTaskIdsForWorkspace(state, '/project')
+    expect(ids).toContain('task-1')
+    expect(ids).not.toContain('task-2')
+  })
+})
+
+describe('selectRunningTaskCount — edge cases', () => {
+  it('does not count paused or completed tasks', () => {
+    const state = makeState({
+      tasks: {
+        'task-1': makeTask({ id: 'task-1', status: 'paused' }),
+        'task-2': makeTask({ id: 'task-2', status: 'completed' }),
+        'task-3': makeTask({ id: 'task-3', status: 'error' }),
+        'task-4': makeTask({ id: 'task-4', status: 'cancelled' }),
+      },
+    })
+    expect(selectRunningTaskCount(state)).toBe(0)
+  })
+})

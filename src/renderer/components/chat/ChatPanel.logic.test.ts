@@ -188,3 +188,112 @@ describe('buildUserMessage', () => {
     expect(msg.timestamp).toBeTruthy()
   })
 })
+
+describe('deriveInputState — edge cases', () => {
+  it('returns enabled for paused task', () => {
+    const task = makeTask({ status: 'paused' })
+    expect(deriveInputState(task)).toEqual({ disabled: false, disabledReason: undefined })
+  })
+
+  it('returns enabled for error task (user can retry)', () => {
+    const task = makeTask({ status: 'error' })
+    expect(deriveInputState(task)).toEqual({ disabled: false, disabledReason: undefined })
+  })
+
+  it('returns enabled for completed task (user can send follow-up)', () => {
+    const task = makeTask({ status: 'completed' })
+    expect(deriveInputState(task)).toEqual({ disabled: false, disabledReason: undefined })
+  })
+
+  it('returns disabled for undefined task', () => {
+    expect(deriveInputState(undefined)).toEqual({ disabled: true, disabledReason: undefined })
+  })
+})
+
+describe('isPanelFocused — edge cases', () => {
+  it('returns true when split view not found', () => {
+    const splits = [{ id: 'split-1', left: 'task-1', right: 'task-2' }]
+    expect(isPanelFocused('split-999', 'task-1', splits, 'left')).toBe(true)
+  })
+
+  it('handles right panel focus correctly', () => {
+    const splits = [{ id: 'split-1', left: 'task-1', right: 'task-2' }]
+    expect(isPanelFocused('split-1', 'task-2', splits, 'right')).toBe(true)
+    expect(isPanelFocused('split-1', 'task-1', splits, 'right')).toBe(false)
+  })
+})
+
+describe('extractProjectName — edge cases', () => {
+  it('handles root path', () => {
+    const task = makeTask({ workspace: '/' })
+    expect(extractProjectName(task)).toBe('')
+  })
+
+  it('handles single segment path', () => {
+    const task = makeTask({ workspace: 'project' })
+    expect(extractProjectName(task)).toBe('project')
+  })
+
+  it('handles path with trailing slash', () => {
+    const task = makeTask({ workspace: '/home/user/project/' })
+    // split('/').pop() on trailing slash gives ''
+    expect(extractProjectName(task)).toBe('')
+  })
+})
+
+describe('shouldQueueMessage — edge cases', () => {
+  it('returns false for completed task', () => {
+    const task = makeTask({ status: 'completed' })
+    expect(shouldQueueMessage(task, false)).toBe(false)
+  })
+
+  it('returns false for error task', () => {
+    const task = makeTask({ status: 'error' })
+    expect(shouldQueueMessage(task, false)).toBe(false)
+  })
+
+  it('returns false for undefined task', () => {
+    expect(shouldQueueMessage(undefined, false)).toBe(false)
+  })
+})
+
+describe('needsNewConnection — edge cases', () => {
+  it('returns false for running task with messages', () => {
+    const task = makeTask({
+      messages: [{ role: 'user', content: 'hi', timestamp: '' }],
+      status: 'running',
+    })
+    expect(needsNewConnection(task)).toBe(false)
+  })
+
+  it('returns true for paused task with no messages (fresh draft)', () => {
+    const task = makeTask({ messages: [], status: 'paused' })
+    expect(needsNewConnection(task)).toBe(true)
+  })
+
+  it('returns false for paused task with messages (resumed)', () => {
+    const task = makeTask({
+      messages: [{ role: 'user', content: 'hi', timestamp: '' }],
+      status: 'paused',
+    })
+    expect(needsNewConnection(task)).toBe(false)
+  })
+})
+
+describe('buildUserMessage', () => {
+  it('creates message with correct role', () => {
+    const msg = buildUserMessage('test content')
+    expect(msg.role).toBe('user')
+  })
+
+  it('preserves content exactly', () => {
+    const msg = buildUserMessage('  spaces preserved  ')
+    expect(msg.content).toBe('  spaces preserved  ')
+  })
+
+  it('generates ISO timestamp', () => {
+    const msg = buildUserMessage('test')
+    // Should be a valid ISO date string
+    expect(new Date(msg.timestamp).toISOString()).toBe(msg.timestamp)
+  })
+})

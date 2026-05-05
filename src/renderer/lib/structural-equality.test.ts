@@ -211,3 +211,117 @@ describe('tasksEqual', () => {
     expect(tasksEqual(a, b)).toBe(false)
   })
 })
+
+describe('tasksEqual — comprehensive', () => {
+  it('returns false when isArchived changes', () => {
+    const a = makeTask({ isArchived: false })
+    const b = makeTask({ isArchived: true })
+    expect(tasksEqual(a, b)).toBe(false)
+  })
+
+  it('returns false when worktreePath changes', () => {
+    const a = makeTask({ worktreePath: '/path/a' })
+    const b = makeTask({ worktreePath: '/path/b' })
+    expect(tasksEqual(a, b)).toBe(false)
+  })
+
+  it('returns false when contextUsage changes', () => {
+    const a = makeTask({ contextUsage: { used: 10, size: 100 } })
+    const b = makeTask({ contextUsage: { used: 20, size: 100 } })
+    expect(tasksEqual(a, b)).toBe(false)
+  })
+
+  it('returns true when contextUsage values are same', () => {
+    const usage = { used: 10, size: 100 }
+    const msgs: TaskMessage[] = []
+    const a = makeTask({ contextUsage: usage, messages: msgs })
+    const b = makeTask({ contextUsage: usage, messages: msgs })
+    expect(tasksEqual(a, b)).toBe(true)
+  })
+
+  it('returns false when pendingPermission changes', () => {
+    const msgs: TaskMessage[] = []
+    const a = makeTask({ pendingPermission: { requestId: 'r1', toolName: 'write', description: 'Write' } as any, messages: msgs })
+    const b = makeTask({ pendingPermission: { requestId: 'r2', toolName: 'write', description: 'Write' } as any, messages: msgs })
+    expect(tasksEqual(a, b)).toBe(false)
+  })
+
+  it('returns true when both have no pendingPermission', () => {
+    const msgs: TaskMessage[] = []
+    const a = makeTask({ messages: msgs })
+    const b = makeTask({ messages: msgs })
+    expect(tasksEqual(a, b)).toBe(true)
+  })
+
+  it('returns false when messages array reference changes', () => {
+    const msgs = [{ role: 'user' as const, content: 'hi', timestamp: '' }]
+    const a = makeTask({ messages: msgs })
+    const b = makeTask({ messages: [...msgs] }) // different reference
+    expect(tasksEqual(a, b)).toBe(false) // reference equality for messages
+  })
+
+  it('returns true when messages array is same reference', () => {
+    const msgs = [{ role: 'user' as const, content: 'hi', timestamp: '' }]
+    const a = makeTask({ messages: msgs })
+    const b = makeTask({ messages: msgs })
+    expect(tasksEqual(a, b)).toBe(true)
+  })
+
+  it('returns false when needsNewConnection changes', () => {
+    const a = makeTask({ needsNewConnection: false })
+    const b = makeTask({ needsNewConnection: true })
+    expect(tasksEqual(a, b)).toBe(false)
+  })
+})
+
+describe('plansEqual — edge cases', () => {
+  it('returns false when one is null and other is undefined', () => {
+    expect(plansEqual(null as any, undefined)).toBe(false)
+  })
+
+  it('returns true for empty arrays', () => {
+    expect(plansEqual([], [])).toBe(true)
+  })
+
+  it('compares content and status fields', () => {
+    const a = [makePlanStep({ content: 'Do X', status: 'in_progress', priority: 'high' })]
+    const b = [makePlanStep({ content: 'Do X', status: 'in_progress', priority: 'low' })]
+    // plansEqual only checks content and status, not priority
+    expect(plansEqual(a, b)).toBe(true)
+  })
+})
+
+describe('messagesEqual — edge cases', () => {
+  it('handles single message arrays', () => {
+    const a = [{ role: 'user' as const, content: 'x', timestamp: 't1' }]
+    const b = [{ role: 'user' as const, content: 'x', timestamp: 't1' }]
+    expect(messagesEqual(a, b)).toBe(true)
+  })
+
+  it('detects role change in last message', () => {
+    const a = [{ role: 'user' as const, content: 'x', timestamp: 't1' }]
+    const b = [{ role: 'assistant' as const, content: 'x', timestamp: 't1' }]
+    expect(messagesEqual(a, b)).toBe(false)
+  })
+
+  it('detects timestamp change in last message', () => {
+    const a = [{ role: 'user' as const, content: 'x', timestamp: 't1' }]
+    const b = [{ role: 'user' as const, content: 'x', timestamp: 't2' }]
+    expect(messagesEqual(a, b)).toBe(false)
+  })
+})
+
+describe('stringArraysEqual — edge cases', () => {
+  it('returns true for both empty', () => {
+    expect(stringArraysEqual([], [])).toBe(true)
+  })
+
+  it('handles single element', () => {
+    expect(stringArraysEqual(['a'], ['a'])).toBe(true)
+    expect(stringArraysEqual(['a'], ['b'])).toBe(false)
+  })
+
+  it('is order-sensitive', () => {
+    expect(stringArraysEqual(['a', 'b'], ['b', 'a'])).toBe(false)
+  })
+})
