@@ -4,22 +4,6 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 import fs from "node:fs";
 
-// Redirect all shiki / @shikijs imports to lightweight stubs.
-// Eliminates ~300 language grammar chunks (~8MB) from the bundle.
-function shikiStubPlugin(): Plugin {
-  const shikiStub = path.resolve(__dirname, "src/renderer/lib/shiki-stub.ts");
-  const transformersStub = path.resolve(__dirname, "src/renderer/lib/shikijs-transformers-stub.ts");
-  return {
-    name: "shiki-stub",
-    enforce: "pre",
-    resolveId(source) {
-      if (source === "@shikijs/transformers") return transformersStub;
-      if (source === "shiki" || source.startsWith("shiki/")) return shikiStub;
-      if (source.startsWith("@shikijs/")) return shikiStub;
-    },
-  };
-}
-
 // Serve material-icon-theme SVG icons from node_modules.
 // In dev, Vite serves them via the middleware. In production, they're copied to dist/material-icons.
 function materialIconsPlugin(): Plugin {
@@ -54,7 +38,7 @@ function materialIconsPlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [shikiStubPlugin(), materialIconsPlugin(), tailwindcss(), react()],
+  plugins: [materialIconsPlugin(), tailwindcss(), react()],
   root: ".",
   base: "/",
   clearScreen: false,
@@ -79,6 +63,7 @@ export default defineConfig({
           if (id.includes("@pierre") || id.includes("node_modules/diff/")) return "vendor-diffs";
           if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/")) return "vendor-react";
           if (id.includes("react-markdown") || id.includes("remark") || id.includes("rehype") || id.includes("unified") || id.includes("mdast") || id.includes("hast") || id.includes("micromark")) return "vendor-markdown";
+          if (id.includes("node_modules/shiki") || id.includes("@shikijs/")) return "vendor-shiki";
           if (id.includes("ghostty-web")) return "vendor-terminal";
           if (id.includes("@tauri-apps")) return "vendor-tauri";
           if (id.includes("@tabler/icons") || id.includes("lucide")) return "vendor-icons";

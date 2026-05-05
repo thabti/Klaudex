@@ -31,6 +31,22 @@ export interface ToolCall {
   content?: ToolCallContentItem[]
   rawInput?: unknown
   rawOutput?: unknown
+  /** ISO timestamp of when the tool call first appeared.
+   *  Used by the inline-tool-calls layout to order tool entries
+   *  relative to the surrounding text. Optional for back-compat. */
+  createdAt?: string
+}
+
+/**
+ * Anchor that records where a tool call appeared in the assistant prose
+ * stream, so the timeline can interleave tool entries between text segments
+ * when "Inline tool calls" is enabled. `at` is a UTF-16 character offset
+ * into {@link TaskMessage.content}; `toolCallId` matches an entry in
+ * {@link TaskMessage.toolCalls}.
+ */
+export interface ToolCallSplit {
+  at: number
+  toolCallId: string
 }
 
 // ── Plan (matches ACP Plan / PlanEntry) ───────────────────────────
@@ -53,6 +69,13 @@ export interface TaskMessage {
   toolCalls?: ToolCall[]
   thinking?: string
   questionAnswers?: { question: string; answer: string }[]
+  /**
+   * Anchors recording where each tool call appeared in {@link content}
+   * during streaming. Sorted ascending by `at`. Used by the inline-tool-calls
+   * layout to interleave tool entries with text segments. Optional — older
+   * persisted messages without splits fall back to grouped rendering.
+   */
+  toolCallSplits?: ToolCallSplit[]
 }
 
 // ── Task ──────────────────────────────────────────────────────────
@@ -138,7 +161,13 @@ export type ThemeMode = 'dark' | 'light' | 'system'
 export interface AppSettings {
   kiroBin: string
   agentProfiles: AgentProfile[]
+  /** Global UI font size in px (sidebar, file tree, header, dialogs, etc.). */
   fontSize: number
+  /**
+   * Chat content font size in px (markdown body, assistant text, user message bubble,
+   * and the chat textarea / "Type a message" affordance). Falls back to {@link fontSize}.
+   */
+  chatFontSize?: number
   defaultModel?: string | null
   autoApprove?: boolean
   respectGitignore?: boolean
@@ -165,6 +194,13 @@ export interface AppSettings {
   terminalScrollback?: number
   /** Auto-close background terminal tabs after this many minutes of no PTY activity. null = disabled. Default: null. */
   terminalAutoCloseIdleMins?: number | null
+  /**
+   * When true, tool calls render inline within the assistant's prose at the
+   * exact point where the agent invoked them — similar to Cursor / Kiro IDE.
+   * When false (default), tool calls are grouped into a single card after
+   * the assistant text. Only affects rendering; persisted data is the same.
+   */
+  inlineToolCalls?: boolean
 }
 
 export interface ProjectFile {

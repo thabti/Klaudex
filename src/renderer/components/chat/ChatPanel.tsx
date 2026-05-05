@@ -15,12 +15,14 @@ import { SearchBar } from './SearchBar'
 import { SearchQueryContext } from './HighlightText'
 import { BtwOverlay } from './BtwOverlay'
 import { PanelProvider } from './PanelContext'
+import { StickyTaskList } from './StickyTaskList'
 import { useMessageSearch } from '@/hooks/useMessageSearch'
 import { ipc } from '@/lib/ipc'
 import { record } from '@/lib/analytics-collector'
 import {
   EMPTY_MESSAGES,
   EMPTY_TOOL_CALLS,
+  EMPTY_TOOL_SPLITS,
   EMPTY_OPTIONS,
   EMPTY_QUEUE,
   deriveInputState,
@@ -31,9 +33,9 @@ import {
   needsNewConnection,
   extractProjectName,
   buildUserMessage,
+  captureDispatchSnapshot,
 } from './ChatPanel.logic'
-import type { TaskMessage, ToolCall, IpcAttachment } from '@/types'
-import type { QueuedMessage } from '@/stores/task-store-types'
+import type { IpcAttachment } from '@/types'
 import type { TimelineRow } from '@/lib/timeline'
 
 /**
@@ -57,7 +59,9 @@ const StreamingMessageList = memo(function StreamingMessageList({
   const messages = useTaskStore((s) => resolvedId ? s.tasks[resolvedId]?.messages ?? EMPTY_MESSAGES : EMPTY_MESSAGES)
   const streamingChunk = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? '' : resolvedId ? s.streamingChunks[resolvedId] ?? '' : '')
   const liveToolCalls = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? EMPTY_TOOL_CALLS : resolvedId ? s.liveToolCalls[resolvedId] ?? EMPTY_TOOL_CALLS : EMPTY_TOOL_CALLS)
+  const liveToolSplits = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? EMPTY_TOOL_SPLITS : resolvedId ? s.liveToolSplits[resolvedId] ?? EMPTY_TOOL_SPLITS : EMPTY_TOOL_SPLITS)
   const liveThinking = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? '' : resolvedId ? s.thinkingChunks[resolvedId] ?? '' : '')
+  const inlineToolCalls = useSettingsStore((s) => s.settings.inlineToolCalls === true)
 
   return (
     <MessageList
@@ -65,8 +69,10 @@ const StreamingMessageList = memo(function StreamingMessageList({
       messages={messages}
       streamingChunk={streamingChunk}
       liveToolCalls={liveToolCalls}
+      liveToolSplits={liveToolSplits}
       liveThinking={liveThinking}
       isRunning={isRunning}
+      inlineToolCalls={inlineToolCalls}
       searchMatchIds={searchMatchIds}
       activeMatchId={activeMatchId}
       onTimelineRows={onTimelineRows}
@@ -80,6 +86,13 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
   const task = state.tasks[targetTaskId]
   if (!task) return
   const shouldCreateNew = needsNewConnection(task)
+
+  // Capture the dispatch snapshot BEFORE we mutate the task. The snapshot
+  // records the pre-send state (status, message count, streaming buffer)
+  // so the UI can derive a "Sending… → Agent starting… → streaming" phase
+  // without polling. The turn_end listener clears the snapshot.
+  const streamingChunk = state.streamingChunks[targetTaskId] ?? ''
+  state.setDispatchSnapshot(targetTaskId, captureDispatchSnapshot(task, streamingChunk))
 
   const userMsg = buildUserMessage(msg)
   state.upsertTask({ ...task, status: 'running', messages: [...task.messages, userMsg] })
@@ -104,6 +117,12 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
     const resolvedMode = taskState.taskModes[targetTaskId] ?? currentModeId
     if (resolvedMode && resolvedMode !== 'kiro_default') {
       useTaskStore.getState().setTaskMode(created.id, resolvedMode)
+    }
+    // Re-key the dispatch snapshot from the draft id to the backend-assigned
+    // id atomically so a concurrent `turn_end` event can't observe the
+    // snapshot missing from both keys.
+    if (created.id !== targetTaskId) {
+      useTaskStore.getState().rekeyDispatchSnapshot(targetTaskId, created.id)
     }
     state.setSelectedTask(created.id)
   } else {
@@ -253,8 +272,9 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
   }
 
   const isRunning = isTaskRunning(taskStatus)
-  const task = resolvedTaskId ? useTaskStore.getState().tasks[resolvedTaskId] : null
-  const { disabled: inputDisabled, disabledReason } = deriveInputState(task)
+  const { disabled: inputDisabled, disabledReason } = deriveInputState(
+    resolvedTaskId ? { status: taskStatus, isArchived } : null,
+  )
 
   const searchQuery = search.isOpen ? search.query : ''
 
@@ -311,6 +331,8 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
         {!isArchived && (
           <QueuedMessages messages={queuedMessages} onRemove={handleRemoveQueued} onReorder={handleReorderQueued} onSteer={isRunning ? handleSteer : undefined} />
         )}
+
+        {!isArchived && <StickyTaskList taskId={resolvedTaskId} />}
 
         {isArchived ? (
           <div className="px-4 pb-4 pt-2 sm:px-6">

@@ -162,14 +162,53 @@ export function selectRunningTaskCount(state: TaskStore): number {
 
 /**
  * Select task IDs for a given workspace/project.
- * Returns a stable empty array when no tasks exist.
+ *
+ * Returns a stable empty array when no tasks exist; otherwise returns a
+ * memoized array reference so equivalent re-selections don't trigger
+ * re-renders. The memo cache is keyed by workspace path and bounded — older
+ * entries are evicted once `MAX_WORKSPACE_CACHE_ENTRIES` is reached so the
+ * map can't grow without bound when users open many projects.
+ *
+ * Cache key uses a `\u0000` separator plus the id count as a guard so two
+ * distinct id sets can't collide on the joined string (task ids cannot
+ * contain a null byte). `Object.values(state.tasks)` iterates in insertion
+ * order; tasks are never re-ordered, so no sort is needed for the join.
  */
 const EMPTY_IDS: string[] = []
+const MAX_WORKSPACE_CACHE_ENTRIES = 64
+const _taskIdsCache = new Map<string, { ids: string[]; key: string }>()
+
 export function selectTaskIdsForWorkspace(state: TaskStore, workspace: string): string[] {
   const ids: string[] = []
   for (const task of Object.values(state.tasks)) {
     const ws = task.originalWorkspace ?? task.workspace
     if (ws === workspace) ids.push(task.id)
   }
-  return ids.length > 0 ? ids : EMPTY_IDS
+  if (ids.length === 0) return EMPTY_IDS
+
+  // `\u0000` cannot appear in a task id; prefix with the length so two id
+  // sets that join to the same string would also need identical counts —
+  // i.e. they'd actually be the same set in the same order.
+  const key = `${ids.length}\u0000${ids.join('\u0000')}`
+  const cached = _taskIdsCache.get(workspace)
+
+  // Promote-on-hit: delete-then-set lands the entry at the MRU end of the
+  // Map's insertion-order iteration, regardless of whether we're hitting
+  // (key matches) or refreshing (key differs but we still want MRU
+  // promotion).
+  if (cached) _taskIdsCache.delete(workspace)
+  if (cached && cached.key === key) {
+    _taskIdsCache.set(workspace, cached)
+    return cached.ids
+  }
+
+  // Evict the least-recently-used workspace once we hit the cap. We only
+  // need this branch when adding a *new* workspace — refreshing an existing
+  // entry doesn't grow the map (we deleted it above).
+  if (!cached && _taskIdsCache.size >= MAX_WORKSPACE_CACHE_ENTRIES) {
+    const oldest = _taskIdsCache.keys().next().value
+    if (oldest !== undefined) _taskIdsCache.delete(oldest)
+  }
+  _taskIdsCache.set(workspace, { ids, key })
+  return ids
 }

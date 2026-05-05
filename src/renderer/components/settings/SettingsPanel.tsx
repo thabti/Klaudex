@@ -23,6 +23,7 @@ const defaultSettings: AppSettings = {
   kiroBin: 'kiro-cli',
   agentProfiles: [],
   fontSize: 14,
+  chatFontSize: 14,
   sidebarPosition: 'left',
   analyticsEnabled: true,
 }

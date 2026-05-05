@@ -44,6 +44,7 @@ const makeState = (overrides: Partial<TaskStore> = {}): TaskStore => ({
   streamingChunks: {},
   thinkingChunks: {},
   liveToolCalls: {},
+  liveToolSplits: {},
   queuedMessages: {},
   activityFeed: [],
   connected: true,
@@ -343,6 +344,36 @@ describe('selectTaskIdsForWorkspace — edge cases', () => {
     const ids = selectTaskIdsForWorkspace(state, '/project')
     expect(ids).toContain('task-1')
     expect(ids).not.toContain('task-2')
+  })
+
+  it('returns the same array reference across re-selections with the same task set', () => {
+    const state = makeState({
+      tasks: {
+        'task-1': makeTask({ id: 'task-1', workspace: '/project' }),
+        'task-2': makeTask({ id: 'task-2', workspace: '/project' }),
+      },
+    })
+    const a = selectTaskIdsForWorkspace(state, '/project')
+    const b = selectTaskIdsForWorkspace(state, '/project')
+    // Reference stability is what lets components avoid spurious re-renders.
+    expect(a).toBe(b)
+  })
+
+  it('returns a new reference when the task set changes', () => {
+    const state1 = makeState({
+      tasks: { 'task-1': makeTask({ id: 'task-1', workspace: '/project' }) },
+    })
+    const state2 = makeState({
+      tasks: {
+        'task-1': makeTask({ id: 'task-1', workspace: '/project' }),
+        'task-2': makeTask({ id: 'task-2', workspace: '/project' }),
+      },
+    })
+    const a = selectTaskIdsForWorkspace(state1, '/project')
+    const b = selectTaskIdsForWorkspace(state2, '/project')
+    expect(a).not.toBe(b)
+    expect(a).toEqual(['task-1'])
+    expect(b).toEqual(['task-1', 'task-2'])
   })
 })
 

@@ -7,11 +7,22 @@
  *
  * - Periodic health checks via a lightweight IPC probe
  * - Automatic reconnection attempts with exponential backoff
- * - Connection state tracking for UI indicators
+ * - Rich connection state tracking for UI indicators
+ * - Request latency tracking integration
  */
 
 import { ipc } from '@/lib/ipc'
 import { useTaskStore } from '@/stores/taskStore'
+import {
+  type ConnectionStatus,
+  INITIAL_CONNECTION_STATUS,
+  connectionAttempted,
+  connectionEstablished,
+  connectionLost,
+  connectionRetryScheduled,
+  connectionExhausted,
+} from '@/lib/connection-state'
+import { getLatencyTracker } from '@/lib/request-latency'
 
 export interface ConnectionHealthConfig {
   /** Interval between health checks in ms (default: 10000) */
@@ -75,12 +86,29 @@ export function startConnectionHealthMonitor(
     reconnecting: false,
   }
 
+  // Rich connection status — updated alongside the simple boolean
+  let connectionStatus: ConnectionStatus = { ...INITIAL_CONNECTION_STATUS, reconnectMaxAttempts: cfg.maxRetries }
+
+  const updateConnectionStatus = (next: ConnectionStatus) => {
+    connectionStatus = next
+    useTaskStore.getState().setConnectionStatus(next)
+  }
+
+  /** Prevents overlapping health checks when a previous one is still in-flight */
+  let checkInFlight = false
+
   const checkHealth = async () => {
-    if (stopped || state.reconnecting) return
+    if (stopped || state.reconnecting || checkInFlight) return
+    checkInFlight = true
+
+    // Track the probe with the latency tracker so a slow backend shows up in
+    // the global slow-request list (UI can read this via getLatencyTracker()).
+    const probeId = getLatencyTracker().trackRequest('connection_health.list_tasks')
 
     try {
       // Use listTasks as a lightweight health probe
       await ipc.listTasks()
+      getLatencyTracker().acknowledgeRequest(probeId)
       // Success: reset failure counter
       state.healthy = true
       state.consecutiveFailures = 0
@@ -88,38 +116,80 @@ export function startConnectionHealthMonitor(
       if (!useTaskStore.getState().connected) {
         useTaskStore.getState().setConnected(true)
       }
+      // Always reflect a healthy probe in the rich status — covers both the
+      // initial connection and reconnection-after-loss transitions.
+      if (connectionStatus.phase !== 'connected') {
+        updateConnectionStatus(connectionEstablished(connectionStatus))
+      }
     } catch {
-      // Failure: increment counter
+      // Failure: drop the tracked probe (the request didn't really complete,
+      // but we don't want it lingering in the slow-list either).
+      getLatencyTracker().acknowledgeRequest(probeId)
+      // Increment counter
       state.consecutiveFailures++
       state.healthy = false
 
       if (state.consecutiveFailures >= cfg.maxRetries) {
         // Too many failures — mark as disconnected
         useTaskStore.getState().setConnected(false)
+        updateConnectionStatus(connectionExhausted(connectionStatus))
+        // Clear latency tracker — all pending requests are dead
+        getLatencyTracker().clearAll()
       } else {
         // Attempt reconnection with backoff
         state.reconnecting = true
+        // Flip the simple boolean now so anything still subscribed to it
+        // (banner, streaming gates) can react during the retry window.
+        if (useTaskStore.getState().connected) {
+          useTaskStore.getState().setConnected(false)
+        }
+
         const delay = calculateBackoffDelay(
           state.consecutiveFailures - 1,
           cfg.baseRetryDelayMs,
           cfg.maxRetryDelayMs,
         )
+        const nextRetryAt = new Date(Date.now() + delay).toISOString()
+        // Coalesce `attempted → retryScheduled` into a single status emission
+        // so subscribers don't see the intermediate `reconnecting/no-retry`
+        // state and we don't fire two Zustand notifications back-to-back.
+        updateConnectionStatus(
+          connectionRetryScheduled(connectionAttempted(connectionStatus), nextRetryAt),
+        )
+
         await sleep(delay)
         if (!stopped) {
+          const retryId = getLatencyTracker().trackRequest('connection_health.list_tasks_retry')
           try {
             await ipc.listTasks()
+            getLatencyTracker().acknowledgeRequest(retryId)
             state.healthy = true
             state.consecutiveFailures = 0
             state.lastHealthyAt = Date.now()
             useTaskStore.getState().setConnected(true)
+            updateConnectionStatus(connectionEstablished(connectionStatus))
           } catch {
-            // Still failing — will retry on next interval
+            getLatencyTracker().acknowledgeRequest(retryId)
+            // Still failing — will retry on next interval. Boolean already
+            // false from above; we just refresh the rich status.
+            updateConnectionStatus(connectionLost(connectionStatus, 'Health check failed'))
           }
         }
         state.reconnecting = false
       }
+    } finally {
+      checkInFlight = false
     }
   }
+
+  // Don't optimistically declare "connected" — the backend probe may not
+  // have run yet, or kiro-cli may be down at startup. Mark `connecting`
+  // instead and let the first probe flip the state to `connected`.
+  updateConnectionStatus(connectionAttempted(connectionStatus))
+
+  // Run an immediate probe so we don't sit in `connecting` for a full
+  // `checkIntervalMs` if the backend is healthy.
+  void checkHealth()
 
   // Start periodic checks
   intervalId = setInterval(checkHealth, cfg.checkIntervalMs)

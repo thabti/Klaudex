@@ -6,9 +6,18 @@ import { TaskCompletionCard, parseReport, stripReport, shouldRenderReportCard } 
 import type { AssistantTextRow as AssistantTextRowData } from '@/lib/timeline'
 
 export const AssistantTextRow = memo(function AssistantTextRow({ row }: { row: AssistantTextRowData }) {
-  const showHandoff = !row.isStreaming && isPlanHandoff(row.content)
-  const report = useMemo(() => (!row.isStreaming ? parseReport(row.content) : null), [row.isStreaming, row.content])
-  const displayContent = useMemo(() => (!row.isStreaming ? stripReport(row.content) : row.content), [row.isStreaming, row.content])
+  // Inline-mode middle segments must not parse the content for report/handoff —
+  // they hold a slice of prose, not the full message body.
+  const isInline = row.isInlineSegment === true
+  const showHandoff = !row.isStreaming && !isInline && isPlanHandoff(row.content)
+  const report = useMemo(
+    () => (!row.isStreaming && !isInline ? parseReport(row.content) : null),
+    [row.isStreaming, row.content, isInline],
+  )
+  const displayContent = useMemo(
+    () => (!row.isStreaming && !isInline ? stripReport(row.content) : row.content),
+    [row.isStreaming, row.content, isInline],
+  )
   const isRichReport = report && shouldRenderReportCard(report)
   // Only render the card here when there's no changed-files row to host it
   const showReportCard = isRichReport && !row.hasChangedFiles

@@ -5,7 +5,7 @@
  * Lazy-loaded: no disk I/O until first access.
  */
 import type { LazyStore } from '@tauri-apps/plugin-store'
-import type { AgentTask, TaskMessage, SoftDeletedThread, AppSettings } from '@/types'
+import type { AgentTask, TaskMessage, ToolCall, ToolCallSplit, SoftDeletedThread, AppSettings } from '@/types'
 
 // ── Persisted types ──────────────────────────────────────────────
 
@@ -14,6 +14,10 @@ interface SavedMessage {
   content: string
   timestamp: string
   thinking?: string
+  /** Persisted alongside content so tool activity survives reload. Optional for back-compat. */
+  toolCalls?: ToolCall[]
+  /** Anchors recording where each tool call appeared in {@link content}. Optional. */
+  toolCallSplits?: ToolCallSplit[]
 }
 
 interface SavedThread {
@@ -361,12 +365,59 @@ export async function subscribeToChanges(
 
 // ── Helpers ──────────────────────────────────────────────────────
 
+/**
+ * Strip oversized fields from a tool call before persisting so a few long
+ * shell or file-read outputs don't bloat history.json. The truncated form
+ * keeps enough context for the timeline (status, locations, the structured
+ * `content` blocks the UI actually renders) and replaces large `rawInput` /
+ * `rawOutput` blobs with a short placeholder when they exceed the limit.
+ *
+ * The threshold is intentionally generous — most tool calls fit without
+ * truncation, and inline diffs / read previews come from `content`, not from
+ * the raw fields, so truncating `rawOutput` doesn't degrade the rendered UI.
+ */
+const MAX_RAW_FIELD_CHARS = 64 * 1024
+
+function truncateRawField(value: unknown): unknown {
+  if (value === undefined || value === null) return value
+  if (typeof value === 'string') {
+    return value.length > MAX_RAW_FIELD_CHARS
+      ? `${value.slice(0, MAX_RAW_FIELD_CHARS)}\n…(truncated for history)`
+      : value
+  }
+  // For non-string values (objects/arrays), serialize to measure size and
+  // replace with a placeholder if oversized. Keep small structured values
+  // verbatim so existing consumers (e.g. strReplace diff rendering) work.
+  try {
+    const serialized = JSON.stringify(value)
+    if (serialized.length <= MAX_RAW_FIELD_CHARS) return value
+  } catch {
+    // fall through to placeholder
+  }
+  return '[truncated for history]'
+}
+
+function toSavedToolCall(tc: ToolCall): ToolCall {
+  if (tc.rawInput === undefined && tc.rawOutput === undefined) return tc
+  const rawInput = truncateRawField(tc.rawInput)
+  const rawOutput = truncateRawField(tc.rawOutput)
+  if (rawInput === tc.rawInput && rawOutput === tc.rawOutput) return tc
+  return {
+    ...tc,
+    ...(rawInput !== undefined ? { rawInput } : {}),
+    ...(rawOutput !== undefined ? { rawOutput } : {}),
+  }
+}
+
 function toSavedMessage(msg: TaskMessage): SavedMessage {
+  const toolCalls = msg.toolCalls?.map(toSavedToolCall)
   return {
     role: msg.role,
     content: msg.content,
     timestamp: msg.timestamp,
     ...(msg.thinking ? { thinking: msg.thinking } : {}),
+    ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
+    ...(msg.toolCallSplits && msg.toolCallSplits.length > 0 ? { toolCallSplits: msg.toolCallSplits } : {}),
   }
 }
 
@@ -376,5 +427,7 @@ function toTaskMessage(msg: SavedMessage): TaskMessage {
     content: msg.content,
     timestamp: msg.timestamp,
     ...(msg.thinking ? { thinking: msg.thinking } : {}),
+    ...(msg.toolCalls && msg.toolCalls.length > 0 ? { toolCalls: msg.toolCalls } : {}),
+    ...(msg.toolCallSplits && msg.toolCallSplits.length > 0 ? { toolCallSplits: msg.toolCallSplits } : {}),
   }
 }

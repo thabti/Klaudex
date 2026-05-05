@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { IconArrowDown } from '@tabler/icons-react'
-import type { TaskMessage, ToolCall } from '@/types'
+import type { TaskMessage, ToolCall, ToolCallSplit } from '@/types'
 import { deriveTimeline, type TimelineRow } from '@/lib/timeline'
 import { computeStableTimelineRows, EMPTY_STABLE_STATE, type StableTimelineState } from '@/lib/timeline-stability'
 import { cn } from '@/lib/utils'
@@ -27,8 +27,11 @@ interface MessageListProps {
   messages: TaskMessage[]
   streamingChunk?: string
   liveToolCalls?: ToolCall[]
+  liveToolSplits?: ToolCallSplit[]
   liveThinking?: string
   isRunning?: boolean
+  /** When true, render tool calls inline within prose (Cursor / Kiro IDE style). */
+  inlineToolCalls?: boolean
   /** IDs of timeline rows that match the current search query */
   searchMatchIds?: string[]
   /** ID of the currently active (focused) search match */
@@ -42,8 +45,10 @@ export const MessageList = memo(function MessageList({
   messages,
   streamingChunk,
   liveToolCalls,
+  liveToolSplits,
   liveThinking,
   isRunning,
+  inlineToolCalls,
   searchMatchIds,
   activeMatchId,
   onTimelineRows,
@@ -100,8 +105,11 @@ export const MessageList = memo(function MessageList({
 
   // Derive raw timeline rows
   const rawTimelineRows = useMemo(
-    () => deriveTimeline(messages, streamingChunk, liveToolCalls, liveThinking, isRunning),
-    [messages, streamingChunk, liveToolCalls, liveThinking, isRunning],
+    () => deriveTimeline(messages, streamingChunk, liveToolCalls, liveThinking, isRunning, {
+      inlineToolCalls,
+      liveToolSplits,
+    }),
+    [messages, streamingChunk, liveToolCalls, liveThinking, isRunning, inlineToolCalls, liveToolSplits],
   )
 
   // Stabilize row references: reuse previous objects when content hasn't changed.
