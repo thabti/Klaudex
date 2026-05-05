@@ -502,7 +502,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set((state) => {
       const existing = state.liveToolCalls[taskId] ?? []
       const idx = existing.findIndex((tc) => tc.toolCallId === toolCall.toolCallId)
-      if (idx >= 0 && existing[idx].status === toolCall.status && existing[idx].content === toolCall.content) {
+      if (idx >= 0
+        && existing[idx].status === toolCall.status
+        && existing[idx].content === toolCall.content
+        && existing[idx].title === toolCall.title
+        && existing[idx].kind === toolCall.kind
+      ) {
         return state
       }
       const updated = idx >= 0

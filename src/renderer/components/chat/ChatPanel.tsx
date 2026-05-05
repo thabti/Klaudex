@@ -18,14 +18,23 @@ import { PanelProvider } from './PanelContext'
 import { useMessageSearch } from '@/hooks/useMessageSearch'
 import { ipc } from '@/lib/ipc'
 import { record } from '@/lib/analytics-collector'
+import {
+  EMPTY_MESSAGES,
+  EMPTY_TOOL_CALLS,
+  EMPTY_OPTIONS,
+  EMPTY_QUEUE,
+  deriveInputState,
+  shouldQueueMessage,
+  isTaskRunning,
+  isPanelFocused,
+  isBtwModeActive,
+  needsNewConnection,
+  extractProjectName,
+  buildUserMessage,
+} from './ChatPanel.logic'
 import type { TaskMessage, ToolCall, IpcAttachment } from '@/types'
 import type { QueuedMessage } from '@/stores/task-store-types'
 import type { TimelineRow } from '@/lib/timeline'
-
-const EMPTY_MESSAGES: TaskMessage[] = []
-const EMPTY_TOOL_CALLS: ToolCall[] = []
-const EMPTY_OPTIONS: Array<{ optionId: string; name: string; kind: string }> = []
-const EMPTY_QUEUE: QueuedMessage[] = []
 
 /**
  * Owns the streaming selectors so ChatPanel doesn't re-render on every token.
@@ -70,17 +79,16 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
   const state = useTaskStore.getState()
   const task = state.tasks[targetTaskId]
   if (!task) return
-  const isDraft = task.messages.length === 0 && task.status === 'paused'
-  const needsNewConnection = task.needsNewConnection === true
+  const shouldCreateNew = needsNewConnection(task)
 
-  const userMsg = { role: 'user' as const, content: msg, timestamp: new Date().toISOString() }
+  const userMsg = buildUserMessage(msg)
   state.upsertTask({ ...task, status: 'running', messages: [...task.messages, userMsg] })
   state.clearTurn(task.id)
 
-  const proj = (task.originalWorkspace ?? task.workspace).replace(/\\/g, '/').split('/').pop() ?? ''
+  const proj = extractProjectName(task)
   record('message_sent', { project: proj, thread: task.id, value: msg.split(/\s+/).filter(Boolean).length })
 
-  if (isDraft || needsNewConnection) {
+  if (shouldCreateNew) {
     const { settings, currentModeId } = useSettingsStore.getState()
     const taskState = useTaskStore.getState()
     const projectRoot = task.originalWorkspace ?? task.workspace
@@ -143,15 +151,9 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
   const terminalOpen = useTaskStore((s) => resolvedTaskId ? s.terminalOpenTasks.has(resolvedTaskId) : false)
   const toggleTerminal = useTaskStore((s) => s.toggleTerminal)
   const queuedMessages = useTaskStore((s) => resolvedTaskId ? s.queuedMessages[resolvedTaskId] ?? EMPTY_QUEUE : EMPTY_QUEUE)
-  const isBtwMode = useTaskStore((s) => s.btwCheckpoint !== null && s.btwCheckpoint.taskId === resolvedTaskId)
+  const isBtwMode = useTaskStore((s) => isBtwModeActive(s.btwCheckpoint, resolvedTaskId))
   // In split view, determine if this panel is the focused one (for drag/drop scoping)
-  const isFocusedPanel = useTaskStore((s) => {
-    if (!s.activeSplitId || !taskIdProp) return true // not in split view = always active
-    const sv = s.splitViews.find((v) => v.id === s.activeSplitId)
-    if (!sv) return true
-    const focusedTaskId = s.focusedPanel === 'left' ? sv.left : sv.right
-    return focusedTaskId === taskIdProp
-  })
+  const isFocusedPanel = useTaskStore((s) => isPanelFocused(s.activeSplitId, taskIdProp, s.splitViews, s.focusedPanel))
 
   const timelineRowsRef = useRef<TimelineRow[]>([])
   const [timelineRows, setTimelineRows] = useState<TimelineRow[]>([])
@@ -193,7 +195,8 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
     const task = id ? state.tasks[id] : null
     if (!task || !id) return
 
-    if (task.status === 'running' && !(state.btwCheckpoint?.taskId === id)) {
+    const btwActive = isBtwModeActive(state.btwCheckpoint, id)
+    if (shouldQueueMessage(task, btwActive)) {
       state.enqueueMessage(task.id, msg, attachments)
       return
     }
@@ -249,8 +252,9 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
     )
   }
 
-  const isRunning = taskStatus === 'running'
-  const inputDisabled = isArchived || taskStatus === 'cancelled'
+  const isRunning = isTaskRunning(taskStatus)
+  const task = resolvedTaskId ? useTaskStore.getState().tasks[resolvedTaskId] : null
+  const { disabled: inputDisabled, disabledReason } = deriveInputState(task)
 
   const searchQuery = search.isOpen ? search.query : ''
 
@@ -319,7 +323,7 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
         ) : (
           <ChatInput
             disabled={inputDisabled}
-            disabledReason={isArchived ? 'Previous session — view only' : taskStatus === 'cancelled' ? 'Task was cancelled' : undefined}
+            disabledReason={disabledReason}
             contextUsage={contextUsage}
             messageCount={messageCount}
             isRunning={isRunning}
