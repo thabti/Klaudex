@@ -25,7 +25,7 @@
         "decorations": true,
         "trafficLightPosition": { "x": 14, "y": 22 },
         "transparent": false,
-        "zoomHotkeysEnabled": true
+        "zoomHotkeysEnabled": false
       }
     ],
     "security": {

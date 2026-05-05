@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { IconRobot, IconBolt, IconCompass, IconChevronRight, IconSearch, IconPlug } from '@tabler/icons-react'
+import { IconRobot, IconBolt, IconCompass, IconChevronRight, IconSearch, IconPlug, IconEdit } from '@tabler/icons-react'
 import { useKiroStore } from '@/stores/kiroStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { ipc } from '@/lib/ipc'
@@ -163,7 +163,24 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
             )}
 
             {mcpServers.length > 0 && (filteredMcp.length > 0 || !search) && (
-              <SectionToggle icon={IconPlug} iconColor="text-sky-600 dark:text-sky-400" label="MCP" count={filteredMcp.length} errorCount={mcpErrorCount} expanded={mcpOpen} onToggle={() => setMcpOpen((v) => !v)} />
+              <div className="flex items-center">
+                <SectionToggle icon={IconPlug} iconColor="text-sky-600 dark:text-sky-400" label="MCP" count={filteredMcp.length} errorCount={mcpErrorCount} expanded={mcpOpen} onToggle={() => setMcpOpen((v) => !v)} />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const fp = mcpServers[0]?.filePath
+                        if (fp) openViewer({ filePath: fp, title: 'MCP Config' })
+                      }}
+                      className="mr-1 inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                    >
+                      <IconEdit className="size-3" aria-hidden />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Open MCP Config</TooltipContent>
+                </Tooltip>
+              </div>
             )}
             {mcpOpen && filteredMcp.length > 0 && (
               <ul className="flex min-w-0 flex-col gap-px border-l mx-1 px-1.5 py-px" style={{ borderColor: 'var(--border)' }}>

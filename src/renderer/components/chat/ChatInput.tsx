@@ -46,7 +46,7 @@ interface ChatInputProps {
 
 export const ChatInput = memo(function ChatInput({ disabled, disabledReason, contextUsage, messageCount = 0, isRunning, isActive, taskId, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, autoFocus, hasQueuedMessages, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange, workspace, isCollapsed, onToggleCollapse, isWorktree }: ChatInputProps) {
   const {
-    value, setValue, textareaRef, canSend,
+    value, setValue, textareaRef, containerRef, canSend,
     slashIndex, slashQuery, commands, filteredCmds, showPicker,
     panel, dismissPanel, handleSelectCommand,
     showFilePicker, mentionTrigger, mentionIndex, mentionedFiles,
@@ -158,7 +158,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
   }
 
   return (
-    <div data-testid="chat-input" className="px-4 pt-1.5 pb-4 sm:px-6 sm:pt-2 sm:pb-5">
+    <div ref={containerRef} data-testid="chat-input" className="px-4 pt-1.5 pb-4 sm:px-6 sm:pt-2 sm:pb-5">
       <div className="mx-auto w-full min-w-0 max-w-3xl lg:max-w-4xl xl:max-w-5xl">
         <div className={cn(
           'relative rounded-[20px] border-2 bg-card transition-colors duration-200',

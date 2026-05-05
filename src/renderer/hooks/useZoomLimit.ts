@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 
-const ZOOM_MIN = 0.5
-const ZOOM_MAX = 1.0
+const ZOOM_MIN = 0.6
+const ZOOM_MAX = 1.3
 const ZOOM_STEP = 0.05
 
 const clampZoom = (value: number): number =>

@@ -12,6 +12,7 @@ interface DebugStore {
     errorsOnly: boolean
     threadName: string
     projectName: string
+    mcpServerName: string
   }
   addEntry: (entry: DebugLogEntry) => void
   clear: () => void
@@ -46,6 +47,7 @@ export const useDebugStore = create<DebugStore>((set) => ({
     errorsOnly: false,
     threadName: '',
     projectName: '',
+    mcpServerName: '',
   },
 
   addEntry: (raw) => {
