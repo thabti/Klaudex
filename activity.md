@@ -1,5 +1,112 @@
 # Activity Log
 
+## 2026-05-05 17:05 GST (Dubai)
+### MarkdownViewer: Add proper markdown file viewing support
+Created a shared `MarkdownViewer` component with rich rendering: code blocks with language labels and copy buttons, GFM task list checkboxes, heading anchors, styled tables with alternating rows, blockquotes, external link handling, and proper image rendering. Updated `FilePreviewModal` and `KiroFileViewer` to use the new component instead of bare `ReactMarkdown` with inline prose classes.
+
+**Modified:** `src/renderer/components/MarkdownViewer.tsx` (new), `src/renderer/components/file-tree/FilePreviewModal.tsx`, `src/renderer/components/sidebar/KiroFileViewer.tsx`, `src/tailwind.css`
+
+## 2026-05-05 16:55 GST (Dubai)
+### FileTree: Show hidden/dotfiles in file tree
+Fixed the `list_via_walk()` function in the Rust backend that was filtering out all dotfiles (`.gitignore`, `.pr_agent.toml`, `.github/`, etc.). The `ignore` crate's `WalkBuilder` was configured with `.hidden(true)` which skips any entry starting with a dot. Changed to `.hidden(false)` so dotfiles appear in the tree just like in VS Code. The `.git` directory is still excluded via the `IGNORED_DIRS` list.
+
+**Modified:** `src-tauri/src/commands/fs_ops.rs`
+
+## 2026-05-05 16:45 GST (Dubai)
+### Code Review: Fix issues in file-tree feature branch
+Fixed all issues identified during code review: removed debug `console.warn` from FileTreePanel, added explanatory comment for module-level mutable state in useAttachments (cross-component drag communication), memoized `serverTools` derivation in KiroMcpRow to avoid defeating useCallback, added scroll/blur listeners to context menu dismiss logic, pinned `material-icon-theme` to exact version, and added clarifying comment on eslint-disable for containerRef dep.
+
+**Modified:** `src/renderer/components/file-tree/FileTreePanel.tsx`, `src/renderer/hooks/useAttachments.ts`, `src/renderer/components/sidebar/KiroMcpRow.tsx`, `package.json`
+
+## 2026-05-05 15:10 GST (Dubai)
+### Zoom: Cap max zoom at 1.3x and disable Tauri's native zoom bypass
+Disabled `zoomHotkeysEnabled` in `tauri.conf.json` so Tauri's built-in Cmd+/- shortcuts no longer bypass the app's zoom limiter. The `useZoomLimit` hook now controls zoom exclusively with a range of 60%–130% (was 50%–100%). This prevents the UI from getting excessively zoomed in while still allowing slight magnification.
+
+**Modified:** `src/renderer/hooks/useZoomLimit.ts`, `src-tauri/tauri.conf.json`
+
+## 2026-05-05 15:05 GST (Dubai)
+### Layout: Fix chat input clipping when zoomed in
+Removed `max-height: 100vh` from `html, body` in CSS and the inline style on `<html>` in `index.html`. When the webview is zoomed in (via Tauri's built-in zoom hotkeys), `100vh` represents fewer CSS pixels than the actual window, causing the bottom of the layout (chat input, toolbar) to be clipped. Using just `height: 100%` with `overflow: hidden` correctly constrains the layout to the window regardless of zoom level.
+
+**Modified:** `src/tailwind.css`, `index.html`
+
+## 2026-05-05 15:00 GST (Dubai)
+### FileTree: Disable deleted files and reduce indentation
+Deleted files (git status "D") are now greyed out with strikethrough text, a faded icon, and are non-clickable/non-draggable — preventing the "could not read file" error when users click them. Reduced tree indentation from 14px to 10px per depth level to prevent excessive nesting in deep folder structures.
+
+**Modified:** `src/renderer/components/file-tree/FileTreePanel.tsx`
+
+## 2026-05-05 14:52 GST (Dubai)
+### FileTree: Recurse into submodule/nested-repo directories
+Directories identified as submodules or nested git repos appeared as empty folders because the parent repo's git index only tracks the directory entry, not its contents. Added a third pass in `list_via_git2` that detects directories with no children listed and recursively walks them using `list_via_walk` (filesystem-based), prefixing all paths correctly. This ensures expanding a submodule folder shows its full file tree.
+
+**Modified:** `src-tauri/src/commands/fs_ops.rs`
+
+## 2026-05-05 14:45 GST (Dubai)
+### FileTree: Fix directories showing as files in git-based listing
+The `list_via_git2` function always set `is_dir: false` for entries from git status and the index, even when those entries are actually directories on disk (submodules, or paths tracked as gitlinks with mode `0o160000`). Added filesystem checks (`full_path.is_dir()`) in both the status pass and the index pass to correctly identify directories. Also changed `exclude_submodules` from `true` to `false` so submodule directories appear in the tree.
+
+**Modified:** `src-tauri/src/commands/fs_ops.rs`
+
+## 2026-05-05 14:32 GST (Dubai)
+### useAttachments: Fix file tree drag-drop — complete rewrite based on runtime logs
+Runtime logging revealed the root cause: on macOS WebKit, Tauri's native drag handler intercepts ALL drag events at the OS level, so HTML5 `dragenter`/`dragover`/`drop` events **never fire on the DOM**. Only Tauri's `onDragDropEvent` fires. Additionally, `dragend` fires ~2ms BEFORE Tauri's drop event, which was clearing the stored data prematurely. Rewrote the hook to: (1) handle in-app drops entirely via Tauri's `onDragDropEvent` when `paths: []` and `inAppDragData` is set, (2) keep `inAppDragData` alive across `dragend` with a 50ms timeout so Tauri's delayed drop handler can still consume it, (3) retain HTML5 handlers as fallback for Linux/Windows.
+
+**Modified:** `src/renderer/hooks/useAttachments.ts`, `src/renderer/hooks/useAttachments.test.ts`
+
+## 2026-05-05 09:12 GST (Dubai)
+### FileTree: Add Material Icon Theme file type icons
+Replaced generic `IconFile` / `IconFolder` with the VS Code Material Icon Theme icons (1200+ file type SVGs). Created a `file-icons.ts` utility that resolves file names and extensions to the correct icon using the theme's manifest, a `FileTypeIcon` component, and a Vite plugin that serves the SVGs in dev and copies them to dist for production. Updated `FileTreePanel`, `DiffFileSidebar`, `DiffPanel`, and `ChangedFilesSummary` to use the new icons.
+
+**Modified:** `src/renderer/lib/file-icons.ts` (new), `src/renderer/components/file-tree/FileTypeIcon.tsx` (new), `src/renderer/components/file-tree/FileTreePanel.tsx`, `src/renderer/components/code/DiffFileSidebar.tsx`, `src/renderer/components/diff/DiffPanel.tsx`, `src/renderer/components/chat/ChangedFilesSummary.tsx`, `vite.config.ts`, `package.json`
+
+## 2026-05-05 08:34 GST (Dubai)
+### Drag Drop: Preserve file-tree drops when Tauri swallows WebKit drop events
+Fixed the chat attachment hook so in-app file tree drags survive macOS WebKit/Tauri native drop interception and only the hovered chat input can consume the stored payload. The drag session now clears on the next tick after `dragend`, the HTML5 listeners bind to the actual chat container instead of `document`, the native empty-path drop handler is scoped to the active drop zone, and the regression tests cover both the `dragend`-before-drop race and cross-panel drop ownership.
+
+**Modified:** `src/renderer/hooks/useAttachments.ts`, `src/renderer/hooks/useAttachments.test.ts`
+
+## 2026-05-05 04:00 GST (Dubai)
+### FileTree: Fix file preview using relative paths instead of absolute
+The `buildTree` function was setting `node.path = file.path` (relative) for files, while directories correctly got `rootPath + '/' + relDir` (absolute). When `FilePreviewModal` passed this relative path to `ipc.readFile()`, Rust's `std::fs::read_to_string()` resolved it against the process CWD instead of the project root, triggering repeated macOS TCC permission prompts and ultimately failing with "Could not read file." Fixed by constructing the absolute path (`rootPath + '/' + rel`) for file nodes too.
+
+**Modified:** `src/renderer/components/file-tree/build-tree.ts`
+
+## 2026-05-05 01:30 GST (Dubai)
+### Code Review Fixes: Tokenizer, deprecated API, store guards, Rust error types
+Fixed all issues from code review: rewrote the file preview tokenizer to use a single-pass regex (eliminates double-wrapping and UUID placeholder bug), replaced deprecated `unescape()` with `TextEncoder`-based UTF-8→base64 for SVG rendering, added bail-out guard to `fileTreeStore.setOpen`, removed duplicate `.dark` CSS rules, switched `save_mcp_server_config` from `Result<(), String>` to `Result<(), AppError>`, fixed `IconPencil` (not exported) → `IconEdit`, added proper eslint-disable comments with explanations for intentional dep omissions.
+
+**Modified:**
+- `src/renderer/components/file-tree/FilePreviewModal.tsx`
+- `src/renderer/stores/fileTreeStore.ts`
+- `src/renderer/hooks/useAttachments.ts`
+- `src/renderer/hooks/useChatInput.ts`
+- `src/renderer/App.tsx`
+- `src/tailwind.css`
+- `src-tauri/src/commands/kiro_config.rs`
+- `src/renderer/components/sidebar/KiroConfigPanel.tsx`
+
+## 2026-05-05 01:09 GST (Dubai)
+### MCP: Kiro IDE parity — single mcp.json, context menu, per-tool toggle
+Aligned MCP server management with the official Kiro IDE pattern. Dropped `mcp-disabled.json` support; now reads inline `"disabled"` and `"disabledTools"` fields from a single `mcp.json`. Added `save_mcp_server_config` Tauri command for writing config. Rewrote `KiroMcpRow` with full right-click context menu (Enable/Disable, Reconnect greyed, Disable All Tools, Enable All Tools, Show MCP Logs), expandable server rows with per-tool toggle checkboxes, Kiro IDE styling (status labels, chevron, italic disabled). Added `mcpServerName` filter to debug panel with visual chip. Added "Open MCP Config" pencil button to section header.
+
+**Modified:** src-tauri/src/commands/kiro_config.rs, src-tauri/src/lib.rs, src/renderer/types/index.ts, src/renderer/lib/ipc.ts, src/renderer/stores/kiroStore.ts, src/renderer/stores/kiroStore.test.ts, src/renderer/stores/debugStore.ts, src/renderer/stores/debugStore.test.ts, src/renderer/components/sidebar/KiroMcpRow.tsx, src/renderer/components/sidebar/KiroConfigPanel.tsx, src/renderer/components/debug/KiroDebugTab.tsx
+
+## 2026-05-05 00:47 GST (Dubai)
+### File Tree: VS Code-style file tree panel with rich file preview modal
+Added a file tree panel on the right side (same slot as diff panel) with VS Code-style expand/collapse folders, git status indicators (M/A/D colored dots), drag-and-drop files/folders into chat as context pills, and a rich file preview modal supporting syntax-highlighted code (15+ languages), raster images, SVG (inline + source toggle), markdown, CSV tables, and pretty-printed JSON. Triggered via a new toolbar button; mutually exclusive with the diff panel.
+
+**Modified:**
+- `src/renderer/stores/fileTreeStore.ts` (new)
+- `src/renderer/components/file-tree/build-tree.ts` (new)
+- `src/renderer/components/file-tree/FileTreePanel.tsx` (new)
+- `src/renderer/components/file-tree/FilePreviewModal.tsx` (new)
+- `src/renderer/components/header-toolbar.tsx`
+- `src/renderer/App.tsx`
+- `src/renderer/hooks/useAttachments.ts`
+- `src/renderer/hooks/useChatInput.ts`
+- `src/renderer/hooks/useFileMention.ts`
+
 ## 2026-04-29 13:39 GST (Dubai)
 ### Website: Condense changelog and add collapsible UI
 Replaced the live-fetch markdown parser on the changelog page with a pre-processed data file (`changelog-data.js`). Merged 40 versions into 25 entries by folding patches into their minor versions and filtering noise (downloads.json, activity log, merge commits, empty releases). The first five entries show expanded; older releases collapse behind a "Show N older releases" pill button with keyboard and aria support.

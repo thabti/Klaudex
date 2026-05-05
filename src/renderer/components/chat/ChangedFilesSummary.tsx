@@ -1,15 +1,10 @@
 import { memo, useMemo, useState, useCallback } from 'react'
-import type { ComponentType } from 'react'
 import {
-  IconChevronRight, IconFolder, IconFolderOpen,
-  IconFileTypeTs, IconFileTypeTsx, IconFileTypeJs, IconFileTypeJsx,
-  IconFileTypeCss, IconFileTypeHtml, IconFileTypeRs, IconFileTypeSvg,
-  IconFileTypePng, IconFileTypeJpg, IconFileTypeSql, IconFileTypeTxt,
-  IconFileTypeXml, IconFileTypeVue, IconFileTypePhp, IconFileTypeCsv,
-  IconFileCode, IconFileText, IconFile, IconBrandPython, IconBrandGolang,
+  IconChevronRight,
 } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 import { useDiffStore } from '@/stores/diffStore'
+import { FileTypeIcon } from '@/components/file-tree/FileTypeIcon'
 import { isFileMutation } from './tool-call-utils'
 import type { ToolCall } from '@/types'
 import type { ChangedFilesRow } from '@/lib/timeline'
@@ -32,30 +27,6 @@ interface DirGroup {
 }
 
 const MAX_VISIBLE_FILES = 30
-
-// ── File icon map (Tabler icons) ─────────────────────────────────
-
-type IconComponent = ComponentType<{ className?: string; 'aria-hidden'?: boolean }>
-
-const EXT_ICON_MAP: Record<string, IconComponent> = {
-  ts: IconFileTypeTs, tsx: IconFileTypeTsx,
-  js: IconFileTypeJs, jsx: IconFileTypeJsx,
-  json: IconFileCode, css: IconFileTypeCss,
-  html: IconFileTypeHtml, rs: IconFileTypeRs,
-  svg: IconFileTypeSvg, png: IconFileTypePng,
-  jpg: IconFileTypeJpg, sql: IconFileTypeSql,
-  txt: IconFileTypeTxt, xml: IconFileTypeXml,
-  vue: IconFileTypeVue, php: IconFileTypePhp,
-  csv: IconFileTypeCsv, py: IconBrandPython,
-  go: IconBrandGolang, md: IconFileText,
-  yaml: IconFileCode, yml: IconFileCode,
-  toml: IconFileCode, sh: IconFileCode,
-  lock: IconFileCode, log: IconFileText,
-}
-
-function getFileIcon(ext: string): IconComponent {
-  return EXT_ICON_MAP[ext] ?? IconFile
-}
 
 // ── Pure helpers ─────────────────────────────────────────────────
 
@@ -179,7 +150,6 @@ const Stats = memo(function Stats({ additions, deletions }: { additions: number;
 })
 
 const FileRow = memo(function FileRow({ file, depth, onClick }: { file: FileStats; depth: number; onClick: (path: string) => void }) {
-  const FileIcon = getFileIcon(file.ext)
   return (
     <button
       type="button"
@@ -188,7 +158,7 @@ const FileRow = memo(function FileRow({ file, depth, onClick }: { file: FileStat
       style={{ paddingLeft: depth * 14 + 8 }}
     >
       <span aria-hidden className="size-3.5 shrink-0" />
-      <FileIcon className="shrink-0 size-3.5 text-muted-foreground" aria-hidden />
+      <FileTypeIcon name={file.name} isDir={false} className="size-3.5" />
       <span className="truncate font-mono text-[12px] text-foreground/80 group-hover:text-foreground/90">
         {file.name}
       </span>
@@ -312,9 +282,12 @@ export const ChangedFilesSummary = memo(function ChangedFilesSummary({ row }: { 
                     )}
                     aria-hidden
                   />
-                  {isDirCollapsed
-                    ? <IconFolder className="size-3.5 shrink-0 text-foreground/60" aria-hidden />
-                    : <IconFolderOpen className="size-3.5 shrink-0 text-foreground/60" aria-hidden />}
+                  <FileTypeIcon
+                    name={group.dir.split('/').pop() ?? group.dir}
+                    isDir
+                    isExpanded={!isDirCollapsed}
+                    className="size-3.5"
+                  />
                   <span className="truncate font-mono text-[12px] text-foreground/70 group-hover:text-foreground/80">
                     {group.dir}
                   </span>

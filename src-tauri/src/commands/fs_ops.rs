@@ -27,14 +27,27 @@ pub fn detect_kiro_cli() -> Option<String> {
 
 #[tauri::command]
 pub fn read_text_file(path: String) -> Option<String> {
-    std::fs::read_to_string(path).ok()
+    log::info!("[fs] read_text_file called with path: {}", path);
+    match std::fs::read_to_string(&path) {
+        Ok(content) => Some(content),
+        Err(e) => {
+            log::warn!("[fs] read_text_file failed for '{}': {}", path, e);
+            None
+        }
+    }
 }
 
 #[tauri::command]
 pub fn read_file_base64(path: String) -> Option<String> {
+    log::info!("[fs] read_file_base64 called with path: {}", path);
     use base64::Engine;
-    let bytes = std::fs::read(path).ok()?;
-    Some(base64::engine::general_purpose::STANDARD.encode(&bytes))
+    match std::fs::read(&path) {
+        Ok(bytes) => Some(base64::engine::general_purpose::STANDARD.encode(&bytes)),
+        Err(e) => {
+            log::warn!("[fs] read_file_base64 failed for '{}': {}", path, e);
+            None
+        }
+    }
 }
 
 #[tauri::command]
@@ -545,7 +558,7 @@ fn list_via_git2(root: &Path) -> Option<Vec<ProjectFile>> {
     opts.include_untracked(true)
         .recurse_untracked_dirs(true)
         .include_unmodified(true)
-        .exclude_submodules(true);
+        .exclude_submodules(false);
     let statuses = repo.statuses(Some(&mut opts)).ok()?;
 
     // Collect per-file line deltas from diffs
@@ -591,6 +604,23 @@ fn list_via_git2(root: &Path) -> Option<Vec<ProjectFile>> {
         let Some(path_str) = entry.path() else { continue };
         let rel = Path::new(path_str);
 
+        // Check if this entry is actually a directory on disk (e.g., submodule)
+        let full_path = root.join(path_str);
+        if full_path.is_dir() {
+            if !seen_dirs.insert(path_str.to_string()) { continue; }
+            let name = rel.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+            if is_ignored_dir(&name) { continue; }
+            let dir = rel.parent().map(|p| p.to_string_lossy().replace('\\', "/")).unwrap_or_default();
+            add_ancestors(rel, &mut files, &mut seen_dirs, root);
+            let mtime = file_mtime(&full_path);
+            seen_files.insert(path_str.to_string());
+            files.push(ProjectFile {
+                path: path_str.to_string(), name, dir, is_dir: true, ext: String::new(),
+                git_status: String::new(), lines_added: 0, lines_deleted: 0, modified_at: mtime,
+            });
+            continue;
+        }
+
         add_ancestors(rel, &mut files, &mut seen_dirs, root);
 
         let name = rel.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
@@ -601,7 +631,7 @@ fn list_via_git2(root: &Path) -> Option<Vec<ProjectFile>> {
         let delta = line_deltas.get(path_str).copied().unwrap_or_default();
         // Only call file_mtime for changed files — clean files get 0 (saves a syscall per file)
         let is_changed = !git_status.is_empty();
-        let mtime = if is_changed { file_mtime(&root.join(path_str)) } else { 0 };
+        let mtime = if is_changed { file_mtime(&full_path) } else { 0 };
 
         seen_files.insert(path_str.to_string());
         files.push(ProjectFile {
@@ -620,20 +650,93 @@ fn list_via_git2(root: &Path) -> Option<Vec<ProjectFile>> {
             let name = rel.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
             let dir = rel.parent().map(|p| p.to_string_lossy().replace('\\', "/")).unwrap_or_default();
             if dir.split('/').any(|part| is_ignored_dir(part)) { continue; }
-            let ext = rel.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default();
 
-            add_ancestors(rel, &mut files, &mut seen_dirs, root);
+            // Detect submodules (mode 0o160000) or entries that are directories on disk
+            let is_submodule = entry.mode == 0o160000;
+            let full_path = root.join(&path_str);
+            let is_dir = is_submodule || full_path.is_dir();
 
-            // These are tracked but clean — check status_map just in case
-            let git_status = status_map.get(&path_str).map(|s| git_status_label(*s)).unwrap_or_default();
-            let delta = line_deltas.get(&path_str).copied().unwrap_or_default();
-            // Skip mtime for clean index entries (no git status change)
-            let mtime = if !git_status.is_empty() { file_mtime(&root.join(&path_str)) } else { 0 };
-            seen_files.insert(path_str.clone());
+            if is_dir {
+                // Treat as a directory entry
+                if !seen_dirs.insert(path_str.clone()) { continue; }
+                if is_ignored_dir(&name) { continue; }
+                add_ancestors(rel, &mut files, &mut seen_dirs, root);
+                let mtime = file_mtime(&full_path);
+                seen_files.insert(path_str.clone());
+                files.push(ProjectFile {
+                    path: path_str, name, dir, is_dir: true, ext: String::new(),
+                    git_status: String::new(), lines_added: 0, lines_deleted: 0, modified_at: mtime,
+                });
+            } else {
+                let ext = rel.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default();
+                add_ancestors(rel, &mut files, &mut seen_dirs, root);
+
+                // These are tracked but clean — check status_map just in case
+                let git_status = status_map.get(&path_str).map(|s| git_status_label(*s)).unwrap_or_default();
+                let delta = line_deltas.get(&path_str).copied().unwrap_or_default();
+                // Skip mtime for clean index entries (no git status change)
+                let mtime = if !git_status.is_empty() { file_mtime(&full_path) } else { 0 };
+                seen_files.insert(path_str.clone());
+                files.push(ProjectFile {
+                    path: path_str, name, dir, is_dir: false, ext, git_status,
+                    lines_added: delta.added, lines_deleted: delta.deleted, modified_at: mtime,
+                });
+            }
+        }
+    }
+
+    // Third pass: recurse into directories that have no children listed.
+    // This handles submodules, nested git repos, and any directory the parent
+    // repo's index doesn't track into (e.g., gitignored dirs with content).
+    // Cap at 5 submodule recursions and 1000 files per submodule to avoid
+    // expensive traversals of large submodules.
+    const MAX_SUBMODULE_RECURSIONS: usize = 5;
+    const MAX_FILES_PER_SUBMODULE: usize = 1000;
+    let dirs_with_children: std::collections::HashSet<String> = files.iter()
+        .filter(|f| !f.dir.is_empty())
+        .map(|f| f.dir.clone())
+        .collect();
+    let empty_dirs: Vec<String> = files.iter()
+        .filter(|f| f.is_dir && !dirs_with_children.contains(&f.path))
+        .map(|f| f.path.clone())
+        .collect();
+    let mut recursion_count = 0;
+    for sub_dir in empty_dirs {
+        if files.len() >= MAX_FILES { break; }
+        if recursion_count >= MAX_SUBMODULE_RECURSIONS { break; }
+        let sub_root = root.join(&sub_dir);
+        if !sub_root.is_dir() { continue; }
+        recursion_count += 1;
+        let sub_files = list_via_walk(&sub_root, true);
+        let mut sub_file_count = 0;
+        for sf in sub_files {
+            if files.len() >= MAX_FILES { break; }
+            if sub_file_count >= MAX_FILES_PER_SUBMODULE { break; }
+            // Prefix the sub-relative path with the directory
+            let prefixed_path = format!("{}/{}", sub_dir, sf.path);
+            let prefixed_dir = if sf.dir.is_empty() {
+                sub_dir.clone()
+            } else {
+                format!("{}/{}", sub_dir, sf.dir)
+            };
+            if sf.is_dir {
+                if !seen_dirs.insert(prefixed_path.clone()) { continue; }
+            } else {
+                if seen_files.contains(&prefixed_path) { continue; }
+                seen_files.insert(prefixed_path.clone());
+            }
             files.push(ProjectFile {
-                path: path_str, name, dir, is_dir: false, ext, git_status,
-                lines_added: delta.added, lines_deleted: delta.deleted, modified_at: mtime,
+                path: prefixed_path,
+                name: sf.name,
+                dir: prefixed_dir,
+                is_dir: sf.is_dir,
+                ext: sf.ext,
+                git_status: sf.git_status,
+                lines_added: sf.lines_added,
+                lines_deleted: sf.lines_deleted,
+                modified_at: sf.modified_at,
             });
+            sub_file_count += 1;
         }
     }
 

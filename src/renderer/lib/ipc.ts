@@ -145,6 +145,8 @@ export const ipc = {
     invoke('pty_count'),
   getKiroConfig: (projectPath?: string): Promise<KiroConfig> =>
     invoke('get_kiro_config', { projectPath }),
+  saveMcpServerConfig: (filePath: string, serverName: string, patch: { disabled?: boolean; disabledTools?: string[] }): Promise<void> =>
+    invoke('save_mcp_server_config', { filePath, serverName, patch }),
   watchKiroPath: (path: string): Promise<void> =>
     invoke('watch_kiro_path', { path }),
   unwatchKiroPath: (path: string): Promise<void> =>

@@ -215,6 +215,7 @@ export interface KiroMcpServer {
   args?: string[]
   url?: string
   error?: string
+  disabledTools?: string[]
   filePath: string
   status?: 'connecting' | 'ready' | 'needs-auth' | 'error'
   oauthUrl?: string

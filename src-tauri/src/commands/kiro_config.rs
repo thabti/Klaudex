@@ -2,6 +2,8 @@ use serde::Serialize;
 use std::fs;
 use std::path::Path;
 
+use super::error::AppError;
+
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct KiroAgent {
@@ -44,6 +46,8 @@ pub struct KiroMcpServer {
     pub url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disabled_tools: Option<Vec<String>>,
     pub file_path: String,
 }
 
@@ -191,12 +195,13 @@ fn scan_root_steering(kiro_dir: &Path, is_global: bool, existing: &[KiroSteering
         .collect()
 }
 
-fn load_mcp_file(file_path: &Path, enabled: bool, out: &mut Vec<KiroMcpServer>) {
+fn load_mcp_file(file_path: &Path, out: &mut Vec<KiroMcpServer>) {
     let Ok(content) = fs::read_to_string(file_path) else { return };
     let Ok(raw) = serde_json::from_str::<serde_json::Value>(&content) else { return };
     let Some(servers) = raw.get("mcpServers").and_then(|v| v.as_object()) else { return };
     let fp = file_path.to_string_lossy().to_string();
     for (name, cfg) in servers {
+        let disabled = cfg.get("disabled").and_then(|v| v.as_bool()).unwrap_or(false);
         let has_url = cfg.get("url").and_then(|v| v.as_str()).is_some();
         let has_command = cfg.get("command").and_then(|v| v.as_str()).is_some();
         let error = if !has_url && !has_command {
@@ -207,9 +212,12 @@ fn load_mcp_file(file_path: &Path, enabled: bool, out: &mut Vec<KiroMcpServer>) 
         } else {
             None
         };
+        let disabled_tools = cfg.get("disabledTools").and_then(|v| v.as_array()).map(|a| {
+            a.iter().filter_map(|v| v.as_str().map(String::from)).collect()
+        });
         out.push(KiroMcpServer {
             name: name.clone(),
-            enabled,
+            enabled: !disabled,
             transport: if has_url { "http".to_string() } else { "stdio".to_string() },
             command: cfg.get("command").and_then(|v| v.as_str()).map(String::from),
             args: cfg.get("args").and_then(|v| v.as_array()).map(|a| {
@@ -217,6 +225,7 @@ fn load_mcp_file(file_path: &Path, enabled: bool, out: &mut Vec<KiroMcpServer>) 
             }),
             url: cfg.get("url").and_then(|v| v.as_str()).map(String::from),
             error,
+            disabled_tools,
             file_path: fp.clone(),
         });
     }
@@ -231,8 +240,7 @@ pub fn get_kiro_config(project_path: Option<String>) -> KiroConfig {
         config.agents.extend(scan_agents(&global_kiro, true));
         config.skills.extend(scan_skills(&global_kiro, true));
         config.steering_rules.extend(scan_steering(&global_kiro, true));
-        load_mcp_file(&global_kiro.join("settings").join("mcp.json"), true, &mut config.mcp_servers);
-        load_mcp_file(&global_kiro.join("settings").join("mcp-disabled.json"), false, &mut config.mcp_servers);
+        load_mcp_file(&global_kiro.join("settings").join("mcp.json"), &mut config.mcp_servers);
     }
 
     if let Some(ref project) = project_path {
@@ -242,11 +250,59 @@ pub fn get_kiro_config(project_path: Option<String>) -> KiroConfig {
         config.steering_rules.extend(scan_steering(&local_kiro, false));
         let root_rules = scan_root_steering(&local_kiro, false, &config.steering_rules);
         config.steering_rules.extend(root_rules);
-        load_mcp_file(&local_kiro.join("settings").join("mcp.json"), true, &mut config.mcp_servers);
-        load_mcp_file(&local_kiro.join("settings").join("mcp-disabled.json"), false, &mut config.mcp_servers);
+        load_mcp_file(&local_kiro.join("settings").join("mcp.json"), &mut config.mcp_servers);
     }
 
     config
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpServerPatch {
+    pub disabled: Option<bool>,
+    pub disabled_tools: Option<Vec<String>>,
+}
+
+#[tauri::command]
+pub fn save_mcp_server_config(file_path: String, server_name: String, patch: McpServerPatch) -> Result<(), AppError> {
+    let path = Path::new(&file_path);
+
+    // Validate that the file path is within a .kiro/settings directory and is an mcp.json file
+    let canonical = path.canonicalize().map_err(|e| AppError::Other(format!("Invalid path '{}': {}", file_path, e)))?;
+    let file_name = canonical.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    let parent = canonical.parent().and_then(|p| p.file_name()).and_then(|n| n.to_str()).unwrap_or("");
+    let grandparent = canonical.parent().and_then(|p| p.parent()).and_then(|p| p.file_name()).and_then(|n| n.to_str()).unwrap_or("");
+    if file_name != "mcp.json" || parent != "settings" || grandparent != ".kiro" {
+        return Err(AppError::Other(format!(
+            "Refusing to write '{}': path must be a .kiro/settings/mcp.json file", file_path
+        )));
+    }
+
+    let content = fs::read_to_string(path)?;
+    let mut root: serde_json::Value = serde_json::from_str(&content)?;
+    let server = root
+        .get_mut("mcpServers")
+        .and_then(|v| v.as_object_mut())
+        .and_then(|m| m.get_mut(&server_name))
+        .and_then(|v| v.as_object_mut())
+        .ok_or_else(|| AppError::Other(format!("Server '{server_name}' not found in {file_path}")))?;
+    if let Some(disabled) = patch.disabled {
+        if disabled {
+            server.insert("disabled".to_string(), serde_json::Value::Bool(true));
+        } else {
+            server.remove("disabled");
+        }
+    }
+    if let Some(tools) = patch.disabled_tools {
+        if tools.is_empty() {
+            server.remove("disabledTools");
+        } else {
+            server.insert("disabledTools".to_string(), serde_json::json!(tools));
+        }
+    }
+    let out = serde_json::to_string_pretty(&root)?;
+    fs::write(path, out)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -365,7 +421,7 @@ mod tests {
         let f = tmp.path().join("mcp.json");
         std::fs::write(&f, r#"{"mcpServers": {"slack": {"command": "slack-mcp", "args": ["--token", "abc"]}}}"#).unwrap();
         let mut servers = Vec::new();
-        super::load_mcp_file(&f, true, &mut servers);
+        super::load_mcp_file(&f, &mut servers);
         assert_eq!(servers.len(), 1);
         assert_eq!(servers[0].name, "slack");
         assert!(servers[0].enabled);
@@ -379,9 +435,29 @@ mod tests {
         let f = tmp.path().join("mcp.json");
         std::fs::write(&f, r#"{"mcpServers": {"gh": {"url": "https://gh.mcp"}}}"#).unwrap();
         let mut servers = Vec::new();
-        super::load_mcp_file(&f, false, &mut servers);
+        super::load_mcp_file(&f, &mut servers);
         assert_eq!(servers[0].transport, "http");
+        assert!(servers[0].enabled);
+    }
+
+    #[test]
+    fn load_mcp_file_disabled_field() {
+        let tmp = tempfile::tempdir().unwrap();
+        let f = tmp.path().join("mcp.json");
+        std::fs::write(&f, r#"{"mcpServers": {"slack": {"command": "slack-mcp", "disabled": true}}}"#).unwrap();
+        let mut servers = Vec::new();
+        super::load_mcp_file(&f, &mut servers);
         assert!(!servers[0].enabled);
+    }
+
+    #[test]
+    fn load_mcp_file_parses_disabled_tools() {
+        let tmp = tempfile::tempdir().unwrap();
+        let f = tmp.path().join("mcp.json");
+        std::fs::write(&f, r#"{"mcpServers": {"slack": {"command": "slack-mcp", "disabledTools": ["post_message", "delete_message"]}}}"#).unwrap();
+        let mut servers = Vec::new();
+        super::load_mcp_file(&f, &mut servers);
+        assert_eq!(servers[0].disabled_tools.as_deref(), Some(&["post_message".to_string(), "delete_message".to_string()][..]));
     }
 
     #[test]
@@ -390,7 +466,7 @@ mod tests {
         let f = tmp.path().join("mcp.json");
         std::fs::write(&f, r#"{"mcpServers": {"broken": {}}}"#).unwrap();
         let mut servers = Vec::new();
-        super::load_mcp_file(&f, true, &mut servers);
+        super::load_mcp_file(&f, &mut servers);
         assert_eq!(servers[0].error.as_deref(), Some("Missing command or url"));
     }
 
@@ -400,14 +476,14 @@ mod tests {
         let f = tmp.path().join("mcp.json");
         std::fs::write(&f, r#"{"mcpServers": {"bad": {"url": "not-a-url"}}}"#).unwrap();
         let mut servers = Vec::new();
-        super::load_mcp_file(&f, true, &mut servers);
+        super::load_mcp_file(&f, &mut servers);
         assert_eq!(servers[0].error.as_deref(), Some("Invalid url"));
     }
 
     #[test]
     fn load_mcp_file_nonexistent_is_noop() {
         let mut servers = Vec::new();
-        super::load_mcp_file(std::path::Path::new("/nonexistent/mcp.json"), true, &mut servers);
+        super::load_mcp_file(std::path::Path::new("/nonexistent/mcp.json"), &mut servers);
         assert!(servers.is_empty());
     }
 
@@ -424,5 +500,68 @@ mod tests {
         let (always_apply, excerpt) = super::parse_steering_frontmatter(input);
         assert!(always_apply);
         assert_eq!(excerpt, "");
+    }
+
+    #[test]
+    fn save_mcp_server_config_sets_disabled() {
+        let tmp = tempfile::tempdir().unwrap();
+        let settings_dir = tmp.path().join(".kiro").join("settings");
+        std::fs::create_dir_all(&settings_dir).unwrap();
+        let f = settings_dir.join("mcp.json");
+        std::fs::write(&f, r#"{"mcpServers": {"slack": {"command": "slack-mcp"}}}"#).unwrap();
+        let patch = super::McpServerPatch { disabled: Some(true), disabled_tools: None };
+        super::save_mcp_server_config(f.to_string_lossy().to_string(), "slack".to_string(), patch).unwrap();
+        let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&f).unwrap()).unwrap();
+        assert_eq!(content["mcpServers"]["slack"]["disabled"], true);
+        assert_eq!(content["mcpServers"]["slack"]["command"], "slack-mcp");
+    }
+
+    #[test]
+    fn save_mcp_server_config_removes_disabled_on_enable() {
+        let tmp = tempfile::tempdir().unwrap();
+        let settings_dir = tmp.path().join(".kiro").join("settings");
+        std::fs::create_dir_all(&settings_dir).unwrap();
+        let f = settings_dir.join("mcp.json");
+        std::fs::write(&f, r#"{"mcpServers": {"slack": {"command": "slack-mcp", "disabled": true}}}"#).unwrap();
+        let patch = super::McpServerPatch { disabled: Some(false), disabled_tools: None };
+        super::save_mcp_server_config(f.to_string_lossy().to_string(), "slack".to_string(), patch).unwrap();
+        let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&f).unwrap()).unwrap();
+        assert!(content["mcpServers"]["slack"].get("disabled").is_none());
+    }
+
+    #[test]
+    fn save_mcp_server_config_sets_disabled_tools() {
+        let tmp = tempfile::tempdir().unwrap();
+        let settings_dir = tmp.path().join(".kiro").join("settings");
+        std::fs::create_dir_all(&settings_dir).unwrap();
+        let f = settings_dir.join("mcp.json");
+        std::fs::write(&f, r#"{"mcpServers": {"slack": {"command": "slack-mcp"}}}"#).unwrap();
+        let patch = super::McpServerPatch { disabled: None, disabled_tools: Some(vec!["post_message".to_string()]) };
+        super::save_mcp_server_config(f.to_string_lossy().to_string(), "slack".to_string(), patch).unwrap();
+        let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&f).unwrap()).unwrap();
+        assert_eq!(content["mcpServers"]["slack"]["disabledTools"][0], "post_message");
+    }
+
+    #[test]
+    fn save_mcp_server_config_removes_disabled_tools_on_empty() {
+        let tmp = tempfile::tempdir().unwrap();
+        let settings_dir = tmp.path().join(".kiro").join("settings");
+        std::fs::create_dir_all(&settings_dir).unwrap();
+        let f = settings_dir.join("mcp.json");
+        std::fs::write(&f, r#"{"mcpServers": {"slack": {"command": "slack-mcp", "disabledTools": ["x"]}}}"#).unwrap();
+        let patch = super::McpServerPatch { disabled: None, disabled_tools: Some(vec![]) };
+        super::save_mcp_server_config(f.to_string_lossy().to_string(), "slack".to_string(), patch).unwrap();
+        let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&f).unwrap()).unwrap();
+        assert!(content["mcpServers"]["slack"].get("disabledTools").is_none());
+    }
+
+    #[test]
+    fn save_mcp_server_config_rejects_non_kiro_path() {
+        let tmp = tempfile::tempdir().unwrap();
+        let f = tmp.path().join("evil.json");
+        std::fs::write(&f, r#"{"mcpServers": {"slack": {"command": "slack-mcp"}}}"#).unwrap();
+        let patch = super::McpServerPatch { disabled: Some(true), disabled_tools: None };
+        let result = super::save_mcp_server_config(f.to_string_lossy().to_string(), "slack".to_string(), patch);
+        assert!(result.is_err());
     }
 }

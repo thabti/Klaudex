@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/ipc', () => ({
   ipc: {
     getKiroConfig: vi.fn().mockResolvedValue({ agents: [], skills: [], steeringRules: [], mcpServers: [] }),
+    saveMcpServerConfig: vi.fn().mockResolvedValue(undefined),
     onMcpConnecting: vi.fn().mockReturnValue(() => {}),
     onMcpUpdate: vi.fn().mockReturnValue(() => {}),
     onKiroConfigChanged: vi.fn().mockReturnValue(() => {}),

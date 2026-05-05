@@ -590,6 +590,7 @@ pub fn run() {
             pty::pty_count,
             // Kiro config
             kiro_config::get_kiro_config,
+            kiro_config::save_mcp_server_config,
             // Kiro watcher
             kiro_watcher::watch_kiro_path,
             kiro_watcher::unwatch_kiro_path,
