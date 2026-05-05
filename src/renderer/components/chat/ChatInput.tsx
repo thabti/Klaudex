@@ -149,7 +149,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
               'hover:border-muted-foreground/30',
             )}
           >
-            <span className="text-[13px] text-muted-foreground">Type a message…</span>
+            <span className="text-muted-foreground" style={{ fontSize: 'var(--chat-font-size, 13px)' }}>Type a message…</span>
             <IconChevronUp className="size-4 text-muted-foreground/80" />
           </button>
         </div>

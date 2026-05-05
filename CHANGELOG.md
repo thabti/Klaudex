@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Add **Inline tool calls** setting (Appearance → Chat layout). When enabled, each tool entry renders between paragraphs of the assistant's reply at the moment the agent ran it, similar to inline editor agents. When disabled (the default), tool calls collapse into a single card after the reply as before.
+
+### Behavior changes
+
+- Persisted threads now retain `toolCalls` and their inline anchors (`toolCallSplits`) on every assistant message. Previously tool activity was dropped on save, so reloaded threads showed bare assistant text. Existing on-disk threads are read back as-is — only newly persisted messages carry the additional fields.
+
 ## [v0.40.4] - 2026-04-29
 
 ### Bug fixes

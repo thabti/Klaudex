@@ -24,8 +24,6 @@ export default defineConfig({
         'src/renderer/**/*.test.{ts,tsx}',
         // IPC layer (requires Tauri runtime)
         'src/renderer/lib/ipc.ts',
-        'src/renderer/lib/shiki-stub.ts',
-        'src/renderer/lib/shikijs-transformers-stub.ts',
         // Heavy integration components (deep Tauri IPC, PTY, xterm, shiki deps)
         'src/renderer/components/settings/SettingsPanel.tsx',
         'src/renderer/components/chat/ChatPanel.tsx',

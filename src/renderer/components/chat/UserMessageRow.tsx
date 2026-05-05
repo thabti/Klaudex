@@ -8,7 +8,7 @@ import {
 import { CollapsedAnswers } from './CollapsedAnswers'
 import { highlightNode, SearchQueryContext } from './HighlightText'
 import { useDiffStore } from '@/stores/diffStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore, selectChatFontSize } from '@/stores/settingsStore'
 import type { UserMessageRow as UserMessageRowData } from '@/lib/timeline'
 
 /** Match all @mentions: @agent:name, @skill:name, @file/paths */
@@ -110,7 +110,7 @@ const AttachmentPill = memo(function AttachmentPill({ name, type, src }: { name:
 })
 
 export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserMessageRowData }) {
-  const chatFontSize = useSettingsStore((s) => s.settings.fontSize ?? 14)
+  const chatFontSize = useSettingsStore(selectChatFontSize)
   const [copied, setCopied] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchQuery = useContext(SearchQueryContext)

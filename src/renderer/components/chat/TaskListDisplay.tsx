@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import {
   IconCircleCheck, IconCircle, IconListCheck,
   IconChevronDown, IconChevronRight,
@@ -102,22 +102,45 @@ export function aggregateLatestTasks(allToolCalls: ToolCall[]): { tasks: TaskIte
 
 interface TaskListDisplayProps {
   allToolCalls: ToolCall[]
+  /** When true, start collapsed and cap the expanded body at ~3 tasks with scroll. */
+  compact?: boolean
 }
 
-export const TaskListDisplay = memo(function TaskListDisplay({ allToolCalls }: TaskListDisplayProps) {
-  const [expanded, setExpanded] = useState(true)
+/** Approximate row height used to size the scroll cap to ~3 visible tasks. */
+const COMPACT_VISIBLE_ROWS = 3
+const ROW_PX = 28 // matches py-1 + leading-[1.6] for a single-line task
 
-  const { tasks, description } = aggregateLatestTasks(allToolCalls)
+export const TaskListDisplay = memo(function TaskListDisplay({ allToolCalls, compact = false }: TaskListDisplayProps) {
+  const [expanded, setExpanded] = useState(!compact)
+
+  const { tasks, description } = useMemo(() => aggregateLatestTasks(allToolCalls), [allToolCalls])
+
+  // When new tasks arrive (or the agent ticks one off), scroll the next
+  // incomplete task into view inside the compact scroll viewport so the
+  // "currently working on" row stays visible.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const firstIncompleteIndex = useMemo(
+    () => tasks.findIndex((t) => !t.completed),
+    [tasks],
+  )
+  useEffect(() => {
+    if (!compact || !expanded) return
+    if (firstIncompleteIndex < 0) return
+    const el = scrollRef.current?.querySelector<HTMLElement>(`[data-task-index="${firstIncompleteIndex}"]`)
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [compact, expanded, firstIncompleteIndex])
+
   if (!tasks.length) return null
 
   const completed = tasks.filter((t) => t.completed).length
+  const maxBodyPx = COMPACT_VISIBLE_ROWS * ROW_PX + 16 // + py-2 padding
 
   return (
     <div className="rounded-lg border border-border/60 bg-card/60">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left transition-colors hover:bg-accent/5"
+        className="flex w-full items-center gap-2 px-3.5 py-2 text-left transition-colors hover:bg-accent/5"
       >
         {expanded ? (
           <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground/70" />
@@ -133,9 +156,17 @@ export const TaskListDisplay = memo(function TaskListDisplay({ allToolCalls }: T
         </span>
       </button>
       {expanded && (
-        <div className="border-t border-border/50 px-3 py-2">
-          {tasks.map((task) => (
-            <div key={task.id} className="flex items-start gap-2 px-1.5 py-1">
+        <div
+          ref={scrollRef}
+          className="overflow-y-auto border-t border-border/50 px-3 py-2"
+          style={compact ? { maxHeight: `${maxBodyPx}px` } : undefined}
+        >
+          {tasks.map((task, idx) => (
+            <div
+              key={task.id}
+              data-task-index={idx}
+              className="flex items-start gap-2 px-1.5 py-1"
+            >
               {task.completed
                 ? <IconCircleCheck className="mt-0.5 size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                 : <IconCircle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />

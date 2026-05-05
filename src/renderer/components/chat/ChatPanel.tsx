@@ -15,17 +15,28 @@ import { SearchBar } from './SearchBar'
 import { SearchQueryContext } from './HighlightText'
 import { BtwOverlay } from './BtwOverlay'
 import { PanelProvider } from './PanelContext'
+import { StickyTaskList } from './StickyTaskList'
 import { useMessageSearch } from '@/hooks/useMessageSearch'
 import { ipc } from '@/lib/ipc'
 import { record } from '@/lib/analytics-collector'
-import type { TaskMessage, ToolCall, IpcAttachment } from '@/types'
-import type { QueuedMessage } from '@/stores/task-store-types'
+import {
+  EMPTY_MESSAGES,
+  EMPTY_TOOL_CALLS,
+  EMPTY_TOOL_SPLITS,
+  EMPTY_OPTIONS,
+  EMPTY_QUEUE,
+  deriveInputState,
+  shouldQueueMessage,
+  isTaskRunning,
+  isPanelFocused,
+  isBtwModeActive,
+  needsNewConnection,
+  extractProjectName,
+  buildUserMessage,
+  captureDispatchSnapshot,
+} from './ChatPanel.logic'
+import type { IpcAttachment } from '@/types'
 import type { TimelineRow } from '@/lib/timeline'
-
-const EMPTY_MESSAGES: TaskMessage[] = []
-const EMPTY_TOOL_CALLS: ToolCall[] = []
-const EMPTY_OPTIONS: Array<{ optionId: string; name: string; kind: string }> = []
-const EMPTY_QUEUE: QueuedMessage[] = []
 
 /**
  * Owns the streaming selectors so ChatPanel doesn't re-render on every token.
@@ -48,7 +59,9 @@ const StreamingMessageList = memo(function StreamingMessageList({
   const messages = useTaskStore((s) => resolvedId ? s.tasks[resolvedId]?.messages ?? EMPTY_MESSAGES : EMPTY_MESSAGES)
   const streamingChunk = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? '' : resolvedId ? s.streamingChunks[resolvedId] ?? '' : '')
   const liveToolCalls = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? EMPTY_TOOL_CALLS : resolvedId ? s.liveToolCalls[resolvedId] ?? EMPTY_TOOL_CALLS : EMPTY_TOOL_CALLS)
+  const liveToolSplits = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? EMPTY_TOOL_SPLITS : resolvedId ? s.liveToolSplits[resolvedId] ?? EMPTY_TOOL_SPLITS : EMPTY_TOOL_SPLITS)
   const liveThinking = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? '' : resolvedId ? s.thinkingChunks[resolvedId] ?? '' : '')
+  const inlineToolCalls = useSettingsStore((s) => s.settings.inlineToolCalls === true)
 
   return (
     <MessageList
@@ -56,8 +69,10 @@ const StreamingMessageList = memo(function StreamingMessageList({
       messages={messages}
       streamingChunk={streamingChunk}
       liveToolCalls={liveToolCalls}
+      liveToolSplits={liveToolSplits}
       liveThinking={liveThinking}
       isRunning={isRunning}
+      inlineToolCalls={inlineToolCalls}
       searchMatchIds={searchMatchIds}
       activeMatchId={activeMatchId}
       onTimelineRows={onTimelineRows}
@@ -70,17 +85,23 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
   const state = useTaskStore.getState()
   const task = state.tasks[targetTaskId]
   if (!task) return
-  const isDraft = task.messages.length === 0 && task.status === 'paused'
-  const needsNewConnection = task.needsNewConnection === true
+  const shouldCreateNew = needsNewConnection(task)
 
-  const userMsg = { role: 'user' as const, content: msg, timestamp: new Date().toISOString() }
+  // Capture the dispatch snapshot BEFORE we mutate the task. The snapshot
+  // records the pre-send state (status, message count, streaming buffer)
+  // so the UI can derive a "Sending… → Agent starting… → streaming" phase
+  // without polling. The turn_end listener clears the snapshot.
+  const streamingChunk = state.streamingChunks[targetTaskId] ?? ''
+  state.setDispatchSnapshot(targetTaskId, captureDispatchSnapshot(task, streamingChunk))
+
+  const userMsg = buildUserMessage(msg)
   state.upsertTask({ ...task, status: 'running', messages: [...task.messages, userMsg] })
   state.clearTurn(task.id)
 
-  const proj = (task.originalWorkspace ?? task.workspace).replace(/\\/g, '/').split('/').pop() ?? ''
+  const proj = extractProjectName(task)
   record('message_sent', { project: proj, thread: task.id, value: msg.split(/\s+/).filter(Boolean).length })
 
-  if (isDraft || needsNewConnection) {
+  if (shouldCreateNew) {
     const { settings, currentModeId } = useSettingsStore.getState()
     const taskState = useTaskStore.getState()
     const projectRoot = task.originalWorkspace ?? task.workspace
@@ -96,6 +117,12 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
     const resolvedMode = taskState.taskModes[targetTaskId] ?? currentModeId
     if (resolvedMode && resolvedMode !== 'kiro_default') {
       useTaskStore.getState().setTaskMode(created.id, resolvedMode)
+    }
+    // Re-key the dispatch snapshot from the draft id to the backend-assigned
+    // id atomically so a concurrent `turn_end` event can't observe the
+    // snapshot missing from both keys.
+    if (created.id !== targetTaskId) {
+      useTaskStore.getState().rekeyDispatchSnapshot(targetTaskId, created.id)
     }
     state.setSelectedTask(created.id)
   } else {
@@ -143,15 +170,9 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
   const terminalOpen = useTaskStore((s) => resolvedTaskId ? s.terminalOpenTasks.has(resolvedTaskId) : false)
   const toggleTerminal = useTaskStore((s) => s.toggleTerminal)
   const queuedMessages = useTaskStore((s) => resolvedTaskId ? s.queuedMessages[resolvedTaskId] ?? EMPTY_QUEUE : EMPTY_QUEUE)
-  const isBtwMode = useTaskStore((s) => s.btwCheckpoint !== null && s.btwCheckpoint.taskId === resolvedTaskId)
+  const isBtwMode = useTaskStore((s) => isBtwModeActive(s.btwCheckpoint, resolvedTaskId))
   // In split view, determine if this panel is the focused one (for drag/drop scoping)
-  const isFocusedPanel = useTaskStore((s) => {
-    if (!s.activeSplitId || !taskIdProp) return true // not in split view = always active
-    const sv = s.splitViews.find((v) => v.id === s.activeSplitId)
-    if (!sv) return true
-    const focusedTaskId = s.focusedPanel === 'left' ? sv.left : sv.right
-    return focusedTaskId === taskIdProp
-  })
+  const isFocusedPanel = useTaskStore((s) => isPanelFocused(s.activeSplitId, taskIdProp, s.splitViews, s.focusedPanel))
 
   const timelineRowsRef = useRef<TimelineRow[]>([])
   const [timelineRows, setTimelineRows] = useState<TimelineRow[]>([])
@@ -193,7 +214,8 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
     const task = id ? state.tasks[id] : null
     if (!task || !id) return
 
-    if (task.status === 'running' && !(state.btwCheckpoint?.taskId === id)) {
+    const btwActive = isBtwModeActive(state.btwCheckpoint, id)
+    if (shouldQueueMessage(task, btwActive)) {
       state.enqueueMessage(task.id, msg, attachments)
       return
     }
@@ -249,8 +271,10 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
     )
   }
 
-  const isRunning = taskStatus === 'running'
-  const inputDisabled = isArchived || taskStatus === 'cancelled'
+  const isRunning = isTaskRunning(taskStatus)
+  const { disabled: inputDisabled, disabledReason } = deriveInputState(
+    resolvedTaskId ? { status: taskStatus, isArchived } : null,
+  )
 
   const searchQuery = search.isOpen ? search.query : ''
 
@@ -308,6 +332,8 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
           <QueuedMessages messages={queuedMessages} onRemove={handleRemoveQueued} onReorder={handleReorderQueued} onSteer={isRunning ? handleSteer : undefined} />
         )}
 
+        {!isArchived && <StickyTaskList taskId={resolvedTaskId} />}
+
         {isArchived ? (
           <div className="px-4 pb-4 pt-2 sm:px-6">
             <div className="mx-auto w-full max-w-3xl lg:max-w-4xl xl:max-w-5xl">
@@ -319,7 +345,7 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
         ) : (
           <ChatInput
             disabled={inputDisabled}
-            disabledReason={isArchived ? 'Previous session — view only' : taskStatus === 'cancelled' ? 'Task was cancelled' : undefined}
+            disabledReason={disabledReason}
             contextUsage={contextUsage}
             messageCount={messageCount}
             isRunning={isRunning}

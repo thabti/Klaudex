@@ -57,6 +57,7 @@ const defaultSettings: AppSettings = {
   kiroBin: 'kiro-cli',
   agentProfiles: [],
   fontSize: 14,
+  chatFontSize: 14,
   sidebarPosition: 'left',
   analyticsEnabled: true,
 }
@@ -111,6 +112,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     const keys: Array<keyof AppSettings> = [
       'kiroBin', 'defaultModel', 'autoApprove', 'respectGitignore',
       'coAuthor', 'coAuthorJsonReport', 'notifications', 'fontSize',
+      'chatFontSize',
       'sidebarPosition', 'analyticsEnabled', 'theme', 'customAppIcon',
     ]
     for (const k of keys) {
@@ -230,3 +232,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     })
   },
 }))
+
+/**
+ * Resolve the chat font size with fallback to the global UI font size.
+ * Use everywhere chat content (markdown, assistant text, user bubble, chat textarea) is rendered
+ * so that users on existing settings (no chatFontSize key) keep current behavior.
+ */
+export const selectChatFontSize = (s: { settings: AppSettings }): number =>
+  s.settings.chatFontSize ?? s.settings.fontSize ?? 14
