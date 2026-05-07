@@ -3,7 +3,7 @@ export type TaskStatus = 'running' | 'paused' | 'completed' | 'error' | 'cancell
 // ── Tool calls (matches ACP ToolCall / ToolCallUpdate) ────────────
 
 export type ToolKind = 'read' | 'edit' | 'delete' | 'move' | 'search' | 'execute' | 'think' | 'fetch' | 'switch_mode' | 'other'
-export type ToolCallStatus = 'pending' | 'in_progress' | 'completed' | 'failed'
+export type ToolCallStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled'
 
 export interface ToolCallLocation {
   path: string
@@ -35,6 +35,10 @@ export interface ToolCall {
    *  Used by the inline-tool-calls layout to order tool entries
    *  relative to the surrounding text. Optional for back-compat. */
   createdAt?: string
+  /** ISO timestamp of when the tool call reached a terminal status
+   *  (completed or failed). Used to compute and display the elapsed
+   *  duration on web/fetch tool entries. Optional for back-compat. */
+  completedAt?: string
 }
 
 /**
@@ -110,7 +114,10 @@ export interface AgentTask {
   userPaused?: boolean
   /** Task ID of the parent thread this was forked from */
   parentTaskId?: string
-  /** True for threads restored from persisted history (read-only) */
+  /** True for threads restored from persisted history. The thread renders
+   *  immediately but its kiro-cli ACP connection has been torn down — the
+   *  next send spawns a fresh subprocess (Zed-style stateless resumption)
+   *  and the historical transcript is replayed as preamble context. */
   isArchived?: boolean
   /** Path to the git worktree directory, if this thread uses one */
   worktreePath?: string

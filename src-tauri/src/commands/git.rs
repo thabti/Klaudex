@@ -399,6 +399,18 @@ pub fn git_staged_stats(cwd: String) -> Result<GitDiffStats, AppError> {
     Ok(stats)
 }
 
+/// Combined diff stats (staged + unstaged) for a task. Lets the renderer
+/// fetch stats by `taskId` instead of having to know the workspace path,
+/// avoiding a duplicate string-parse pass over the diff body.
+#[tauri::command]
+pub fn task_diff_stats(
+    state: tauri::State<'_, AcpState>,
+    task_id: String,
+) -> Result<GitDiffStats, AppError> {
+    let cwd = resolve_workspace(&state, &task_id)?;
+    git_diff_stats(cwd)
+}
+
 /// Get unified diff for a single file (relative path) within a task's workspace.
 /// Returns empty string if the file has no changes.
 #[tauri::command]

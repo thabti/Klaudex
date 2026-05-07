@@ -100,7 +100,7 @@ export const AutoApproveToggle = memo(function AutoApproveToggle() {
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         className={cn(
-          'flex items-center gap-1 rounded-lg px-1.5 py-1 text-[14px] font-medium transition-colors',
+          'flex items-center gap-1 rounded-lg px-1.5 py-1 text-[12px] font-medium transition-colors',
           isAutoApprove
             ? 'text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300'
             : 'text-muted-foreground hover:text-foreground',

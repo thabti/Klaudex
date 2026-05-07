@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useCallback, useContext, useMemo, type ReactNode } from 'react'
-import { IconCopy, IconCheck, IconPhoto, IconFileText, IconFile, IconRobot, IconBolt } from '@tabler/icons-react'
+import { IconCopy, IconCheck, IconPhoto, IconFileText, IconFile, IconRobot, IconBolt, IconGitFork } from '@tabler/icons-react'
 import {
   Tooltip,
   TooltipContent,
@@ -8,6 +8,7 @@ import {
 import { CollapsedAnswers } from './CollapsedAnswers'
 import { highlightNode, SearchQueryContext } from './HighlightText'
 import { useDiffStore } from '@/stores/diffStore'
+import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore, selectChatFontSize } from '@/stores/settingsStore'
 import type { UserMessageRow as UserMessageRowData } from '@/lib/timeline'
 
@@ -123,6 +124,11 @@ export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserM
     })
   }, [row.content])
 
+  const handleFork = useCallback(() => {
+    const { selectedTaskId, forkTask, isForking } = useTaskStore.getState()
+    if (selectedTaskId && !isForking) void forkTask(selectedTaskId)
+  }, [])
+
   const timeStr = row.timestamp
     ? new Date(row.timestamp).toLocaleTimeString()
     : ''
@@ -138,7 +144,7 @@ export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserM
           {isQuestionAnswer ? (
             <CollapsedAnswers questionAnswers={row.questionAnswers!} />
           ) : (
-          <div className="rounded-2xl rounded-br-md bg-card px-4 py-2.5">
+          <div className="rounded-2xl rounded-br-md border border-border/40 bg-card/80 px-4 py-2.5">
                 <div className="space-y-2">
                   {cleanText && (
                     <p className="whitespace-pre-wrap break-words leading-[1.7] text-foreground" style={{ fontSize: chatFontSize }}>
@@ -156,6 +162,22 @@ export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserM
           </div>
           )}
           <div className="mt-1 flex items-center justify-end gap-1.5 px-1">
+            {!isQuestionAnswer && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleFork}
+                    className="rounded-md p-0.5 text-muted-foreground/0 transition-all group-hover:text-muted-foreground/70 hover:!text-foreground"
+                  >
+                    <IconGitFork className="size-3" aria-hidden />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  Fork thread
+                </TooltipContent>
+              </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

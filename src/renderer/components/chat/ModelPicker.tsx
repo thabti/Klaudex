@@ -79,14 +79,14 @@ export const ModelPicker = memo(function ModelPicker() {
   }
 
   return (
-    <div ref={ref} data-testid="model-picker" className="relative">
+    <div ref={ref} data-testid="model-picker" className="relative min-w-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[14px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="flex min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
         <span className="shrink-0">{getModelIcon(triggerIconKey, { size: 13 })}</span>
-        <span className="hidden max-w-[8rem] truncate @[480px]/toolbar:inline">{label}</span>
+        <span className="hidden min-w-0 max-w-[8rem] truncate @[480px]/toolbar:inline">{label}</span>
         <IconChevronDown className="hidden size-3 shrink-0 opacity-50 @[480px]/toolbar:block" aria-hidden />
       </button>
 

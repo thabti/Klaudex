@@ -33,7 +33,7 @@ const tauriListen = <T>(event: string, cb: (payload: T) => void): UnsubscribeFn 
 }
 
 export const ipc = {
-  createTask: (params: { name: string; workspace: string; prompt: string; autoApprove?: boolean; modeId?: string; attachments?: IpcAttachment[] }): Promise<AgentTask> =>
+  createTask: (params: { name: string; workspace: string; prompt: string; autoApprove?: boolean; modeId?: string; attachments?: IpcAttachment[]; existingId?: string; existingMessages?: Array<{ role: string; content: string; timestamp: string; thinking?: string; toolCalls?: ToolCall[] }> }): Promise<AgentTask> =>
     invoke('task_create', { params }),
   listTasks: (): Promise<AgentTask[]> =>
     invoke('task_list'),
@@ -95,6 +95,8 @@ export const ipc = {
     invoke('git_delete_branch', { cwd, branch }),
   getTaskDiff: (taskId: string): Promise<string> =>
     invoke('task_diff', { taskId }),
+  getTaskDiffStats: (taskId: string): Promise<{ additions: number; deletions: number; fileCount: number }> =>
+    invoke('task_diff_stats', { taskId }),
   gitDiff: (cwd: string): Promise<string> =>
     invoke('git_diff', { cwd }),
   gitDiffFile: (taskId: string, filePath: string): Promise<string> =>
@@ -159,6 +161,37 @@ export const ipc = {
     invoke('is_directory', { path }),
   listProjectFiles: (root: string, respectGitignore: boolean = true): Promise<ProjectFile[]> =>
     invoke('list_project_files', { root, respectGitignore }),
+  // Project tree (new lazy-loading API)
+  scanRoot: (workspace: string, respectGitignore: boolean = true): Promise<any[]> =>
+    invoke('scan_root', { workspace, respectGitignore }),
+  scanDirectory: (workspace: string, relPath: string, respectGitignore: boolean = true): Promise<any[]> =>
+    invoke('scan_directory', { workspace, relPath, respectGitignore }),
+  watchProjectTree: (workspace: string): Promise<void> =>
+    invoke('watch_project_tree', { workspace }),
+  unwatchProjectTree: (workspace: string): Promise<void> =>
+    invoke('unwatch_project_tree', { workspace }),
+  createFile: (workspace: string, relPath: string): Promise<any> =>
+    invoke('create_file', { workspace, relPath }),
+  createDirectory: (workspace: string, relPath: string): Promise<any> =>
+    invoke('create_directory', { workspace, relPath }),
+  deleteEntry: (workspace: string, relPath: string, permanent: boolean = false): Promise<void> =>
+    invoke('delete_entry', { workspace, relPath, permanent }),
+  renameEntry: (workspace: string, oldRelPath: string, newRelPath: string): Promise<any> =>
+    invoke('rename_entry', { workspace, oldRelPath, newRelPath }),
+  copyEntry: (workspace: string, srcRelPath: string, destRelPath: string): Promise<any> =>
+    invoke('copy_entry', { workspace, srcRelPath, destRelPath }),
+  duplicateEntry: (workspace: string, relPath: string): Promise<any> =>
+    invoke('duplicate_entry', { workspace, relPath }),
+  copyEntryPath: (workspace: string, relPath: string, relative: boolean): Promise<string> =>
+    invoke('copy_entry_path', { workspace, relPath, relative }),
+  revealInFinder: (workspace: string, relPath: string): Promise<void> =>
+    invoke('reveal_in_finder', { workspace, relPath }),
+  openInDefaultApp: (workspace: string, relPath: string): Promise<void> =>
+    invoke('open_in_default_app', { workspace, relPath }),
+  openTerminalAt: (workspace: string, relPath: string): Promise<void> =>
+    invoke('open_terminal_at', { workspace, relPath }),
+  addToGitignore: (workspace: string, relPath: string): Promise<void> =>
+    invoke('add_to_gitignore', { workspace, relPath }),
   openUrl: (url: string): Promise<void> =>
     invoke('open_url', { url }),
   detectProjectIcon: (cwd: string): Promise<{ iconType: string; value: string } | null> =>
@@ -234,4 +267,72 @@ export const ipc = {
     tauriListen('editors-updated', cb),
   onKiroConfigChanged: (cb: (data: { projectPath: string | null }) => void): UnsubscribeFn =>
     tauriListen('kiro-config-changed', cb),
+
+  // ── Streaming Diff (Rust-powered, inspired by Zed) ──────────────────────────
+  computeDiff: (oldText: string, newText: string): Promise<Array<{ type: 'insert'; text: string } | { type: 'delete'; bytes: number } | { type: 'keep'; bytes: number }>> =>
+    invoke('compute_diff', { oldText, newText }),
+  computeLineDiff: (oldText: string, newText: string): Promise<Array<{ type: 'insert'; lines: number } | { type: 'delete'; lines: number } | { type: 'keep'; lines: number }>> =>
+    invoke('compute_line_diff', { oldText, newText }),
+
+  // ── Structured diff parsing (replaces @pierre/diffs parsePatchFiles) ────────
+  taskDiffStructured: (taskId: string): Promise<import('@/types/diff').ParsedDiff> =>
+    invoke('task_diff_structured', { taskId }),
+  gitDiffStructured: (cwd: string): Promise<import('@/types/diff').ParsedDiff> =>
+    invoke('git_diff_structured', { cwd }),
+
+  // ── Markdown parsing (replaces react-markdown for assistant messages) ───────
+  parseMarkdown: (text: string): Promise<import('@/types/markdown').ParsedMarkdown> =>
+    invoke('parse_markdown', { text }),
+
+  // ── Syntax highlighting (replaces Shiki WASM in renderer) ───────────────────
+  highlightCode: (text: string, lang: string, theme?: string): Promise<import('@/types/highlight').HighlightResult> =>
+    invoke('highlight_code', { text, lang, theme }),
+  highlightSupportedLanguages: (): Promise<string[]> =>
+    invoke('highlight_supported_languages'),
+
+  // ── Fuzzy match (replaces fuzzy-search.ts) ──────────────────────────────────
+  fuzzyMatch: (query: string, candidates: Array<{ id: string; text: string; secondary?: string }>, limit?: number): Promise<Array<{ id: string; score: number; indices: number[]; secondaryMatched: boolean }>> =>
+    invoke('fuzzy_match', { query, candidates, limit }),
+
+  // ── Analytics aggregations (server-side rollups) ────────────────────────────
+  analyticsCodingHoursByDay: (since?: number): Promise<Array<{ day: string; value: number; value2?: number }>> =>
+    invoke('analytics_coding_hours_by_day', { since: since ?? null }),
+  analyticsMessagesByDay: (since?: number): Promise<Array<{ day: string; value: number; value2?: number }>> =>
+    invoke('analytics_messages_by_day', { since: since ?? null }),
+  analyticsTokensByDay: (since?: number): Promise<Array<{ day: string; value: number; value2?: number }>> =>
+    invoke('analytics_tokens_by_day', { since: since ?? null }),
+  analyticsDiffStatsByDay: (since?: number): Promise<Array<{ day: string; value: number; value2?: number }>> =>
+    invoke('analytics_diff_stats_by_day', { since: since ?? null }),
+  analyticsModelPopularity: (since?: number): Promise<Array<{ detail: string; count: number }>> =>
+    invoke('analytics_model_popularity', { since: since ?? null }),
+  analyticsToolCallBreakdown: (since?: number): Promise<Array<{ detail: string; count: number }>> =>
+    invoke('analytics_tool_call_breakdown', { since: since ?? null }),
+  analyticsModeUsage: (since?: number): Promise<Array<{ detail: string; count: number }>> =>
+    invoke('analytics_mode_usage', { since: since ?? null }),
+  analyticsProjectStats: (since?: number): Promise<Array<{ project: string; threads: number; messages: number }>> =>
+    invoke('analytics_project_stats', { since: since ?? null }),
+  analyticsTotals: (since?: number): Promise<{ codingHours: number; messagesSent: number; messagesReceived: number; tokens: number; diffAdditions: number; diffDeletions: number; filesEdited: number; toolCalls: number }> =>
+    invoke('analytics_totals', { since: since ?? null }),
+
+  // ── MCP Transport Test ──────────────────────────────────────────────────────
+  mcpTransportTest: (config: { type: 'stdio'; command: string; args: string[]; env?: Record<string, string>; workingDirectory?: string } | { type: 'http'; url: string; token?: string; oauthUrl?: string; timeoutSecs?: number }): Promise<string> =>
+    invoke('mcp_transport_test', { config }),
+
+  // ── Thread Database (SQLite persistence) ────────────────────────────────────
+  threadDbList: (): Promise<Array<{ id: string; name: string; workspace: string; status: string; createdAt: string; updatedAt: string; parentThreadId?: string; autoApprove: boolean; metadata?: unknown }>> =>
+    invoke('thread_db_list'),
+  threadDbLoad: (threadId: string): Promise<{ id: string; name: string; workspace: string; status: string; createdAt: string; updatedAt: string; parentThreadId?: string; autoApprove: boolean; metadata?: unknown } | null> =>
+    invoke('thread_db_load', { threadId }),
+  threadDbSave: (thread: { id: string; name: string; workspace: string; status: string; createdAt: string; updatedAt: string; parentThreadId?: string; autoApprove: boolean; metadata?: unknown }): Promise<void> =>
+    invoke('thread_db_save', { thread }),
+  threadDbDelete: (threadId: string): Promise<void> =>
+    invoke('thread_db_delete', { threadId }),
+  threadDbMessages: (threadId: string): Promise<Array<{ id: number; threadId: string; role: string; content: string; timestamp: string; thinking?: string; toolCalls?: unknown }>> =>
+    invoke('thread_db_messages', { threadId }),
+  threadDbSaveMessage: (message: { id: number; threadId: string; role: string; content: string; timestamp: string; thinking?: string; toolCalls?: unknown }): Promise<number> =>
+    invoke('thread_db_save_message', { message }),
+  threadDbSearch: (query: string, limit?: number): Promise<Array<{ threadId: string; threadName: string; messageContent: string; messageTimestamp: string; rank: number }>> =>
+    invoke('thread_db_search', { query, limit }),
+  threadDbStats: (): Promise<{ totalThreads: number; totalMessages: number; threadsByWorkspace: Array<[string, number]> }> =>
+    invoke('thread_db_stats'),
 }

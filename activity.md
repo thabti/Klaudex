@@ -1,5 +1,11 @@
 # Activity Log
 
+## 2026-05-06 GST (Dubai)
+### Settings: Persist inline tool calls toggle (and other camelCase fields)
+The Rust `AppSettings` struct in `commands/settings.rs` was missing several frontend fields including `inlineToolCalls`. With `#[serde(rename_all = "camelCase")]` and no matching field, serde silently dropped the value during deserialization, so the toggle worked in-session but reset on app restart. Added `chat_font_size`, `sidebar_position`, `custom_app_icon`, `last_seen_changelog_version`, `btw_max_chars`, `terminal_scrollback`, `terminal_auto_close_idle_mins`, and `inline_tool_calls` to the struct (all `Option`-typed with `skip_serializing_if`) so they round-trip through confy.
+
+**Modified:** `src-tauri/src/commands/settings.rs`
+
 ## 2026-05-05 17:05 GST (Dubai)
 ### MarkdownViewer: Add proper markdown file viewing support
 Created a shared `MarkdownViewer` component with rich rendering: code blocks with language labels and copy buttons, GFM task list checkboxes, heading anchors, styled tables with alternating rows, blockquotes, external link handling, and proper image rendering. Updated `FilePreviewModal` and `KiroFileViewer` to use the new component instead of bare `ReactMarkdown` with inline prose classes.

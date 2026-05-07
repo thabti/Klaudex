@@ -19,7 +19,12 @@ pub fn task_create(
     settings_state: tauri::State<'_, crate::commands::settings::SettingsState>,
     params: CreateTaskParams,
 ) -> Result<Task, String> {
-    let id = Uuid::new_v4().to_string();
+    // Stateless resumption (Zed-style): when the frontend supplies an
+    // `existing_id`, reuse that id and replay the historical messages into the
+    // backend's in-memory task map. The fresh kiro-cli subprocess provides a
+    // brand-new ACP session; the message history travels to the model via the
+    // user's next prompt rather than via any session-level resume capability.
+    let id = params.existing_id.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
     let now = now_rfc3339();
     let settings = settings_state.0.lock();
     let auto_approve = params.auto_approve.unwrap_or(settings.settings.auto_approve);
@@ -32,19 +37,23 @@ pub fn task_create(
         .unwrap_or(true);
     drop(settings);
 
+    // Seed the task with prior messages (if resuming) plus the new user prompt.
+    let mut messages: Vec<TaskMessage> = params.existing_messages.unwrap_or_default();
+    messages.push(TaskMessage {
+        role: "user".to_string(),
+        content: params.prompt.clone(),
+        timestamp: now.clone(),
+        tool_calls: None,
+        thinking: None,
+    });
+
     let task = Task {
         id: id.clone(),
         name: params.name,
         workspace: params.workspace.clone(),
         status: "running".to_string(),
-        created_at: now.clone(),
-        messages: vec![TaskMessage {
-            role: "user".to_string(),
-            content: params.prompt.clone(),
-            timestamp: now,
-            tool_calls: None,
-            thinking: None,
-        }],
+        created_at: now,
+        messages,
         pending_permission: None,
         plan: None,
         context_usage: None,
@@ -52,6 +61,16 @@ pub fn task_create(
         user_paused: None,
         parent_task_id: None,
     };
+
+    // If a stale connection somehow lingers for this id, terminate it before
+    // spawning a fresh one so the new subprocess owns the channel cleanly.
+    // We drop the sender after Kill so the old thread's recv loop exits, then
+    // yield briefly to let the OS reclaim the subprocess resources.
+    if let Some(stale) = state.connections.lock().remove(&id) {
+        let _ = stale.cmd_tx.send(AcpCommand::Kill);
+        drop(stale);
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
 
     state.tasks.lock().insert(id.clone(), task.clone());
 
@@ -92,6 +111,76 @@ pub fn task_create(
             "---\n\n",
         ));
     }
+    // Resumption preamble: when a thread is being resumed, the fresh kiro-cli
+    // subprocess has no memory of the prior conversation. Replay the transcript
+    // as context so the agent can follow up coherently. Mirrors Zed's
+    // `thread.replay(cx)` step — the messages live in the user's first prompt
+    // instead of an in-process model session.
+    //
+    // The transcript is capped to keep the resumption preamble well under any
+    // model's input window. We start from the most recent messages (most
+    // relevant context) and stop once we hit the byte budget or message cap.
+    const RESUMPTION_BYTE_BUDGET: usize = 60_000; // ~15k tokens, conservative
+    const RESUMPTION_MAX_MESSAGES: usize = 40;
+    let prior_messages: &[TaskMessage] = task
+        .messages
+        .split_last()
+        .map(|(_new, prior)| prior)
+        .unwrap_or(&[]);
+    let resumption_preamble = if prior_messages.is_empty() {
+        String::new()
+    } else {
+        // Walk from the end forward until we hit the byte budget so we keep
+        // the freshest context. Then render in chronological order.
+        let mut included_from: usize = prior_messages.len();
+        let mut running_bytes: usize = 0;
+        for (idx, m) in prior_messages.iter().enumerate().rev() {
+            if prior_messages.len() - idx > RESUMPTION_MAX_MESSAGES {
+                break;
+            }
+            let msg_bytes = m.content.len() + m.role.len() + 4; // role prefix + separators
+            if running_bytes + msg_bytes > RESUMPTION_BYTE_BUDGET && included_from < prior_messages.len() {
+                break;
+            }
+            running_bytes += msg_bytes;
+            included_from = idx;
+        }
+        let kept = &prior_messages[included_from..];
+        let truncated = included_from > 0;
+
+        let mut buf = String::from(
+            "## Resumed conversation\n\n\
+             You are resuming an earlier conversation in this workspace. \
+             The transcript below is for context only — do not repeat prior work \
+             or re-execute completed tool calls. The user's new message follows \
+             after the transcript.\n\n",
+        );
+        if truncated {
+            buf.push_str(&format!(
+                "_Note: showing the last {} of {} prior messages (older context omitted to fit context window)._\n\n",
+                kept.len(),
+                prior_messages.len(),
+            ));
+        }
+        buf.push_str("```transcript\n");
+        for m in kept {
+            // Skip empty messages and internal system markers (e.g. fork notes)
+            if m.content.trim().is_empty() {
+                continue;
+            }
+            let role = match m.role.as_str() {
+                "user" => "user",
+                "assistant" => "assistant",
+                _ => continue,
+            };
+            buf.push_str(role);
+            buf.push_str(": ");
+            buf.push_str(m.content.trim());
+            buf.push_str("\n\n");
+        }
+        buf.push_str("```\n\n---\n\n## New message\n\n");
+        buf
+    };
     let json_report_suffix = if co_author_json_report {
         concat!(
             "\n\n## Completion report\n\n",
@@ -111,7 +200,7 @@ pub fn task_create(
     } else {
         ""
     };
-    let full_prompt = format!("{system_prefix}{}{json_report_suffix}", params.prompt);
+    let full_prompt = format!("{system_prefix}{resumption_preamble}{}{json_report_suffix}", params.prompt);
     let _ = handle.cmd_tx.send(AcpCommand::Prompt(full_prompt, params.attachments.unwrap_or_default()));
 
     state.connections.lock().insert(id, handle);

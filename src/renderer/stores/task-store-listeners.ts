@@ -47,9 +47,11 @@ export const applyTurnEnd = (
   const liveSplits = s.liveToolSplits[taskId] ?? []
   const task = s.tasks[taskId]
   if (!task) return {}
-  const fallbackStatus = stopReason === 'refusal' ? 'failed' as const : 'completed' as const
+  const fallbackStatus = stopReason === 'refusal' ? 'failed' as const
+    : stopReason === 'cancelled' ? 'cancelled' as const
+    : 'completed' as const
   const finalizedTools = liveTools.map((tc) =>
-    tc.status === 'completed' || tc.status === 'failed' ? tc : { ...tc, status: fallbackStatus },
+    tc.status === 'completed' || tc.status === 'failed' || tc.status === 'cancelled' ? tc : { ...tc, status: fallbackStatus },
   )
   // Filter splits to those that reference one of the finalized tool calls
   // and sort by offset, breaking ties by the tool call's `createdAt` so the

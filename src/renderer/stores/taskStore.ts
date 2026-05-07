@@ -521,12 +521,35 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       // Stamp createdAt on first appearance so we can order tool calls
       // relative to text segments when rendering inline.
       const isNew = idx < 0
-      const stamped: ToolCall = isNew && !toolCall.createdAt
-        ? { ...toolCall, createdAt: new Date().toISOString() }
+      const isTerminal = toolCall.status === 'completed' || toolCall.status === 'failed' || toolCall.status === 'cancelled'
+      const now = new Date().toISOString()
+      const stamped: ToolCall = isNew
+        ? {
+          ...toolCall,
+          createdAt: toolCall.createdAt ?? now,
+          // If the first sighting is already terminal (rare), stamp
+          // completedAt so duration is accurate even when we miss the
+          // pending → completed transition.
+          ...(isTerminal && !toolCall.completedAt ? { completedAt: now } : {}),
+        }
         : toolCall
       const updated = isNew
         ? [...existing, stamped]
-        : existing.map((tc, i) => (i === idx ? { ...stamped, createdAt: tc.createdAt ?? stamped.createdAt } : tc))
+        : existing.map((tc, i) => {
+          if (i !== idx) return tc
+          // Stamp completedAt the first time we see a terminal status so
+          // fetch/web tool entries can show elapsed duration. Preserves
+          // createdAt across updates.
+          const completedAt =
+            isTerminal && !tc.completedAt && !stamped.completedAt
+              ? now
+              : tc.completedAt ?? stamped.completedAt
+          return {
+            ...stamped,
+            createdAt: tc.createdAt ?? stamped.createdAt,
+            ...(completedAt ? { completedAt } : {}),
+          }
+        })
       // Record the streaming-text offset at which this tool call appeared.
       // Only recorded once per toolCallId, on first sight.
       let nextSplits = state.liveToolSplits

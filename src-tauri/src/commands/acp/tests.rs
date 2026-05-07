@@ -873,6 +873,20 @@ fn friendly_error_unknown_passes_through() {
 }
 
 #[test]
+fn friendly_error_dispatch_failure() {
+    let msg = friendly_prompt_error("Internal error: \"Encountered an error in the response stream: An unknown error occurred: dispatch failure\"");
+    assert!(msg.contains("Tip:"));
+    assert!(msg.contains("connection"));
+}
+
+#[test]
+fn friendly_error_response_stream() {
+    let msg = friendly_prompt_error("Encountered an error in the response stream: timeout");
+    assert!(msg.contains("Tip:"));
+    assert!(msg.contains("stream"));
+}
+
+#[test]
 fn friendly_error_preserves_original_message() {
     let raw = "AccessDeniedException: User arn:aws:iam::123:user/dev is not authorized";
     let msg = friendly_prompt_error(raw);

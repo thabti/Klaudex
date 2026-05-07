@@ -53,14 +53,14 @@ const SplashItemButton = ({ item }: { readonly item: SplashItem }) => {
       onKeyDown={handleKeyDown}
       tabIndex={0}
       aria-label={`Insert ${item.label}`}
-      className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-150 hover:bg-muted/50 active:bg-muted/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="flex items-start gap-2 rounded-md px-2 py-1.5 text-left transition-colors duration-150 hover:bg-muted/50 active:bg-muted/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
     >
-      <span className={`mt-0.5 shrink-0 ${item.color}`}>
+      <span className={`mt-px shrink-0 ${item.color}`}>
         {item.icon()}
       </span>
       <div className="min-w-0">
-        <span className="text-[13px] font-medium text-foreground/70">{item.label}</span>
-        <p className="text-[11px] leading-tight text-muted-foreground">{item.description}</p>
+        <span className="text-[12px] font-medium text-foreground/70">{item.label}</span>
+        <p className="text-[10px] leading-tight text-muted-foreground">{item.description}</p>
       </div>
     </button>
   )
@@ -68,42 +68,42 @@ const SplashItemButton = ({ item }: { readonly item: SplashItem }) => {
 
 export const EmptyThreadSplash = memo(function EmptyThreadSplash() {
   return (
-    <div className="flex flex-col items-center gap-6 px-4 select-none" role="region" aria-label="Getting started">
+    <div className="flex flex-col items-center gap-4 px-4 select-none" role="region" aria-label="Getting started">
       {/* Logo / title */}
-      <div className="flex flex-col items-center gap-1.5">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-muted/40">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/70" aria-hidden>
+      <div className="flex flex-col items-center gap-1">
+        <div className="flex size-8 items-center justify-center rounded-lg bg-muted/40">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/70" aria-hidden>
             <path d="M4 17l6-6-6-6" /><path d="M12 19h8" />
           </svg>
         </div>
-        <p className="text-sm font-medium text-foreground/70">What can I help you build?</p>
+        <p className="text-[13px] font-medium text-foreground/70">What can I help you build?</p>
       </div>
 
       {/* Commands grid */}
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-xl">
         {/* Slash commands */}
-        <p className="mb-1.5 px-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        <p className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           Slash commands
         </p>
-        <div className="grid grid-cols-3 gap-x-1 gap-y-0.5">
+        <div className="grid grid-cols-3 gap-x-0.5 gap-y-0">
           {SLASH_COMMANDS.map((item) => (
             <SplashItemButton key={item.label} item={item} />
           ))}
         </div>
 
         {/* @ mentions */}
-        <p className="mb-1.5 mt-4 px-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        <p className="mb-1 mt-3 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           Mentions
         </p>
-        <div className="grid grid-cols-3 gap-x-1 gap-y-0.5">
+        <div className="grid grid-cols-3 gap-x-0.5 gap-y-0">
           {AT_COMMANDS.map((item) => (
             <SplashItemButton key={item.label} item={item} />
           ))}
         </div>
       </div>
 
-      <p className="text-[11px] text-muted-foreground">
-        Type <kbd className="rounded-sm bg-muted px-1 py-0.5 font-mono text-[10px]">/</kbd> or <kbd className="rounded-sm bg-muted px-1 py-0.5 font-mono text-[10px]">@</kbd> in the input to get started
+      <p className="text-[10px] text-muted-foreground">
+        Type <kbd className="rounded-sm bg-muted px-1 py-0.5 font-mono text-[9px]">/</kbd> or <kbd className="rounded-sm bg-muted px-1 py-0.5 font-mono text-[9px]">@</kbd> in the input to get started
       </p>
     </div>
   )

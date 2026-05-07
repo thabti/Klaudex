@@ -282,9 +282,13 @@ export function App() {
   useSessionTracker();
   useZoomLimit();
 
-  // Apply font size from settings to the document root
+  // Apply font size from settings to the document root.
+  // This sets the html element's font-size which cascades through all rem-based
+  // sizing in the app. The CSS variable is kept for components that need it directly.
   useEffect(() => {
-    document.documentElement.style.setProperty('--app-font-size', `${fontSize ?? 13}px`);
+    const size = fontSize ?? 13;
+    document.documentElement.style.setProperty('--app-font-size', `${size}px`);
+    document.documentElement.style.fontSize = `${size}px`;
   }, [fontSize]);
 
   // Apply chat font size as a CSS var. Falls back to UI font size so users on
@@ -655,7 +659,7 @@ export function App() {
             <ErrorBoundary>
               <div
                 className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl"
-                style={{ fontSize: 'var(--app-font-size, 14px)' }}
+                style={{ fontSize: 'var(--app-font-size, 13px)' }}
               >
                 <Suspense>
                   {view === 'analytics' ? (

@@ -34,6 +34,10 @@ export const EMPTY_QUEUE: QueuedMessage[] = []
  * Only reads `status` and `isArchived`, so callers can pass a narrow slice
  * instead of the full task — that lets `ChatPanel` subscribe to those two
  * fields individually and avoid re-rendering on every other task mutation.
+ *
+ * Archived (resumed-from-history) threads are NOT disabled. They behave like
+ * Zed's stateless resumption: the user can type, and on send a fresh ACP
+ * connection is spawned with the historical transcript replayed as context.
  */
 export function deriveInputState(
   task: Pick<AgentTask, 'status' | 'isArchived'> | null | undefined,
@@ -42,7 +46,6 @@ export function deriveInputState(
   disabledReason: string | undefined
 } {
   if (!task) return { disabled: true, disabledReason: undefined }
-  if (task.isArchived) return { disabled: true, disabledReason: 'Previous session — view only' }
   if (task.status === 'cancelled') return { disabled: true, disabledReason: 'Task was cancelled' }
   return { disabled: false, disabledReason: undefined }
 }
@@ -140,11 +143,16 @@ export function buildUserMessage(content: string): TaskMessage {
 }
 
 /**
- * Determine if a task needs a new connection (draft or reconnect).
+ * Determine if a task needs a new connection (draft, resumed-from-history,
+ * or explicit reconnect signal).
+ *
+ * Archived threads always need a fresh connection: the kiro-cli subprocess
+ * died when the app closed, so the frontend must call `task_create` (with
+ * `existingId` to preserve the thread id) to spawn a new ACP session.
  */
 export function needsNewConnection(task: AgentTask): boolean {
   const isDraft = task.messages.length === 0 && task.status === 'paused'
-  return isDraft || task.needsNewConnection === true
+  return isDraft || task.isArchived === true || task.needsNewConnection === true
 }
 
 /**
