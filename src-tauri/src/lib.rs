@@ -6,7 +6,7 @@ extern crate objc;
 
 mod commands;
 
-use commands::{acp, analytics, branch_ai, diff_parse, fs_ops, fuzzy, git, git_ai, git_stack, highlight, kiro_config, kiro_watcher, markdown, pr_ai, process_diagnostics, project_watcher, pty, settings, streaming_diff, thread_db, thread_title, transport, vcs_status};
+use commands::{acp, analytics, branch_ai, checkpoint, diff_parse, fs_ops, fuzzy, git, git_ai, git_history, git_pr, git_stack, highlight, kiro_config, kiro_watcher, markdown, pattern_extract, pr_ai, process_diagnostics, project_watcher, pty, settings, streaming_diff, thread_db, thread_title, tracing as app_tracing, transport, vcs_status};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
 use tauri::Emitter;
@@ -398,6 +398,7 @@ pub fn run() {
         })
         .manage(highlight::HighlightState::default())
         .manage(fuzzy::FuzzyState::default())
+        .manage(app_tracing::TraceState::default())
         .setup(|app| {
             let _window = app.get_webview_window("main")
                 .ok_or_else(|| "main window not found".to_string())?;
@@ -667,6 +668,20 @@ pub fn run() {
             git_stack::git_stacked_push,
             process_diagnostics::list_child_processes,
             process_diagnostics::signal_process,
+            // Checkpoint
+            checkpoint::checkpoint_create,
+            checkpoint::checkpoint_list,
+            checkpoint::checkpoint_diff,
+            checkpoint::checkpoint_revert,
+            checkpoint::checkpoint_cleanup,
+            // Git History
+            git_history::git_commit_history,
+            git_history::git_commit_diff,
+            git_history::git_commit_stats,
+            git_history::git_stash_list,
+            git_history::git_stash_pop,
+            git_history::git_stash_drop,
+            git_history::git_stash_save,
             // Thread Database
             thread_db::thread_db_list,
             thread_db::thread_db_load,
@@ -677,6 +692,7 @@ pub fn run() {
             thread_db::thread_db_search,
             thread_db::thread_db_stats,
             thread_db::thread_db_clear_all,
+            thread_db::thread_db_auto_archive,
             // Relaunch
             set_relaunch_flag,
             // Reset
@@ -686,6 +702,18 @@ pub fn run() {
             settings::add_recent_project,
             settings::clear_recent_projects,
             rebuild_recent_menu,
+            // PR / MR creation (GitHub + GitLab)
+            git_pr::git_detect_provider,
+            git_pr::git_create_pr,
+            git_pr::git_pr_status,
+            git_pr::git_pr_open_in_browser,
+            // Pattern extraction (code signatures for agent context)
+            pattern_extract::extract_patterns,
+            pattern_extract::extract_patterns_batch,
+            // Structured tracing (NDJSON debug traces)
+            app_tracing::trace_read_recent,
+            app_tracing::trace_file_location,
+            app_tracing::trace_clear,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
