@@ -10,7 +10,7 @@
 //!   the active ACP session or pollute `turn_end`.
 //! * No new credential surface — reuses whatever auth `kiro-cli` already has.
 //! * The diff is compressed (per-line truncation + iterative shrink) to fit a
-//!   conservative byte budget, mirroring Zed's `compress_commit_diff`.
+//!   conservative byte budget.
 //! * The CLI prints a few decorative status lines (`📷 Checkpoints…`,
 //!   `▸ Credits: …`, a leading `> ` prompt echo). We extract the JSON from
 //!   the body, so it tolerates surrounding chrome.
@@ -37,7 +37,7 @@ const MAX_LINE_BYTES: usize = 256;
 /// 2–5 seconds; anything longer is almost certainly stuck.
 const SUBPROCESS_TIMEOUT_SECS: u64 = 60;
 
-/// Hard cap on the subject line returned to the caller (matches Zed/t3code).
+/// Hard cap on the subject line returned to the caller.
 const MAX_SUBJECT_CHARS: usize = 72;
 
 /// Public payload returned to the renderer.
@@ -136,7 +136,7 @@ fn render_patch(diff: &git2::Diff<'_>) -> Result<String, AppError> {
     Ok(out)
 }
 
-// ── Diff compression (ported from Zed's git_panel.rs) ────────────────────
+// ── Diff compression ─────────────────────────────────────────────────────────
 
 /// Compress a unified-diff to fit under `max_bytes`:
 /// 1. Truncate lines longer than [`MAX_LINE_BYTES`] with `...[truncated]`.

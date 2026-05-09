@@ -8,7 +8,7 @@
  * `approximateSize` is whatever the caller wants to use as a memory-cost
  * estimate (bytes is the obvious choice for cached strings/HTML).
  *
- * Ported from t3code so chat-markdown highlighting can cache rendered HTML
+ * Ported so chat-markdown highlighting can cache rendered HTML
  * across re-renders without growing unbounded.
  */
 interface CacheEntry<T> {

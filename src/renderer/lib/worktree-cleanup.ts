@@ -1,5 +1,5 @@
 /**
- * Worktree cleanup utilities — ported from t3code.
+ * Worktree cleanup utilities.
  *
  * Detects orphaned worktrees (not shared by any other thread) and provides
  * display formatting for worktree paths.

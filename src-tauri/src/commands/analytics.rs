@@ -258,7 +258,7 @@ mod tests {
 }
 
 
-// ── Aggregations (inspired by Zed's telemetry rollups) ───────────────────────
+// ── Aggregations ─────────────────────────────────────────────────────────────
 //
 // The renderer's `analytics-aggregators.ts` loads every event and groups it in
 // JS. With 50k events that's ~5 MB across the IPC bridge plus a heavy O(n)

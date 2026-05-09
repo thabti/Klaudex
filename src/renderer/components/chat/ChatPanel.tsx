@@ -93,8 +93,7 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
   if (!task) return
   const shouldCreateNew = needsNewConnection(task)
   // Resumed-from-history: keep the original thread id and replay the prior
-  // transcript so the fresh kiro-cli subprocess has context. Mirrors Zed's
-  // `Thread::from_db()` + `thread.replay(cx)` step.
+  // transcript so the fresh kiro-cli subprocess has context.
   const isResumed = shouldCreateNew && (task.isArchived === true || task.needsNewConnection === true) && task.messages.length > 0
 
   // Capture the dispatch snapshot BEFORE we mutate the task. The snapshot
@@ -176,7 +175,7 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
 
 /** Soft banner shown above resumed-from-history threads.
  *  Indicates that a fresh agent connection will be spawned on the next send,
- *  but the input remains active (Zed-style stateless resumption). */
+ *  but the input remains active (stateless resumption). */
 const ArchivedBanner = memo(function ArchivedBanner() {
   return (
     <div className="relative flex items-center justify-center py-4 px-6 select-none" data-testid="chat-archived-banner">

@@ -1,5 +1,5 @@
 /**
- * Plan Sidebar — ported from t3code.
+ * Plan Sidebar.
  *
  * Displays the agent's active plan with step status indicators,
  * proposed plan markdown, and export options.

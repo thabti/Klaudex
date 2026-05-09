@@ -7,8 +7,7 @@ export interface DayValue { day: string; value: number; value2?: number }
 //
 // These thin wrappers forward to the Rust aggregation commands added in
 // `commands/analytics.rs`. Charts should consume these directly instead of
-// loading the whole event array and rolling it up in JS, mirroring the
-// pattern Zed uses for telemetry rollups.
+// loading the whole event array and rolling it up in JS.
 //
 // The legacy in-process aggregators below remain to keep existing charts
 // compiling during the per-chart migration. New charts should use the

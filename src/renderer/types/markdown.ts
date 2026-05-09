@@ -2,9 +2,8 @@
  * Markdown block types returned by `parse_markdown`. Mirrors the Rust types in
  * `src-tauri/src/commands/markdown.rs`.
  *
- * Inspired by Zed's `crates/markdown/src/parser.rs`: the renderer receives a
- * flat block list and switches on `block.type`. No `react-markdown`, no
- * `remark`, no parser bundle — pure structural rendering.
+ * The renderer receives a flat block list and switches on `block.type`. No
+ * `react-markdown`, no `remark`, no parser bundle — pure structural rendering.
  */
 
 export interface InlineStyle {

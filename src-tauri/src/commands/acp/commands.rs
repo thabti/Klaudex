@@ -38,7 +38,7 @@ pub fn task_create(
     settings_state: tauri::State<'_, crate::commands::settings::SettingsState>,
     params: CreateTaskParams,
 ) -> Result<Task, String> {
-    // Stateless resumption (Zed-style): when the frontend supplies an
+    // Stateless resumption: when the frontend supplies an
     // `existing_id`, reuse that id and replay the historical messages into the
     // backend's in-memory task map. The fresh kiro-cli subprocess provides a
     // brand-new ACP session; the message history travels to the model via the
@@ -172,9 +172,8 @@ pub fn task_create(
     }
     // Resumption preamble: when a thread is being resumed, the fresh kiro-cli
     // subprocess has no memory of the prior conversation. Replay the transcript
-    // as context so the agent can follow up coherently. Mirrors Zed's
-    // `thread.replay(cx)` step — the messages live in the user's first prompt
-    // instead of an in-process model session.
+    // as context so the agent can follow up coherently. The messages live in
+    // the user's first prompt instead of an in-process model session.
     //
     // The transcript is capped to keep the resumption preamble well under any
     // model's input window. Logic lives in `build_resumption_preamble` so

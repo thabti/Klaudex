@@ -125,7 +125,7 @@ export interface AgentTask {
   parentTaskId?: string
   /** True for threads restored from persisted history. The thread renders
    *  immediately but its kiro-cli ACP connection has been torn down — the
-   *  next send spawns a fresh subprocess (Zed-style stateless resumption)
+   *  next send spawns a fresh subprocess (stateless resumption)
    *  and the historical transcript is replayed as preamble context. */
   isArchived?: boolean
   /** Path to the git worktree directory, if this thread uses one */

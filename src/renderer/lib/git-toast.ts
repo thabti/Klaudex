@@ -1,5 +1,5 @@
 /**
- * Git operation toast notifications — inspired by t3code.
+ * Git operation toast notifications.
  *
  * Shows toast notifications when keybinding configuration files are updated
  * or contain errors. Coalesces rapid consecutive updates.

@@ -1,6 +1,6 @@
-//! Project-level filesystem watcher inspired by Zed's BackgroundScanner.
+//! Project-level filesystem watcher.
 //!
-//! Key design decisions (from Zed):
+//! Key design decisions:
 //! - Real-time filesystem watching via `notify` with debouncing
 //! - Lazy directory scanning — only scan children when expanded
 //! - Incremental updates — only emit changed paths, not full re-scans
@@ -101,10 +101,9 @@ pub struct ScanResult {
     pub entries: Vec<TreeEntry>,
 }
 
-// ── Ignore Stack (from Zed's ignore.rs) ──────────────────────────────────────
+// ── Ignore Stack ─────────────────────────────────────────────────────────────
 
 /// Layered gitignore stack that respects nested .gitignore files.
-/// Directly inspired by Zed's IgnoreStack implementation.
 #[derive(Clone, Debug)]
 struct IgnoreStack {
     entries: Vec<Arc<Gitignore>>,
@@ -253,7 +252,7 @@ impl Default for ProjectWatcherState {
     }
 }
 
-// ── Directory Scanning (Lazy, like Zed's scan_dir) ───────────────────────────
+// ── Directory Scanning (Lazy) ─────────────────────────────────────────────────
 
 /// Scan a single directory's immediate children. This is the lazy approach:
 /// directories are only scanned when the user expands them.
@@ -428,7 +427,7 @@ fn apply_git_statuses(entries: &mut [TreeEntry], root: &Path) {
     }
 }
 
-// ── Filesystem Watcher (inspired by Zed's BackgroundScanner::run) ────────────
+// ── Filesystem Watcher ───────────────────────────────────────────────────────
 
 /// Start watching a workspace for filesystem changes.
 /// Emits "project-tree-changed" events to the frontend.

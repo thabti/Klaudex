@@ -1,5 +1,5 @@
 /**
- * Provider skill presentation utilities — ported from t3code.
+ * Provider skill presentation utilities.
  *
  * Formats provider skill display names and install source labels.
  */

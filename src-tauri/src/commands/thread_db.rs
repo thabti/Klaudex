@@ -1,6 +1,6 @@
-//! Thread Persistence with SQLite — inspired by Zed's sqlez-based thread storage.
+//! Thread Persistence with SQLite.
 //!
-//! Architecture (modeled after Zed's `ThreadsDatabase` + `ThreadMetadataStore`):
+//! Architecture:
 //!
 //! - **Background write queue**: All write operations are dispatched to a dedicated
 //!   background thread via a `tokio::sync::mpsc` channel, preventing the Tauri
@@ -145,6 +145,21 @@ pub struct ThreadStats {
     pub threads_by_workspace: Vec<(String, u64)>,
 }
 
+/// Metadata returned for each auto-archived thread so the frontend can update
+/// its local state without re-fetching everything.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchivedThreadInfo {
+    pub id: String,
+    pub name: String,
+    pub workspace: String,
+    pub created_at: String,
+    pub last_activity_at: String,
+    pub message_count: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_task_id: Option<String>,
+}
+
 // ── Error Type ────────────────────────────────────────────────────────────────
 
 #[derive(Debug, thiserror::Error)]
@@ -171,11 +186,11 @@ impl Serialize for ThreadDbError {
     }
 }
 
-// ── Write Queue (Zed-inspired background writer) ──────────────────────────────
+// ── Write Queue (background writer) ───────────────────────────────────────────
 //
 // All mutations are serialized through a single background task that owns the
-// connection. This mirrors Zed's `locking_queue` pattern: one writer thread per
-// DB file, reads can happen concurrently via WAL.
+// connection. One writer thread per DB file, reads can happen concurrently
+// via WAL.
 
 /// A type-erased write operation. The closure embeds its own result channel,
 /// so we don't need a separate ack channel — all responses flow through the
@@ -795,6 +810,94 @@ impl ThreadDatabase {
         })
     }
 
+    // ── Auto-Archive ─────────────────────────────────────────────────────────
+
+    /// Identify threads whose last activity is older than `days` and whose status
+    /// is not "running" or "paused". Returns metadata for each stale thread and
+    /// deletes them from the database.
+    pub async fn auto_archive_stale(
+        &self,
+        days: u32,
+    ) -> Result<Vec<ArchivedThreadInfo>, ThreadDbError> {
+        if days == 0 {
+            return Ok(vec![]);
+        }
+
+        // First, identify stale threads via a read query.
+        // A thread is stale if:
+        //   - Its status is NOT 'running' or 'paused'
+        //   - The most recent message timestamp (or updated_at if no messages) is older than `days` ago
+        let cutoff_seconds = days as i64 * 24 * 60 * 60;
+        let stale_threads: Vec<ArchivedThreadInfo> = self.read(move |conn| {
+            // Use a subquery to find the max message timestamp per thread,
+            // falling back to the thread's updated_at.
+            let mut stmt = conn.prepare(
+                r#"
+                SELECT
+                    t.id,
+                    t.name,
+                    t.workspace,
+                    t.created_at,
+                    COALESCE(
+                        (SELECT MAX(m.timestamp) FROM messages m WHERE m.thread_id = t.id),
+                        t.updated_at
+                    ) AS last_activity,
+                    (SELECT COUNT(*) FROM messages m WHERE m.thread_id = t.id) AS message_count,
+                    t.metadata
+                FROM threads t
+                WHERE t.status NOT IN ('running', 'paused')
+                  AND (julianday('now') - julianday(
+                    COALESCE(
+                        (SELECT MAX(m.timestamp) FROM messages m WHERE m.thread_id = t.id),
+                        t.updated_at
+                    )
+                  )) * 86400 >= ?1
+                "#,
+            )?;
+
+            let rows = stmt
+                .query_map([cutoff_seconds], |row| {
+                    let metadata_str: Option<String> = row.get(6)?;
+                    Ok(ArchivedThreadInfo {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        workspace: row.get(2)?,
+                        created_at: row.get(3)?,
+                        last_activity_at: row.get(4)?,
+                        message_count: row.get(5)?,
+                        parent_task_id: metadata_str
+                            .as_deref()
+                            .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+                            .and_then(|v| v.get("parentTaskId").and_then(|p| p.as_str().map(String::from))),
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+
+            Ok(rows)
+        })?;
+
+        if stale_threads.is_empty() {
+            return Ok(vec![]);
+        }
+
+        // Delete the stale threads from the database (write path).
+        let ids: Vec<String> = stale_threads.iter().map(|t| t.id.clone()).collect();
+        self.write(move |conn| {
+            let tx = conn.unchecked_transaction()?;
+            for id in &ids {
+                // Delete messages first so the AFTER DELETE trigger cleans up FTS
+                tx.execute("DELETE FROM messages WHERE thread_id = ?1", [id])?;
+                tx.execute("DELETE FROM thread_context WHERE thread_id = ?1", [id])?;
+                tx.execute("DELETE FROM threads WHERE id = ?1", [id])?;
+            }
+            tx.commit()?;
+            Ok(())
+        })
+        .await?;
+
+        Ok(stale_threads)
+    }
+
     // ── Shutdown ──────────────────────────────────────────────────────────────
 
     /// Gracefully shut down the background writer. Pending writes will complete.
@@ -880,6 +983,14 @@ pub async fn thread_db_clear_all(
     state: State<'_, ThreadDbState>,
 ) -> Result<(), ThreadDbError> {
     state.db.clear_all().await
+}
+
+#[tauri::command]
+pub async fn thread_db_auto_archive(
+    state: State<'_, ThreadDbState>,
+    days: u32,
+) -> Result<Vec<ArchivedThreadInfo>, ThreadDbError> {
+    state.db.auto_archive_stale(days).await
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

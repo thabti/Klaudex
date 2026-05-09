@@ -1,5 +1,5 @@
 /**
- * Version skew detection — ported from t3code.
+ * Version skew detection.
  *
  * Detects mismatches between the kirodex app version and the kiro-cli version.
  * Shows a dismissible warning when versions are incompatible.

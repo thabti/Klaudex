@@ -28,7 +28,7 @@ describe('deriveInputState', () => {
     expect(deriveInputState(null)).toEqual({ disabled: true, disabledReason: undefined })
   })
 
-  it('returns enabled for archived task (Zed-style stateless resumption)', () => {
+  it('returns enabled for archived task (stateless resumption)', () => {
     const task = makeTask({ isArchived: true })
     expect(deriveInputState(task)).toEqual({ disabled: false, disabledReason: undefined })
   })

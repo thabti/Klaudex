@@ -1,5 +1,5 @@
 /**
- * Project scripts management — ported from t3code.
+ * Project scripts management.
  *
  * Named scripts per project (like npm scripts) with keybinding integration.
  * Scripts are stored in project prefs and can be run via keyboard shortcuts.

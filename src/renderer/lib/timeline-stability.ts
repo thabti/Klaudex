@@ -1,7 +1,6 @@
 /**
  * Stable row identity for timeline rendering.
  *
- * Inspired by T3 Code's `computeStableMessagesTimelineRows` pattern.
  * Instead of returning fresh objects from `deriveTimeline` on every render,
  * this module maintains referential identity for rows whose content hasn't
  * changed. This prevents unnecessary virtualizer re-measurement and React

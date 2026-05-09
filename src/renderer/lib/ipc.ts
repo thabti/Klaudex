@@ -292,7 +292,7 @@ export const ipc = {
   onKiroConfigChanged: (cb: (data: { projectPath: string | null }) => void): UnsubscribeFn =>
     tauriListen('kiro-config-changed', cb),
 
-  // ── Streaming Diff (Rust-powered, inspired by Zed) ──────────────────────────
+  // ── Streaming Diff (Rust-powered) ──────────────────────────────────────────
   computeDiff: (oldText: string, newText: string): Promise<Array<{ type: 'insert'; text: string } | { type: 'delete'; bytes: number } | { type: 'keep'; bytes: number }>> =>
     invoke('compute_diff', { oldText, newText }),
   computeLineDiff: (oldText: string, newText: string): Promise<Array<{ type: 'insert'; lines: number } | { type: 'delete'; lines: number } | { type: 'keep'; lines: number }>> =>
@@ -371,6 +371,8 @@ export const ipc = {
     invoke('thread_db_stats'),
   threadDbClearAll: (): Promise<void> =>
     invoke('thread_db_clear_all'),
+  threadDbAutoArchive: (days: number): Promise<Array<{ id: string; name: string; workspace: string; createdAt: string; lastActivityAt: string; messageCount: number; parentTaskId?: string }>> =>
+    invoke('thread_db_auto_archive', { days }),
 
   // ── Git: commit dialog & VCS status ────────────────────────────────────
   gitVcsStatus: (cwd: string): Promise<{ branch: string; aheadCount: number; behindCount: number; isDirty: boolean; changedFileCount: number; hasUpstream: boolean }> =>
@@ -396,7 +398,68 @@ export const ipc = {
   gitGenerateCommitMessage: (cwd: string): Promise<{ subject: string; body: string }> =>
     invoke('git_generate_commit_message', { cwd }),
 
+  // ── PR / MR creation (GitHub + GitLab) ──────────────────────────────────
+  gitDetectProvider: (cwd: string): Promise<{ provider: 'github' | 'gitlab' | null; cliAvailable: boolean; remoteUrl: string; authenticated: boolean }> =>
+    invoke('git_detect_provider', { cwd }),
+  gitCreatePr: (cwd: string, title: string, body: string, base: string, draft?: boolean): Promise<{ provider: string; url: string; number: number; title: string }> =>
+    invoke('git_create_pr', { cwd, title, body, base, draft }),
+  gitPrStatus: (cwd: string): Promise<{ hasOpenPr: boolean; prUrl?: string; prNumber?: number; prTitle?: string; prState?: string }> =>
+    invoke('git_pr_status', { cwd }),
+  gitPrOpenInBrowser: (cwd: string): Promise<void> =>
+    invoke('git_pr_open_in_browser', { cwd }),
+
+  // ── Pattern extraction (code signatures for agent context) ──────────────
+  extractPatterns: (filePath: string): Promise<{ path: string; language: string; symbols: Array<{ name: string; kind: string; signature: string; line: number; isPublic: boolean }>; totalLines: number }> =>
+    invoke('extract_patterns', { filePath }),
+  extractPatternsBatch: (filePaths: string[]): Promise<Array<{ path: string; language: string; symbols: Array<{ name: string; kind: string; signature: string; line: number; isPublic: boolean }>; totalLines: number }>> =>
+    invoke('extract_patterns_batch', { filePaths }),
+
+  // ── Structured tracing (NDJSON debug traces) ────────────────────────────
+  traceReadRecent: (limit?: number): Promise<Array<{ name: string; timestamp: string; durationMs: number; attributes: Record<string, unknown>; exit: string }>> =>
+    invoke('trace_read_recent', { limit }),
+  traceFileLocation: (): Promise<string> =>
+    invoke('trace_file_location'),
+  traceClear: (): Promise<void> =>
+    invoke('trace_clear'),
+
   // ── ACP: model selection ───────────────────────────────────────────────
   setModel: (taskId: string, modelId: string): Promise<void> =>
     invoke('set_model', { taskId, modelId }),
+
+  // ── Checkpoints (per-turn snapshots) ────────────────────────────────────
+  checkpointCreate: (taskId: string, turn: number): Promise<{ turn: number; refName: string; oid: string; message: string; timestamp: number }> =>
+    invoke('checkpoint_create', { taskId, turn }),
+  checkpointList: (taskId: string): Promise<Array<{ turn: number; refName: string; oid: string; message: string; timestamp: number }>> =>
+    invoke('checkpoint_list', { taskId }),
+  checkpointDiff: (taskId: string, fromTurn: number, toTurn: number): Promise<{
+    fromTurn: number; toTurn: number; additions: number; deletions: number;
+    fileCount: number; patch: string;
+    files: Array<{ path: string; additions: number; deletions: number; status: string }>;
+  }> =>
+    invoke('checkpoint_diff', { taskId, fromTurn, toTurn }),
+  checkpointRevert: (taskId: string, turn: number): Promise<void> =>
+    invoke('checkpoint_revert', { taskId, turn }),
+  checkpointCleanup: (taskId: string): Promise<number> =>
+    invoke('checkpoint_cleanup', { taskId }),
+
+  // ── Git History (commit log, stash) ─────────────────────────────────────
+  gitCommitHistory: (cwd: string, limit?: number, skip?: number, includeStats?: boolean): Promise<Array<{
+    shortOid: string; oid: string; subject: string; body: string;
+    authorName: string; authorEmail: string; timestamp: number;
+    additions: number; deletions: number; fileCount: number;
+    parents: string[]; isHead: boolean;
+  }>> =>
+    invoke('git_commit_history', { cwd, limit, skip, includeStats }),
+  gitCommitDiff: (cwd: string, oid: string): Promise<string> =>
+    invoke('git_commit_diff', { cwd, oid }),
+  gitCommitStats: (cwd: string, oids: string[]): Promise<Array<{ oid: string; additions: number; deletions: number; fileCount: number }>> =>
+    invoke('git_commit_stats', { cwd, oids }),
+  gitStashList: (cwd: string): Promise<Array<{ index: number; message: string; oid: string; timestamp: number }>> =>
+    invoke('git_stash_list', { cwd }),
+  gitStashPop: (cwd: string, index?: number): Promise<void> =>
+    invoke('git_stash_pop', { cwd, index }),
+  gitStashDrop: (cwd: string, index?: number): Promise<void> =>
+    invoke('git_stash_drop', { cwd, index }),
+  gitStashSave: (cwd: string, message?: string): Promise<string> =>
+    invoke('git_stash_save', { cwd, message }),
 }

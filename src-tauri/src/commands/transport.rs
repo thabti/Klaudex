@@ -1,4 +1,4 @@
-//! MCP Transport Abstraction — inspired by Zed's context_server transport layer.
+//! MCP Transport Abstraction.
 //!
 //! Provides a `Transport` trait with implementations for:
 //! - **Stdio**: Communicates with a subprocess via stdin/stdout (current kirodex behavior)

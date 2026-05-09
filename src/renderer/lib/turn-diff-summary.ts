@@ -1,5 +1,5 @@
 /**
- * Turn diff summarization — ported from t3code's checkpointing system.
+ * Turn diff summarization.
  *
  * Parses unified diff output and summarizes additions/deletions per file.
  * Used by the activity feed and plan sidebar to show what changed per turn.

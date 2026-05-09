@@ -1,6 +1,6 @@
-//! Server-side markdown parsing, inspired by Zed's `crates/markdown/src/parser.rs`.
+//! Server-side markdown parsing.
 //!
-//! Zed parses chat markdown with `pulldown-cmark` and stores the result as a
+//! Parses chat markdown with `pulldown-cmark` and stores the result as a
 //! flat `Vec<(Range<usize>, MarkdownEvent)>`. Re-parses are cheap and the
 //! renderer never touches a markdown library.
 //!
@@ -20,8 +20,7 @@
 //! code + link).
 //!
 //! Specialized blocks (`mermaid`, `kiro_summary`, JSON report fences) are
-//! recognized at parse time, mirroring the way Zed handles mermaid in
-//! `crates/markdown/src/mermaid.rs`.
+//! recognized at parse time so the renderer can handle them directly.
 
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use serde::Serialize;

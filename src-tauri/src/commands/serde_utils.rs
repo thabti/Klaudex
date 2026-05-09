@@ -1,4 +1,4 @@
-//! Serde utilities — inspired by Zed's agent tool deserialization patterns.
+//! Serde utilities for handling LLM tool argument quirks.
 //!
 //! Handles common LLM quirks where models sometimes stringify JSON arguments
 //! instead of providing structured values. For example, a model might return:

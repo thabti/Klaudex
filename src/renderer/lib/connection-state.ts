@@ -1,8 +1,8 @@
 /**
  * Rich Connection State — First-class UI concept for IPC health.
  *
- * Inspired by T3 Code's WsConnectionStatus. Upgrades the simple boolean
- * `connected` flag to a rich state model that enables meaningful UI:
+ * Upgrades the simple boolean `connected` flag to a rich state model that
+ * enables meaningful UI:
  *   - "Reconnecting (attempt 2/5)..." banner
  *   - "Last connected 2m ago" when disconnected
  *   - Different UI for "never connected" vs "lost connection"

@@ -45,7 +45,7 @@ const PROSE_CLASSES =
 const FILE_PATH_RE = /^(?:\.{0,2}[\\/])?(?:[\w.@-]+[\\/])*[\w.@-]+\.\w{1,10}$/
 const CODE_FENCE_LANGUAGE_REGEX = /(?:^|\s)language-([^\s]+)/
 
-// 500 entries / ~50MB — same envelope as t3code. The cache is process-wide
+// 500 entries / ~50MB. The cache is process-wide
 // so it survives MessageList virtualization remounts.
 const MAX_HIGHLIGHT_CACHE_ENTRIES = 500
 const MAX_HIGHLIGHT_CACHE_MEMORY_BYTES = 50 * 1024 * 1024

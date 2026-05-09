@@ -1,4 +1,4 @@
-//! Retry Strategy with Exponential Backoff — inspired by Zed's thread.rs.
+//! Retry Strategy with Exponential Backoff.
 //!
 //! Provides configurable retry logic for ACP connections, model API calls,
 //! and other fallible operations. Supports both exponential backoff and
@@ -25,7 +25,7 @@ use tokio::time::sleep;
 /// Maximum retry attempts for ACP connections.
 pub const MAX_RETRY_ATTEMPTS: u8 = 4;
 
-/// Base delay for exponential backoff (5 seconds, matching Zed).
+/// Base delay for exponential backoff (5 seconds).
 pub const BASE_RETRY_DELAY: Duration = Duration::from_secs(5);
 
 /// Maximum delay cap to prevent excessively long waits.

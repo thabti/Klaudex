@@ -161,8 +161,8 @@ pub struct CreateTaskParams {
     pub model_id: Option<String>,
     pub attachments: Option<Vec<AttachmentData>>,
     /// When provided, the backend reuses this id and seeds the task with the
-    /// supplied historical messages instead of generating a new uuid. Used by
-    /// Zed-style stateless resumption: the frontend keeps the original thread
+    /// supplied historical messages instead of generating a new uuid. Used for
+    /// stateless resumption: the frontend keeps the original thread
     /// id while spawning a fresh kiro-cli connection.
     pub existing_id: Option<String>,
     /// Prior messages to seed the task with (resumed threads pass their full

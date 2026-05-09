@@ -7,9 +7,9 @@
 //!     (most file-creates), inflating real counts dramatically;
 //!   - was not LCS-correct for reorderings or duplicate lines.
 //!
-//! This module computes the same numbers Zed's `action_log::DiffStats` and
-//! `git diff --numstat` produce — Histogram diff over interned lines,
-//! summing hunk widths — so the frontend can stay a dumb display.
+//! This module computes the same numbers `git diff --numstat` produces —
+//! Histogram diff over interned lines, summing hunk widths — so the frontend
+//! can stay a dumb display.
 
 use imara_diff::intern::InternedInput;
 use imara_diff::{diff, Algorithm};
@@ -29,10 +29,9 @@ fn line_count(s: &str) -> u32 {
 
 /// Compute `(lines_added, lines_removed)` for a single before/after pair.
 ///
-/// Mirrors Zed's `DiffStats::single_file`: every diff hunk contributes
-/// `before.len()` to removed and `after.len()` to added, summed across all
-/// hunks. For pure creates / deletes, takes a fast path that matches
-/// `count_lines` from `fs::fake_git_repo`.
+/// Every diff hunk contributes `before.len()` to removed and `after.len()`
+/// to added, summed across all hunks. For pure creates / deletes, takes a
+/// fast path that matches `count_lines` from `fs::fake_git_repo`.
 pub fn count_diff_lines(old_text: &str, new_text: &str) -> (u32, u32) {
     if old_text.is_empty() && new_text.is_empty() {
         return (0, 0);

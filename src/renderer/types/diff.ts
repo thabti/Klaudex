@@ -1,9 +1,8 @@
 /**
  * Structured diff types returned by `task_diff_structured` / `git_diff_structured`.
  *
- * Mirrors the Rust types in `src-tauri/src/commands/diff_parse.rs`. Inspired by
- * Zed's `BufferDiffSnapshot` / `DiffHunk`: the renderer never parses diffs;
- * the backend hands them over already structured.
+ * Mirrors the Rust types in `src-tauri/src/commands/diff_parse.rs`. The renderer
+ * never parses diffs; the backend hands them over already structured.
  */
 
 export type DiffLineKind = 'context' | 'addition' | 'deletion'

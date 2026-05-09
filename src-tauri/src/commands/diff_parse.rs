@@ -1,4 +1,4 @@
-//! Structured diff representation, inspired by Zed's `BufferDiffSnapshot`
+//! Structured diff representation.
 //! (`crates/buffer_diff/src/buffer_diff.rs`).
 //!
 //! The renderer currently consumes a raw unified-diff string from `task_diff`

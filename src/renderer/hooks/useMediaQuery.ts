@@ -2,7 +2,7 @@ import { useCallback, useSyncExternalStore } from 'react'
 
 /**
  * Responsive media query hook using useSyncExternalStore.
- * Ported from t3code — provides reactive breakpoint detection.
+ * Provides reactive breakpoint detection.
  *
  * @example
  * const isMobile = useMediaQuery('(max-width: 768px)')
