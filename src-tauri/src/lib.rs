@@ -445,11 +445,19 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             #[allow(deprecated)]
             {
-                use cocoa::appkit::NSWindow;
+                use cocoa::appkit::{NSApplication, NSApplicationActivationPolicy, NSWindow};
                 use cocoa::base::id;
                 use objc::msg_send;
                 use objc::sel;
                 use objc::sel_impl;
+
+                // Ensure the app has Regular activation policy so NSOpenPanel works.
+                // Without this, objc2-app-kit 0.3+ panics with NULL from +[NSOpenPanel openPanel].
+                unsafe {
+                    let ns_app = cocoa::appkit::NSApp();
+                    ns_app.setActivationPolicy_(NSApplicationActivationPolicy::NSApplicationActivationPolicyRegular);
+                }
+
                 let ns_window = _window.ns_window().unwrap() as id;
                 unsafe {
                     let content_view: id = ns_window.contentView();

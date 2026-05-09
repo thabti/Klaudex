@@ -52,6 +52,59 @@ const MAX_ENTRIES_PER_DIR: usize = 10_000;
 #[allow(dead_code)]
 const DEBOUNCE_MS: u64 = 150;
 
+// ── Path Containment ─────────────────────────────────────────────────────────
+
+/// Validate that a relative path, when joined to the workspace root, stays
+/// within the workspace. Prevents path traversal via `../` sequences.
+///
+/// For paths that don't exist yet (create operations), we canonicalize the
+/// longest existing ancestor and verify containment of the full resolved path.
+fn validate_path_containment(root: &Path, rel_path: &str) -> Result<PathBuf, String> {
+    if rel_path.is_empty() {
+        return Err("Path cannot be empty".to_string());
+    }
+    let joined = root.join(rel_path);
+    // Canonicalize the root (must exist)
+    let canonical_root = root.canonicalize()
+        .map_err(|e| format!("Workspace not accessible: {e}"))?;
+    // For existing paths, canonicalize directly
+    if joined.exists() {
+        let canonical = joined.canonicalize()
+            .map_err(|e| format!("Cannot resolve path: {e}"))?;
+        if !canonical.starts_with(&canonical_root) {
+            return Err(format!("Path escapes workspace: {rel_path}"));
+        }
+        return Ok(canonical);
+    }
+    // For non-existing paths (create), canonicalize the longest existing ancestor
+    // then append the remaining components and check for traversal.
+    let mut ancestor = joined.as_path();
+    let mut tail_components = Vec::new();
+    loop {
+        if ancestor.exists() {
+            break;
+        }
+        if let Some(file_name) = ancestor.file_name() {
+            tail_components.push(file_name.to_os_string());
+        } else {
+            return Err(format!("Path escapes workspace: {rel_path}"));
+        }
+        ancestor = match ancestor.parent() {
+            Some(p) => p,
+            None => return Err(format!("Path escapes workspace: {rel_path}")),
+        };
+    }
+    let mut resolved = ancestor.canonicalize()
+        .map_err(|e| format!("Cannot resolve path: {e}"))?;
+    for component in tail_components.into_iter().rev() {
+        resolved.push(component);
+    }
+    if !resolved.starts_with(&canonical_root) {
+        return Err(format!("Path escapes workspace: {rel_path}"));
+    }
+    Ok(resolved)
+}
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 /// Unique stable ID for each entry in the tree.
@@ -603,7 +656,7 @@ pub fn scan_root(workspace: String, respect_gitignore: bool) -> Result<Vec<TreeE
 #[tauri::command]
 pub fn create_file(workspace: String, rel_path: String) -> Result<TreeEntry, String> {
     let root = PathBuf::from(&workspace);
-    let abs_path = root.join(&rel_path);
+    let abs_path = validate_path_containment(&root, &rel_path)?;
 
     // Ensure parent directory exists
     if let Some(parent) = abs_path.parent() {
@@ -648,7 +701,7 @@ pub fn create_file(workspace: String, rel_path: String) -> Result<TreeEntry, Str
 #[tauri::command]
 pub fn create_directory(workspace: String, rel_path: String) -> Result<TreeEntry, String> {
     let root = PathBuf::from(&workspace);
-    let abs_path = root.join(&rel_path);
+    let abs_path = validate_path_containment(&root, &rel_path)?;
 
     std::fs::create_dir_all(&abs_path)
         .map_err(|e| format!("Failed to create directory: {}", e))?;
@@ -677,7 +730,7 @@ pub fn create_directory(workspace: String, rel_path: String) -> Result<TreeEntry
 #[tauri::command]
 pub fn delete_entry(workspace: String, rel_path: String, permanent: bool) -> Result<(), String> {
     let root = PathBuf::from(&workspace);
-    let abs_path = root.join(&rel_path);
+    let abs_path = validate_path_containment(&root, &rel_path)?;
 
     if !abs_path.exists() {
         return Err(format!("Path does not exist: {}", rel_path));
@@ -762,8 +815,8 @@ pub fn rename_entry(
     new_rel_path: String,
 ) -> Result<TreeEntry, String> {
     let root = PathBuf::from(&workspace);
-    let old_abs = root.join(&old_rel_path);
-    let new_abs = root.join(&new_rel_path);
+    let old_abs = validate_path_containment(&root, &old_rel_path)?;
+    let new_abs = validate_path_containment(&root, &new_rel_path)?;
 
     if !old_abs.exists() {
         return Err(format!("Source does not exist: {}", old_rel_path));
@@ -824,8 +877,8 @@ pub fn copy_entry(
     dest_rel_path: String,
 ) -> Result<TreeEntry, String> {
     let root = PathBuf::from(&workspace);
-    let src_abs = root.join(&src_rel_path);
-    let dest_abs = root.join(&dest_rel_path);
+    let src_abs = validate_path_containment(&root, &src_rel_path)?;
+    let dest_abs = validate_path_containment(&root, &dest_rel_path)?;
 
     if !src_abs.exists() {
         return Err(format!("Source does not exist: {}", src_rel_path));
@@ -882,7 +935,7 @@ pub fn copy_entry(
 #[tauri::command]
 pub fn duplicate_entry(workspace: String, rel_path: String) -> Result<TreeEntry, String> {
     let root = PathBuf::from(&workspace);
-    let abs_path = root.join(&rel_path);
+    let abs_path = validate_path_containment(&root, &rel_path)?;
 
     if !abs_path.exists() {
         return Err(format!("Path does not exist: {}", rel_path));
@@ -954,7 +1007,7 @@ pub fn copy_entry_path(workspace: String, rel_path: String, relative: bool) -> S
 #[tauri::command]
 pub fn reveal_in_finder(workspace: String, rel_path: String) -> Result<(), String> {
     let root = PathBuf::from(&workspace);
-    let abs_path = root.join(&rel_path);
+    let abs_path = validate_path_containment(&root, &rel_path)?;
 
     #[cfg(target_os = "macos")]
     {
@@ -989,7 +1042,7 @@ pub fn reveal_in_finder(workspace: String, rel_path: String) -> Result<(), Strin
 #[tauri::command]
 pub fn open_in_default_app(workspace: String, rel_path: String) -> Result<(), String> {
     let root = PathBuf::from(&workspace);
-    let abs_path = root.join(&rel_path);
+    let abs_path = validate_path_containment(&root, &rel_path)?;
 
     open::that(&abs_path)
         .map_err(|e| format!("Failed to open: {}", e))?;
@@ -1001,7 +1054,7 @@ pub fn open_in_default_app(workspace: String, rel_path: String) -> Result<(), St
 #[tauri::command]
 pub fn open_terminal_at(workspace: String, rel_path: String) -> Result<(), String> {
     let root = PathBuf::from(&workspace);
-    let abs_path = root.join(&rel_path);
+    let abs_path = validate_path_containment(&root, &rel_path)?;
     let dir = if abs_path.is_dir() {
         abs_path
     } else {
@@ -1010,13 +1063,12 @@ pub fn open_terminal_at(workspace: String, rel_path: String) -> Result<(), Strin
 
     #[cfg(target_os = "macos")]
     {
-        let script = format!(
-            "tell application \"Terminal\"\nactivate\ndo script \"cd '{}'\"\nend tell",
-            dir.to_string_lossy().replace('\'', "'\\''")
-        );
+        // Use environment variable to pass the path safely (avoids AppleScript injection)
+        let script = "tell application \"Terminal\"\nactivate\ndo script (\"cd \" & quoted form of (system attribute \"KIRODEX_CD_PATH\"))\nend tell";
         std::process::Command::new("osascript")
             .arg("-e")
-            .arg(&script)
+            .arg(script)
+            .env("KIRODEX_CD_PATH", dir.to_string_lossy().as_ref())
             .spawn()
             .map_err(|e| format!("Failed to open terminal: {}", e))?;
     }

@@ -69,7 +69,7 @@ export const CheckpointTimeline = memo(function CheckpointTimeline({ taskId, onV
   const handleRevert = useCallback(async (turn: number) => {
     if (!taskId) return
     try {
-      await ipc.checkpointRevert(taskId, turn)
+      await ipc.checkpointRevert(taskId, turn, true)
       setRevertConfirm(null)
       void fetchCheckpoints()
     } catch { /* ignore */ }

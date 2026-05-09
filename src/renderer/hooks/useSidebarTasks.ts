@@ -216,11 +216,13 @@ export function useSidebarTasks(sort: SortKey): readonly SidebarProject[] {
     // Add any projects that have tasks but aren't in the projects array
     for (const [pid, tasks] of grouped) {
       if (seenPid.has(pid)) continue
+      seenPid.add(pid)
       const ws = idToWorkspace.get(pid) ?? pid
       // Skip orphaned UUID projectIds with no workspace mapping
       if (!idToWorkspace.has(pid) && !pid.startsWith('/')) continue
       if (worktreeWorkspaces.has(ws)) continue
       if (seenCwd.has(ws)) continue
+      seenCwd.add(ws)
       result.push({
         name: projectNames[ws] ?? ws.split('/').pop() ?? ws,
         cwd: ws,

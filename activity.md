@@ -1,5 +1,18 @@
 # Activity Log
 
+## 2026-05-10 02:12 GST (Dubai)
+### Security: Fix findings S1-S4 from PR review
+Fixed four security findings: (S1) Added `validate_path_containment()` to all project_watcher.rs file operations — canonicalizes paths and verifies they stay within the workspace root, preventing `../` traversal. (S2) Replaced AppleScript string interpolation in `open_terminal_at` with the env-var pattern (`KIRODEX_CD_PATH` + `system attribute`). (S3) Added URL validation to `HttpTransport::new()` — rejects non-HTTP(S) schemes, restricts plain HTTP to localhost, blocks private/link-local IPs and cloud metadata endpoints. (S4) Added dirty-check guard to `checkpoint_revert` — refuses hard reset if uncommitted changes exist unless `force=true`.
+
+**Modified:** `src-tauri/src/commands/project_watcher.rs`, `src-tauri/src/commands/transport.rs`, `src-tauri/src/commands/checkpoint.rs`, `src-tauri/Cargo.toml`, `src/renderer/lib/ipc.ts`, `src/renderer/components/diff/CheckpointTimeline.tsx`
+
+## 2026-05-10 02:04 GST (Dubai)
+### Security: In-depth code and security review of Hitesh-Sisara/main PR
+Performed a comprehensive code and security review of the 221-file PR (+33,854/-3,807 lines). Identified one critical finding (path traversal in project_watcher.rs file operations — no containment check on rel_path), two medium findings (AppleScript injection in open_terminal_at, SSRF risk in HttpTransport), and documented several positive security patterns (parameterized SQL, command injection fixes, PTY cwd validation). Created a full PR review document and updated the security audit with an addendum tracking fixes applied and new issues introduced.
+
+**Modified:** `SECURITY_AUDIT.md`, `activity.md`
+**Added:** `docs/pr-review-hitesh-sisara-main.md`
+
 ## 2026-05-09 GST (Dubai)
 ### MCP Panel: kiro-cli integration for add/remove + OAuth click-through
 Wired the MCP sidebar to the Kiro CLI's own subcommands instead of editing `mcp.json` blindly. Added `mcp_add_server` and `mcp_remove_server` Tauri commands that shell out to `kiro-cli mcp add` / `mcp remove` so registry-mode governance, name validation, and any future CLI-side effects all run. Built an `AddMcpServerDialog` (transport picker, scope picker for global/workspace/agent, env var editor with `${VAR}` reminder) wired through a "+" button next to the MCP section header. The right-click menu now exposes an "Authenticate" entry when `oauthUrl` arrives via the `kiro.dev/mcp/oauth_request` notification — clicking opens the provider page and the CLI auto-reconnects after the redirect. Replaced the dead "Reconnect" stub (no kiro-cli runtime API exists for it) with the working "Remove server…" entry. Clicking on a `needs-auth` row now opens the OAuth URL directly so users don't have to hunt for the action.
