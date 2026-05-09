@@ -1,9 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { IconGitCommit, IconChevronDown, IconArrowUp, IconArrowDown, IconRefresh, IconLoader2 } from '@tabler/icons-react'
+import { IconGitCommit, IconChevronDown, IconArrowUp, IconArrowDown, IconRefresh, IconLoader2, IconCloudUpload } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { toast } from 'sonner'
 import { ipc } from '@/lib/ipc'
+import { track } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
+import { CommitDialog } from '@/components/CommitDialog'
+import { PublishRepoDialog } from '@/components/PublishRepoDialog'
+import { DefaultBranchConfirmDialog, isDefaultBranch, type DefaultBranchAction } from '@/components/DefaultBranchConfirmDialog'
+import { withGitToast } from '@/lib/git-toast'
 
 const GitHubIcon = () => (
   <svg aria-hidden className="size-3.5" viewBox="0 0 24 24" fill="currentColor">
@@ -13,46 +17,79 @@ const GitHubIcon = () => (
 
 type GitAction = 'push' | 'pull' | 'fetch' | 'commit' | null
 
+interface GitStatus {
+  branch: string
+  aheadCount: number
+  behindCount: number
+  isDirty: boolean
+  changedFileCount: number
+  hasUpstream: boolean
+}
+
 export function GitActionsGroup({ workspace }: { workspace: string }) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [commitMsg, setCommitMsg] = useState('')
-  const [showCommitInput, setShowCommitInput] = useState(false)
+  const [commitDialogOpen, setCommitDialogOpen] = useState(false)
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false)
   const [activeAction, setActiveAction] = useState<GitAction>(null)
+  const [gitStatus, setGitStatus] = useState<GitStatus | null>(null)
+  const [defaultBranchConfirm, setDefaultBranchConfirm] = useState<{
+    open: boolean
+    action: DefaultBranchAction
+    onContinue: () => void
+  }>({ open: false, action: 'push', onContinue: () => {} })
   const ref = useRef<HTMLDivElement>(null)
+  const statusFetchRef = useRef(0) // Monotonic counter to discard stale fetches
+
+  // Fetch git status when menu opens (debounced via counter to prevent rapid concurrent calls)
+  useEffect(() => {
+    if (!menuOpen) return
+    const fetchId = ++statusFetchRef.current
+    ipc.gitVcsStatus(workspace).then((status) => {
+      if (statusFetchRef.current === fetchId) setGitStatus(status)
+    }).catch(() => {
+      if (statusFetchRef.current === fetchId) setGitStatus(null)
+    })
+  }, [menuOpen, workspace])
 
   useEffect(() => {
-    if (!menuOpen && !showCommitInput) return
+    if (!menuOpen) return
     const h = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setMenuOpen(false)
-        setShowCommitInput(false)
       }
     }
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
-  }, [menuOpen, showCommitInput])
-
-  const handleCommit = async () => {
-    if (!commitMsg.trim()) return
-    setActiveAction('commit')
-    try {
-      await ipc.gitCommit(workspace, commitMsg.trim())
-      setCommitMsg(''); setShowCommitInput(false)
-      toast.success('Committed')
-    } catch (e) {
-      toast.error('Commit failed', { description: e instanceof Error ? e.message : String(e) })
-    } finally { setActiveAction(null) }
-  }
+  }, [menuOpen])
 
   const runGitAction = useCallback(async (key: GitAction, action: () => Promise<unknown>, label: string) => {
     setActiveAction(key)
     try {
-      await action()
-      toast.success(label, { description: 'Done' })
-    } catch (e) {
-      toast.error(`${label} failed`, { description: e instanceof Error ? e.message : String(e) })
+      await withGitToast(label, action, {
+        successDetail: (result) => typeof result === 'string' && result.includes('Already up to date')
+          ? 'Already up to date'
+          : 'Done',
+      })
+      track('feature_used', { feature: 'git', detail: key ?? label.toLowerCase() })
+    } catch {
+      // Error toast already shown by withGitToast
     } finally { setActiveAction(null); setMenuOpen(false) }
   }, [])
+
+  // Push with default branch confirmation
+  const handlePush = useCallback(() => {
+    const branch = gitStatus?.branch ?? null
+    if (isDefaultBranch(branch)) {
+      setMenuOpen(false)
+      setDefaultBranchConfirm({
+        open: true,
+        action: 'push',
+        onContinue: () => void runGitAction('push', () => ipc.gitPush(workspace), 'Push'),
+      })
+    } else {
+      void runGitAction('push', () => ipc.gitPush(workspace), 'Push')
+    }
+  }, [gitStatus, workspace, runGitAction])
 
   const handleOpenGitHub = useCallback(async () => {
     setMenuOpen(false)
@@ -71,7 +108,22 @@ export function GitActionsGroup({ workspace }: { workspace: string }) {
     }
   }, [workspace])
 
+  const handleOpenPublish = useCallback(() => {
+    setMenuOpen(false)
+    setPublishDialogOpen(true)
+  }, [])
+
   const busy = activeAction !== null
+
+  // Smart disabled states
+  const pushDisabled = busy || (gitStatus ? (!gitStatus.isDirty && gitStatus.aheadCount === 0) : false)
+  const pushHint = gitStatus && !gitStatus.isDirty && gitStatus.aheadCount === 0
+    ? 'No local commits to push'
+    : gitStatus && gitStatus.behindCount > 0
+      ? 'Branch is behind upstream. Pull first.'
+      : undefined
+  const commitDisabled = busy || (gitStatus ? !gitStatus.isDirty : false)
+  const commitHint = gitStatus && !gitStatus.isDirty ? 'Worktree is clean' : undefined
 
   return (
     <div ref={ref} data-testid="git-actions-group" className="relative">
@@ -79,7 +131,7 @@ export function GitActionsGroup({ workspace }: { workspace: string }) {
       <Tooltip>
         <TooltipTrigger asChild>
           <button type="button" aria-label="Git options" data-testid="git-options-button"
-            onClick={() => { setMenuOpen((v) => !v); setShowCommitInput(false) }}
+            onClick={() => { setMenuOpen((v) => !v) }}
             className="inline-flex h-6 w-5 items-center justify-center rounded-r-md border border-l-0 border-input bg-popover text-muted-foreground shadow-xs/5 transition-colors hover:bg-accent/50 hover:text-foreground dark:bg-input/32">
             <IconChevronDown className={cn('size-3 transition-transform', menuOpen && 'rotate-180')} aria-hidden />
           </button>
@@ -89,16 +141,20 @@ export function GitActionsGroup({ workspace }: { workspace: string }) {
 
       {/* Dropdown menu */}
       {menuOpen && (
-        <div className="absolute right-0 top-7 z-[200] min-w-[130px] rounded-lg border border-border bg-popover py-1 shadow-lg">
-          <GitMenuItem icon={IconGitCommit} label="Commit" loading={activeAction === 'commit'} disabled={busy}
-            onClick={() => { setMenuOpen(false); setShowCommitInput(true) }} />
-          <GitMenuItem icon={IconArrowUp} label="Push" loading={activeAction === 'push'} disabled={busy}
-            onClick={() => void runGitAction('push', () => ipc.gitPush(workspace), 'Push')} />
+        <div className="absolute right-0 top-7 z-[200] min-w-[160px] rounded-lg border border-border bg-popover py-1 shadow-lg">
+          <GitMenuItem icon={IconGitCommit} label="Commit" loading={activeAction === 'commit'} disabled={commitDisabled}
+            hint={commitHint}
+            onClick={() => { setMenuOpen(false); setCommitDialogOpen(true) }} />
+          <GitMenuItem icon={IconArrowUp} label="Push" loading={activeAction === 'push'} disabled={pushDisabled}
+            hint={pushHint}
+            onClick={handlePush} />
           <GitMenuItem icon={IconArrowDown} label="Pull" loading={activeAction === 'pull'} disabled={busy}
             onClick={() => void runGitAction('pull', () => ipc.gitPull(workspace), 'Pull')} />
           <GitMenuItem icon={IconRefresh} label="Fetch" loading={activeAction === 'fetch'} disabled={busy}
             onClick={() => void runGitAction('fetch', () => ipc.gitFetch(workspace), 'Fetch')} />
           <div className="mx-2 my-1 border-t border-border/40" />
+          <GitMenuItem icon={IconCloudUpload} label="Publish" loading={false} disabled={busy}
+            onClick={handleOpenPublish} />
           <button type="button" onClick={() => void handleOpenGitHub()}
             className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors">
             <GitHubIcon /> GitHub
@@ -106,36 +162,47 @@ export function GitActionsGroup({ workspace }: { workspace: string }) {
         </div>
       )}
 
-      {/* Commit input popover */}
-      {showCommitInput && (
-        <div className="absolute right-0 top-7 z-[200] w-72 rounded-lg border border-border bg-popover p-3 shadow-lg">
-          <p className="mb-2 text-[11px] font-medium text-muted-foreground">Commit message</p>
-          <input autoFocus data-testid="git-commit-message-input" value={commitMsg} onChange={(e) => setCommitMsg(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') void handleCommit() }}
-            placeholder="feat: ..."
-            className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus:border-ring" />
-          <div className="mt-2 flex justify-end gap-1.5">
-            <button type="button" onClick={() => setShowCommitInput(false)}
-              className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent">Cancel</button>
-            <button type="button" onClick={() => void handleCommit()} disabled={!commitMsg.trim() || busy}
-              className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-              {activeAction === 'commit' ? 'Committing…' : 'Commit'}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Commit dialog */}
+      <CommitDialog
+        open={commitDialogOpen}
+        onOpenChange={setCommitDialogOpen}
+        workspace={workspace}
+      />
+
+      {/* Publish repository dialog */}
+      <PublishRepoDialog
+        open={publishDialogOpen}
+        onOpenChange={setPublishDialogOpen}
+        workspace={workspace}
+      />
+
+      {/* Default branch confirmation */}
+      <DefaultBranchConfirmDialog
+        open={defaultBranchConfirm.open}
+        onOpenChange={(open) => setDefaultBranchConfirm((s) => ({ ...s, open }))}
+        workspace={workspace}
+        branchName={gitStatus?.branch ?? 'main'}
+        action={defaultBranchConfirm.action}
+        onContinue={defaultBranchConfirm.onContinue}
+        onCreateBranch={() => {
+          // Branch was created by the dialog; now proceed with the original
+          // action (e.g. push) on the newly checked-out branch.
+          defaultBranchConfirm.onContinue()
+        }}
+      />
     </div>
   )
 }
 
-function GitMenuItem({ icon: Icon, label, loading, disabled, onClick }: {
+function GitMenuItem({ icon: Icon, label, loading, disabled, hint, onClick }: {
   icon: typeof IconArrowUp
   label: string
   loading: boolean
   disabled: boolean
+  hint?: string
   onClick: () => void
 }) {
-  return (
+  const button = (
     <button type="button" onClick={onClick} disabled={disabled}
       className={cn(
         'flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors disabled:opacity-50',
@@ -148,4 +215,15 @@ function GitMenuItem({ icon: Icon, label, loading, disabled, onClick }: {
       {loading && <span className="ml-auto text-[10px] text-muted-foreground">…</span>}
     </button>
   )
+
+  if (hint && disabled) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent side="left" className="max-w-48 text-xs">{hint}</TooltipContent>
+      </Tooltip>
+    )
+  }
+
+  return button
 }

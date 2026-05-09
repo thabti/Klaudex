@@ -6,8 +6,19 @@ import ChatMarkdown from './ChatMarkdown'
 import { ThinkingDisplay } from './ThinkingDisplay'
 import { isPlanHandoff, PlanHandoffCard } from './PlanHandoffCard'
 import { TaskCompletionCard, parseReport, stripReport, shouldRenderReportCard } from './TaskCompletionCard'
+import { CompletionDivider } from './CompletionDivider'
 import { useTaskStore } from '@/stores/taskStore'
 import type { AssistantTextRow as AssistantTextRowData } from '@/lib/timeline'
+
+/** Format duration in ms to a human-readable label */
+function formatDurationLabel(ms: number): string {
+  if (ms < 1000) return '<1s'
+  const sec = Math.round(ms / 1000)
+  if (sec < 60) return `${sec}s`
+  const min = Math.floor(sec / 60)
+  const rem = sec % 60
+  return rem > 0 ? `${min}m ${rem}s` : `${min}m`
+}
 
 export const AssistantTextRow = memo(function AssistantTextRow({ row }: { row: AssistantTextRowData }) {
   // Inline-mode middle segments must not parse the content for report/handoff —
@@ -56,6 +67,9 @@ export const AssistantTextRow = memo(function AssistantTextRow({ row }: { row: A
 
   return (
     <div data-testid="assistant-text-row" className={cn('group/assistant', row.squashed ? 'pb-2.5' : 'pb-4')} data-timeline-row-kind="assistant-text">
+      {row.showCompletionDivider && !row.isStreaming && (
+        <CompletionDivider durationMs={row.durationMs} />
+      )}
       {row.thinking && (
         <ThinkingDisplay text={row.thinking} isActive={row.isStreaming} />
       )}
@@ -94,6 +108,11 @@ export const AssistantTextRow = memo(function AssistantTextRow({ row }: { row: A
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-[11px]">{copied ? 'Copied!' : 'Copy'}</TooltipContent>
           </Tooltip>
+          {row.durationMs != null && row.durationMs > 0 && (
+            <span className="ml-1 text-[10px] tabular-nums text-muted-foreground/40">
+              {formatDurationLabel(row.durationMs)}
+            </span>
+          )}
         </div>
       )}
     </div>

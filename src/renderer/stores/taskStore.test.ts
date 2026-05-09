@@ -19,6 +19,7 @@ vi.mock('@/lib/ipc', () => ({
 }))
 vi.mock('@/lib/history-store', () => ({
   loadThreads: vi.fn().mockResolvedValue([]),
+  loadThread: vi.fn().mockResolvedValue(null),
   loadProjects: vi.fn().mockResolvedValue([]),
   loadSoftDeleted: vi.fn().mockResolvedValue([]),
   loadBackup: vi.fn().mockResolvedValue({ threads: [], projects: [], softDeleted: [] }),
@@ -26,6 +27,15 @@ vi.mock('@/lib/history-store', () => ({
   saveSoftDeleted: vi.fn().mockResolvedValue(undefined),
   toArchivedTasks: vi.fn().mockReturnValue([]),
   clearHistory: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock('@/lib/thread-db', () => ({
+  saveThread: vi.fn().mockResolvedValue(undefined),
+  saveMessage: vi.fn().mockResolvedValue(undefined),
+  saveAllMessages: vi.fn().mockResolvedValue(undefined),
+  loadFullThread: vi.fn().mockResolvedValue(null),
+  loadMessages: vi.fn().mockResolvedValue([]),
+  migrateFromJsonHistory: vi.fn().mockResolvedValue({ migrated: 0, skipped: 0, failed: 0 }),
+  clearAll: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('./debugStore', () => ({
   useDebugStore: { getState: () => ({ addEntry: vi.fn() }) },
@@ -691,6 +701,158 @@ describe('applyTurnEnd', () => {
     const messages = result.tasks?.['t1'].messages ?? []
     expect(messages).toHaveLength(1)
     expect(messages[0].role).toBe('user')
+  })
+})
+
+describe('hydrateArchivedTask', () => {
+  it('preserves toolCalls and toolCallSplits from persisted thread', async () => {
+    const { loadThread } = await import('@/lib/history-store')
+    const archivedId = 'archived-with-tools'
+    vi.mocked(loadThread).mockResolvedValueOnce({
+      id: archivedId,
+      name: 'Test Task',
+      workspace: '/ws',
+      createdAt: '2026-01-01T00:00:00Z',
+      messages: [
+        { role: 'user', content: 'do a thing', timestamp: '2026-01-01T00:00:00Z' },
+        {
+          role: 'assistant',
+          content: 'doing the thing',
+          timestamp: '2026-01-01T00:00:01Z',
+          toolCalls: [{
+            toolCallId: 'tc-1',
+            title: 'Read file',
+            kind: 'read',
+            status: 'completed',
+            createdAt: '2026-01-01T00:00:01Z',
+          }],
+          toolCallSplits: [{ toolCallId: 'tc-1', at: 5 }],
+        },
+      ],
+    })
+    // Seed archivedMeta so hydrateArchivedTask doesn't bail early.
+    useTaskStore.setState({
+      archivedMeta: {
+        [archivedId]: {
+          id: archivedId,
+          name: 'Test Task',
+          workspace: '/ws',
+          createdAt: '2026-01-01T00:00:00Z',
+          lastActivityAt: '2026-01-01T00:00:01Z',
+          messageCount: 2,
+        },
+      },
+    })
+
+    const ok = await useTaskStore.getState().hydrateArchivedTask(archivedId)
+    expect(ok).toBe(true)
+    const hydrated = useTaskStore.getState().tasks[archivedId]
+    expect(hydrated).toBeDefined()
+    const assistantMsg = hydrated.messages[1]
+    // Regression guard: prior implementation dropped tool data on hydration,
+    // leaving reopened threads with text-only stubs of the live transcript.
+    expect(assistantMsg.toolCalls?.length).toBe(1)
+    expect(assistantMsg.toolCalls?.[0].toolCallId).toBe('tc-1')
+    expect(assistantMsg.toolCallSplits?.length).toBe(1)
+    expect(assistantMsg.toolCallSplits?.[0].at).toBe(5)
+  })
+})
+
+describe('autoArchiveStaleThreads', () => {
+  it('archives threads inactive longer than autoArchiveDays', async () => {
+    // Temporarily override the settingsStore mock to return autoArchiveDays: 7
+    const settingsMod = await import('./settingsStore')
+    const originalGetState = settingsMod.useSettingsStore.getState
+    ;(settingsMod.useSettingsStore as any).getState = () => ({
+      settings: { autoArchiveDays: 7 },
+      saveSettings: vi.fn().mockResolvedValue(undefined),
+      setActiveWorkspace: mockSetActiveWorkspace,
+    })
+
+    const oldTimestamp = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString() // 10 days ago
+    useTaskStore.getState().upsertTask(makeTask({
+      id: 'stale-1',
+      status: 'completed',
+      messages: [{ role: 'user', content: 'hi', timestamp: oldTimestamp }],
+    }))
+
+    useTaskStore.getState().autoArchiveStaleThreads()
+
+    expect(useTaskStore.getState().tasks['stale-1']).toBeUndefined()
+    expect(useTaskStore.getState().archivedMeta['stale-1']).toBeDefined()
+    ;(settingsMod.useSettingsStore as any).getState = originalGetState
+  })
+
+  it('does not archive running or paused threads', async () => {
+    const settingsMod = await import('./settingsStore')
+    const originalGetState = settingsMod.useSettingsStore.getState
+    ;(settingsMod.useSettingsStore as any).getState = () => ({
+      settings: { autoArchiveDays: 1 },
+      saveSettings: vi.fn().mockResolvedValue(undefined),
+      setActiveWorkspace: mockSetActiveWorkspace,
+    })
+
+    const oldTimestamp = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+    useTaskStore.getState().upsertTask(makeTask({
+      id: 'running-1',
+      status: 'running',
+      messages: [{ role: 'user', content: 'hi', timestamp: oldTimestamp }],
+    }))
+    useTaskStore.getState().upsertTask(makeTask({
+      id: 'paused-1',
+      status: 'paused',
+      messages: [{ role: 'user', content: 'hi', timestamp: oldTimestamp }],
+    }))
+
+    useTaskStore.getState().autoArchiveStaleThreads()
+
+    expect(useTaskStore.getState().tasks['running-1']).toBeDefined()
+    expect(useTaskStore.getState().tasks['paused-1']).toBeDefined()
+    ;(settingsMod.useSettingsStore as any).getState = originalGetState
+  })
+
+  it('does nothing when autoArchiveDays is 0 or unset', async () => {
+    const settingsMod = await import('./settingsStore')
+    const originalGetState = settingsMod.useSettingsStore.getState
+    ;(settingsMod.useSettingsStore as any).getState = () => ({
+      settings: { autoArchiveDays: 0 },
+      saveSettings: vi.fn().mockResolvedValue(undefined),
+      setActiveWorkspace: mockSetActiveWorkspace,
+    })
+
+    const oldTimestamp = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString()
+    useTaskStore.getState().upsertTask(makeTask({
+      id: 'old-1',
+      status: 'completed',
+      messages: [{ role: 'user', content: 'hi', timestamp: oldTimestamp }],
+    }))
+
+    useTaskStore.getState().autoArchiveStaleThreads()
+
+    expect(useTaskStore.getState().tasks['old-1']).toBeDefined()
+    ;(settingsMod.useSettingsStore as any).getState = originalGetState
+  })
+
+  it('does not archive threads within the threshold', async () => {
+    const settingsMod = await import('./settingsStore')
+    const originalGetState = settingsMod.useSettingsStore.getState
+    ;(settingsMod.useSettingsStore as any).getState = () => ({
+      settings: { autoArchiveDays: 30 },
+      saveSettings: vi.fn().mockResolvedValue(undefined),
+      setActiveWorkspace: mockSetActiveWorkspace,
+    })
+
+    const recentTimestamp = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() // 5 days ago
+    useTaskStore.getState().upsertTask(makeTask({
+      id: 'recent-1',
+      status: 'completed',
+      messages: [{ role: 'user', content: 'hi', timestamp: recentTimestamp }],
+    }))
+
+    useTaskStore.getState().autoArchiveStaleThreads()
+
+    expect(useTaskStore.getState().tasks['recent-1']).toBeDefined()
+    ;(settingsMod.useSettingsStore as any).getState = originalGetState
   })
 })
 

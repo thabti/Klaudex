@@ -55,7 +55,9 @@ function isRowUnchanged(prev: TimelineRow, next: TimelineRow): boolean {
         prev.squashed === b.squashed &&
         prev.hasChangedFiles === b.hasChangedFiles &&
         prev.questionsAnswered === b.questionsAnswered &&
-        prev.isInlineSegment === b.isInlineSegment
+        prev.isInlineSegment === b.isInlineSegment &&
+        prev.durationMs === b.durationMs &&
+        prev.showCompletionDivider === b.showCompletionDivider
       )
     }
     case 'work': {
@@ -64,7 +66,7 @@ function isRowUnchanged(prev: TimelineRow, next: TimelineRow): boolean {
     }
     case 'working': {
       const b = next as WorkingRow
-      return prev.hasStreamingContent === b.hasStreamingContent
+      return prev.hasStreamingContent === b.hasStreamingContent && prev.startedAt === b.startedAt
     }
     case 'changed-files': {
       const b = next as ChangedFilesRow

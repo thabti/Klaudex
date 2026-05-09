@@ -18,6 +18,15 @@ export interface ToolCallContentItem {
   path?: string
   oldText?: string | null
   newText?: string
+  /**
+   * For type=diff: pre-computed line-level stats annotated by the Rust ACP
+   * client (`commands::diff_stats::annotate_diff_content`). Equivalent to
+   * `git diff --numstat` for the (oldText, newText) pair. Present on
+   * `type === 'diff'` entries from live tool calls; may be absent on older
+   * persisted data — treat absent values as 0.
+   */
+  linesAdded?: number
+  linesRemoved?: number
   /** For type=terminal */
   terminalId?: string
 }
@@ -153,6 +162,13 @@ export interface ActivityEntry {
   timestamp: string
 }
 
+export interface TextGenerationPolicy {
+  commitInstructions?: string
+  branchInstructions?: string
+  threadTitleInstructions?: string
+  prInstructions?: string
+}
+
 export interface ProjectPrefs {
   modelId?: string | null
   autoApprove?: boolean
@@ -160,6 +176,7 @@ export interface ProjectPrefs {
   symlinkDirectories?: string[]
   tightSandbox?: boolean
   iconOverride?: { type: 'framework'; id: string } | { type: 'file'; path: string } | { type: 'emoji'; emoji: string } | null
+  textGenerationPolicy?: TextGenerationPolicy
 }
 
 export type SidebarPosition = 'left' | 'right'
@@ -180,6 +197,8 @@ export interface AppSettings {
   respectGitignore?: boolean
   coAuthor?: boolean
   coAuthorJsonReport?: boolean
+  /** When true, render an AI sparkle button next to the commit input. Default: true. */
+  aiCommitMessages?: boolean
   notifications?: boolean
   soundNotifications?: boolean
   projectPrefs?: Record<string, ProjectPrefs>
@@ -208,6 +227,11 @@ export interface AppSettings {
    * the assistant text. Only affects rendering; persisted data is the same.
    */
   inlineToolCalls?: boolean
+  /**
+   * Auto-archive threads older than this many days of inactivity.
+   * null or 0 = disabled. Default: null (disabled).
+   */
+  autoArchiveDays?: number | null
 }
 
 export interface ProjectFile {
@@ -228,12 +252,30 @@ export interface ProjectFile {
 
 // ── Kiro Configuration Types ──────────────────────────────────────
 
+export interface KiroAgentHook {
+  command: string
+  matcher?: string
+}
+
+export interface KiroAgentHooks {
+  agentSpawn?: KiroAgentHook[]
+  userPromptSubmit?: KiroAgentHook[]
+  preToolUse?: KiroAgentHook[]
+  postToolUse?: KiroAgentHook[]
+  stop?: KiroAgentHook[]
+}
+
 export interface KiroAgent {
   name: string
   description: string
   tools: string[]
   source: 'global' | 'local'
   filePath: string
+  welcomeMessage?: string
+  keyboardShortcut?: string
+  model?: string
+  resources?: string[]
+  hooks?: KiroAgentHooks
 }
 
 export interface KiroSkill {
@@ -262,6 +304,14 @@ export interface KiroMcpServer {
   filePath: string
   status?: 'connecting' | 'ready' | 'needs-auth' | 'error'
   oauthUrl?: string
+  source: 'global' | 'local'
+}
+
+export interface KiroPrompt {
+  name: string
+  content: string
+  source: 'global' | 'local'
+  filePath: string
 }
 
 export interface KiroConfig {
@@ -269,6 +319,7 @@ export interface KiroConfig {
   skills: KiroSkill[]
   steeringRules: KiroSteeringRule[]
   mcpServers?: KiroMcpServer[]
+  prompts: KiroPrompt[]
 }
 
 // ── Attachments ───────────────────────────────────────────────────

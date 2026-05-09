@@ -6,7 +6,7 @@ extern crate objc;
 
 mod commands;
 
-use commands::{acp, analytics, diff_parse, fs_ops, fuzzy, git, highlight, kiro_config, kiro_watcher, markdown, project_watcher, pty, settings, streaming_diff, thread_db, transport};
+use commands::{acp, analytics, branch_ai, diff_parse, fs_ops, fuzzy, git, git_ai, git_stack, highlight, kiro_config, kiro_watcher, markdown, pr_ai, process_diagnostics, project_watcher, pty, settings, streaming_diff, thread_db, thread_title, transport, vcs_status};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
 use tauri::Emitter;
@@ -571,6 +571,12 @@ pub fn run() {
             git::git_diff_stats,
             git::git_staged_stats,
             git::git_remote_url,
+            git_ai::git_generate_commit_message,
+            git::git_changed_files,
+            git::git_stage_files,
+            git::git_commit_files,
+            git::git_create_and_checkout_branch,
+            git::git_add_remote,
             git::git_worktree_create,
             git::git_worktree_remove,
             git::git_worktree_has_changes,
@@ -588,6 +594,7 @@ pub fn run() {
             acp::task_deny_permission,
             acp::task_set_auto_approve,
             acp::set_mode,
+            acp::set_model,
             acp::list_models,
             acp::probe_capabilities,
             // PTY
@@ -599,6 +606,8 @@ pub fn run() {
             // Kiro config
             kiro_config::get_kiro_config,
             kiro_config::save_mcp_server_config,
+            kiro_config::mcp_add_server,
+            kiro_config::mcp_remove_server,
             // Kiro watcher
             kiro_watcher::watch_kiro_path,
             kiro_watcher::unwatch_kiro_path,
@@ -648,6 +657,16 @@ pub fn run() {
             fuzzy::fuzzy_match,
             // MCP Transport
             transport::mcp_transport_test,
+            // Thread title generation
+            thread_title::generate_thread_title,
+            branch_ai::generate_branch_name,
+            branch_ai::rename_worktree_branch,
+            pr_ai::generate_pr_content,
+            vcs_status::git_vcs_status,
+            git_stack::git_list_stack,
+            git_stack::git_stacked_push,
+            process_diagnostics::list_child_processes,
+            process_diagnostics::signal_process,
             // Thread Database
             thread_db::thread_db_list,
             thread_db::thread_db_load,
@@ -657,6 +676,7 @@ pub fn run() {
             thread_db::thread_db_save_message,
             thread_db::thread_db_search,
             thread_db::thread_db_stats,
+            thread_db::thread_db_clear_all,
             // Relaunch
             set_relaunch_flag,
             // Reset

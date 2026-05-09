@@ -38,6 +38,8 @@ interface MessageListProps {
   activeMatchId?: string | null
   /** Callback to expose derived timeline rows to the parent */
   onTimelineRows?: (rows: TimelineRow[]) => void
+  /** Optional header content rendered inside the scroll container (scrolls with messages) */
+  headerContent?: React.ReactNode
 }
 
 export const MessageList = memo(function MessageList({
@@ -52,6 +54,7 @@ export const MessageList = memo(function MessageList({
   searchMatchIds,
   activeMatchId,
   onTimelineRows,
+  headerContent,
 }: MessageListProps) {
   const parentRef = useRef<HTMLDivElement>(null)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
@@ -275,6 +278,7 @@ export const MessageList = memo(function MessageList({
         data-testid="message-list"
         className="h-full overflow-auto overscroll-y-contain px-0"
       >
+        {headerContent}
         <div
           style={{
             height: `${virtualizer.getTotalSize()}px`,

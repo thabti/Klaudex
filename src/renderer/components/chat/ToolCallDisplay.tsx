@@ -1,6 +1,6 @@
 import { memo, useState, useMemo } from 'react'
 import {
-  IconChevronDown, IconChevronRight, IconCheck, IconLoader2, IconX, IconBolt, IconPlayerStop,
+  IconChevronDown, IconChevronRight, IconCheck, IconX, IconBolt, IconPlayerStop,
 } from '@tabler/icons-react'
 import type { ToolCall } from '@/types'
 import { ToolCallEntry } from './ToolCallEntry'
@@ -75,6 +75,7 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls, inline
         type="button"
         onClick={() => setExpanded(!expanded)}
         className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-accent/5"
+        style={{ fontSize: 'calc(var(--chat-font-size, 15px) - 2px)' }}
       >
         {expanded ? (
           <IconChevronDown className="size-3 shrink-0 text-muted-foreground/60" />
@@ -84,7 +85,7 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls, inline
         <span className="flex size-5 items-center justify-center rounded-md bg-amber-500/10">
           <IconBolt className="size-3 text-amber-500" />
         </span>
-        <span className="text-[12px] font-medium text-foreground/80">
+        <span className="font-medium text-foreground/80">
           {runningCount > 0 ? 'Working' : 'Tool calls'}
         </span>
         <span className="rounded-full bg-muted/60 px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
@@ -95,8 +96,14 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls, inline
 
         {/* Status summary pills */}
         {runningCount > 0 && (
-          <span className="flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-500">
-            <IconLoader2 className="size-2.5 animate-spin" />
+          <span className="flex items-center gap-1 rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-medium text-purple-400">
+            <span className="relative flex size-3 items-center justify-center">
+              <svg viewBox="0 0 16 16" className="absolute inset-0 animate-spin" style={{ animationDuration: '1.2s' }} aria-hidden>
+                <circle cx="8" cy="8" r="6" fill="none" stroke="rgba(139,92,246,0.2)" strokeWidth="2" />
+                <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                  strokeDasharray={`${2 * Math.PI * 6}`} strokeDashoffset={`${2 * Math.PI * 6 * 0.7}`} />
+              </svg>
+            </span>
             {runningCount} running
           </span>
         )}

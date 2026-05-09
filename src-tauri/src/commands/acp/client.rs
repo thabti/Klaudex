@@ -12,6 +12,7 @@ use super::sandbox::{
 };
 use super::types::{AcpState, PendingPermission, PermissionOption, PermissionReply};
 use super::now_millis;
+use super::super::diff_stats::annotate_diff_content;
 
 pub(crate) struct KirodexClient {
     pub(crate) task_id: String,
@@ -61,13 +62,17 @@ impl acp::Client for KirodexClient {
                 }
             }
             "tool_call" => {
+                let mut payload = update.clone();
+                annotate_diff_content(&mut payload);
                 let _ = self.app.emit("tool_call", serde_json::json!({
-                    "taskId": tid, "toolCall": update
+                    "taskId": tid, "toolCall": payload
                 }));
             }
             "tool_call_update" => {
+                let mut payload = update.clone();
+                annotate_diff_content(&mut payload);
                 let _ = self.app.emit("tool_call_update", serde_json::json!({
-                    "taskId": tid, "toolCall": update
+                    "taskId": tid, "toolCall": payload
                 }));
             }
             "plan" => {

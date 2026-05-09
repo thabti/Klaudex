@@ -3,12 +3,17 @@ import { IconRefresh } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 import { fuzzyScore } from '@/lib/fuzzy-search'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useTaskStore } from '@/stores/taskStore'
+import { usePanelResolvedTaskId } from './PanelContext'
 import { ipc } from '@/lib/ipc'
 import { PanelShell } from './PanelShell'
 
 export const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { onDismiss: () => void }) {
+  const resolvedTaskId = usePanelResolvedTaskId()
   const models = useSettingsStore((s) => s.availableModels)
-  const currentId = useSettingsStore((s) => s.currentModelId)
+  const globalModelId = useSettingsStore((s) => s.currentModelId)
+  const taskModelId = useTaskStore((s) => resolvedTaskId ? s.taskModels[resolvedTaskId] ?? null : null)
+  const currentId = taskModelId ?? globalModelId
   const modelsError = useSettingsStore((s) => s.modelsError)
   const [query, setQuery] = useState('')
   const [isShaking, setIsShaking] = useState(false)
@@ -36,11 +41,23 @@ export const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { 
   }, [models, query])
 
   const handleSelect = (modelId: string) => {
-    const { activeWorkspace, setProjectPref } = useSettingsStore.getState()
+    const { activeWorkspace, setProjectPref, settings, saveSettings } = useSettingsStore.getState()
     if (activeWorkspace) {
       setProjectPref(activeWorkspace, { modelId })
     } else {
+      // No active workspace: persist as the user's global default so the
+      // choice survives a restart instead of being held only in transient
+      // zustand state.
       useSettingsStore.setState({ currentModelId: modelId })
+      if (settings.defaultModel !== modelId) {
+        saveSettings({ ...settings, defaultModel: modelId }).catch(() => {})
+      }
+    }
+    if (resolvedTaskId) {
+      useTaskStore.getState().setTaskModel(resolvedTaskId, modelId)
+      // Push the selection to the live ACP session so kiro-cli actually
+      // starts using the new model on the next prompt.
+      ipc.setModel(resolvedTaskId, modelId).catch(() => {})
     }
     onDismiss()
   }

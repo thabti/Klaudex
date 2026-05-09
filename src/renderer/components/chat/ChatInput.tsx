@@ -56,7 +56,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
     folderPaths, handleRemoveFolder,
     pastedChunks, handleRemoveChunk,
     handleChange, handleSend, handleKeyDown, handleSelect,
-  } = useChatInput({ disabled, isRunning, isActive, taskId, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange })
+  } = useChatInput({ disabled, isRunning, isActive, taskId, workspace, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange })
 
   const panelTaskModeId = useTaskStore((s) => taskId ? s.taskModes[taskId] : null)
   const globalModeId = useSettingsStore((s) => s.currentModeId)
@@ -149,7 +149,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
               'hover:border-muted-foreground/30',
             )}
           >
-            <span className="text-muted-foreground" style={{ fontSize: 'var(--chat-font-size, 13px)' }}>Type a message…</span>
+            <span className="text-muted-foreground" style={{ fontSize: 'var(--chat-font-size, 15px)' }}>Type a message…</span>
             <IconChevronUp className="size-4 text-muted-foreground/80" />
           </button>
         </div>

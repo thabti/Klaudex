@@ -4,7 +4,7 @@ import { ipc } from '@/lib/ipc'
 
 type McpStatus = KiroMcpServer['status']
 
-const EMPTY_CONFIG: KiroConfig = { agents: [], skills: [], steeringRules: [], mcpServers: [] }
+const EMPTY_CONFIG: KiroConfig = { agents: [], skills: [], steeringRules: [], mcpServers: [], prompts: [] }
 
 interface KiroStore {
   /** Per-project config cache keyed by workspace path */
@@ -49,6 +49,7 @@ const sanitizeConfig = (config: KiroConfig): KiroConfig => ({
   skills: (config.skills ?? []).filter((s) => s.filePath),
   steeringRules: (config.steeringRules ?? []).filter((r) => r.filePath),
   mcpServers: config.mcpServers ?? [],
+  prompts: (config.prompts ?? []).filter((p) => p.filePath),
 })
 
 export const useKiroStore = create<KiroStore>((set, get) => {

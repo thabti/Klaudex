@@ -17,6 +17,23 @@ pub struct AgentProfile {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct TextGenerationPolicy {
+    /// Custom instructions appended to commit message prompts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit_instructions: Option<String>,
+    /// Custom instructions appended to branch name generation prompts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch_instructions: Option<String>,
+    /// Custom instructions appended to thread title generation prompts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_title_instructions: Option<String>,
+    /// Custom instructions appended to PR content generation prompts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pr_instructions: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct ProjectPrefs {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model_id: Option<String>,
@@ -32,6 +49,9 @@ pub struct ProjectPrefs {
     /// Stored as opaque JSON to avoid replicating the TypeScript union type.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon_override: Option<serde_json::Value>,
+    /// Per-project text generation policy (custom instructions for AI features).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_generation_policy: Option<TextGenerationPolicy>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -100,6 +120,13 @@ pub struct AppSettings {
     /// collapse into a single grouped card.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inline_tool_calls: Option<bool>,
+    /// When true, render an AI sparkle button next to the commit input.
+    #[serde(default = "default_true")]
+    pub ai_commit_messages: bool,
+    /// Auto-archive threads older than this many days of inactivity.
+    /// `None` or 0 disables auto-archiving.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_archive_days: Option<u32>,
 }
 
 fn default_kiro_bin() -> String {
@@ -141,6 +168,8 @@ impl Default for AppSettings {
             terminal_scrollback: None,
             terminal_auto_close_idle_mins: None,
             inline_tool_calls: None,
+            ai_commit_messages: true,
+            auto_archive_days: None,
         }
     }
 }
@@ -298,6 +327,7 @@ mod tests {
                 symlink_directories: Some(vec!["node_modules".to_string(), ".next".to_string()]),
                 tight_sandbox: Some(true),
                 icon_override: Some(serde_json::json!({"type": "emoji", "emoji": "🚀"})),
+                ..Default::default()
             },
         );
         let settings = AppSettings {

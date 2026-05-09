@@ -3,8 +3,7 @@ import { IconChevronLeft, IconChevronRight, IconCornerDownLeft, IconMessageCircl
 import { useTaskStore } from "@/stores/taskStore";
 import { ipc } from "@/lib/ipc";
 import { cn } from "@/lib/utils";
-import { parseQuestions, hasQuestionBlocks, stripQuestionBlocks } from "@/lib/question-parser";
-export { hasQuestionBlocks, stripQuestionBlocks } from "@/lib/question-parser";
+import { parseQuestions } from "@/lib/question-parser";
 
 export const QuestionCards = memo(function QuestionCards({
   text,

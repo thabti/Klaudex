@@ -313,6 +313,13 @@ export function startTreeWatcher() {
       refreshDebounceTimer = null
       useFileTreeStore.getState().refresh()
     }, 300)
+
+    // Also schedule a VCS status refresh (debounced separately at 2s)
+    import('@/stores/vcsStatusStore').then(({ scheduleVcsRefresh }) => {
+      scheduleVcsRefresh(event.payload.workspace)
+    }).catch((e) => {
+      if (import.meta.env.DEV) console.warn('[fileTreeStore] vcsStatusStore import failed:', e)
+    })
   }).then((unlisten) => {
     // If `stopTreeWatcher` (or another start) ran while we were registering,
     // discard this listener instead of leaking it.

@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useState, useId } from 'react'
 import {
   IconChevronDown, IconChevronRight, IconCheck, IconLoader2, IconX,
   IconFilePencil, IconTerminal2, IconGitCompare, IconPlayerStop,
@@ -10,27 +10,59 @@ import { useDiffStore } from '@/stores/diffStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { ipc } from '@/lib/ipc'
 import { InlineDiff } from './InlineDiff'
-import { getToolIcon, getToolColor, getFileExtColor } from './tool-call-utils'
-import { ReadOutput } from './ReadOutput'
+import { getToolIcon, getToolColor } from './tool-call-utils'
+import { FileTypeIcon } from '@/components/file-tree/FileTypeIcon'
+import { ReadOutput, parseReadInput } from './ReadOutput'
 import { isFetchToolCall, getFetchMeta, shortenUrl, formatBytes, formatDuration } from './fetch-display'
 import { getToolDetail, formatToolDuration } from './tool-call-detail'
 
-/** Colored file badge pill */
-const FileBadge = memo(function FileBadge({ path }: { path: string }) {
+/** File badge pill with material icon */
+const FileBadge = memo(function FileBadge({ path, isDir = false }: { path: string; isDir?: boolean }) {
   const shortPath = path.split('/').slice(-2).join('/')
-  const dotColor = getFileExtColor(path)
+  const fileName = path.split('/').pop() ?? path
   return (
     <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-1.5 py-0.5 font-mono text-[11px] text-foreground/70">
-      <span className={cn('size-1.5 shrink-0 rounded-full', dotColor)} aria-hidden />
+      <FileTypeIcon name={fileName} isDir={isDir} className="size-3.5 shrink-0" />
       {shortPath}
     </span>
   )
 })
 
-/** Status icon — filled circle checkmark for completed, spinner for running, X for failed, stop for cancelled */
+/** Circular progress spinner for in-progress tool calls — mimics Kiro IDE style */
+const ToolProgressRing = memo(function ToolProgressRing() {
+  const gradId = useId()
+  const r = 6
+  const circ = 2 * Math.PI * r
+  // Indeterminate: show ~30% arc that spins
+  const offset = circ * 0.7
+
+  return (
+    <span className="relative flex size-4 shrink-0 items-center justify-center">
+      <svg viewBox="0 0 16 16" className="absolute inset-0 animate-spin" style={{ animationDuration: '1.2s' }} aria-hidden>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#a78bfa" />
+            <stop offset="100%" stopColor="#60a5fa" />
+          </linearGradient>
+        </defs>
+        {/* Track */}
+        <circle cx="8" cy="8" r={r} fill="none" stroke="rgba(139,92,246,0.15)" strokeWidth="2" />
+        {/* Progress arc */}
+        <circle
+          cx="8" cy="8" r={r} fill="none"
+          stroke={`url(#${gradId})`}
+          strokeWidth="2" strokeLinecap="round"
+          strokeDasharray={circ} strokeDashoffset={offset}
+        />
+      </svg>
+    </span>
+  )
+})
+
+/** Status icon — circular progress ring for running, checkmark for completed, X for failed, stop for cancelled */
 const StatusIcon = memo(function StatusIcon({ status }: { status?: string }) {
   if (status === 'in_progress') {
-    return <IconLoader2 className="size-3.5 shrink-0 animate-spin text-blue-500" />
+    return <ToolProgressRing />
   }
   if (status === 'failed') {
     return (
@@ -57,12 +89,12 @@ const StatusIcon = memo(function StatusIcon({ status }: { status?: string }) {
 })
 
 export const ToolCallEntry = memo(function ToolCallEntry({ toolCall }: { toolCall: ToolCall }) {
-  const [expanded, setExpanded] = useState(false)
+  const isRunning = toolCall.status === 'in_progress'
+  const [expanded, setExpanded] = useState(isRunning)
   const [fileDiff, setFileDiff] = useState<string | null>(null)
   const [diffLoading, setDiffLoading] = useState(false)
   const Icon = getToolIcon(toolCall.kind, toolCall.title)
   const colors = getToolColor(toolCall.kind, toolCall.title)
-  const isRunning = toolCall.status === 'in_progress'
   const isFailed = toolCall.status === 'failed'
   const isCompleted = toolCall.status === 'completed'
   const isCancelled = toolCall.status === 'cancelled'
@@ -72,6 +104,15 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall }: { toolCal
   const isFetchOp = isFetchToolCall(toolCall)
   const fetchMeta = isFetchOp ? getFetchMeta(toolCall) : null
 
+  // Detect if this is a directory operation (for showing folder icon)
+  const isDirectoryOp = (() => {
+    if (toolCall.kind === 'read' && toolCall.rawInput) {
+      const ops = parseReadInput(toolCall.rawInput)
+      if (ops && ops.length === 1 && ops[0].mode === 'Directory') return true
+    }
+    return false
+  })()
+
   const toolDetail = !isFetchOp ? getToolDetail(toolCall) : null
 
   const hasContent = !!(
@@ -80,7 +121,7 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall }: { toolCal
     toolCall.rawOutput !== undefined
   )
 
-  const isClickable = isEditOp || hasContent
+  const isClickable = isEditOp || hasContent || isFailed
 
   const fetchDiffIfNeeded = () => {
     if (!isEditOp || !isCompleted || !firstPath || fileDiff !== null || diffLoading) return
@@ -124,13 +165,17 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall }: { toolCal
   const rightMeta = buildRightMeta(fetchMeta, toolDetail, null)
 
   return (
-    <div data-testid="tool-call-entry" className="group/entry">
+    <div data-testid="tool-call-entry" className={cn(
+      'group/entry',
+      isRunning && 'rounded-lg border border-purple-500/20 bg-purple-500/[0.03]',
+    )}>
       <button
         onClick={handleClick}
         className={cn(
-          'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12px] text-left transition-colors',
+          'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors',
           isClickable ? 'hover:bg-accent/50 cursor-pointer' : 'cursor-default',
         )}
+        style={{ fontSize: 'calc(var(--chat-font-size, 15px) - 2px)' }}
       >
         {/* Chevron */}
         {isClickable ? (
@@ -146,17 +191,17 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall }: { toolCal
           <Icon className={cn('size-3', colors.icon)} />
         </span>
 
-        {/* Title + file badge */}
+        {/* Title + file badge + preview */}
         <span className="min-w-0 flex-1 flex items-center gap-1.5 truncate">
           <span className={cn(
-            'truncate font-medium',
+            'shrink-0 font-medium',
             isRunning ? 'text-foreground' : 'text-foreground/80',
           )}>
             {toolCall.title}
           </span>
 
           {/* File badge */}
-          {firstPath && <FileBadge path={firstPath} />}
+          {firstPath && <FileBadge path={firstPath} isDir={isDirectoryOp} />}
 
           {/* Fetch URL */}
           {fetchMeta?.url && (
@@ -177,6 +222,13 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall }: { toolCal
               className="truncate font-mono text-[11px] text-primary/80 underline decoration-primary/30 underline-offset-2 hover:decoration-primary"
             >
               {shortenUrl(fetchMeta.url)}
+            </span>
+          )}
+
+          {/* Tool detail preview (search query, command, etc.) */}
+          {toolDetail?.preview && !firstPath && (
+            <span className="truncate text-[11px] text-muted-foreground/70 font-mono">
+              {toolDetail.preview}
             </span>
           )}
         </span>
@@ -220,6 +272,16 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall }: { toolCal
 
       {expanded && hasContent && toolCall.kind === 'read' && (
         <ReadOutput rawInput={toolCall.rawInput} rawOutput={toolCall.rawOutput} />
+      )}
+
+      {/* Show error state for failed tool calls with no content */}
+      {expanded && isFailed && !hasContent && !hasDiff && (
+        <div className="ml-8 mr-2 mb-2 mt-1 min-w-0 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2.5 text-[12px]">
+          <p className="flex items-center gap-1.5 text-red-500/80 text-[11px]">
+            <IconX className="size-3" />
+            Tool call failed — no details available
+          </p>
+        </div>
       )}
 
       {expanded && hasContent && toolCall.kind !== 'read' && (
@@ -277,6 +339,7 @@ function buildRightMeta(
 
   if (toolDetail) {
     const parts = [
+      toolDetail.preview && shortPath ? toolDetail.preview : null,
       toolDetail.durationMs != null && toolDetail.durationMs >= 200
         ? formatToolDuration(toolDetail.durationMs)
         : null,
