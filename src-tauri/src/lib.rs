@@ -4,7 +4,7 @@
 #[macro_use]
 extern crate objc;
 
-mod commands;
+pub mod commands;
 
 use commands::{acp, analytics, branch_ai, checkpoint, diff_parse, fs_ops, fuzzy, git, git_ai, git_history, git_pr, git_stack, highlight, kiro_config, kiro_watcher, markdown, pattern_extract, pr_ai, process_diagnostics, project_watcher, pty, settings, streaming_diff, thread_db, thread_title, tracing as app_tracing, transport, vcs_status};
 use std::sync::atomic::{AtomicBool, Ordering};

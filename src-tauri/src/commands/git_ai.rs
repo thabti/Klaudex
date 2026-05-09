@@ -484,6 +484,24 @@ fn sanitize(parsed: ModelOutput) -> GeneratedCommitMessage {
     }
 }
 
+// ── Smoke test helper (used by examples/git_ai_smoke.rs) ─────────────────
+
+/// Standalone commit message generation for the smoke-test example binary.
+/// Bypasses Tauri state by accepting kiro_bin and cwd directly.
+pub async fn generate_for_smoke(kiro_bin: &str, cwd: &str) -> Result<GeneratedCommitMessage, AppError> {
+    let (_, diff_text) = collect_diff_for_prompt(cwd)?;
+    if diff_text.trim().is_empty() {
+        return Err(AppError::Other("No changes to summarize".to_string()));
+    }
+    let compressed = compress_commit_diff(&diff_text, MAX_DIFF_BYTES);
+    let branch = git2::Repository::open(cwd).ok()
+        .and_then(|r| r.head().ok().and_then(|h| h.shorthand().map(String::from)));
+    let prompt = build_commit_prompt(branch.as_deref(), &compressed, None);
+    let raw_output = run_kiro_oneshot(kiro_bin, cwd, &prompt).await?;
+    let parsed = parse_commit_response(&raw_output)?;
+    Ok(sanitize(parsed))
+}
+
 // ── Tests ────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
