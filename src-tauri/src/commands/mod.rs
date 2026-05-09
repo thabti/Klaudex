@@ -9,6 +9,7 @@ pub mod fuzzy;
 pub mod git;
 pub mod git_ai;
 pub mod git_stack;
+pub mod git_utils;
 pub mod highlight;
 pub mod kiro_config;
 pub mod kiro_watcher;

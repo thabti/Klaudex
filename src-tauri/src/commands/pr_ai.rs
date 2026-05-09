@@ -4,12 +4,11 @@
 //! and a base branch. Uses the same `kiro-cli chat --no-interactive` one-shot
 //! pattern as commit message generation.
 
-use std::process::Command as StdCommand;
-
 use serde::{Deserialize, Serialize};
 
 use super::error::AppError;
 use super::git_ai::{extract_first_json_object, run_kiro_oneshot};
+use super::git_utils::run_git_cmd_async;
 use super::settings::SettingsState;
 
 /// Maximum diff bytes to feed the model for PR generation.
@@ -52,7 +51,7 @@ pub async fn generate_pr_content(
         (settings.settings.kiro_bin.clone(), instructions)
     };
 
-    let (head_branch, commit_log, diff_stat, diff_patch) = collect_pr_context(&cwd, &base_branch)?;
+    let (head_branch, commit_log, diff_stat, diff_patch) = collect_pr_context(&cwd, &base_branch).await?;
 
     if diff_patch.trim().is_empty() && commit_log.trim().is_empty() {
         return Err(AppError::Other(
@@ -77,25 +76,28 @@ pub async fn generate_pr_content(
 // ── Context collection ───────────────────────────────────────────────────
 
 /// Collect PR context: head branch, commit log, diff stat, and diff patch.
-fn collect_pr_context(
+/// Uses async git commands to avoid blocking the Tauri runtime.
+async fn collect_pr_context(
     cwd: &str,
     base_branch: &str,
 ) -> Result<(String, String, String, String), AppError> {
     // Get current branch name
-    let head_branch = run_git_cmd(cwd, &["rev-parse", "--abbrev-ref", "HEAD"])?;
+    let head_branch = run_git_cmd_async(cwd, &["rev-parse", "--abbrev-ref", "HEAD"]).await?;
 
     // Get commit log between base and head
     let range = format!("{base_branch}..HEAD");
-    let commit_log = run_git_cmd(cwd, &["log", "--oneline", "--no-decorate", &range])
+    let commit_log = run_git_cmd_async(cwd, &["log", "--oneline", "--no-decorate", &range]).await
         .unwrap_or_default();
 
-    // Get diff stat
-    let diff_stat = run_git_cmd(cwd, &["diff", "--stat", &range])
-        .unwrap_or_default();
+    // Get diff stat and diff patch in parallel
+    let range_clone = range.clone();
+    let cwd_owned = cwd.to_string();
+    let cwd_owned2 = cwd.to_string();
 
-    // Get diff patch (truncated)
-    let diff_patch = run_git_cmd(cwd, &["diff", &range])
-        .unwrap_or_default();
+    let (diff_stat, diff_patch) = tokio::join!(
+        async { run_git_cmd_async(&cwd_owned, &["diff", "--stat", &range_clone]).await.unwrap_or_default() },
+        async { run_git_cmd_async(&cwd_owned2, &["diff", &range]).await.unwrap_or_default() },
+    );
 
     // Truncate diff if too large
     let truncated_patch = if diff_patch.len() > MAX_PR_DIFF_BYTES {
@@ -109,19 +111,6 @@ fn collect_pr_context(
     };
 
     Ok((head_branch, commit_log, diff_stat, truncated_patch))
-}
-
-fn run_git_cmd(cwd: &str, args: &[&str]) -> Result<String, AppError> {
-    let output = StdCommand::new("git")
-        .args(args)
-        .current_dir(cwd)
-        .output()?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        Err(AppError::Other(format!("git {} failed: {stderr}", args.join(" "))))
-    }
 }
 
 // ── Prompt ───────────────────────────────────────────────────────────────
