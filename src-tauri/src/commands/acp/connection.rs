@@ -5,7 +5,7 @@ use serde_json::Value;
 use tokio::sync::{mpsc, oneshot};
 
 use agent_client_protocol as acp;
-use acp::Agent as _; // Brings initialize, new_session, prompt, cancel, set_session_mode into scope
+use acp::Agent as _; // Brings initialize, new_session, prompt, cancel, set_session_mode, set_session_model into scope
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
 use super::client::KirodexClient;
@@ -67,6 +67,22 @@ pub(crate) fn build_content_blocks(text: String, attachments: &[AttachmentData])
 
 // ── Spawn a kiro-cli ACP connection on a dedicated thread ──────────────
 
+/// Configuration for spawning a new ACP connection. Groups the many
+/// parameters that `spawn_connection` previously accepted positionally,
+/// making call sites easier to read and extend.
+#[allow(dead_code)]
+pub(crate) struct ConnectionConfig {
+    pub task_id: String,
+    pub workspace: String,
+    pub kiro_bin: String,
+    pub auto_approve: bool,
+    pub app: tauri::AppHandle,
+    pub initial_mode_id: Option<String>,
+    pub initial_model_id: Option<String>,
+    pub tight_sandbox: bool,
+    pub pending_preamble: Option<String>,
+}
+
 pub(crate) fn spawn_connection(
     task_id: String,
     workspace: String,
@@ -74,7 +90,29 @@ pub(crate) fn spawn_connection(
     auto_approve: bool,
     app: tauri::AppHandle,
     initial_mode_id: Option<String>,
+    initial_model_id: Option<String>,
     tight_sandbox: bool,
+) -> Result<ConnectionHandle, String> {
+    spawn_connection_with_preamble(
+        task_id, workspace, kiro_bin, auto_approve, app,
+        initial_mode_id, initial_model_id, tight_sandbox, None,
+    )
+}
+
+/// Spawn a connection and stash a one-shot preamble that will be prepended to
+/// the very first `Prompt` command this connection receives. Used by
+/// `task_fork` so the freshly spawned `kiro-cli` subprocess inherits the
+/// parent thread's transcript when the user sends their next message.
+pub(crate) fn spawn_connection_with_preamble(
+    task_id: String,
+    workspace: String,
+    kiro_bin: String,
+    auto_approve: bool,
+    app: tauri::AppHandle,
+    initial_mode_id: Option<String>,
+    initial_model_id: Option<String>,
+    tight_sandbox: bool,
+    pending_preamble: Option<String>,
 ) -> Result<ConnectionHandle, String> {
     let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<AcpCommand>();
     let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
@@ -149,6 +187,9 @@ pub(crate) fn spawn_connection(
     // Wrapped in catch_unwind to prevent silent thread death from orphaning channels.
     let app3 = app.clone();
     let tid3 = task_id.clone();
+    // Extra clones for the panic path — the closure moves app3/tid3 in.
+    let app3_panic = app3.clone();
+    let tid3_panic = tid3.clone();
     let alive_for_panic = alive.clone();
     std::thread::spawn(move || {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -162,10 +203,39 @@ pub(crate) fn spawn_connection(
                 let result = run_acp_connection(
                     tid3.clone(), workspace, kiro_bin, auto_approve_for_client,
                     app3.clone(), perm_tx, &mut cmd_rx, initial_mode_id,
-                    tight_sandbox,
+                    initial_model_id, tight_sandbox, pending_preamble,
                 ).await;
 
                 alive_clone.store(false, std::sync::atomic::Ordering::SeqCst);
+
+                // If the connection died while the task was still running, the
+                // frontend never receives a `turn_end` event and the spinner gets
+                // stuck forever. Emit a synthetic `turn_end` with stopReason
+                // "connection_lost" so the frontend can clear the working row.
+                use tauri::Manager;
+                if let Some(managed_state) = app3.try_state::<AcpState>() {
+                    let task_was_running = {
+                        let tasks = managed_state.tasks.lock();
+                        tasks.get(&tid3)
+                            .map(|t| t.status == "running" || t.status == "pending_permission")
+                            .unwrap_or(false)
+                    };
+                    if task_was_running {
+                        {
+                            let mut tasks = managed_state.tasks.lock();
+                            if let Some(task) = tasks.get_mut(&tid3) {
+                                task.status = "paused".to_string();
+                                task.pending_permission = None;
+                            }
+                        }
+                        use tauri::Emitter;
+                        let _ = app3.emit("turn_end", serde_json::json!({
+                            "taskId": tid3,
+                            "stopReason": "connection_lost"
+                        }));
+                        log::warn!("[ACP] Connection for task {} died while running — emitted synthetic turn_end", tid3);
+                    }
+                }
 
                 if let Err(e) = result {
                     use tauri::Emitter;
@@ -179,6 +249,31 @@ pub(crate) fn spawn_connection(
         if result.is_err() {
             log::error!("[ACP] Connection thread panicked");
             alive_for_panic.store(false, std::sync::atomic::Ordering::SeqCst);
+            // Panic path: also emit synthetic turn_end so the spinner clears
+            use tauri::Manager;
+            if let Some(managed_state) = app3_panic.try_state::<AcpState>() {
+                let task_was_running = {
+                    let tasks = managed_state.tasks.lock();
+                    tasks.get(&tid3_panic)
+                        .map(|t| t.status == "running" || t.status == "pending_permission")
+                        .unwrap_or(false)
+                };
+                if task_was_running {
+                    {
+                        let mut tasks = managed_state.tasks.lock();
+                        if let Some(task) = tasks.get_mut(&tid3_panic) {
+                            task.status = "paused".to_string();
+                            task.pending_permission = None;
+                        }
+                    }
+                    use tauri::Emitter;
+                    let _ = app3_panic.emit("turn_end", serde_json::json!({
+                        "taskId": &tid3_panic,
+                        "stopReason": "connection_lost"
+                    }));
+                    log::warn!("[ACP] Connection thread panicked for task {} — emitted synthetic turn_end", tid3_panic);
+                }
+            }
         }
     });
 
@@ -194,7 +289,9 @@ pub(crate) async fn run_acp_connection(
     perm_tx: mpsc::UnboundedSender<(String, acp::RequestPermissionRequest, oneshot::Sender<PermissionReply>)>,
     cmd_rx: &mut mpsc::UnboundedReceiver<AcpCommand>,
     initial_mode_id: Option<String>,
+    initial_model_id: Option<String>,
     tight_sandbox: bool,
+    mut pending_preamble: Option<String>,
 ) -> Result<(), String> {
     // Spawn kiro-cli acp subprocess in the project workspace directory
     let mut child = tokio::process::Command::new(&kiro_bin)
@@ -296,6 +393,7 @@ pub(crate) async fn run_acp_connection(
         use tauri::Emitter;
         let _ = app.emit("session_init", serde_json::json!({
             "taskId": task_id,
+            "sessionId": session_id,
             "models": session_val.get("models"),
             "modes": session_val.get("modes"),
             "configOptions": session_val.get("configOptions"),
@@ -310,6 +408,18 @@ pub(crate) async fn run_acp_connection(
         ).await;
     }
 
+    // Apply initial model if provided. This is the bridge between kirodex's
+    // per-project / global model preference and the freshly spawned kiro-cli
+    // subprocess — without it the picker is purely cosmetic and the agent
+    // keeps using whatever it booted with.
+    if let Some(model_id) = initial_model_id {
+        if let Err(e) = conn.set_session_model(
+            acp::SetSessionModelRequest::new(session_id.clone(), model_id.clone())
+        ).await {
+            log::warn!("[ACP] set_session_model({model_id}) failed for task={task_id}: {e}");
+        }
+    }
+
     // Process commands from the main thread.
     // Uses tokio::select! during prompt so Cancel/Kill are handled immediately
     // instead of queuing behind the blocking prompt future.
@@ -317,6 +427,14 @@ pub(crate) async fn run_acp_connection(
     while let Some(cmd) = cmd_rx.recv().await {
         match cmd {
             AcpCommand::Prompt(text, attachments) => {
+                // On the very first prompt of a forked or resumed connection,
+                // prepend the parent thread's transcript so the freshly spawned
+                // kiro-cli subprocess has the necessary context. Consumed once.
+                let text = if let Some(preamble) = pending_preamble.take() {
+                    format!("{preamble}{text}")
+                } else {
+                    text
+                };
                 // Extract absolute paths from user message to allow through the sandbox
                 let external_paths = extract_paths_from_message(&text);
                 if !external_paths.is_empty() {
@@ -397,13 +515,11 @@ pub(crate) async fn run_acp_connection(
                                 acp::SetSessionModeRequest::new(session_id.clone(), mode_id)
                             ).await;
                         }
-                        AcpCommand::ForkSession(reply_tx) => {
-                            let result = conn.fork_session(
-                                acp::ForkSessionRequest::new(session_id.clone(), std::path::PathBuf::from(&workspace))
-                            ).await;
-                            match result {
-                                Ok(resp) => { let _ = reply_tx.send(Ok(resp.session_id.0.to_string())); }
-                                Err(e) => { let _ = reply_tx.send(Err(e.to_string())); }
+                        AcpCommand::SetModel(model_id) => {
+                            if let Err(e) = conn.set_session_model(
+                                acp::SetSessionModelRequest::new(session_id.clone(), model_id.clone())
+                            ).await {
+                                log::warn!("[ACP] deferred set_session_model({model_id}) failed: {e}");
                             }
                         }
                         AcpCommand::Cancel => {
@@ -423,13 +539,11 @@ pub(crate) async fn run_acp_connection(
                     acp::SetSessionModeRequest::new(session_id.clone(), mode_id)
                 ).await;
             }
-            AcpCommand::ForkSession(reply_tx) => {
-                let result = conn.fork_session(
-                    acp::ForkSessionRequest::new(session_id.clone(), std::path::PathBuf::from(&workspace))
-                ).await;
-                match result {
-                    Ok(resp) => { let _ = reply_tx.send(Ok(resp.session_id.0.to_string())); }
-                    Err(e) => { let _ = reply_tx.send(Err(e.to_string())); }
+            AcpCommand::SetModel(model_id) => {
+                if let Err(e) = conn.set_session_model(
+                    acp::SetSessionModelRequest::new(session_id.clone(), model_id.clone())
+                ).await {
+                    log::warn!("[ACP] set_session_model({model_id}) failed: {e}");
                 }
             }
             AcpCommand::Kill => break,

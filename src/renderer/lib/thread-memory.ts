@@ -53,6 +53,9 @@ const sizeOfToolCall = (tc: ToolCall): number => {
       n += sizeOfString(item.oldText)
       n += sizeOfString(item.newText)
       n += sizeOfString(item.terminalId)
+      // linesAdded / linesRemoved are u32s — 8 bytes each at most.
+      if (item.linesAdded !== undefined) n += 8
+      if (item.linesRemoved !== undefined) n += 8
     }
   }
   n += sizeOfValue(tc.rawInput)

@@ -1,8 +1,9 @@
-import { memo, useState } from 'react'
+import { memo, useCallback, useState } from 'react'
 import { IconChevronRight } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import type { KiroAgent } from '@/types'
+import type { KiroAgent, ProjectFile } from '@/types'
+import { setInAppDragActive, setInAppDragData } from '@/hooks/useAttachments'
 import {
   type ViewerState, formatName, getAgentRole, getStackLabel,
   getRoleIcon, STACK_META, SourceDot,
@@ -10,16 +11,38 @@ import {
 
 export const AgentRow = memo(function AgentRow({ agent, onOpen }: { agent: KiroAgent; onOpen: (v: ViewerState) => void }) {
   const { icon: RoleIcon, color } = getRoleIcon(agent.name)
+
+  const handleDragStart = useCallback((e: React.DragEvent) => {
+    // Agents drag with an `agent:` prefix path; the existing FileMentionPill
+    // already styles such mentions with the violet bot icon, and the message
+    // send pipeline auto-prepends `@agent:<name>` if the user hasn't typed it.
+    const projectFile: ProjectFile = {
+      path: `agent:${agent.name}`,
+      name: agent.name,
+      dir: '',
+      isDir: false,
+      ext: '',
+      modifiedAt: 0,
+    }
+    e.dataTransfer.effectAllowed = 'copy'
+    setInAppDragActive(true)
+    setInAppDragData({ type: 'file', data: projectFile })
+    e.dataTransfer.setData('application/x-kirodex-file', JSON.stringify(projectFile))
+    e.dataTransfer.setData('text/plain', `@agent:${agent.name}`)
+  }, [agent.name])
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <li
           role="button"
           tabIndex={0}
+          draggable
+          onDragStart={handleDragStart}
           onClick={() => agent.filePath && onOpen({ filePath: agent.filePath, title: formatName(agent.name) })}
           onKeyDown={(e) => e.key === 'Enter' && agent.filePath && onOpen({ filePath: agent.filePath, title: formatName(agent.name) })}
           className={cn(
-            'flex h-7 min-w-0 w-full items-center gap-1.5 rounded-md px-1.5 text-xs cursor-pointer',
+            'flex h-7 min-w-0 w-full items-center gap-1.5 rounded-md px-1.5 text-xs cursor-grab active:cursor-grabbing select-none',
             'text-muted-foreground/80 hover:bg-accent/50 hover:text-foreground transition-colors',
           )}
         >
@@ -31,7 +54,8 @@ export const AgentRow = memo(function AgentRow({ agent, onOpen }: { agent: KiroA
       <TooltipContent side="right" className="max-w-[240px]">
         <p className="text-[11px] font-medium">{formatName(agent.name)}</p>
         {agent.description && <p className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed">{agent.description.slice(0, 160)}</p>}
-        <p className="mt-1 text-[9px] text-muted-foreground font-mono">{(agent.filePath ?? '').replace(/^\/Users\/[^/]+/, '~')}</p>
+        <p className="mt-1 text-[9px] text-muted-foreground">Click to view · drag into chat to mention</p>
+        <p className="mt-0.5 text-[9px] text-muted-foreground font-mono truncate">{(agent.filePath ?? '').replace(/^\/Users\/[^/]+/, '~')}</p>
       </TooltipContent>
     </Tooltip>
   )

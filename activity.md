@@ -1,5 +1,22 @@
 # Activity Log
 
+## 2026-05-09 GST (Dubai)
+### MCP Panel: kiro-cli integration for add/remove + OAuth click-through
+Wired the MCP sidebar to the Kiro CLI's own subcommands instead of editing `mcp.json` blindly. Added `mcp_add_server` and `mcp_remove_server` Tauri commands that shell out to `kiro-cli mcp add` / `mcp remove` so registry-mode governance, name validation, and any future CLI-side effects all run. Built an `AddMcpServerDialog` (transport picker, scope picker for global/workspace/agent, env var editor with `${VAR}` reminder) wired through a "+" button next to the MCP section header. The right-click menu now exposes an "Authenticate" entry when `oauthUrl` arrives via the `kiro.dev/mcp/oauth_request` notification — clicking opens the provider page and the CLI auto-reconnects after the redirect. Replaced the dead "Reconnect" stub (no kiro-cli runtime API exists for it) with the working "Remove server…" entry. Clicking on a `needs-auth` row now opens the OAuth URL directly so users don't have to hunt for the action.
+
+Visual fixes on the row itself: replaced the truncated text status (`"Disablea"`, `"Auth requir…"`) with iconographic status (`IconPlugOff`/`IconLock`/`IconAlertTriangle`/spinning loader), surfaced enabled/total tool counts as a coloured pill, and added a `SourceDot` so identical-name servers from `~/.kiro` vs project-level `mcp.json` are now distinguishable. Backend dedup also lands here: `load_mcp_file` takes `is_global` and merges by name (local wins), eliminating the duplicate rows that the screenshot showed for `chrome-devtools`.
+
+Sidebar: skill, agent, and steering rows are now `draggable`. Skills attach as `@skill:<name>` mentions, agents as `@agent:<name>`, and steering rules as regular file mentions via their `filePath`. A new drag-tip icon next to the Kiro panel header makes the affordance discoverable. The panel is rendered even when zero servers are configured so the "Add MCP server…" button is reachable from a fresh install.
+
+**Modified:** `src-tauri/src/commands/kiro_config.rs`, `src-tauri/src/lib.rs`, `src/renderer/lib/ipc.ts`, `src/renderer/types/index.ts`, `src/renderer/components/sidebar/KiroConfigPanel.tsx`, `src/renderer/components/sidebar/KiroMcpRow.tsx`, `src/renderer/components/sidebar/KiroSkillRow.tsx`, `src/renderer/components/sidebar/KiroSteeringRow.tsx`, `src/renderer/components/sidebar/KiroAgentSection.tsx`
+**Added:** `src/renderer/components/sidebar/AddMcpServerDialog.tsx`
+
+## 2026-05-06 GST (Dubai)
+### Settings: Persist inline tool calls toggle (and other camelCase fields)
+The Rust `AppSettings` struct in `commands/settings.rs` was missing several frontend fields including `inlineToolCalls`. With `#[serde(rename_all = "camelCase")]` and no matching field, serde silently dropped the value during deserialization, so the toggle worked in-session but reset on app restart. Added `chat_font_size`, `sidebar_position`, `custom_app_icon`, `last_seen_changelog_version`, `btw_max_chars`, `terminal_scrollback`, `terminal_auto_close_idle_mins`, and `inline_tool_calls` to the struct (all `Option`-typed with `skip_serializing_if`) so they round-trip through confy.
+
+**Modified:** `src-tauri/src/commands/settings.rs`
+
 ## 2026-05-05 17:05 GST (Dubai)
 ### MarkdownViewer: Add proper markdown file viewing support
 Created a shared `MarkdownViewer` component with rich rendering: code blocks with language labels and copy buttons, GFM task list checkboxes, heading anchors, styled tables with alternating rows, blockquotes, external link handling, and proper image rendering. Updated `FilePreviewModal` and `KiroFileViewer` to use the new component instead of bare `ReactMarkdown` with inline prose classes.

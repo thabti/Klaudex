@@ -16,9 +16,12 @@ import { SearchQueryContext } from './HighlightText'
 import { BtwOverlay } from './BtwOverlay'
 import { PanelProvider } from './PanelContext'
 import { StickyTaskList } from './StickyTaskList'
+import { ThreadIdCaption } from './ThreadIdCaption'
 import { useMessageSearch } from '@/hooks/useMessageSearch'
 import { ipc } from '@/lib/ipc'
+import { resolveModelId } from '@/lib/resolve-model'
 import { record } from '@/lib/analytics-collector'
+import * as threadDb from '@/lib/thread-db'
 import {
   EMPTY_MESSAGES,
   EMPTY_TOOL_CALLS,
@@ -47,12 +50,14 @@ const StreamingMessageList = memo(function StreamingMessageList({
   searchMatchIds,
   activeMatchId,
   onTimelineRows,
+  headerContent,
 }: {
   taskId?: string | null
   isRunning: boolean
   searchMatchIds?: string[]
   activeMatchId?: string | null
   onTimelineRows?: (rows: TimelineRow[]) => void
+  headerContent?: React.ReactNode
 }) {
   const storeSelectedId = useTaskStore((s) => s.selectedTaskId)
   const resolvedId = taskIdProp ?? storeSelectedId
@@ -61,7 +66,7 @@ const StreamingMessageList = memo(function StreamingMessageList({
   const liveToolCalls = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? EMPTY_TOOL_CALLS : resolvedId ? s.liveToolCalls[resolvedId] ?? EMPTY_TOOL_CALLS : EMPTY_TOOL_CALLS)
   const liveToolSplits = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? EMPTY_TOOL_SPLITS : resolvedId ? s.liveToolSplits[resolvedId] ?? EMPTY_TOOL_SPLITS : EMPTY_TOOL_SPLITS)
   const liveThinking = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? '' : resolvedId ? s.thinkingChunks[resolvedId] ?? '' : '')
-  const inlineToolCalls = useSettingsStore((s) => s.settings.inlineToolCalls === true)
+  const inlineToolCalls = useSettingsStore((s) => s.settings.inlineToolCalls !== false)
 
   return (
     <MessageList
@@ -76,6 +81,7 @@ const StreamingMessageList = memo(function StreamingMessageList({
       searchMatchIds={searchMatchIds}
       activeMatchId={activeMatchId}
       onTimelineRows={onTimelineRows}
+      headerContent={headerContent}
     />
   )
 })
@@ -86,6 +92,9 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
   const task = state.tasks[targetTaskId]
   if (!task) return
   const shouldCreateNew = needsNewConnection(task)
+  // Resumed-from-history: keep the original thread id and replay the prior
+  // transcript so the fresh kiro-cli subprocess has context.
+  const isResumed = shouldCreateNew && (task.isArchived === true || task.needsNewConnection === true) && task.messages.length > 0
 
   // Capture the dispatch snapshot BEFORE we mutate the task. The snapshot
   // records the pre-send state (status, message count, streaming buffer)
@@ -98,21 +107,55 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
   state.upsertTask({ ...task, status: 'running', messages: [...task.messages, userMsg] })
   state.clearTurn(task.id)
 
+  // Persist user message to SQLite immediately (survives crashes)
+  threadDb.saveThread(task).catch(() => {})
+  threadDb.saveMessage(targetTaskId, userMsg).catch(() => {})
+
   const proj = extractProjectName(task)
   record('message_sent', { project: proj, thread: task.id, value: msg.split(/\s+/).filter(Boolean).length })
 
   if (shouldCreateNew) {
-    const { settings, currentModeId } = useSettingsStore.getState()
+    const { settings, currentModeId, currentModelId } = useSettingsStore.getState()
     const taskState = useTaskStore.getState()
     const projectRoot = task.originalWorkspace ?? task.workspace
     const projectPrefs = projectRoot ? settings.projectPrefs?.[projectRoot] : undefined
     const autoApprove = projectPrefs?.autoApprove !== undefined ? projectPrefs.autoApprove : settings.autoApprove
     const modeId = taskState.taskModes[targetTaskId] ?? currentModeId
     const effectiveModeId = modeId && modeId !== 'kiro_default' ? modeId : undefined
-    const created = await ipc.createTask({ name: task.name, workspace: task.workspace, prompt: msg, autoApprove, modeId: effectiveModeId, attachments })
+    const taskModelId = taskState.taskModels[targetTaskId]
+    const modelId = resolveModelId({ taskModelId, projectPrefs, settings, currentModelId })
+    const created = await ipc.createTask({
+      name: task.name,
+      workspace: task.workspace,
+      prompt: msg,
+      autoApprove,
+      modeId: effectiveModeId,
+      attachments,
+      ...(isResumed
+        ? {
+            existingId: task.id,
+            existingMessages: task.messages.map((m) => ({
+              role: m.role,
+              content: m.content,
+              timestamp: m.timestamp,
+              ...(m.thinking ? { thinking: m.thinking } : {}),
+              // Carry tool data through the resumption round-trip. The
+              // backend's TaskMessage struct doesn't model `toolCallSplits`,
+              // so the field is dropped at deserialization on the Rust side
+              // — but we still send it here so that any future backend
+              // version that adds the field will get it, and so the
+              // intent of the mapping is explicit.
+              ...(m.toolCalls ? { toolCalls: m.toolCalls } : {}),
+              ...(m.toolCallSplits ? { toolCallSplits: m.toolCallSplits } : {}),
+            })),
+          }
+        : {}),
+    })
     const draft = useTaskStore.getState().tasks[task.id]
     const messages = draft?.messages.length ? draft.messages : [userMsg]
-    state.upsertTask({ ...created, messages, needsNewConnection: undefined })
+    // Clear isArchived/needsNewConnection so the thread becomes a normal live
+    // thread in the sidebar (no more "view only" affordances).
+    state.upsertTask({ ...created, messages, needsNewConnection: undefined, isArchived: undefined })
     record('thread_created', { project: proj, thread: created.id })
     const resolvedMode = taskState.taskModes[targetTaskId] ?? currentModeId
     if (resolvedMode && resolvedMode !== 'kiro_default') {
@@ -130,7 +173,9 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
   }
 }
 
-/** Zigzag divider shown at top of archived conversations */
+/** Soft banner shown above resumed-from-history threads.
+ *  Indicates that a fresh agent connection will be spawned on the next send,
+ *  but the input remains active (stateless resumption). */
 const ArchivedBanner = memo(function ArchivedBanner() {
   return (
     <div className="relative flex items-center justify-center py-4 px-6 select-none" data-testid="chat-archived-banner">
@@ -139,7 +184,7 @@ const ArchivedBanner = memo(function ArchivedBanner() {
       </svg>
       <div className="flex shrink-0 items-center gap-1.5 mx-3 rounded-full border border-blue-400/20 bg-card px-3 py-1">
         <IconHistory className="size-3 text-blue-600/50 dark:text-blue-400/50" />
-        <span className="text-[11px] font-medium text-blue-500/60 dark:text-blue-300/50">Previous conversation — view only</span>
+        <span className="text-[11px] font-medium text-blue-500/60 dark:text-blue-300/50">Resumed from history — agent reconnects on next send</span>
       </div>
       <svg className="flex-1 h-3 text-blue-600/30 dark:text-blue-400/30" preserveAspectRatio="none" viewBox="0 0 120 12">
         <path d="M0,6 L5,0 L10,6 L15,0 L20,6 L25,0 L30,6 L35,0 L40,6 L45,0 L50,6 L55,0 L60,6 L65,0 L70,6 L75,0 L80,6 L85,0 L90,6 L95,0 L100,6 L105,0 L110,6 L115,0 L120,6" fill="none" stroke="currentColor" strokeWidth="1" />
@@ -279,7 +324,7 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
   const searchQuery = search.isOpen ? search.query : ''
 
   const content = (
-    <div data-testid="chat-panel" className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col">
+    <div data-testid="chat-panel" className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col" style={{ fontSize: 'var(--chat-font-size, 15px)' }}>
       {isBtwMode && <BtwOverlay taskId={resolvedTaskId} />}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {taskPlan && taskPlan.length > 0 && (
@@ -309,12 +354,13 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
             searchMatchIds={search.isOpen ? search.matchIds : undefined}
             activeMatchId={search.isOpen ? search.activeMatchId : undefined}
             onTimelineRows={handleTimelineRows}
+            headerContent={resolvedTaskId ? <ThreadIdCaption taskId={resolvedTaskId} /> : undefined}
           />
         </SearchQueryContext.Provider>
 
         {isArchived && <ArchivedBanner />}
 
-        {!isArchived && pendingPermission && resolvedTaskId && (
+        {pendingPermission && resolvedTaskId && (
           <PermissionBanner
             taskId={resolvedTaskId}
             toolName={pendingPermission.toolName}
@@ -324,42 +370,28 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
           />
         )}
 
-        {!isArchived && (
-          <CompactSuggestBanner contextUsage={contextUsage} isPlanMode={isPlanMode} />
-        )}
+        <CompactSuggestBanner contextUsage={contextUsage} isPlanMode={isPlanMode} />
 
-        {!isArchived && (
-          <QueuedMessages messages={queuedMessages} onRemove={handleRemoveQueued} onReorder={handleReorderQueued} onSteer={isRunning ? handleSteer : undefined} />
-        )}
+        <QueuedMessages messages={queuedMessages} onRemove={handleRemoveQueued} onReorder={handleReorderQueued} onSteer={isRunning ? handleSteer : undefined} />
 
-        {!isArchived && <StickyTaskList taskId={resolvedTaskId} />}
+        <StickyTaskList taskId={resolvedTaskId} />
 
-        {isArchived ? (
-          <div className="px-4 pb-4 pt-2 sm:px-6">
-            <div className="mx-auto w-full max-w-3xl lg:max-w-4xl xl:max-w-5xl">
-              <div className="flex items-center justify-center rounded-2xl border border-border/40 bg-card px-4 py-3 opacity-50">
-                <span className="text-[13px] text-muted-foreground/80">This conversation is from a previous session</span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <ChatInput
-            disabled={inputDisabled}
-            disabledReason={disabledReason}
-            contextUsage={contextUsage}
-            messageCount={messageCount}
-            isRunning={isRunning}
-            isActive={isFocusedPanel}
-            taskId={resolvedTaskId}
-            hasQueuedMessages={queuedMessages.length > 0}
-            onSendMessage={handleSendMessage}
-            onPause={handlePause}
-            workspace={taskWorkspace}
-            isWorktree={isWorktree}
-            isCollapsed={isInputCollapsed}
-            onToggleCollapse={handleToggleCollapse}
-          />
-        )}
+        <ChatInput
+          disabled={inputDisabled}
+          disabledReason={disabledReason}
+          contextUsage={contextUsage}
+          messageCount={messageCount}
+          isRunning={isRunning}
+          isActive={isFocusedPanel}
+          taskId={resolvedTaskId}
+          hasQueuedMessages={queuedMessages.length > 0}
+          onSendMessage={handleSendMessage}
+          onPause={handlePause}
+          workspace={taskWorkspace}
+          isWorktree={isWorktree}
+          isCollapsed={isInputCollapsed}
+          onToggleCollapse={handleToggleCollapse}
+        />
       </div>
       {terminalOpen && taskWorkspace && resolvedTaskId && (
         <TerminalDrawer key={resolvedTaskId} cwd={taskWorkspace} onClose={() => toggleTerminal(resolvedTaskId)} />

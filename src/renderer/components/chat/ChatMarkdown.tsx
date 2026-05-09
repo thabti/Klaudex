@@ -22,13 +22,14 @@ import { fnv1a32, resolveDiffThemeName, type DiffThemeName } from '@/lib/diffRen
 import { LRUCache } from '@/lib/lruCache'
 import { getHighlighterPromise } from '@/lib/chatHighlighter'
 import { useResolvedTheme } from '@/hooks/useResolvedTheme'
-import { useDiffStore } from '@/stores/diffStore'
 import { useSettingsStore, selectChatFontSize } from '@/stores/settingsStore'
-import { hasQuestionBlocks, stripQuestionBlocks } from '@/lib/question-parser'
+import { hasInteractiveQuestionBlocks, stripQuestionBlocks } from '@/lib/question-parser'
 import { handleExternalLinkClick, handleExternalLinkKeyDown } from '@/lib/open-external'
 import { HighlightText } from './HighlightText'
 import { useMessageListTaskId } from './MessageList'
 import { QuestionCards } from './QuestionCards'
+import { FileTypeIcon } from '@/components/file-tree/FileTypeIcon'
+import { useFilePreviewStore } from '@/stores/filePreviewStore'
 
 interface ChatMarkdownProps {
   text: string
@@ -44,7 +45,7 @@ const PROSE_CLASSES =
 const FILE_PATH_RE = /^(?:\.{0,2}[\\/])?(?:[\w.@-]+[\\/])*[\w.@-]+\.\w{1,10}$/
 const CODE_FENCE_LANGUAGE_REGEX = /(?:^|\s)language-([^\s]+)/
 
-// 500 entries / ~50MB — same envelope as t3code. The cache is process-wide
+// 500 entries / ~50MB. The cache is process-wide
 // so it survives MessageList virtualization remounts.
 const MAX_HIGHLIGHT_CACHE_ENTRIES = 500
 const MAX_HIGHLIGHT_CACHE_MEMORY_BYTES = 50 * 1024 * 1024
@@ -365,25 +366,29 @@ const InlineCode: Components['code'] = ({ className, children, ...props }) => {
   }
   const text = nodeToPlainText(children)
   if (!className && FILE_PATH_RE.test(text)) {
+    const fileName = text.split('/').pop() ?? text
     return (
       <code
         role="button"
         tabIndex={0}
-        onClick={() => useDiffStore.getState().openToFile(text)}
+        onClick={() => useFilePreviewStore.getState().openPreview(text)}
         onKeyDown={(e) =>
-          e.key === 'Enter' && useDiffStore.getState().openToFile(text)
+          e.key === 'Enter' && useFilePreviewStore.getState().openPreview(text)
         }
-        className="cursor-pointer rounded-md border border-border/50 bg-muted px-1.5 py-0.5 text-[13.5px] text-primary underline decoration-primary/30 underline-offset-2 transition-colors hover:bg-accent hover:decoration-primary/60"
-        title={`Open diff for ${text}`}
+        className="cursor-pointer inline-flex items-center gap-1 rounded-md border border-border/50 bg-muted px-1.5 py-0.5 text-primary underline decoration-primary/30 underline-offset-2 transition-colors hover:bg-accent hover:decoration-primary/60"
+        title={`Preview ${text}`}
+        style={{ fontSize: '0.9em' }}
         {...props}
       >
+        <FileTypeIcon name={fileName} isDir={false} className="size-3.5 shrink-0" />
         {children}
       </code>
     )
   }
   return (
     <code
-      className="rounded-md border border-border/50 bg-muted px-1.5 py-0.5 text-[13.5px] text-foreground"
+      className="rounded-md border border-border/50 bg-muted px-1.5 py-0.5 text-foreground"
+      style={{ fontSize: '0.9em' }}
       {...props}
     >
       {children}
@@ -450,7 +455,7 @@ function ChatMarkdown({
   )
   const chatFontSize = useSettingsStore(selectChatFontSize)
   const showQuestions = useMemo(
-    () => !isStreaming && !questionsAnswered && hasQuestionBlocks(displayText),
+    () => !isStreaming && !questionsAnswered && hasInteractiveQuestionBlocks(displayText),
     [isStreaming, questionsAnswered, displayText],
   )
   const markdownText = useMemo(

@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 import { useTaskStore } from '@/stores/taskStore'
+import { useSettingsStore } from '@/stores/settingsStore'
+import { useKiroStore } from '@/stores/kiroStore'
 import { useDiffStore } from '@/stores/diffStore'
 import { useDebugStore } from '@/stores/debugStore'
 import { ipc } from '@/lib/ipc'
@@ -197,7 +199,65 @@ export function useKeyboardShortcuts() {
       }
     }
 
+    // ── Agent keyboard shortcuts (ctrl+<key> or shift+<key> from agent config) ──
+    // NOTE: This block is OUTSIDE the `if (!mod) return` guard above so that
+    // shift-only shortcuts (e.g. "shift+a") can fire even without Cmd/Ctrl held.
+    const agentHandler = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase()
+      const agents = useKiroStore.getState().config.agents
+      for (const agent of agents) {
+        if (!agent.keyboardShortcut) continue
+        // Parse "ctrl+a", "shift+b", "ctrl+shift+r" etc.
+        const parts = agent.keyboardShortcut.toLowerCase().split('+')
+        const agentKey = parts[parts.length - 1]
+        const needsCtrl = parts.includes('ctrl')
+        const needsShift = parts.includes('shift')
+        // Require exact modifier match to avoid false positives:
+        // - ctrl shortcuts: ctrlKey must be true, metaKey must be false (no Cmd confusion on macOS)
+        // - shift shortcuts: shiftKey must be true, ctrlKey/metaKey must be false
+        if (
+          key === agentKey &&
+          (needsCtrl ? (e.ctrlKey && !e.metaKey) : !e.ctrlKey) &&
+          (needsShift ? e.shiftKey : !e.shiftKey)
+        ) {
+          // Don't fire when typing in inputs
+          const tag = (e.target as HTMLElement)?.tagName
+          if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
+          e.preventDefault()
+          const currentModeId = useSettingsStore.getState().currentModeId
+          const taskId = useTaskStore.getState().selectedTaskId
+          // Toggle: if already on this agent, switch back to default
+          const targetId = currentModeId === agent.name ? 'kiro_default' : agent.name
+          useSettingsStore.setState({ currentModeId: targetId })
+          if (taskId) {
+            useTaskStore.getState().setTaskMode(taskId, targetId)
+            ipc.setMode(taskId, targetId).catch(() => {})
+            ipc.sendMessage(taskId, `/agent ${targetId}`).catch(() => {})
+            // Show welcome message when switching to the agent (not when toggling back)
+            if (targetId === agent.name && agent.welcomeMessage) {
+              const { tasks, upsertTask } = useTaskStore.getState()
+              const task = tasks[taskId]
+              if (task) {
+                upsertTask({
+                  ...task,
+                  messages: [
+                    ...task.messages,
+                    { role: 'system', content: `🤖 **${agent.name}**: ${agent.welcomeMessage}`, timestamp: new Date().toISOString() },
+                  ],
+                })
+              }
+            }
+          }
+          return
+        }
+      }
+    }
+
     window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    window.addEventListener('keydown', agentHandler)
+    return () => {
+      window.removeEventListener('keydown', handler)
+      window.removeEventListener('keydown', agentHandler)
+    }
   }, [])
 }

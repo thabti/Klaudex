@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/ipc', () => ({
   ipc: {
-    getKiroConfig: vi.fn().mockResolvedValue({ agents: [], skills: [], steeringRules: [], mcpServers: [] }),
+    getKiroConfig: vi.fn().mockResolvedValue({ agents: [], skills: [], steeringRules: [], mcpServers: [], prompts: [] }),
     saveMcpServerConfig: vi.fn().mockResolvedValue(undefined),
     onMcpConnecting: vi.fn().mockReturnValue(() => {}),
     onMcpUpdate: vi.fn().mockReturnValue(() => {}),
@@ -14,9 +14,9 @@ import { useKiroStore, initKiroListeners } from './kiroStore'
 import { ipc } from '@/lib/ipc'
 
 const makeMcpServers = () => [
-  { name: 'Slack', enabled: true, transport: 'stdio' as const, command: 'slack-mcp', filePath: '/p' },
-  { name: 'GitHub', enabled: true, transport: 'http' as const, url: 'https://gh.mcp', filePath: '/p2' },
-  { name: 'Disabled', enabled: false, transport: 'stdio' as const, command: 'x', filePath: '/p3' },
+  { name: 'Slack', enabled: true, transport: 'stdio' as const, command: 'slack-mcp', filePath: '/p', source: 'local' as const },
+  { name: 'GitHub', enabled: true, transport: 'http' as const, url: 'https://gh.mcp', filePath: '/p2', source: 'global' as const },
+  { name: 'Disabled', enabled: false, transport: 'stdio' as const, command: 'x', filePath: '/p3', source: 'local' as const },
 ]
 
 beforeEach(() => {
@@ -24,7 +24,7 @@ beforeEach(() => {
   useKiroStore.setState({
     configs: {},
     activeProject: null,
-    config: { agents: [], skills: [], steeringRules: [], mcpServers: makeMcpServers() },
+    config: { agents: [], skills: [], steeringRules: [], mcpServers: makeMcpServers(), prompts: [] },
     loading: false,
     loaded: true,
   })
@@ -53,6 +53,7 @@ describe('kiroStore', () => {
         skills: [],
         steeringRules: [],
         mcpServers: [],
+        prompts: [],
       }
       useKiroStore.setState({ configs: { '/project-a': cachedConfig } })
       await useKiroStore.getState().loadConfig('/project-a')
@@ -62,8 +63,8 @@ describe('kiroStore', () => {
     })
 
     it('caches separate configs per project', async () => {
-      const configA = { agents: [{ name: 'A', description: '', tools: [] as string[], source: 'local' as const, filePath: '/a' }], skills: [], steeringRules: [], mcpServers: [] }
-      const configB = { agents: [{ name: 'B', description: '', tools: [] as string[], source: 'local' as const, filePath: '/b' }], skills: [], steeringRules: [], mcpServers: [] }
+      const configA = { agents: [{ name: 'A', description: '', tools: [] as string[], source: 'local' as const, filePath: '/a' }], skills: [], steeringRules: [], mcpServers: [], prompts: [] }
+      const configB = { agents: [{ name: 'B', description: '', tools: [] as string[], source: 'local' as const, filePath: '/b' }], skills: [], steeringRules: [], mcpServers: [], prompts: [] }
       vi.mocked(ipc.getKiroConfig)
         .mockResolvedValueOnce(configA as never)
         .mockResolvedValueOnce(configB as never)
@@ -115,14 +116,14 @@ describe('kiroStore', () => {
 
   describe('invalidateConfig', () => {
     it('removes cached config for a project', async () => {
-      const config = { agents: [], skills: [], steeringRules: [], mcpServers: [] }
+      const config = { agents: [], skills: [], steeringRules: [], mcpServers: [], prompts: [] }
       useKiroStore.setState({ configs: { '/project': config } })
       useKiroStore.getState().invalidateConfig('/project')
       expect(useKiroStore.getState().configs['/project']).toBeUndefined()
     })
 
     it('forces reload on next loadConfig', async () => {
-      const config = { agents: [], skills: [], steeringRules: [], mcpServers: [] }
+      const config = { agents: [], skills: [], steeringRules: [], mcpServers: [], prompts: [] }
       useKiroStore.setState({ configs: { '/project': config } })
       useKiroStore.getState().invalidateConfig('/project')
       await useKiroStore.getState().loadConfig('/project')
@@ -132,7 +133,7 @@ describe('kiroStore', () => {
 
   describe('setMcpError', () => {
     it('patches matching server in active config and all caches', () => {
-      const config = { agents: [], skills: [], steeringRules: [], mcpServers: makeMcpServers() }
+      const config = { agents: [], skills: [], steeringRules: [], mcpServers: makeMcpServers(), prompts: [] }
       useKiroStore.setState({ configs: { '/p': config }, config })
       useKiroStore.getState().setMcpError('Slack', 'OAuth failed')
       const slack = useKiroStore.getState().config.mcpServers?.find((s) => s.name === 'Slack')
@@ -178,7 +179,7 @@ describe('kiroStore', () => {
     })
 
     it('onMcpConnecting sets enabled servers to connecting in all caches', () => {
-      const config = { agents: [], skills: [], steeringRules: [], mcpServers: makeMcpServers() }
+      const config = { agents: [], skills: [], steeringRules: [], mcpServers: makeMcpServers(), prompts: [] }
       useKiroStore.setState({ configs: { '/p': config }, config })
       initKiroListeners()
       const cb = vi.mocked(ipc.onMcpConnecting).mock.calls[0][0]
@@ -194,7 +195,7 @@ describe('kiroStore', () => {
     })
 
     it('onMcpUpdate patches specific server in all caches', () => {
-      const config = { agents: [], skills: [], steeringRules: [], mcpServers: makeMcpServers() }
+      const config = { agents: [], skills: [], steeringRules: [], mcpServers: makeMcpServers(), prompts: [] }
       useKiroStore.setState({ configs: { '/p': config }, config })
       initKiroListeners()
       const cb = vi.mocked(ipc.onMcpUpdate).mock.calls[0][0]
@@ -214,7 +215,7 @@ describe('kiroStore', () => {
       expect(useKiroStore.getState().loaded).toBe(true)
       expect(useKiroStore.getState().loading).toBe(false)
       // Config should remain the default empty config, not corrupted
-      expect(useKiroStore.getState().config).toEqual({ agents: [], skills: [], steeringRules: [], mcpServers: makeMcpServers() })
+      expect(useKiroStore.getState().config).toEqual({ agents: [], skills: [], steeringRules: [], mcpServers: makeMcpServers(), prompts: [] })
     })
 
     it('loadConfig does not cache failed loads', async () => {
@@ -223,7 +224,7 @@ describe('kiroStore', () => {
       await useKiroStore.getState().loadConfig('/broken')
       expect(useKiroStore.getState().configs['/broken']).toBeUndefined()
       // Retry should call IPC again
-      vi.mocked(ipc.getKiroConfig).mockResolvedValue({ agents: [], skills: [], steeringRules: [], mcpServers: [] } as never)
+      vi.mocked(ipc.getKiroConfig).mockResolvedValue({ agents: [], skills: [], steeringRules: [], mcpServers: [], prompts: [] } as never)
       await useKiroStore.getState().loadConfig('/broken')
       expect(ipc.getKiroConfig).toHaveBeenCalledTimes(2)
     })
@@ -245,14 +246,14 @@ describe('kiroStore', () => {
     })
 
     it('invalidateConfig on non-existent key is a no-op', () => {
-      useKiroStore.setState({ configs: { '/a': { agents: [], skills: [], steeringRules: [], mcpServers: [] } } })
+      useKiroStore.setState({ configs: { '/a': { agents: [], skills: [], steeringRules: [], mcpServers: [], prompts: [] } } })
       useKiroStore.getState().invalidateConfig('/nonexistent')
       // /a should still be there
       expect(useKiroStore.getState().configs['/a']).toBeDefined()
     })
 
     it('loadConfig with undefined projectPath uses __global__ key', async () => {
-      vi.mocked(ipc.getKiroConfig).mockResolvedValue({ agents: [], skills: [], steeringRules: [], mcpServers: [] } as never)
+      vi.mocked(ipc.getKiroConfig).mockResolvedValue({ agents: [], skills: [], steeringRules: [], mcpServers: [], prompts: [] } as never)
       useKiroStore.setState({ configs: {} })
       await useKiroStore.getState().loadConfig(undefined)
       expect(useKiroStore.getState().configs['__global__']).toBeDefined()
@@ -270,8 +271,8 @@ describe('kiroStore', () => {
     })
 
     it('switching projects updates activeProject and config atomically', async () => {
-      const configA = { agents: [{ name: 'A', description: '', tools: [] as string[], source: 'local' as const, filePath: '/a' }], skills: [], steeringRules: [], mcpServers: [] }
-      const configB = { agents: [{ name: 'B', description: '', tools: [] as string[], source: 'local' as const, filePath: '/b' }], skills: [], steeringRules: [], mcpServers: [] }
+      const configA = { agents: [{ name: 'A', description: '', tools: [] as string[], source: 'local' as const, filePath: '/a' }], skills: [], steeringRules: [], mcpServers: [], prompts: [] }
+      const configB = { agents: [{ name: 'B', description: '', tools: [] as string[], source: 'local' as const, filePath: '/b' }], skills: [], steeringRules: [], mcpServers: [], prompts: [] }
       useKiroStore.setState({ configs: { '/a': configA, '/b': configB } })
       await useKiroStore.getState().loadConfig('/a')
       expect(useKiroStore.getState().activeProject).toBe('/a')

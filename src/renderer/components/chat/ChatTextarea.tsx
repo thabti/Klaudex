@@ -163,7 +163,7 @@ export const ChatTextarea = memo(function ChatTextarea({
           hasContextRing && 'pr-8',
           disabled && 'cursor-not-allowed opacity-50',
         )}
-        style={{ overflow: 'auto', fontFamily: 'inherit', caretColor: 'var(--foreground)', fontSize: 'var(--chat-font-size, 14px)' }}
+        style={{ overflowY: 'auto', overflowX: 'hidden', fontFamily: 'inherit', caretColor: 'var(--foreground)', fontSize: 'var(--chat-font-size, 15px)' }}
       />
     </div>
   )

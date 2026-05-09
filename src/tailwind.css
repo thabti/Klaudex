@@ -138,21 +138,11 @@
     --pink-foreground: #ffffff;
 }
 
-/* Scale UI via font-size instead of zoom — CSS zoom breaks viewport units
-   (100vh stays unzoomed while content grows), clipping the bottom in Tauri
-   production builds where the webview doesn't compensate for zoom. */
+/* Base font-size is controlled by the user's font-size setting (applied via
+   inline style on <html> from App.tsx). The fallback below only applies before
+   JS hydrates. */
 html {
-    font-size: 87.5%;
-}
-@media (min-width: 900px) {
-    html {
-        font-size: 93.75%;
-    }
-}
-@media (min-width: 1100px) {
-    html {
-        font-size: 100%;
-    }
+    font-size: 13px;
 }
 
 body {
@@ -332,17 +322,17 @@ input[type="search"] {
 
 /* ── Headings ── */
 .chat-markdown h1 {
-    font-size: 1.1875rem;
+    font-size: 1.3em;
     font-weight: 600;
     margin: 1.5rem 0 0.625rem;
 }
 .chat-markdown h2 {
-    font-size: 1.0625rem;
+    font-size: 1.15em;
     font-weight: 600;
     margin: 1.25rem 0 0.5rem;
 }
 .chat-markdown h3 {
-    font-size: 0.9375rem;
+    font-size: 1.05em;
     font-weight: 500;
     margin: 1rem 0 0.375rem;
 }
@@ -353,22 +343,23 @@ input[type="search"] {
     padding-left: 0.75rem;
     color: var(--muted-foreground);
     font-style: italic;
+    font-size: 1em;
 }
 
 /* ── Table ── */
 .chat-markdown table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.875rem;
+    font-size: 1em;
 }
 .chat-markdown th,
 .chat-markdown td {
     border: 1px solid var(--border);
-    padding: 0.4375rem 0.75rem;
+    padding: 0.5rem 0.75rem;
     text-align: left;
 }
 .chat-markdown th {
-    font-weight: 500;
+    font-weight: 600;
     background: var(--muted);
 }
 

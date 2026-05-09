@@ -42,6 +42,12 @@ pub(crate) fn friendly_prompt_error(raw: &str) -> String {
     if lower.contains("modelerrorexception") || lower.contains("model error") || lower.contains("internalservererror") || lower.contains("serviceexception") {
         return format!("{raw}\n\nTip: The model service returned an internal error. This is usually temporary — wait a moment and try again.");
     }
+    if lower.contains("dispatch failure") || lower.contains("dispatch_failure") {
+        return format!("{raw}\n\nTip: The connection to the model service was interrupted (network issue or timeout). Check your internet connection and try again.");
+    }
+    if lower.contains("response stream") || lower.contains("response_stream") {
+        return format!("{raw}\n\nTip: The response stream was interrupted. This is usually a transient network issue — try again in a moment.");
+    }
     raw.to_string()
 }
 

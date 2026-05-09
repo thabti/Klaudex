@@ -1,10 +1,9 @@
 /**
  * Structural equality helpers for store updates.
  *
- * Inspired by T3 Code's per-field equality checks that prevent unnecessary
- * store updates and React re-renders. These functions compare domain objects
- * at the field level, avoiding deep equality costs while being more precise
- * than reference equality.
+ * Per-field equality checks that prevent unnecessary store updates and React
+ * re-renders. These functions compare domain objects at the field level,
+ * avoiding deep equality costs while being more precise than reference equality.
  *
  * Use these in store setters to bail out early when incoming data matches
  * the current state.

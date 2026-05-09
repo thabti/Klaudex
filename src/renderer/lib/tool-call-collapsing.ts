@@ -1,7 +1,6 @@
 /**
  * Tool call collapsing logic.
  *
- * Inspired by T3 Code's `collapseDerivedWorkLogEntries` pattern.
  * Consecutive tool calls with the same identity (same tool, same file target)
  * are collapsed into a single entry to reduce visual noise in the timeline.
  *
@@ -27,8 +26,8 @@ export interface CollapsedToolGroup {
  * Returns null if the tool call should not be collapsed.
  */
 export function deriveCollapseKey(tc: ToolCall): string | null {
-  // Don't collapse in-progress/pending tool calls — they need individual visibility
-  if (tc.status === 'in_progress' || tc.status === 'pending') return null
+  // Don't collapse in-progress/pending/cancelled tool calls — they need individual visibility
+  if (tc.status === 'in_progress' || tc.status === 'pending' || tc.status === 'cancelled') return null
 
   // Group by kind + normalized title
   const kind = tc.kind ?? ''

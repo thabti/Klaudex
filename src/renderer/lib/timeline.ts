@@ -1,6 +1,6 @@
 import type { TaskMessage, ToolCall, ToolCallSplit } from '@/types'
 import { parseReport, shouldRenderReportCard } from '@/components/chat/TaskCompletionCard'
-import { hasQuestionBlocks } from '@/lib/question-parser'
+import { hasInteractiveQuestionBlocks } from '@/lib/question-parser'
 
 /** Check if a tool call represents a file mutation (edit, delete, move) */
 function isFileMutation(kind?: string, title?: string): boolean {
@@ -51,6 +51,10 @@ export interface AssistantTextRow {
    * because they belong on the trailing segment only.
    */
   isInlineSegment?: boolean
+  /** When true, render a CompletionDivider after this row */
+  showCompletionDivider?: boolean
+  /** Turn duration in milliseconds (from first token to turn_end) */
+  durationMs?: number
 }
 
 export interface WorkRow {
@@ -68,6 +72,11 @@ export interface WorkingRow {
   id: string
   /** True when streaming text/thinking is already visible — show a subtle dot instead of cycling words */
   hasStreamingContent?: boolean
+  /** Epoch ms when this working state started (for elapsed timer and stuck detection).
+   *  Currently not populated by timeline derivation — the component falls back to
+   *  `Date.now()` at mount time, which resets on remount. Populate this from the
+   *  task store's turn-start timestamp when that becomes available. */
+  startedAt?: number
 }
 
 export interface ChangedFilesRow {
@@ -297,6 +306,7 @@ export function deriveTimeline(
 
   // ── Persisted messages ──────────────────────────────────────
   let inTangent = false
+  let lastUserTimestamp: string | null = null
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i]
 
@@ -312,6 +322,7 @@ export function deriveTimeline(
     inTangent = false
 
     if (msg.role === 'user') {
+      lastUserTimestamp = msg.timestamp
       rows.push({
         kind: 'user-message',
         id: `msg-${i}-user`,
@@ -344,7 +355,7 @@ export function deriveTimeline(
     // The O(N) `messages.slice + some` has been replaced by a single
     // index lookup into `hasQuestionAnswerAfter`, which is built once
     // per `deriveTimeline` call.
-    const questionsAnswered = !!(msg.content && hasQuestionBlocks(msg.content) &&
+    const questionsAnswered = !!(msg.content && hasInteractiveQuestionBlocks(msg.content) &&
       hasQuestionAnswerAfter[i])
 
     // Inline rendering only kicks in when we have splits to interleave by;
@@ -361,6 +372,8 @@ export function deriveTimeline(
       for (let j = grouped.length - 1; j >= 0; j--) {
         if (grouped[j].kind === 'text') { lastTextIndex = j; break }
       }
+      const showDivider = lastUserTimestamp !== null
+      let dividerShown = false
       // If the message had thinking but no text segments survived, still show it once.
       if (lastTextIndex < 0 && msg.thinking) {
         rows.push({
@@ -372,7 +385,9 @@ export function deriveTimeline(
           squashed: true,
           hasChangedFiles: hasFileChanges,
           questionsAnswered,
+          showCompletionDivider: showDivider,
         })
+        dividerShown = true
       }
       for (let j = 0; j < grouped.length; j++) {
         const block = grouped[j]
@@ -390,7 +405,9 @@ export function deriveTimeline(
             hasChangedFiles: isLastText ? hasFileChanges : false,
             questionsAnswered: isLastText ? questionsAnswered : false,
             isInlineSegment: !isLastText,
+            showCompletionDivider: !dividerShown && showDivider,
           })
+          dividerShown = true
         } else {
           rows.push({
             kind: 'work',
@@ -413,11 +430,20 @@ export function deriveTimeline(
           })(),
         })
       }
+      lastUserTimestamp = null
       continue
     }
 
     // Default (grouped) layout: text first, then tool calls below
     if (msg.content || msg.thinking) {
+      // Compute response duration using the tracked lastUserTimestamp (O(1) instead of scanning backwards)
+      let durationMs: number | undefined
+      if (msg.timestamp && lastUserTimestamp) {
+        const start = new Date(lastUserTimestamp).getTime()
+        const end = new Date(msg.timestamp).getTime()
+        if (start > 0 && end > start) durationMs = end - start
+      }
+      const showDivider = lastUserTimestamp !== null
       rows.push({
         kind: 'assistant-text',
         id: `msg-${i}-text`,
@@ -427,7 +453,10 @@ export function deriveTimeline(
         squashed: hasToolCalls,
         hasChangedFiles: hasFileChanges,
         questionsAnswered,
+        durationMs,
+        showCompletionDivider: showDivider,
       })
+      lastUserTimestamp = null
     }
 
     if (hasToolCalls) {

@@ -57,6 +57,7 @@ import { useUpdateStore } from "@/stores/updateStore";
 import { startAutoFlush, stopAutoFlush } from "@/lib/analytics-collector";
 import { WorktreeCleanupDialog } from "@/components/sidebar/WorktreeCleanupDialog";
 import { CloneRepoDialog } from "@/components/CloneRepoDialog";
+import { GlobalFilePreviewModal } from "@/components/GlobalFilePreviewModal";
 import { getVersion } from "@tauri-apps/api/app";
 import {
   initAnalytics,
@@ -282,15 +283,19 @@ export function App() {
   useSessionTracker();
   useZoomLimit();
 
-  // Apply font size from settings to the document root
+  // Apply font size from settings to the document root.
+  // This sets the html element's font-size which cascades through all rem-based
+  // sizing in the app. The CSS variable is kept for components that need it directly.
   useEffect(() => {
-    document.documentElement.style.setProperty('--app-font-size', `${fontSize ?? 13}px`);
+    const size = fontSize ?? 13;
+    document.documentElement.style.setProperty('--app-font-size', `${size}px`);
+    document.documentElement.style.fontSize = `${size}px`;
   }, [fontSize]);
 
   // Apply chat font size as a CSS var. Falls back to UI font size so users on
   // existing settings (no chatFontSize key) keep current behavior.
   useEffect(() => {
-    const resolved = chatFontSize ?? fontSize ?? 14;
+    const resolved = chatFontSize ?? fontSize ?? 15;
     document.documentElement.style.setProperty('--chat-font-size', `${resolved}px`);
   }, [chatFontSize, fontSize]);
 
@@ -353,6 +358,14 @@ export function App() {
   useEffect(() => {
     useTaskStore.getState().loadTasks().then(() => {
       useTaskStore.getState().purgeExpiredSoftDeletes();
+      useTaskStore.getState().autoArchiveStaleThreads();
+      // Initialize VCS status for all known projects
+      import('@/stores/vcsStatusStore').then(({ initVcsStatus }) => {
+        const projects = useTaskStore.getState().projects
+        initVcsStatus(projects)
+      }).catch((e) => {
+        if (import.meta.env.DEV) console.warn('[App] vcsStatusStore init failed:', e)
+      })
       // Restore persisted UI state (selected thread, view, panels)
       import('@/lib/history-store').then(({ loadUiState }) => {
         loadUiState().then((ui) => {
@@ -382,6 +395,27 @@ export function App() {
             const validPins = ui.pinnedThreadIds.filter((id) => tasks[id])
             if (validPins.length > 0) {
               useTaskStore.setState({ pinnedThreadIds: validPins })
+            }
+          }
+          // Restore per-thread model and mode selections so picks survive
+          // restart. Filter to known task ids to avoid leaking entries from
+          // deleted threads.
+          if (ui.taskModels) {
+            const validModels: Record<string, string> = {}
+            for (const [tid, mid] of Object.entries(ui.taskModels)) {
+              if (tasks[tid]) validModels[tid] = mid
+            }
+            if (Object.keys(validModels).length > 0) {
+              useTaskStore.setState({ taskModels: validModels })
+            }
+          }
+          if (ui.taskModes) {
+            const validModes: Record<string, string> = {}
+            for (const [tid, m] of Object.entries(ui.taskModes)) {
+              if (tasks[tid]) validModes[tid] = m
+            }
+            if (Object.keys(validModes).length > 0) {
+              useTaskStore.setState({ taskModes: validModes })
             }
           }
         }).catch(() => {})
@@ -447,7 +481,7 @@ export function App() {
       listen('app://flush-before-quit', () => {
         useTaskStore.getState().persistHistory()
         import('@/lib/history-store').then((hs) => {
-          const { selectedTaskId, view, splitViews, activeSplitId, pinnedThreadIds } = useTaskStore.getState()
+          const { selectedTaskId, view, splitViews, activeSplitId, pinnedThreadIds, taskModels, taskModes } = useTaskStore.getState()
           hs.saveUiState({
             selectedTaskId,
             view,
@@ -456,6 +490,8 @@ export function App() {
             splitViews,
             activeSplitId,
             pinnedThreadIds,
+            taskModels,
+            taskModes,
           }).catch(() => {})
           hs.flush().then(() => {
             // Ack the flush so Rust can proceed with shutdown
@@ -655,7 +691,7 @@ export function App() {
             <ErrorBoundary>
               <div
                 className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl"
-                style={{ fontSize: 'var(--app-font-size, 14px)' }}
+                style={{ fontSize: 'var(--app-font-size, 13px)' }}
               >
                 <Suspense>
                   {view === 'analytics' ? (
@@ -719,6 +755,9 @@ export function App() {
       <UpdateAvailableDialog />
       <WorktreeCleanupDialog />
       <CloneRepoDialog open={isCloneDialogOpen} onOpenChange={setIsCloneDialogOpen} />
+      <ErrorBoundary>
+        <GlobalFilePreviewModal />
+      </ErrorBoundary>
       {whatsNewEntry && !isUpdateDialogActive && (
         <WhatsNewDialog open={!!whatsNewEntry} entry={whatsNewEntry} onDismiss={handleWhatsNewDismiss} />
       )}

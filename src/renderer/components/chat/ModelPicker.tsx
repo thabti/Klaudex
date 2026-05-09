@@ -79,14 +79,14 @@ export const ModelPicker = memo(function ModelPicker() {
   }
 
   return (
-    <div ref={ref} data-testid="model-picker" className="relative">
+    <div ref={ref} data-testid="model-picker" className="relative min-w-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[14px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="flex min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
         <span className="shrink-0">{getModelIcon(triggerIconKey, { size: 13 })}</span>
-        <span className="hidden max-w-[8rem] truncate @[480px]/toolbar:inline">{label}</span>
+        <span className="hidden min-w-0 max-w-[8rem] truncate @[480px]/toolbar:inline">{label}</span>
         <IconChevronDown className="hidden size-3 shrink-0 opacity-50 @[480px]/toolbar:block" aria-hidden />
       </button>
 
@@ -98,15 +98,24 @@ export const ModelPicker = memo(function ModelPicker() {
               type="button"
               onMouseDown={(e) => {
                 e.stopPropagation()
-                const { activeWorkspace, setProjectPref } = useSettingsStore.getState()
+                const { activeWorkspace, setProjectPref, settings, saveSettings } = useSettingsStore.getState()
                 if (activeWorkspace) {
                   setProjectPref(activeWorkspace, { modelId: m.modelId })
                 } else {
+                  // No active workspace: persist as the user's global default
+                  // so the choice survives a restart instead of being held
+                  // only in transient zustand state.
                   useSettingsStore.setState({ currentModelId: m.modelId })
+                  if (settings.defaultModel !== m.modelId) {
+                    saveSettings({ ...settings, defaultModel: m.modelId }).catch(() => {})
+                  }
                 }
                 // Store per-task model so split panels stay independent
                 if (resolvedTaskId) {
                   useTaskStore.getState().setTaskModel(resolvedTaskId, m.modelId)
+                  // Push the selection to the live ACP session so kiro-cli
+                  // actually starts using the new model on the next prompt.
+                  ipc.setModel(resolvedTaskId, m.modelId).catch(() => {})
                 }
                 setOpen(false)
               }}

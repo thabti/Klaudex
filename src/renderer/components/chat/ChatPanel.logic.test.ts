@@ -28,9 +28,9 @@ describe('deriveInputState', () => {
     expect(deriveInputState(null)).toEqual({ disabled: true, disabledReason: undefined })
   })
 
-  it('returns disabled with reason for archived task', () => {
+  it('returns enabled for archived task (stateless resumption)', () => {
     const task = makeTask({ isArchived: true })
-    expect(deriveInputState(task)).toEqual({ disabled: true, disabledReason: 'Previous session — view only' })
+    expect(deriveInputState(task)).toEqual({ disabled: false, disabledReason: undefined })
   })
 
   it('returns disabled with reason for cancelled task', () => {
@@ -157,6 +157,15 @@ describe('needsNewConnection', () => {
     expect(needsNewConnection(task)).toBe(true)
   })
 
+  it('returns true for archived task (resumed from history)', () => {
+    const task = makeTask({
+      messages: [{ role: 'user', content: 'hi', timestamp: '' }],
+      status: 'completed',
+      isArchived: true,
+    })
+    expect(needsNewConnection(task)).toBe(true)
+  })
+
   it('returns false for active task with messages', () => {
     const task = makeTask({ messages: [{ role: 'user', content: 'hi', timestamp: '' }], status: 'running' })
     expect(needsNewConnection(task)).toBe(false)
@@ -202,6 +211,11 @@ describe('deriveInputState — edge cases', () => {
 
   it('returns enabled for completed task (user can send follow-up)', () => {
     const task = makeTask({ status: 'completed' })
+    expect(deriveInputState(task)).toEqual({ disabled: false, disabledReason: undefined })
+  })
+
+  it('returns enabled for archived task (input drives reconnection)', () => {
+    const task = makeTask({ status: 'completed', isArchived: true })
     expect(deriveInputState(task)).toEqual({ disabled: false, disabledReason: undefined })
   })
 
@@ -277,6 +291,15 @@ describe('needsNewConnection — edge cases', () => {
       status: 'paused',
     })
     expect(needsNewConnection(task)).toBe(false)
+  })
+
+  it('returns true for archived completed task (loaded from history)', () => {
+    const task = makeTask({
+      messages: [{ role: 'user', content: 'hi', timestamp: '' }],
+      status: 'completed',
+      isArchived: true,
+    })
+    expect(needsNewConnection(task)).toBe(true)
   })
 })
 

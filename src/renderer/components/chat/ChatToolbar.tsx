@@ -9,7 +9,7 @@ import { AutoApproveToggle } from './AutoApproveToggle'
 
 /** Pill-shaped group wrapper for toolbar items */
 const ToolbarGroup = ({ children, className }: { children: React.ReactNode; className?: string }) => (
-  <div className={cn('flex items-center gap-0.5 rounded-lg bg-muted/50 px-0.5 py-0.5', className)}>
+  <div className={cn('flex min-w-0 items-center gap-0.5 rounded-lg bg-muted/50 px-0.5 py-0.5', className)}>
     {children}
   </div>
 )
@@ -53,9 +53,9 @@ export const ChatToolbar = memo(function ChatToolbar({
   const buttonBg = isPlanMode ? 'bg-teal-500/90 hover:bg-teal-500' : 'bg-blue-500/90 hover:bg-blue-500'
 
   return (
-    <div className="relative z-10 flex items-center justify-between gap-2 px-3 pb-3 sm:px-4 @container/toolbar">
+    <div className="relative z-10 flex min-w-0 items-center justify-between gap-2 overflow-visible px-3 pb-3 sm:px-4 @container/toolbar">
       {/* Left: attach + AI controls (mode + model) */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -63,14 +63,14 @@ export const ChatToolbar = memo(function ChatToolbar({
               onClick={onFilePickerClick}
               aria-label="Attach files"
               data-testid="attach-files-button"
-              className="flex size-8 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-muted/60 hover:text-muted-foreground/70"
+              className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-muted/60 hover:text-muted-foreground/70"
             >
-              <IconPaperclip className="size-4" />
+              <IconPaperclip className="size-3.5" />
             </button>
           </TooltipTrigger>
           <TooltipContent side="top" className="text-[11px]">Attach files or images</TooltipContent>
         </Tooltip>
-        <ToolbarGroup>
+        <ToolbarGroup className="min-w-0">
           <PlanToggle />
           <Dot />
           <ModelPicker />
@@ -81,9 +81,7 @@ export const ChatToolbar = memo(function ChatToolbar({
 
       {/* Right: git + context + send/pause */}
       <div className="flex shrink-0 items-center gap-1.5">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <BranchSelector workspace={workspace ?? null} isWorktree={isWorktree} />
-        </div>
+        <BranchSelector workspace={workspace ?? null} isWorktree={isWorktree} />
         <input
           ref={fileInputRef}
           type="file"

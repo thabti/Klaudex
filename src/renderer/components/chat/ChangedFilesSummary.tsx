@@ -30,49 +30,6 @@ const MAX_VISIBLE_FILES = 30
 
 // ── Pure helpers ─────────────────────────────────────────────────
 
-function splitLines(text: string): string[] {
-  if (!text) return []
-  return text.split('\n')
-}
-
-function computeLineDelta(oldText: string | null | undefined, newText: string | null | undefined): { additions: number; deletions: number } {
-  const oldStr = oldText ?? ''
-  const newStr = newText ?? ''
-  if (!oldStr && !newStr) return { additions: 0, deletions: 0 }
-  if (!oldStr) return { additions: splitLines(newStr).length, deletions: 0 }
-  if (!newStr) return { additions: 0, deletions: splitLines(oldStr).length }
-  const oldLines = splitLines(oldStr)
-  const newLines = splitLines(newStr)
-  const oldSet = new Map<string, number>()
-  for (const line of oldLines) oldSet.set(line, (oldSet.get(line) ?? 0) + 1)
-  for (const line of newLines) {
-    const count = oldSet.get(line)
-    if (count && count > 0) oldSet.set(line, count - 1)
-  }
-  let deletions = 0
-  for (const count of oldSet.values()) deletions += count
-  const newSet = new Map<string, number>()
-  for (const line of newLines) newSet.set(line, (newSet.get(line) ?? 0) + 1)
-  for (const line of oldLines) {
-    const count = newSet.get(line)
-    if (count && count > 0) newSet.set(line, count - 1)
-  }
-  let additions = 0
-  for (const count of newSet.values()) additions += count
-  return { additions, deletions }
-}
-
-function extractDiffFilePaths(rawDiff: string): Set<string> {
-  const paths = new Set<string>()
-  if (!rawDiff) return paths
-  const lines = rawDiff.split('\n')
-  for (const line of lines) {
-    if (line.startsWith('+++ b/')) paths.add(line.slice(6))
-    else if (line.startsWith('+++ ') && !line.startsWith('+++ /dev/null')) paths.add(line.slice(4))
-  }
-  return paths
-}
-
 function extractFileStats(toolCalls: readonly ToolCall[]): FileStats[] {
   const statsMap = new Map<string, { additions: number; deletions: number }>()
 
@@ -83,18 +40,19 @@ function extractFileStats(toolCalls: readonly ToolCall[]): FileStats[] {
     const filePath = tc.locations?.[0]?.path
     if (!filePath) continue
 
+    // Pre-computed by the Rust ACP client (see
+    // `commands::diff_stats::annotate_diff_content`). Equivalent to
+    // `git diff --numstat` for the (oldText, newText) pair. No diff entry =
+    // no per-line counts available — surface the file at +0/-0 rather than
+    // inventing a synthetic "+1" that inflates totals.
     let additions = 0
     let deletions = 0
-
-    const diffContent = tc.content?.find((c) => c.type === 'diff')
-    if (diffContent && (diffContent.oldText != null || diffContent.newText != null)) {
-      const delta = computeLineDelta(diffContent.oldText, diffContent.newText)
-      additions = delta.additions
-      deletions = delta.deletions
-    } else if (tc.kind === 'delete') {
-      deletions = 1
-    } else {
-      additions = 1
+    if (tc.content) {
+      for (const item of tc.content) {
+        if (item.type !== 'diff') continue
+        additions += item.linesAdded ?? 0
+        deletions += item.linesRemoved ?? 0
+      }
     }
 
     const existing = statsMap.get(filePath)
