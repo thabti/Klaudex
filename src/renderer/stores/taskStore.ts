@@ -496,66 +496,61 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
    * Auto-archive threads that have been inactive for longer than the configured
    * `autoArchiveDays` setting. Only archives completed/error/cancelled threads
    * (never running or paused). Called on app startup alongside purgeExpiredSoftDeletes.
+   *
+   * The heavy lifting (scanning threads, computing staleness) is done by the
+   * Rust backend via the thread_db_auto_archive command. The frontend just
+   * updates its local state with the results.
    */
   autoArchiveStaleThreads: () => {
     const settings = useSettingsStore.getState().settings
     const days = settings.autoArchiveDays
     if (!days || days <= 0) return
 
-    const cutoffMs = days * 24 * 60 * 60 * 1000
-    const now = Date.now()
-    const { tasks } = get()
+    // Delegate to backend — it queries SQLite, identifies stale threads, and deletes them.
+    void ipc.threadDbAutoArchive(days).then((archivedThreads) => {
+      if (!archivedThreads || archivedThreads.length === 0) return
 
-    const staleIds: string[] = []
-    for (const [id, task] of Object.entries(tasks)) {
-      // Never auto-archive running, paused, or already-archived threads
-      if (task.status === 'running' || task.status === 'paused' || task.isArchived) continue
-      // Check last activity
-      const lastMsg = task.messages.length > 0 ? task.messages[task.messages.length - 1].timestamp : task.createdAt
-      const age = now - new Date(lastMsg).getTime()
-      if (age >= cutoffMs) {
-        staleIds.push(id)
-      }
-    }
+      const staleIds = new Set(archivedThreads.map((t) => t.id))
 
-    if (staleIds.length === 0) return
+      set((state) => {
+        const tasks = { ...state.tasks }
+        const archivedMeta = { ...state.archivedMeta }
 
-    set((state) => {
-      const tasks = { ...state.tasks }
-      const archivedMeta = { ...state.archivedMeta }
-      for (const id of staleIds) {
-        const task = tasks[id]
-        if (!task) continue
-        // Move to archivedMeta
-        const lastMsg = task.messages.length > 0 ? task.messages[task.messages.length - 1].timestamp : task.createdAt
-        archivedMeta[id] = {
-          id: task.id,
-          name: task.name,
-          workspace: task.workspace,
-          createdAt: task.createdAt,
-          lastActivityAt: lastMsg,
-          messageCount: task.messages.length,
-          ...(task.parentTaskId ? { parentTaskId: task.parentTaskId } : {}),
-          ...(task.worktreePath ? { worktreePath: task.worktreePath } : {}),
-          ...(task.originalWorkspace ? { originalWorkspace: task.originalWorkspace } : {}),
-          ...(task.projectId ? { projectId: task.projectId } : {}),
+        for (const info of archivedThreads) {
+          // If the thread is currently loaded in memory, remove it from tasks
+          const task = tasks[info.id]
+          if (task) {
+            delete tasks[info.id]
+          }
+          // Add to archivedMeta so it still appears in the sidebar as archived
+          archivedMeta[info.id] = {
+            id: info.id,
+            name: info.name,
+            workspace: info.workspace,
+            createdAt: info.createdAt,
+            lastActivityAt: info.lastActivityAt,
+            messageCount: info.messageCount,
+            ...(info.parentTaskId ? { parentTaskId: info.parentTaskId } : {}),
+            // Preserve worktree/project info from the in-memory task if available
+            ...(task?.worktreePath ? { worktreePath: task.worktreePath } : {}),
+            ...(task?.originalWorkspace ? { originalWorkspace: task.originalWorkspace } : {}),
+            ...(task?.projectId ? { projectId: task.projectId } : {}),
+          }
         }
-        delete tasks[id]
+
+        const selectedTaskId = staleIds.has(state.selectedTaskId ?? '') ? null : state.selectedTaskId
+        return { tasks, archivedMeta, selectedTaskId }
+      })
+
+      // Notify the backend to clean up any lingering ACP resources for these threads.
+      for (const id of staleIds) {
+        void ipc.deleteTask(id).catch(() => {})
       }
-      const selectedTaskId = staleIds.includes(state.selectedTaskId ?? '') ? null : state.selectedTaskId
-      return { tasks, archivedMeta, selectedTaskId }
+
+      get().persistHistory()
+    }).catch((err) => {
+      if (import.meta.env.DEV) console.warn('[autoArchive] backend call failed, skipping:', err)
     })
-
-    // Notify the backend to clean up any lingering resources for these threads.
-    // Only call deleteTask (which removes persisted backend state) — cancelTask
-    // is skipped because these threads are already in a terminal status
-    // (completed/error/cancelled) and cancelling them is a no-op at best,
-    // or could error on backends that reject cancel on non-running tasks.
-    for (const id of staleIds) {
-      void ipc.deleteTask(id).catch(() => {})
-    }
-
-    get().persistHistory()
   },
 
   appendChunk: (taskId, chunk) =>

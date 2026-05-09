@@ -53,6 +53,8 @@ pub(crate) fn friendly_prompt_error(raw: &str) -> String {
 
 /// Extract absolute file paths from user message text.
 /// Matches tokens that start with `/` and look like file paths.
+/// Rejects overly broad paths (fewer than 2 segments) to prevent
+/// granting the agent access to the entire filesystem.
 pub(crate) fn extract_paths_from_message(text: &str) -> Vec<String> {
     let mut paths = Vec::new();
     for token in text.split_whitespace() {

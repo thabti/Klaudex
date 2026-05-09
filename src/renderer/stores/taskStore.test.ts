@@ -15,6 +15,7 @@ vi.mock('@/lib/ipc', () => ({
     gitWorktreeRemove: vi.fn().mockResolvedValue(undefined),
     addRecentProject: vi.fn().mockResolvedValue(undefined),
     rebuildRecentMenu: vi.fn().mockResolvedValue(undefined),
+    threadDbAutoArchive: vi.fn().mockResolvedValue([]),
   },
 }))
 vi.mock('@/lib/history-store', () => ({
@@ -759,8 +760,8 @@ describe('hydrateArchivedTask', () => {
 })
 
 describe('autoArchiveStaleThreads', () => {
-  it('archives threads inactive longer than autoArchiveDays', async () => {
-    // Temporarily override the settingsStore mock to return autoArchiveDays: 7
+  it('archives threads returned by the backend', async () => {
+    const { ipc } = await import('@/lib/ipc')
     const settingsMod = await import('./settingsStore')
     const originalGetState = settingsMod.useSettingsStore.getState
     ;(settingsMod.useSettingsStore as any).getState = () => ({
@@ -776,14 +777,23 @@ describe('autoArchiveStaleThreads', () => {
       messages: [{ role: 'user', content: 'hi', timestamp: oldTimestamp }],
     }))
 
-    useTaskStore.getState().autoArchiveStaleThreads()
+    // Mock the backend returning this thread as stale
+    vi.mocked(ipc.threadDbAutoArchive).mockResolvedValueOnce([
+      { id: 'stale-1', name: 'Test Task', workspace: '/projects/test', createdAt: oldTimestamp, lastActivityAt: oldTimestamp, messageCount: 1 },
+    ])
 
-    expect(useTaskStore.getState().tasks['stale-1']).toBeUndefined()
+    useTaskStore.getState().autoArchiveStaleThreads()
+    // Wait for the async IPC call to resolve
+    await vi.waitFor(() => {
+      expect(useTaskStore.getState().tasks['stale-1']).toBeUndefined()
+    })
+
     expect(useTaskStore.getState().archivedMeta['stale-1']).toBeDefined()
     ;(settingsMod.useSettingsStore as any).getState = originalGetState
   })
 
-  it('does not archive running or paused threads', async () => {
+  it('does not archive when backend returns empty list', async () => {
+    const { ipc } = await import('@/lib/ipc')
     const settingsMod = await import('./settingsStore')
     const originalGetState = settingsMod.useSettingsStore.getState
     ;(settingsMod.useSettingsStore as any).getState = () => ({
@@ -798,20 +808,21 @@ describe('autoArchiveStaleThreads', () => {
       status: 'running',
       messages: [{ role: 'user', content: 'hi', timestamp: oldTimestamp }],
     }))
-    useTaskStore.getState().upsertTask(makeTask({
-      id: 'paused-1',
-      status: 'paused',
-      messages: [{ role: 'user', content: 'hi', timestamp: oldTimestamp }],
-    }))
+
+    // Backend correctly excludes running threads
+    vi.mocked(ipc.threadDbAutoArchive).mockResolvedValueOnce([])
 
     useTaskStore.getState().autoArchiveStaleThreads()
+    await vi.waitFor(() => {
+      expect(vi.mocked(ipc.threadDbAutoArchive)).toHaveBeenCalledWith(1)
+    })
 
     expect(useTaskStore.getState().tasks['running-1']).toBeDefined()
-    expect(useTaskStore.getState().tasks['paused-1']).toBeDefined()
     ;(settingsMod.useSettingsStore as any).getState = originalGetState
   })
 
   it('does nothing when autoArchiveDays is 0 or unset', async () => {
+    const { ipc } = await import('@/lib/ipc')
     const settingsMod = await import('./settingsStore')
     const originalGetState = settingsMod.useSettingsStore.getState
     ;(settingsMod.useSettingsStore as any).getState = () => ({
@@ -827,13 +838,17 @@ describe('autoArchiveStaleThreads', () => {
       messages: [{ role: 'user', content: 'hi', timestamp: oldTimestamp }],
     }))
 
+    vi.mocked(ipc.threadDbAutoArchive).mockClear()
     useTaskStore.getState().autoArchiveStaleThreads()
 
+    // Should not even call the backend when days is 0
+    expect(vi.mocked(ipc.threadDbAutoArchive)).not.toHaveBeenCalled()
     expect(useTaskStore.getState().tasks['old-1']).toBeDefined()
     ;(settingsMod.useSettingsStore as any).getState = originalGetState
   })
 
-  it('does not archive threads within the threshold', async () => {
+  it('does not archive threads within the threshold (backend decides)', async () => {
+    const { ipc } = await import('@/lib/ipc')
     const settingsMod = await import('./settingsStore')
     const originalGetState = settingsMod.useSettingsStore.getState
     ;(settingsMod.useSettingsStore as any).getState = () => ({
@@ -849,7 +864,13 @@ describe('autoArchiveStaleThreads', () => {
       messages: [{ role: 'user', content: 'hi', timestamp: recentTimestamp }],
     }))
 
+    // Backend returns empty — thread is within threshold
+    vi.mocked(ipc.threadDbAutoArchive).mockResolvedValueOnce([])
+
     useTaskStore.getState().autoArchiveStaleThreads()
+    await vi.waitFor(() => {
+      expect(vi.mocked(ipc.threadDbAutoArchive)).toHaveBeenCalledWith(30)
+    })
 
     expect(useTaskStore.getState().tasks['recent-1']).toBeDefined()
     ;(settingsMod.useSettingsStore as any).getState = originalGetState

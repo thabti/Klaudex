@@ -687,10 +687,16 @@ pub struct WorktreeResult {
 pub fn git_worktree_create(cwd: String, slug: String) -> Result<WorktreeResult, AppError> {
     validate_worktree_slug(&slug)?;
     let cwd_path = Path::new(&cwd);
-    // Reject creating a worktree from inside another worktree
+    // Reject creating a worktree from inside another worktree (check first, before fs access)
     if cwd.contains("/.kiro/worktrees/") {
         return Err(AppError::Other("Cannot create a worktree from inside another worktree. Use the project root.".to_string()));
     }
+    // Validate cwd is a real directory
+    if !cwd_path.is_dir() {
+        return Err(AppError::Other(format!("Workspace is not a directory: {cwd}")));
+    }
+    // Validate cwd is a git repository
+    Repository::discover(&cwd).map_err(|_| AppError::Other(format!("Not a git repository: {cwd}")))?;
     let worktree_dir = cwd_path.join(".kiro").join("worktrees").join(&slug);
     let worktree_path = worktree_dir.to_string_lossy().to_string();
     let branch = format!("worktree-{slug}");
@@ -707,6 +713,20 @@ pub fn git_worktree_create(cwd: String, slug: String) -> Result<WorktreeResult, 
 
 #[tauri::command]
 pub fn git_worktree_remove(cwd: String, worktree_path: String) -> Result<(), AppError> {
+    // Validate cwd is a real directory and a git repository
+    if !Path::new(&cwd).is_dir() {
+        return Err(AppError::Other(format!("Workspace is not a directory: {cwd}")));
+    }
+    Repository::discover(&cwd).map_err(|_| AppError::Other(format!("Not a git repository: {cwd}")))?;
+    // Validate worktree_path is under the cwd's .kiro/worktrees/ directory
+    if let (Ok(canonical_cwd), Ok(canonical_wt)) = (
+        Path::new(&cwd).canonicalize(),
+        Path::new(&worktree_path).canonicalize(),
+    ) {
+        if !canonical_wt.starts_with(&canonical_cwd) {
+            return Err(AppError::Other("Worktree path must be within the workspace".to_string()));
+        }
+    }
     let output = Command::new("git")
         .args(["worktree", "remove", "--force", &worktree_path])
         .current_dir(&cwd)
@@ -751,6 +771,14 @@ pub fn git_worktree_setup(
 ) -> Result<WorktreeSetupResult, AppError> {
     let cwd_path = Path::new(&cwd).canonicalize()?;
     let wt_path = Path::new(&worktree_path);
+    // Validate cwd is a git repository
+    let repo = Repository::discover(&cwd)?;
+    // Validate worktree_path is under cwd
+    if let Ok(canonical_wt) = wt_path.canonicalize() {
+        if !canonical_wt.starts_with(&cwd_path) {
+            return Err(AppError::Other("Worktree path must be within the workspace".to_string()));
+        }
+    }
     let mut symlink_count: u32 = 0;
     let mut copied_files: Vec<String> = Vec::new();
     // Symlink directories
@@ -789,16 +817,18 @@ pub fn git_worktree_setup(
             .filter(|l| !l.is_empty() && !l.starts_with('#'))
             .collect();
         if !patterns.is_empty() {
-            // Use git ls-files to find ignored files
-            let output = Command::new("git")
-                .args(["ls-files", "--others", "--ignored", "--exclude-standard"])
-                .current_dir(&cwd_path)
-                .output()?;
-            if output.status.success() {
-                let files = String::from_utf8_lossy(&output.stdout);
-                for file in files.lines() {
+            // Use git2 status API to find ignored files instead of shelling out to `git ls-files`
+            let mut status_opts = git2::StatusOptions::new();
+            status_opts.include_ignored(true)
+                .include_untracked(true)
+                .recurse_untracked_dirs(true);
+            if let Ok(statuses) = repo.statuses(Some(&mut status_opts)) {
+                for entry in statuses.iter() {
+                    if !entry.status().intersects(git2::Status::IGNORED) {
+                        continue;
+                    }
+                    let Some(file) = entry.path() else { continue };
                     let matches = patterns.iter().any(|pat| {
-                        // Simple glob: exact match or fnmatch-style
                         file == *pat || file.starts_with(pat.trim_end_matches('*'))
                             || Path::new(file).file_name()
                                 .map(|n| n.to_string_lossy() == *pat)

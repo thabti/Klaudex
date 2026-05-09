@@ -25,9 +25,33 @@ pub fn detect_kiro_cli() -> Option<String> {
         .map(|p| p.to_string_lossy().to_string())
 }
 
+/// Paths that should never be readable from the frontend, regardless of workspace.
+const SENSITIVE_PATH_PREFIXES: &[&str] = &[
+    ".ssh/", ".gnupg/", ".aws/", ".config/gh/", ".netrc",
+];
+
+/// Returns true if the path points to a known sensitive location under the user's home.
+fn is_sensitive_path(path: &str) -> bool {
+    let home = dirs::home_dir().map(|h| h.to_string_lossy().to_string()).unwrap_or_default();
+    if home.is_empty() { return false; }
+    // Canonicalize to resolve symlinks and .. traversal
+    let resolved = std::fs::canonicalize(path)
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| path.replace('\\', "/"));
+    let home_prefix = format!("{}/", home.trim_end_matches('/'));
+    if let Some(relative) = resolved.strip_prefix(&home_prefix) {
+        return SENSITIVE_PATH_PREFIXES.iter().any(|prefix| relative.starts_with(prefix));
+    }
+    false
+}
+
 #[tauri::command]
 pub fn read_text_file(path: String) -> Option<String> {
     log::info!("[fs] read_text_file called with path: {}", path);
+    if is_sensitive_path(&path) {
+        log::warn!("[fs] read_text_file blocked sensitive path: {}", path);
+        return None;
+    }
     match std::fs::read_to_string(&path) {
         Ok(content) => Some(content),
         Err(e) => {
@@ -40,6 +64,10 @@ pub fn read_text_file(path: String) -> Option<String> {
 #[tauri::command]
 pub fn read_file_base64(path: String) -> Option<String> {
     log::info!("[fs] read_file_base64 called with path: {}", path);
+    if is_sensitive_path(&path) {
+        log::warn!("[fs] read_file_base64 blocked sensitive path: {}", path);
+        return None;
+    }
     use base64::Engine;
     match std::fs::read(&path) {
         Ok(bytes) => Some(base64::engine::general_purpose::STANDARD.encode(&bytes)),
@@ -97,19 +125,19 @@ pub fn open_in_editor(path: String, editor: String) -> Result<(), AppError> {
     if TERMINAL_EDITORS.iter().any(|&e| editor == e) {
         #[cfg(target_os = "macos")]
         {
-            let escaped = path.replace('\\', "\\\\").replace('\'', "'\\''").replace('"', "\\\"");
+            // Use AppleScript's `system attribute` to read the env var set on the osascript process,
+            // then `quoted form of` to safely escape it for shell use.
+            let script = "tell application \"Terminal\"\n  activate\n  do script (\"cd \" & quoted form of (system attribute \"KIRODEX_CD_PATH\"))\nend tell";
             std::process::Command::new("osascript")
                 .arg("-e")
-                .arg(format!(
-                    "tell application \"Terminal\"\n  activate\n  do script \"cd '{escaped}'\"\nend tell"
-                ))
+                .arg(script)
+                .env("KIRODEX_CD_PATH", &path)
                 .output()
                 .map_err(|e| AppError::Other(format!("Failed to open Terminal: {e}")))?;
         }
         #[cfg(not(target_os = "macos"))]
         std::process::Command::new("xterm")
-            .arg("-e").arg("sh").arg("-c")
-            .arg(format!("cd '{}' && {}", path.replace('\'', "'\\''"), editor))
+            .arg("-e").arg(&editor).arg(&path)
             .spawn()
             .map_err(|e| AppError::Other(format!("Failed to open {editor}: {e}")))?;
         return Ok(());
@@ -187,12 +215,12 @@ pub fn open_in_editor(path: String, editor: String) -> Result<(), AppError> {
             let attach_cmd = format!("tmux attach -t {session}");
             #[cfg(target_os = "macos")]
             {
-                let escaped = attach_cmd.replace('"', "\\\"");
+                // Use environment variable to pass the command safely
+                let script = "tell application \"Terminal\"\n  activate\n  do script (system attribute \"KIRODEX_CMD\")\nend tell";
                 std::process::Command::new("osascript")
                     .arg("-e")
-                    .arg(format!(
-                        "tell application \"Terminal\"\n  activate\n  do script \"{escaped}\"\nend tell"
-                    ))
+                    .arg(script)
+                    .env("KIRODEX_CMD", &attach_cmd)
                     .output()
                     .map_err(|e| AppError::Other(format!("Failed to open tmux: {e}")))?;
             }
@@ -866,14 +894,22 @@ pub fn kiro_logout(kiro_bin: Option<String>) -> Result<(), AppError> {
 
 #[tauri::command]
 pub fn open_terminal_with_command(command: String) -> Result<(), AppError> {
+    // Only allow known safe commands to prevent arbitrary command injection
+    const ALLOWED_COMMANDS: &[&str] = &["kiro-cli login", "kiro-cli logout", "kiro-cli whoami"];
+    let is_allowed = ALLOWED_COMMANDS.iter().any(|&allowed| {
+        command == allowed || command.starts_with(&format!("{} ", allowed))
+    });
+    if !is_allowed {
+        return Err(AppError::Other(format!("Command not in allowlist: {}", command)));
+    }
     #[cfg(target_os = "macos")]
     {
+        // Use AppleScript's `system attribute` to safely read the env var
+        let script = "tell application \"Terminal\"\nactivate\ndo script (system attribute \"KIRODEX_CMD\")\nend tell";
         std::process::Command::new("osascript")
             .arg("-e")
-            .arg(format!(
-                "tell application \"Terminal\"\nactivate\ndo script \"{}\"\nend tell",
-                command.replace('\\', "\\\\").replace('"', "\\\"")
-            ))
+            .arg(script)
+            .env("KIRODEX_CMD", &command)
             .spawn()
             .map_err(|e| AppError::Other(format!("Failed to open Terminal: {}", e)))?;
     }

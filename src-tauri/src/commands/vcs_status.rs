@@ -7,7 +7,6 @@
 
 use git2::Repository;
 use serde::Serialize;
-use std::process::Command;
 
 use super::error::AppError;
 
@@ -47,8 +46,8 @@ pub fn git_vcs_status(cwd: String) -> Result<VcsStatus, AppError> {
         Err(_) => String::new(), // Unborn branch or other error
     };
 
-    // Get ahead/behind counts using git CLI (handles remote tracking correctly)
-    let (ahead_count, behind_count, has_upstream) = get_ahead_behind(&cwd, &branch);
+    // Get ahead/behind counts using git2 (no subprocess, faster)
+    let (ahead_count, behind_count, has_upstream) = get_ahead_behind(&repo, &branch);
 
     // Get dirty state
     let statuses = repo.statuses(Some(
@@ -70,28 +69,31 @@ pub fn git_vcs_status(cwd: String) -> Result<VcsStatus, AppError> {
     })
 }
 
-/// Get ahead/behind counts using `git rev-list --left-right --count`.
-/// Returns (ahead, behind, has_upstream).
-fn get_ahead_behind(cwd: &str, branch: &str) -> (u32, u32, bool) {
-    let range = format!("{branch}...@{{u}}");
-    let output = Command::new("git")
-        .args(["rev-list", "--left-right", "--count", &range])
-        .current_dir(cwd)
-        .output();
-
-    match output {
-        Ok(out) if out.status.success() => {
-            let text = String::from_utf8_lossy(&out.stdout);
-            let parts: Vec<&str> = text.trim().split('\t').collect();
-            if parts.len() == 2 {
-                let ahead = parts[0].parse::<u32>().unwrap_or(0);
-                let behind = parts[1].parse::<u32>().unwrap_or(0);
-                (ahead, behind, true)
-            } else {
-                (0, 0, true)
-            }
-        }
-        _ => (0, 0, false), // No upstream or error
+/// Get ahead/behind counts using git2's `graph_ahead_behind`.
+/// Avoids spawning a subprocess — faster and more portable.
+fn get_ahead_behind(repo: &Repository, branch: &str) -> (u32, u32, bool) {
+    if branch.is_empty() {
+        return (0, 0, false);
+    }
+    let local_branch = match repo.find_branch(branch, git2::BranchType::Local) {
+        Ok(b) => b,
+        Err(_) => return (0, 0, false),
+    };
+    let upstream = match local_branch.upstream() {
+        Ok(u) => u,
+        Err(_) => return (0, 0, false), // No upstream configured
+    };
+    let local_oid = match local_branch.get().target() {
+        Some(oid) => oid,
+        None => return (0, 0, true),
+    };
+    let upstream_oid = match upstream.get().target() {
+        Some(oid) => oid,
+        None => return (0, 0, true),
+    };
+    match repo.graph_ahead_behind(local_oid, upstream_oid) {
+        Ok((ahead, behind)) => (ahead as u32, behind as u32, true),
+        Err(_) => (0, 0, true),
     }
 }
 
