@@ -590,7 +590,7 @@ describe('persistHistory — streaming chunk preservation', () => {
       toolCallId: 'tc-1',
       title: 'Edit file',
       kind: 'edit',
-      status: 'running',
+      status: 'in_progress',
       locations: [{ path: 'src/main.ts' }],
     }
     const toolSplit: ToolCallSplit = { toolCallId: 'tc-1', at: 10 }
