@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::error::AppError;
-use super::git_ai::{extract_first_json_object, run_kiro_oneshot};
+use super::git_ai::{extract_first_json_object, extract_json_object_with_key, run_kiro_oneshot};
 use super::settings::SettingsState;
 
 /// Maximum branch name length.
@@ -108,7 +108,11 @@ fn build_branch_prompt(message: &str, custom_instructions: Option<&str>) -> Stri
 // ── Output parsing ───────────────────────────────────────────────────────
 
 fn parse_branch_response(raw: &str) -> Result<BranchModelOutput, AppError> {
-    let block = extract_first_json_object(raw).ok_or_else(|| {
+    // Prefer a JSON object that contains `"branch"` so a kiro-cli warning
+    // such as `@{MCPSERVERNAME}/` doesn't get parsed as the answer.
+    let block = extract_json_object_with_key(raw, "branch")
+        .or_else(|| extract_first_json_object(raw))
+        .ok_or_else(|| {
         let preview = if raw.len() > 400 {
             let mut end = 400;
             while end > 0 && !raw.is_char_boundary(end) {
@@ -214,6 +218,18 @@ mod tests {
         let raw = "📷 Checkpoints\n\n{\"branch\":\"fix-login-redirect\"}\n\n▸ Credits: 0.01\n";
         let parsed = parse_branch_response(raw).unwrap();
         assert_eq!(parsed.branch, "fix-login-redirect");
+    }
+
+    #[test]
+    fn parse_branch_response_skips_kiro_cli_warning_brace_block() {
+        // Regression: kiro-cli's `--trust-tools` warning prints a
+        // `{MCPSERVERNAME}` token before the answer. Make sure the parser
+        // walks past it.
+        let raw = "WARNING: --trust-tools arg for custom tool needs to be \
+                   prepended with @{MCPSERVERNAME}/\n\
+                   > {\"branch\":\"fix-login-bug\"}\n";
+        let parsed = parse_branch_response(raw).unwrap();
+        assert_eq!(parsed.branch, "fix-login-bug");
     }
 
     #[test]

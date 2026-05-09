@@ -1297,12 +1297,41 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   persistHistory: () => {
-    const { tasks, projectNames, projectIds, softDeleted, projects, threadOrders, archivedMeta } = get()
+    const { tasks, projectNames, projectIds, softDeleted, projects, threadOrders, archivedMeta, streamingChunks, thinkingChunks, liveToolCalls, liveToolSplits } = get()
     // Tell saveThreads which on-disk archived ids to preserve verbatim.
     // Without this set, saveThreads would drop every archived thread that
     // isn't currently inflated in `tasks`.
     const keepArchivedIds = new Set(Object.keys(archivedMeta))
-    historyStore.saveThreads(tasks, projectNames, projectIds, projects, threadOrders, keepArchivedIds).catch((err) => {
+    // For mid-turn persistence: if a task is currently streaming, append the
+    // in-flight chunk as a partial assistant message so it survives a dev
+    // hot-reload or crash. The partial message is only written to the JSON
+    // history store (not SQLite) and will be superseded by the real turn_end.
+    let tasksToSave = tasks
+    for (const [taskId, chunk] of Object.entries(streamingChunks)) {
+      if (!chunk) continue
+      const task = tasks[taskId]
+      if (!task || task.status !== 'running') continue
+      const thinking = thinkingChunks[taskId] ?? ''
+      const tools = liveToolCalls[taskId] ?? []
+      const splits = liveToolSplits[taskId] ?? []
+      // Lazily clone the tasks map only if we have streaming content to save
+      if (tasksToSave === tasks) tasksToSave = { ...tasks }
+      tasksToSave[taskId] = {
+        ...task,
+        messages: [
+          ...task.messages,
+          {
+            role: 'assistant' as const,
+            content: chunk,
+            timestamp: new Date().toISOString(),
+            ...(thinking ? { thinking } : {}),
+            ...(tools.length > 0 ? { toolCalls: tools } : {}),
+            ...(splits.length > 0 ? { toolCallSplits: splits } : {}),
+          },
+        ],
+      }
+    }
+    historyStore.saveThreads(tasksToSave, projectNames, projectIds, projects, threadOrders, keepArchivedIds).catch((err) => {
       console.warn('[persistHistory] saveThreads failed:', err)
     })
     historyStore.saveSoftDeleted(Object.values(softDeleted)).catch((err) => {

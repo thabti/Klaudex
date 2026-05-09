@@ -370,12 +370,14 @@ export function App() {
       import('@/lib/history-store').then(({ loadUiState }) => {
         loadUiState().then((ui) => {
           if (!ui) return
-          const tasks = useTaskStore.getState().tasks
-          if (ui.selectedTaskId && tasks[ui.selectedTaskId]) {
-            useTaskStore.getState().setSelectedTask(ui.selectedTaskId)
+          const state = useTaskStore.getState()
+          const tasks = state.tasks
+          const archivedMeta = state.archivedMeta
+          if (ui.selectedTaskId && (tasks[ui.selectedTaskId] || archivedMeta[ui.selectedTaskId])) {
+            state.setSelectedTask(ui.selectedTaskId)
             const validViews = ['chat', 'dashboard', 'analytics'] as const
             if (validViews.includes(ui.view as typeof validViews[number])) {
-              useTaskStore.getState().setView(ui.view as typeof validViews[number])
+              state.setView(ui.view as typeof validViews[number])
             }
           }
           setSidePanelOpen(ui.sidePanelOpen ?? false)

@@ -127,9 +127,13 @@ async function expandFile(absolutePath: string): Promise<string> {
 //   @plain-name           (prompt name or relative path)
 // Does NOT match @agent:name or @skill:name (those are handled separately)
 //
+// The `@` must be at the start of the message or preceded by whitespace.
+// This mirrors the FileMentionPicker trigger rule and prevents matches inside
+// strings like `postgres:user@host:5432/db` or `name@example.com`.
+//
 // NOTE: No `g` flag — we use matchAll() which creates a fresh stateful iterator
 // each call, avoiding shared lastIndex state across concurrent invocations.
-const MENTION_PATTERN = /@(?:"([^"]+)"|(\S+))/
+const MENTION_PATTERN = /(?<=^|\s)@(?:"([^"]+)"|(\S+))/
 
 // ── Main resolver ─────────────────────────────────────────────────────────────
 

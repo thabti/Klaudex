@@ -289,7 +289,7 @@ describe('loadFullThread', () => {
     })
   })
 
-  it('handles thread with no metadata fields', async () => {
+  it('returns null when thread exists but has no messages (incomplete migration)', async () => {
     vi.mocked(ipc.threadDbLoad).mockResolvedValueOnce({
       id: 't2',
       name: 'Simple',
@@ -303,10 +303,7 @@ describe('loadFullThread', () => {
     vi.mocked(ipc.threadDbMessages).mockResolvedValueOnce([])
 
     const task = await threadDb.loadFullThread('t2')
-    expect(task?.parentTaskId).toBeUndefined()
-    expect(task?.worktreePath).toBeUndefined()
-    expect(task?.originalWorkspace).toBeUndefined()
-    expect(task?.projectId).toBeUndefined()
+    expect(task).toBeNull()
   })
 })
 

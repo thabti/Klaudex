@@ -497,12 +497,31 @@ impl ThreadDatabase {
     // ── Thread CRUD ───────────────────────────────────────────────────────────
 
     /// Save a thread (insert or update). Dispatched to background writer.
+    ///
+    /// Uses UPSERT (`ON CONFLICT … DO UPDATE`) rather than `INSERT OR REPLACE`
+    /// because `messages.thread_id` and `thread_context.thread_id` reference
+    /// `threads.id` with `ON DELETE CASCADE`. `INSERT OR REPLACE` is internally
+    /// implemented as DELETE-then-INSERT on the conflicting row, which fires
+    /// the cascade and silently wipes every message + the FTS index entries
+    /// for the thread. UPSERT mutates the row in place, leaving children intact.
+    ///
+    /// `created_at` is excluded from the UPDATE clause so re-saves never
+    /// overwrite the original creation time with a newer value the caller
+    /// happened to pass in.
     pub async fn save_thread(&self, thread: &DbThread) -> Result<(), ThreadDbError> {
         let thread = thread.clone();
         self.write(move |conn| {
             conn.execute(
-                r#"INSERT OR REPLACE INTO threads (id, name, workspace, status, created_at, updated_at, parent_thread_id, auto_approve, metadata)
-                   VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"#,
+                r#"INSERT INTO threads (id, name, workspace, status, created_at, updated_at, parent_thread_id, auto_approve, metadata)
+                   VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                   ON CONFLICT(id) DO UPDATE SET
+                       name = excluded.name,
+                       workspace = excluded.workspace,
+                       status = excluded.status,
+                       updated_at = excluded.updated_at,
+                       parent_thread_id = excluded.parent_thread_id,
+                       auto_approve = excluded.auto_approve,
+                       metadata = excluded.metadata"#,
                 rusqlite::params![
                     thread.id,
                     thread.name,
@@ -767,6 +786,10 @@ impl ThreadDatabase {
     // ── Context Usage ─────────────────────────────────────────────────────────
 
     /// Update context usage for a thread (dispatched to background writer).
+    ///
+    /// Uses UPSERT instead of `INSERT OR REPLACE` to avoid firing any future
+    /// `ON DELETE CASCADE` constraints attached to `thread_context`. See
+    /// [`save_thread`] for context — same trap, same fix applied prophylactically.
     pub async fn update_context_usage(
         &self,
         thread_id: &str,
@@ -776,8 +799,11 @@ impl ThreadDatabase {
         let thread_id = thread_id.to_string();
         self.write(move |conn| {
             conn.execute(
-                r#"INSERT OR REPLACE INTO thread_context (thread_id, context_used, context_size)
-                   VALUES (?1, ?2, ?3)"#,
+                r#"INSERT INTO thread_context (thread_id, context_used, context_size)
+                   VALUES (?1, ?2, ?3)
+                   ON CONFLICT(thread_id) DO UPDATE SET
+                       context_used = excluded.context_used,
+                       context_size = excluded.context_size"#,
                 rusqlite::params![thread_id, used, size],
             )?;
             Ok(())
@@ -998,6 +1024,102 @@ pub async fn thread_db_auto_archive(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn test_save_thread_preserves_messages_and_context() {
+        // Regression: `save_thread` must not delete the thread's messages
+        // when the thread row already exists. The original implementation
+        // used `INSERT OR REPLACE`, which DELETE-then-INSERTs the conflicting
+        // row and triggered `ON DELETE CASCADE` on `messages.thread_id`,
+        // silently wiping every assistant/user message + the FTS index.
+        // The frontend's persistHistory() loop calls save_thread on every
+        // task in memory, so this bug manifested as "all messages disappear
+        // after the next state change / app restart".
+        let db = ThreadDatabase::open_memory().unwrap();
+
+        let mut thread = DbThread {
+            id: "preserve-1".into(),
+            name: "Original Name".into(),
+            workspace: "/tmp/project".into(),
+            status: "running".into(),
+            created_at: "2024-01-01T00:00:00Z".into(),
+            updated_at: "2024-01-01T00:00:00Z".into(),
+            parent_thread_id: None,
+            auto_approve: false,
+            metadata: None,
+        };
+        db.save_thread(&thread).await.unwrap();
+
+        // Insert a few messages and one context-usage row.
+        for i in 0..5 {
+            db.save_message(&DbMessage {
+                id: 0,
+                thread_id: "preserve-1".into(),
+                role: if i % 2 == 0 { "user" } else { "assistant" }.into(),
+                content: format!("message {}", i),
+                timestamp: format!("2024-01-01T00:00:{:02}Z", i + 1),
+                thinking: None,
+                tool_calls: None,
+            })
+            .await
+            .unwrap();
+        }
+        db.update_context_usage("preserve-1", 1234, 200_000)
+            .await
+            .unwrap();
+
+        // Re-save the thread with mutated metadata — the kind of churn that
+        // happens on every rename / status change / persistHistory run.
+        thread.name = "Renamed Thread".into();
+        thread.status = "paused".into();
+        thread.updated_at = "2024-01-02T00:00:00Z".into();
+        db.save_thread(&thread).await.unwrap();
+
+        // Messages must still be there.
+        let messages = db.load_messages("preserve-1").await.unwrap();
+        assert_eq!(messages.len(), 5, "save_thread must not delete child messages");
+
+        // FTS index must still find them.
+        let hits = db.search_messages("message", 10).await.unwrap();
+        assert!(!hits.is_empty(), "FTS index must survive thread re-save");
+
+        // Thread metadata must reflect the update.
+        let loaded = db.load_thread("preserve-1").await.unwrap().unwrap();
+        assert_eq!(loaded.name, "Renamed Thread");
+        assert_eq!(loaded.status, "paused");
+        assert_eq!(loaded.updated_at, "2024-01-02T00:00:00Z");
+    }
+
+    #[tokio::test]
+    async fn test_save_thread_preserves_created_at() {
+        // UPSERT excludes `created_at` from the update clause so re-saving
+        // a thread can never overwrite the original creation timestamp.
+        let db = ThreadDatabase::open_memory().unwrap();
+        let mut thread = DbThread {
+            id: "created-1".into(),
+            name: "Original".into(),
+            workspace: "/tmp".into(),
+            status: "idle".into(),
+            created_at: "2024-01-01T00:00:00Z".into(),
+            updated_at: "2024-01-01T00:00:00Z".into(),
+            parent_thread_id: None,
+            auto_approve: false,
+            metadata: None,
+        };
+        db.save_thread(&thread).await.unwrap();
+
+        // Caller passes a different created_at on the re-save (this is what
+        // the JS layer does — taskToDbThread always passes task.createdAt
+        // even when it's been edited or migrated).
+        thread.created_at = "1999-01-01T00:00:00Z".into();
+        db.save_thread(&thread).await.unwrap();
+
+        let loaded = db.load_thread("created-1").await.unwrap().unwrap();
+        assert_eq!(
+            loaded.created_at, "2024-01-01T00:00:00Z",
+            "created_at must be immutable after the row exists",
+        );
+    }
 
     #[tokio::test]
     async fn test_create_and_load_thread() {
