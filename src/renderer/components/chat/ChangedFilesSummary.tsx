@@ -1,15 +1,10 @@
 import { memo, useMemo, useState, useCallback } from 'react'
-import type { ComponentType } from 'react'
 import {
-  IconChevronRight, IconFolder, IconFolderOpen,
-  IconFileTypeTs, IconFileTypeTsx, IconFileTypeJs, IconFileTypeJsx,
-  IconFileTypeCss, IconFileTypeHtml, IconFileTypeRs, IconFileTypeSvg,
-  IconFileTypePng, IconFileTypeJpg, IconFileTypeSql, IconFileTypeTxt,
-  IconFileTypeXml, IconFileTypeVue, IconFileTypePhp, IconFileTypeCsv,
-  IconFileCode, IconFileText, IconFile, IconBrandPython, IconBrandGolang,
+  IconChevronRight,
 } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 import { useDiffStore } from '@/stores/diffStore'
+import { FileTypeIcon } from '@/components/file-tree/FileTypeIcon'
 import { isFileMutation } from './tool-call-utils'
 import type { ToolCall } from '@/types'
 import type { ChangedFilesRow } from '@/lib/timeline'
@@ -33,74 +28,7 @@ interface DirGroup {
 
 const MAX_VISIBLE_FILES = 30
 
-// ── File icon map (Tabler icons) ─────────────────────────────────
-
-type IconComponent = ComponentType<{ className?: string; 'aria-hidden'?: boolean }>
-
-const EXT_ICON_MAP: Record<string, IconComponent> = {
-  ts: IconFileTypeTs, tsx: IconFileTypeTsx,
-  js: IconFileTypeJs, jsx: IconFileTypeJsx,
-  json: IconFileCode, css: IconFileTypeCss,
-  html: IconFileTypeHtml, rs: IconFileTypeRs,
-  svg: IconFileTypeSvg, png: IconFileTypePng,
-  jpg: IconFileTypeJpg, sql: IconFileTypeSql,
-  txt: IconFileTypeTxt, xml: IconFileTypeXml,
-  vue: IconFileTypeVue, php: IconFileTypePhp,
-  csv: IconFileTypeCsv, py: IconBrandPython,
-  go: IconBrandGolang, md: IconFileText,
-  yaml: IconFileCode, yml: IconFileCode,
-  toml: IconFileCode, sh: IconFileCode,
-  lock: IconFileCode, log: IconFileText,
-}
-
-function getFileIcon(ext: string): IconComponent {
-  return EXT_ICON_MAP[ext] ?? IconFile
-}
-
 // ── Pure helpers ─────────────────────────────────────────────────
-
-function splitLines(text: string): string[] {
-  if (!text) return []
-  return text.split('\n')
-}
-
-function computeLineDelta(oldText: string | null | undefined, newText: string | null | undefined): { additions: number; deletions: number } {
-  const oldStr = oldText ?? ''
-  const newStr = newText ?? ''
-  if (!oldStr && !newStr) return { additions: 0, deletions: 0 }
-  if (!oldStr) return { additions: splitLines(newStr).length, deletions: 0 }
-  if (!newStr) return { additions: 0, deletions: splitLines(oldStr).length }
-  const oldLines = splitLines(oldStr)
-  const newLines = splitLines(newStr)
-  const oldSet = new Map<string, number>()
-  for (const line of oldLines) oldSet.set(line, (oldSet.get(line) ?? 0) + 1)
-  for (const line of newLines) {
-    const count = oldSet.get(line)
-    if (count && count > 0) oldSet.set(line, count - 1)
-  }
-  let deletions = 0
-  for (const count of oldSet.values()) deletions += count
-  const newSet = new Map<string, number>()
-  for (const line of newLines) newSet.set(line, (newSet.get(line) ?? 0) + 1)
-  for (const line of oldLines) {
-    const count = newSet.get(line)
-    if (count && count > 0) newSet.set(line, count - 1)
-  }
-  let additions = 0
-  for (const count of newSet.values()) additions += count
-  return { additions, deletions }
-}
-
-function extractDiffFilePaths(rawDiff: string): Set<string> {
-  const paths = new Set<string>()
-  if (!rawDiff) return paths
-  const lines = rawDiff.split('\n')
-  for (const line of lines) {
-    if (line.startsWith('+++ b/')) paths.add(line.slice(6))
-    else if (line.startsWith('+++ ') && !line.startsWith('+++ /dev/null')) paths.add(line.slice(4))
-  }
-  return paths
-}
 
 function extractFileStats(toolCalls: readonly ToolCall[]): FileStats[] {
   const statsMap = new Map<string, { additions: number; deletions: number }>()
@@ -112,18 +40,19 @@ function extractFileStats(toolCalls: readonly ToolCall[]): FileStats[] {
     const filePath = tc.locations?.[0]?.path
     if (!filePath) continue
 
+    // Pre-computed by the Rust ACP client (see
+    // `commands::diff_stats::annotate_diff_content`). Equivalent to
+    // `git diff --numstat` for the (oldText, newText) pair. No diff entry =
+    // no per-line counts available — surface the file at +0/-0 rather than
+    // inventing a synthetic "+1" that inflates totals.
     let additions = 0
     let deletions = 0
-
-    const diffContent = tc.content?.find((c) => c.type === 'diff')
-    if (diffContent && (diffContent.oldText != null || diffContent.newText != null)) {
-      const delta = computeLineDelta(diffContent.oldText, diffContent.newText)
-      additions = delta.additions
-      deletions = delta.deletions
-    } else if (tc.kind === 'delete') {
-      deletions = 1
-    } else {
-      additions = 1
+    if (tc.content) {
+      for (const item of tc.content) {
+        if (item.type !== 'diff') continue
+        additions += item.linesAdded ?? 0
+        deletions += item.linesRemoved ?? 0
+      }
     }
 
     const existing = statsMap.get(filePath)
@@ -179,7 +108,6 @@ const Stats = memo(function Stats({ additions, deletions }: { additions: number;
 })
 
 const FileRow = memo(function FileRow({ file, depth, onClick }: { file: FileStats; depth: number; onClick: (path: string) => void }) {
-  const FileIcon = getFileIcon(file.ext)
   return (
     <button
       type="button"
@@ -188,7 +116,7 @@ const FileRow = memo(function FileRow({ file, depth, onClick }: { file: FileStat
       style={{ paddingLeft: depth * 14 + 8 }}
     >
       <span aria-hidden className="size-3.5 shrink-0" />
-      <FileIcon className="shrink-0 size-3.5 text-muted-foreground" aria-hidden />
+      <FileTypeIcon name={file.name} isDir={false} className="size-3.5" />
       <span className="truncate font-mono text-[12px] text-foreground/80 group-hover:text-foreground/90">
         {file.name}
       </span>
@@ -312,9 +240,12 @@ export const ChangedFilesSummary = memo(function ChangedFilesSummary({ row }: { 
                     )}
                     aria-hidden
                   />
-                  {isDirCollapsed
-                    ? <IconFolder className="size-3.5 shrink-0 text-foreground/60" aria-hidden />
-                    : <IconFolderOpen className="size-3.5 shrink-0 text-foreground/60" aria-hidden />}
+                  <FileTypeIcon
+                    name={group.dir.split('/').pop() ?? group.dir}
+                    isDir
+                    isExpanded={!isDirCollapsed}
+                    className="size-3.5"
+                  />
                   <span className="truncate font-mono text-[12px] text-foreground/70 group-hover:text-foreground/80">
                     {group.dir}
                   </span>

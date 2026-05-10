@@ -15,10 +15,12 @@ vi.mock('@/lib/ipc', () => ({
     gitWorktreeRemove: vi.fn().mockResolvedValue(undefined),
     addRecentProject: vi.fn().mockResolvedValue(undefined),
     rebuildRecentMenu: vi.fn().mockResolvedValue(undefined),
+    threadDbAutoArchive: vi.fn().mockResolvedValue([]),
   },
 }))
 vi.mock('@/lib/history-store', () => ({
   loadThreads: vi.fn().mockResolvedValue([]),
+  loadThread: vi.fn().mockResolvedValue(null),
   loadProjects: vi.fn().mockResolvedValue([]),
   loadSoftDeleted: vi.fn().mockResolvedValue([]),
   loadBackup: vi.fn().mockResolvedValue({ threads: [], projects: [], softDeleted: [] }),
@@ -26,6 +28,15 @@ vi.mock('@/lib/history-store', () => ({
   saveSoftDeleted: vi.fn().mockResolvedValue(undefined),
   toArchivedTasks: vi.fn().mockReturnValue([]),
   clearHistory: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock('@/lib/thread-db', () => ({
+  saveThread: vi.fn().mockResolvedValue(undefined),
+  saveMessage: vi.fn().mockResolvedValue(undefined),
+  saveAllMessages: vi.fn().mockResolvedValue(undefined),
+  loadFullThread: vi.fn().mockResolvedValue(null),
+  loadMessages: vi.fn().mockResolvedValue([]),
+  migrateFromJsonHistory: vi.fn().mockResolvedValue({ migrated: 0, skipped: 0, failed: 0 }),
+  clearAll: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('./debugStore', () => ({
   useDebugStore: { getState: () => ({ addEntry: vi.fn() }) },
@@ -59,7 +70,7 @@ const makeTask = (overrides?: Partial<AgentTask>): AgentTask => ({
 beforeEach(() => {
   useTaskStore.setState({
     tasks: {}, projects: [], projectIds: {}, deletedTaskIds: new Set(), softDeleted: {}, selectedTaskId: null,
-    streamingChunks: {}, thinkingChunks: {}, liveToolCalls: {},
+    streamingChunks: {}, thinkingChunks: {}, liveToolCalls: {}, liveToolSplits: {},
     queuedMessages: {}, activityFeed: [], connected: false,
     terminalOpenTasks: new Set(), pendingWorkspace: null,
     view: 'dashboard', isNewProjectOpen: false, isSettingsOpen: false, projectNames: {},
@@ -179,11 +190,13 @@ describe('streaming', () => {
       streamingChunks: { t1: 'text' },
       thinkingChunks: { t1: 'think' },
       liveToolCalls: { t1: [{ toolCallId: 'tc1', title: 'test', status: 'completed' }] },
+      liveToolSplits: { t1: [{ at: 4, toolCallId: 'tc1' }] },
     })
     useTaskStore.getState().clearTurn('t1')
     expect(useTaskStore.getState().streamingChunks['t1']).toBe('')
     expect(useTaskStore.getState().thinkingChunks['t1']).toBe('')
     expect(useTaskStore.getState().liveToolCalls['t1']).toEqual([])
+    expect(useTaskStore.getState().liveToolSplits['t1']).toEqual([])
   })
 })
 
@@ -191,6 +204,50 @@ describe('upsertToolCall', () => {
   it('adds new tool call', () => {
     useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'pending' })
     expect(useTaskStore.getState().liveToolCalls['t1']).toHaveLength(1)
+  })
+
+  it('records a split anchor at the current streaming offset on first sight', () => {
+    useTaskStore.setState({ streamingChunks: { t1: 'hello world' } })
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'pending' })
+    expect(useTaskStore.getState().liveToolSplits['t1']).toEqual([{ at: 11, toolCallId: 'tc1' }])
+  })
+
+  it('does not record a duplicate split when the same tool is updated', () => {
+    useTaskStore.setState({ streamingChunks: { t1: 'hello' } })
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'pending' })
+    useTaskStore.setState({ streamingChunks: { t1: 'hello world' } })
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'completed' })
+    expect(useTaskStore.getState().liveToolSplits['t1']).toEqual([{ at: 5, toolCallId: 'tc1' }])
+  })
+
+  it('stamps createdAt on first sight and preserves it across updates', () => {
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'pending' })
+    const created = useTaskStore.getState().liveToolCalls['t1'][0].createdAt
+    expect(created).toBeDefined()
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'completed' })
+    expect(useTaskStore.getState().liveToolCalls['t1'][0].createdAt).toBe(created)
+  })
+
+  it('stamps completedAt on the first terminal-status update', () => {
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch', kind: 'fetch', status: 'pending' })
+    expect(useTaskStore.getState().liveToolCalls['t1'][0].completedAt).toBeUndefined()
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch', kind: 'fetch', status: 'completed' })
+    const completed = useTaskStore.getState().liveToolCalls['t1'][0].completedAt
+    expect(completed).toBeDefined()
+    // Subsequent updates preserve the original completedAt.
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch v2', kind: 'fetch', status: 'completed' })
+    expect(useTaskStore.getState().liveToolCalls['t1'][0].completedAt).toBe(completed)
+  })
+
+  it('stamps completedAt when the first sighting is already terminal', () => {
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch', kind: 'fetch', status: 'completed' })
+    expect(useTaskStore.getState().liveToolCalls['t1'][0].completedAt).toBeDefined()
+  })
+
+  it('does not stamp completedAt for non-terminal statuses', () => {
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch', kind: 'fetch', status: 'pending' })
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch', kind: 'fetch', status: 'in_progress' })
+    expect(useTaskStore.getState().liveToolCalls['t1'][0].completedAt).toBeUndefined()
   })
 
   it('updates existing by toolCallId', () => {
@@ -545,6 +602,7 @@ describe('applyTurnEnd', () => {
     streamingChunks: {} as Record<string, string>,
     thinkingChunks: {} as Record<string, string>,
     liveToolCalls: {} as Record<string, import('@/types').ToolCall[]>,
+    liveToolSplits: {} as Record<string, import('@/types').ToolCallSplit[]>,
     ...overrides,
   })
 
@@ -644,6 +702,178 @@ describe('applyTurnEnd', () => {
     const messages = result.tasks?.['t1'].messages ?? []
     expect(messages).toHaveLength(1)
     expect(messages[0].role).toBe('user')
+  })
+})
+
+describe('hydrateArchivedTask', () => {
+  it('preserves toolCalls and toolCallSplits from persisted thread', async () => {
+    const { loadThread } = await import('@/lib/history-store')
+    const archivedId = 'archived-with-tools'
+    vi.mocked(loadThread).mockResolvedValueOnce({
+      id: archivedId,
+      name: 'Test Task',
+      workspace: '/ws',
+      createdAt: '2026-01-01T00:00:00Z',
+      messages: [
+        { role: 'user', content: 'do a thing', timestamp: '2026-01-01T00:00:00Z' },
+        {
+          role: 'assistant',
+          content: 'doing the thing',
+          timestamp: '2026-01-01T00:00:01Z',
+          toolCalls: [{
+            toolCallId: 'tc-1',
+            title: 'Read file',
+            kind: 'read',
+            status: 'completed',
+            createdAt: '2026-01-01T00:00:01Z',
+          }],
+          toolCallSplits: [{ toolCallId: 'tc-1', at: 5 }],
+        },
+      ],
+    })
+    // Seed archivedMeta so hydrateArchivedTask doesn't bail early.
+    useTaskStore.setState({
+      archivedMeta: {
+        [archivedId]: {
+          id: archivedId,
+          name: 'Test Task',
+          workspace: '/ws',
+          createdAt: '2026-01-01T00:00:00Z',
+          lastActivityAt: '2026-01-01T00:00:01Z',
+          messageCount: 2,
+        },
+      },
+    })
+
+    const ok = await useTaskStore.getState().hydrateArchivedTask(archivedId)
+    expect(ok).toBe(true)
+    const hydrated = useTaskStore.getState().tasks[archivedId]
+    expect(hydrated).toBeDefined()
+    const assistantMsg = hydrated.messages[1]
+    // Regression guard: prior implementation dropped tool data on hydration,
+    // leaving reopened threads with text-only stubs of the live transcript.
+    expect(assistantMsg.toolCalls?.length).toBe(1)
+    expect(assistantMsg.toolCalls?.[0].toolCallId).toBe('tc-1')
+    expect(assistantMsg.toolCallSplits?.length).toBe(1)
+    expect(assistantMsg.toolCallSplits?.[0].at).toBe(5)
+  })
+})
+
+describe('autoArchiveStaleThreads', () => {
+  it('archives threads returned by the backend', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const settingsMod = await import('./settingsStore')
+    const originalGetState = settingsMod.useSettingsStore.getState
+    ;(settingsMod.useSettingsStore as any).getState = () => ({
+      settings: { autoArchiveDays: 7 },
+      saveSettings: vi.fn().mockResolvedValue(undefined),
+      setActiveWorkspace: mockSetActiveWorkspace,
+    })
+
+    const oldTimestamp = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString() // 10 days ago
+    useTaskStore.getState().upsertTask(makeTask({
+      id: 'stale-1',
+      status: 'completed',
+      messages: [{ role: 'user', content: 'hi', timestamp: oldTimestamp }],
+    }))
+
+    // Mock the backend returning this thread as stale
+    vi.mocked(ipc.threadDbAutoArchive).mockResolvedValueOnce([
+      { id: 'stale-1', name: 'Test Task', workspace: '/projects/test', createdAt: oldTimestamp, lastActivityAt: oldTimestamp, messageCount: 1 },
+    ])
+
+    useTaskStore.getState().autoArchiveStaleThreads()
+    // Wait for the async IPC call to resolve
+    await vi.waitFor(() => {
+      expect(useTaskStore.getState().tasks['stale-1']).toBeUndefined()
+    })
+
+    expect(useTaskStore.getState().archivedMeta['stale-1']).toBeDefined()
+    ;(settingsMod.useSettingsStore as any).getState = originalGetState
+  })
+
+  it('does not archive when backend returns empty list', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const settingsMod = await import('./settingsStore')
+    const originalGetState = settingsMod.useSettingsStore.getState
+    ;(settingsMod.useSettingsStore as any).getState = () => ({
+      settings: { autoArchiveDays: 1 },
+      saveSettings: vi.fn().mockResolvedValue(undefined),
+      setActiveWorkspace: mockSetActiveWorkspace,
+    })
+
+    const oldTimestamp = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+    useTaskStore.getState().upsertTask(makeTask({
+      id: 'running-1',
+      status: 'running',
+      messages: [{ role: 'user', content: 'hi', timestamp: oldTimestamp }],
+    }))
+
+    // Backend correctly excludes running threads
+    vi.mocked(ipc.threadDbAutoArchive).mockResolvedValueOnce([])
+
+    useTaskStore.getState().autoArchiveStaleThreads()
+    await vi.waitFor(() => {
+      expect(vi.mocked(ipc.threadDbAutoArchive)).toHaveBeenCalledWith(1)
+    })
+
+    expect(useTaskStore.getState().tasks['running-1']).toBeDefined()
+    ;(settingsMod.useSettingsStore as any).getState = originalGetState
+  })
+
+  it('does nothing when autoArchiveDays is 0 or unset', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const settingsMod = await import('./settingsStore')
+    const originalGetState = settingsMod.useSettingsStore.getState
+    ;(settingsMod.useSettingsStore as any).getState = () => ({
+      settings: { autoArchiveDays: 0 },
+      saveSettings: vi.fn().mockResolvedValue(undefined),
+      setActiveWorkspace: mockSetActiveWorkspace,
+    })
+
+    const oldTimestamp = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString()
+    useTaskStore.getState().upsertTask(makeTask({
+      id: 'old-1',
+      status: 'completed',
+      messages: [{ role: 'user', content: 'hi', timestamp: oldTimestamp }],
+    }))
+
+    vi.mocked(ipc.threadDbAutoArchive).mockClear()
+    useTaskStore.getState().autoArchiveStaleThreads()
+
+    // Should not even call the backend when days is 0
+    expect(vi.mocked(ipc.threadDbAutoArchive)).not.toHaveBeenCalled()
+    expect(useTaskStore.getState().tasks['old-1']).toBeDefined()
+    ;(settingsMod.useSettingsStore as any).getState = originalGetState
+  })
+
+  it('does not archive threads within the threshold (backend decides)', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const settingsMod = await import('./settingsStore')
+    const originalGetState = settingsMod.useSettingsStore.getState
+    ;(settingsMod.useSettingsStore as any).getState = () => ({
+      settings: { autoArchiveDays: 30 },
+      saveSettings: vi.fn().mockResolvedValue(undefined),
+      setActiveWorkspace: mockSetActiveWorkspace,
+    })
+
+    const recentTimestamp = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() // 5 days ago
+    useTaskStore.getState().upsertTask(makeTask({
+      id: 'recent-1',
+      status: 'completed',
+      messages: [{ role: 'user', content: 'hi', timestamp: recentTimestamp }],
+    }))
+
+    // Backend returns empty — thread is within threshold
+    vi.mocked(ipc.threadDbAutoArchive).mockResolvedValueOnce([])
+
+    useTaskStore.getState().autoArchiveStaleThreads()
+    await vi.waitFor(() => {
+      expect(vi.mocked(ipc.threadDbAutoArchive)).toHaveBeenCalledWith(30)
+    })
+
+    expect(useTaskStore.getState().tasks['recent-1']).toBeDefined()
+    ;(settingsMod.useSettingsStore as any).getState = originalGetState
   })
 })
 
@@ -1760,6 +1990,7 @@ describe('multi-turn message preservation', () => {
       streamingChunks: { t1: 'second answer' } as Record<string, string>,
       thinkingChunks: {} as Record<string, string>,
       liveToolCalls: {} as Record<string, import('@/types').ToolCall[]>,
+      liveToolSplits: {} as Record<string, import('@/types').ToolCallSplit[]>,
     }
     const result = applyTurnEnd(state, 't1', 'end_turn')
     const messages = result.tasks?.['t1'].messages ?? []
@@ -2350,5 +2581,38 @@ describe('split view focus isolation', () => {
     useTaskStore.getState().createSplitView('left-1', 'right-1')
     expect(useTaskStore.getState().tasks['left-1'].workspace).toBe('/project-a')
     expect(useTaskStore.getState().tasks['right-1'].workspace).toBe('/project-b')
+  })
+})
+
+describe('rekeyDispatchSnapshot', () => {
+  it('atomically moves the snapshot to the new task id and rewrites taskId', () => {
+    useTaskStore.getState().setDispatchSnapshot('draft-1', {
+      startedAt: 1, taskStatus: 'paused', messageCount: 0, wasStreaming: false, taskId: 'draft-1',
+    })
+    useTaskStore.getState().rekeyDispatchSnapshot('draft-1', 'real-1')
+    const snapshots = useTaskStore.getState().dispatchSnapshots
+    expect(snapshots['draft-1']).toBeUndefined()
+    expect(snapshots['real-1']?.taskId).toBe('real-1')
+  })
+
+  it('drops the source snapshot when the destination already has one (turn_end raced ahead)', () => {
+    // Simulates `turn_end` firing for the new id while we were re-keying:
+    // the newer destination snapshot wins, the stale draft is discarded.
+    useTaskStore.getState().setDispatchSnapshot('draft-1', {
+      startedAt: 1, taskStatus: 'paused', messageCount: 0, wasStreaming: false, taskId: 'draft-1',
+    })
+    useTaskStore.getState().setDispatchSnapshot('real-1', {
+      startedAt: 2, taskStatus: 'running', messageCount: 1, wasStreaming: true, taskId: 'real-1',
+    })
+    useTaskStore.getState().rekeyDispatchSnapshot('draft-1', 'real-1')
+    const snapshots = useTaskStore.getState().dispatchSnapshots
+    expect(snapshots['draft-1']).toBeUndefined()
+    expect(snapshots['real-1']?.startedAt).toBe(2) // newer snapshot survived
+  })
+
+  it('is a no-op when the source has no snapshot', () => {
+    const before = useTaskStore.getState().dispatchSnapshots
+    useTaskStore.getState().rekeyDispatchSnapshot('missing', 'real-1')
+    expect(useTaskStore.getState().dispatchSnapshots).toBe(before)
   })
 })

@@ -25,22 +25,12 @@ interface DiffStore {
   openToFile: (filePath: string) => void
 }
 
-function computeStats(diff: string): DiffStats {
-  let additions = 0
-  let deletions = 0
-  let fileCount = 0
-  for (const line of diff.split('\n')) {
-    if (line.startsWith('+') && !line.startsWith('+++')) additions++
-    else if (line.startsWith('-') && !line.startsWith('---')) deletions++
-    else if (line.startsWith('diff --git')) fileCount++
-  }
-  return { additions, deletions, fileCount }
-}
+const EMPTY_STATS: DiffStats = { additions: 0, deletions: 0, fileCount: 0 }
 
 export const useDiffStore = create<DiffStore>((set, get) => ({
   isOpen: false,
   diff: '',
-  stats: { additions: 0, deletions: 0, fileCount: 0 },
+  stats: EMPTY_STATS,
   loading: false,
   selectedFiles: new Set<string>(),
   focusFile: null,
@@ -51,14 +41,20 @@ export const useDiffStore = create<DiffStore>((set, get) => ({
   fetchDiff: async (taskId: string) => {
     set({ loading: true })
     try {
-      const diff = await ipc.getTaskDiff(taskId)
-      set({ diff, stats: computeStats(diff), loading: false })
+      // Fetch the unified diff text and the structured stats in parallel.
+      // Stats come from libgit2 directly (`task_diff_stats`), not from a
+      // string scan of the diff body — single source of truth in Rust.
+      const [diff, stats] = await Promise.all([
+        ipc.getTaskDiff(taskId),
+        ipc.getTaskDiffStats(taskId).catch(() => EMPTY_STATS),
+      ])
+      set({ diff, stats, loading: false })
     } catch {
-      set({ diff: '', stats: { additions: 0, deletions: 0, fileCount: 0 }, loading: false })
+      set({ diff: '', stats: EMPTY_STATS, loading: false })
     }
   },
 
-  clear: () => set({ diff: '', stats: { additions: 0, deletions: 0, fileCount: 0 }, selectedFiles: new Set() }),
+  clear: () => set({ diff: '', stats: EMPTY_STATS, selectedFiles: new Set() }),
 
   toggleFileSelection: (filePath: string) => set((s) => {
     const next = new Set(s.selectedFiles)

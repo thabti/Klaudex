@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { IconX, IconFileCode, IconMaximize, IconMinimize, IconGitCommit, IconLoader2 } from '@tabler/icons-react'
+import { IconX, IconFileCode, IconMaximize, IconMinimize, IconGitCommit, IconLoader2, IconSparkles } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTaskStore } from '@/stores/taskStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { ipc } from '@/lib/ipc'
 import { toast } from 'sonner'
+import { track } from '@/lib/analytics'
 import { useResizeHandle } from '@/hooks/useResizeHandle'
 import { DiffViewer } from './DiffViewer'
 
@@ -18,6 +20,8 @@ export function CodePanel({ onClose, workspace: workspaceProp }: CodePanelProps)
   const [isExpanded, setIsExpanded] = useState(false)
   const [commitMsg, setCommitMsg] = useState('')
   const [isCommitting, setIsCommitting] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const aiCommitMessages = useSettingsStore((s) => s.settings.aiCommitMessages ?? true)
 
   const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
   const taskWorkspace = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.workspace : undefined)
@@ -42,6 +46,25 @@ export function CodePanel({ onClose, workspace: workspaceProp }: CodePanelProps)
 
   const hasChanges = diff.trim().length > 0
   const isCommitDisabled = !hasChanges || !effectiveWorkspace || isCommitting
+
+  const handleGenerate = useCallback(async () => {
+    if (!effectiveWorkspace || !hasChanges || isGenerating) return
+    setIsGenerating(true)
+    try {
+      const result = await ipc.gitGenerateCommitMessage(effectiveWorkspace)
+      const next = result.body.trim().length > 0
+        ? `${result.subject}\n\n${result.body}`
+        : result.subject
+      setCommitMsg(next)
+      track('feature_used', { feature: 'git', detail: 'commit_message_generated' })
+    } catch (e) {
+      toast.error('Could not generate commit message', {
+        description: e instanceof Error ? e.message : String(e),
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }, [effectiveWorkspace, hasChanges, isGenerating])
 
   const handleCommit = useCallback(async () => {
     if (!commitMsg.trim() || !effectiveWorkspace) return
@@ -128,6 +151,24 @@ export function CodePanel({ onClose, workspace: workspaceProp }: CodePanelProps)
               aria-label="Commit message"
               className="flex-1 min-w-0 rounded border border-input bg-background px-2 py-1 text-[11px] outline-none placeholder:text-muted-foreground/60 focus:border-ring disabled:opacity-50 disabled:cursor-not-allowed"
             />
+            {aiCommitMessages && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => void handleGenerate()}
+                    disabled={!hasChanges || !effectiveWorkspace || isGenerating || isCommitting}
+                    aria-label="Generate commit message with AI"
+                    className="shrink-0 flex items-center justify-center rounded border border-input bg-background px-1.5 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {isGenerating
+                      ? <IconLoader2 className="size-3.5 animate-spin" />
+                      : <IconSparkles className="size-3.5" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Generate commit message with AI</TooltipContent>
+              </Tooltip>
+            )}
             <button
               type="button"
               onClick={() => void handleCommit()}

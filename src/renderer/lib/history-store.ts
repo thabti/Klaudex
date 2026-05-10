@@ -5,7 +5,7 @@
  * Lazy-loaded: no disk I/O until first access.
  */
 import type { LazyStore } from '@tauri-apps/plugin-store'
-import type { AgentTask, TaskMessage, SoftDeletedThread, AppSettings } from '@/types'
+import type { AgentTask, TaskMessage, ToolCall, ToolCallSplit, SoftDeletedThread, AppSettings } from '@/types'
 
 // ── Persisted types ──────────────────────────────────────────────
 
@@ -14,6 +14,10 @@ interface SavedMessage {
   content: string
   timestamp: string
   thinking?: string
+  /** Persisted alongside content so tool activity survives reload. Optional for back-compat. */
+  toolCalls?: ToolCall[]
+  /** Anchors recording where each tool call appeared in {@link content}. Optional. */
+  toolCallSplits?: ToolCallSplit[]
 }
 
 interface SavedThread {
@@ -256,10 +260,24 @@ export async function saveSoftDeleted(items: SoftDeletedThread[]): Promise<void>
 /** Clear all persisted history */
 export async function clearHistory(): Promise<void> {
   const store = await getStore()
-  await store.delete('threads')
-  await store.delete('projects')
-  await store.delete('softDeleted')
-  await store.save()
+  _selfWriteCount++
+  try {
+    await store.delete('threads')
+    await store.delete('projects')
+    await store.delete('softDeleted')
+    await store.delete('uiState')
+    await store.save()
+  } finally {
+    // Keep the guard up past the onKeyChange debounce window (300ms in App.tsx)
+    // plus the autoSave window (500ms) to prevent cross-window sync from reloading.
+    setTimeout(() => { _selfWriteCount-- }, 1000)
+  }
+  // Also clear the backup so loadTasks doesn't restore threads from there
+  try {
+    const backup = await getBackupStore()
+    await backup.clear()
+    await backup.save()
+  } catch { /* best-effort */ }
 }
 
 // ── Flush & Backup ───────────────────────────────────────────────
@@ -280,6 +298,12 @@ export interface PersistedUiState {
   splitViews?: Array<{ id: string; left: string; right: string; ratio: number }>
   activeSplitId?: string | null
   pinnedThreadIds?: string[]
+  /** Per-thread model selection so picks made in a specific thread survive
+   *  restart. Mirrors {@link taskStore.taskModels}. */
+  taskModels?: Record<string, string>
+  /** Per-thread mode selection so picks made in a specific thread survive
+   *  restart. Mirrors {@link taskStore.taskModes}. */
+  taskModes?: Record<string, string>
 }
 
 /** Save the current UI state so it can be restored on next launch */
@@ -361,12 +385,59 @@ export async function subscribeToChanges(
 
 // ── Helpers ──────────────────────────────────────────────────────
 
+/**
+ * Strip oversized fields from a tool call before persisting so a few long
+ * shell or file-read outputs don't bloat history.json. The truncated form
+ * keeps enough context for the timeline (status, locations, the structured
+ * `content` blocks the UI actually renders) and replaces large `rawInput` /
+ * `rawOutput` blobs with a short placeholder when they exceed the limit.
+ *
+ * The threshold is intentionally generous — most tool calls fit without
+ * truncation, and inline diffs / read previews come from `content`, not from
+ * the raw fields, so truncating `rawOutput` doesn't degrade the rendered UI.
+ */
+const MAX_RAW_FIELD_CHARS = 64 * 1024
+
+function truncateRawField(value: unknown): unknown {
+  if (value === undefined || value === null) return value
+  if (typeof value === 'string') {
+    return value.length > MAX_RAW_FIELD_CHARS
+      ? `${value.slice(0, MAX_RAW_FIELD_CHARS)}\n…(truncated for history)`
+      : value
+  }
+  // For non-string values (objects/arrays), serialize to measure size and
+  // replace with a placeholder if oversized. Keep small structured values
+  // verbatim so existing consumers (e.g. strReplace diff rendering) work.
+  try {
+    const serialized = JSON.stringify(value)
+    if (serialized.length <= MAX_RAW_FIELD_CHARS) return value
+  } catch {
+    // fall through to placeholder
+  }
+  return '[truncated for history]'
+}
+
+function toSavedToolCall(tc: ToolCall): ToolCall {
+  if (tc.rawInput === undefined && tc.rawOutput === undefined) return tc
+  const rawInput = truncateRawField(tc.rawInput)
+  const rawOutput = truncateRawField(tc.rawOutput)
+  if (rawInput === tc.rawInput && rawOutput === tc.rawOutput) return tc
+  return {
+    ...tc,
+    ...(rawInput !== undefined ? { rawInput } : {}),
+    ...(rawOutput !== undefined ? { rawOutput } : {}),
+  }
+}
+
 function toSavedMessage(msg: TaskMessage): SavedMessage {
+  const toolCalls = msg.toolCalls?.map(toSavedToolCall)
   return {
     role: msg.role,
     content: msg.content,
     timestamp: msg.timestamp,
     ...(msg.thinking ? { thinking: msg.thinking } : {}),
+    ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
+    ...(msg.toolCallSplits && msg.toolCallSplits.length > 0 ? { toolCallSplits: msg.toolCallSplits } : {}),
   }
 }
 
@@ -376,5 +447,7 @@ function toTaskMessage(msg: SavedMessage): TaskMessage {
     content: msg.content,
     timestamp: msg.timestamp,
     ...(msg.thinking ? { thinking: msg.thinking } : {}),
+    ...(msg.toolCalls && msg.toolCalls.length > 0 ? { toolCalls: msg.toolCalls } : {}),
+    ...(msg.toolCallSplits && msg.toolCallSplits.length > 0 ? { toolCallSplits: msg.toolCallSplits } : {}),
   }
 }

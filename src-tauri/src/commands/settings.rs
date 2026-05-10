@@ -17,6 +17,23 @@ pub struct AgentProfile {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct TextGenerationPolicy {
+    /// Custom instructions appended to commit message prompts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit_instructions: Option<String>,
+    /// Custom instructions appended to branch name generation prompts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch_instructions: Option<String>,
+    /// Custom instructions appended to thread title generation prompts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_title_instructions: Option<String>,
+    /// Custom instructions appended to PR content generation prompts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pr_instructions: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct ProjectPrefs {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model_id: Option<String>,
@@ -32,6 +49,9 @@ pub struct ProjectPrefs {
     /// Stored as opaque JSON to avoid replicating the TypeScript union type.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon_override: Option<serde_json::Value>,
+    /// Per-project text generation policy (custom instructions for AI features).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_generation_policy: Option<TextGenerationPolicy>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -43,6 +63,10 @@ pub struct AppSettings {
     pub agent_profiles: Vec<AgentProfile>,
     #[serde(default = "default_font_size")]
     pub font_size: u32,
+    /// Chat content font size in px. Falls back to {@link font_size} on the
+    /// frontend when missing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chat_font_size: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_model: Option<String>,
     #[serde(default)]
@@ -72,9 +96,37 @@ pub struct AppSettings {
     /// Theme mode: "dark", "light", or "system". Default: "dark".
     #[serde(default = "default_theme")]
     pub theme: String,
+    /// Sidebar placement: "left" or "right". Default: "left".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sidebar_position: Option<String>,
     /// Base64 data URL for a user-supplied app icon (About dialog + dock).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub custom_app_icon: Option<String>,
+    /// Last app version whose changelog the user has seen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_seen_changelog_version: Option<String>,
+    /// Max character limit for /btw side questions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub btw_max_chars: Option<u32>,
+    /// Terminal scrollback line cap.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_scrollback: Option<u32>,
+    /// Auto-close background terminal tabs after this many idle minutes.
+    /// `None` disables auto-close.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_auto_close_idle_mins: Option<u32>,
+    /// When true, render tool calls inline within the assistant prose at the
+    /// point where the agent invoked them. When false (default), tool calls
+    /// collapse into a single grouped card.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inline_tool_calls: Option<bool>,
+    /// When true, render an AI sparkle button next to the commit input.
+    #[serde(default = "default_true")]
+    pub ai_commit_messages: bool,
+    /// Auto-archive threads older than this many days of inactivity.
+    /// `None` or 0 disables auto-archiving.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_archive_days: Option<u32>,
 }
 
 fn default_kiro_bin() -> String {
@@ -96,6 +148,7 @@ impl Default for AppSettings {
             kiro_bin: default_kiro_bin(),
             agent_profiles: vec![],
             font_size: default_font_size(),
+            chat_font_size: None,
             default_model: None,
             auto_approve: false,
             respect_gitignore: true,
@@ -108,7 +161,15 @@ impl Default for AppSettings {
             analytics_enabled: true,
             analytics_anon_id: None,
             theme: default_theme(),
+            sidebar_position: None,
             custom_app_icon: None,
+            last_seen_changelog_version: None,
+            btw_max_chars: None,
+            terminal_scrollback: None,
+            terminal_auto_close_idle_mins: None,
+            inline_tool_calls: None,
+            ai_commit_messages: true,
+            auto_archive_days: None,
         }
     }
 }
@@ -266,6 +327,7 @@ mod tests {
                 symlink_directories: Some(vec!["node_modules".to_string(), ".next".to_string()]),
                 tight_sandbox: Some(true),
                 icon_override: Some(serde_json::json!({"type": "emoji", "emoji": "🚀"})),
+                ..Default::default()
             },
         );
         let settings = AppSettings {

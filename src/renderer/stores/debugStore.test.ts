@@ -6,7 +6,7 @@ beforeEach(() => {
   useDebugStore.setState({
     entries: [],
     isOpen: false,
-    filter: { search: '', category: 'all', errorsOnly: false, threadName: '', projectName: '' },
+    filter: { search: '', category: 'all', errorsOnly: false, threadName: '', projectName: '', mcpServerName: '' },
   })
 })
 
@@ -40,6 +40,7 @@ describe('debugStore', () => {
         errorsOnly: false,
         threadName: '',
         projectName: '',
+        mcpServerName: '',
       })
     })
   })

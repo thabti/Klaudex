@@ -46,7 +46,7 @@ interface ChatInputProps {
 
 export const ChatInput = memo(function ChatInput({ disabled, disabledReason, contextUsage, messageCount = 0, isRunning, isActive, taskId, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, autoFocus, hasQueuedMessages, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange, workspace, isCollapsed, onToggleCollapse, isWorktree }: ChatInputProps) {
   const {
-    value, setValue, textareaRef, canSend,
+    value, setValue, textareaRef, containerRef, canSend,
     slashIndex, slashQuery, commands, filteredCmds, showPicker,
     panel, dismissPanel, handleSelectCommand,
     showFilePicker, mentionTrigger, mentionIndex, mentionedFiles,
@@ -56,7 +56,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
     folderPaths, handleRemoveFolder,
     pastedChunks, handleRemoveChunk,
     handleChange, handleSend, handleKeyDown, handleSelect,
-  } = useChatInput({ disabled, isRunning, isActive, taskId, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange })
+  } = useChatInput({ disabled, isRunning, isActive, taskId, workspace, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange })
 
   const panelTaskModeId = useTaskStore((s) => taskId ? s.taskModes[taskId] : null)
   const globalModeId = useSettingsStore((s) => s.currentModeId)
@@ -149,7 +149,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
               'hover:border-muted-foreground/30',
             )}
           >
-            <span className="text-[13px] text-muted-foreground">Type a message…</span>
+            <span className="text-muted-foreground" style={{ fontSize: 'var(--chat-font-size, 15px)' }}>Type a message…</span>
             <IconChevronUp className="size-4 text-muted-foreground/80" />
           </button>
         </div>
@@ -158,10 +158,10 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
   }
 
   return (
-    <div data-testid="chat-input" className="px-4 pt-1.5 pb-4 sm:px-6 sm:pt-2 sm:pb-5">
+    <div ref={containerRef} data-testid="chat-input" className="min-w-0 px-4 pt-1.5 pb-4 sm:px-6 sm:pt-2 sm:pb-5">
       <div className="mx-auto w-full min-w-0 max-w-3xl lg:max-w-4xl xl:max-w-5xl">
         <div className={cn(
-          'relative rounded-[20px] border-2 bg-card transition-colors duration-200',
+          'relative min-w-0 rounded-[20px] border-2 bg-card transition-colors duration-200',
           borderIdle, borderFocus,
           isDragOver && 'border-primary/50',
         )}>

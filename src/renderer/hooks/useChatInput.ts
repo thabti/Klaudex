@@ -1,10 +1,12 @@
 import { useState, useRef, useMemo, useCallback, useEffect, type KeyboardEvent, type ChangeEvent, type ClipboardEvent } from 'react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { useKiroStore } from '@/stores/kiroStore'
 import { useSlashAction } from '@/hooks/useSlashAction'
 import { useAttachments } from '@/hooks/useAttachments'
 import { useFileMention } from '@/hooks/useFileMention'
 import { buildMessageWithInlineImages, extractIpcAttachments } from '@/components/chat/attachment-utils'
+import { resolveMentions, buildFolderTree } from '@/lib/resolve-mentions'
 import type { Attachment, IpcAttachment, ProjectFile } from '@/types'
 
 export interface PastedChunk {
@@ -33,6 +35,7 @@ interface UseChatInputOptions {
   isRunning?: boolean
   isActive?: boolean
   taskId?: string | null
+  workspace?: string | null
   initialValue?: string
   initialAttachments?: Attachment[]
   initialFolderPaths?: string[]
@@ -47,15 +50,23 @@ interface UseChatInputOptions {
   onMentionedFilesChange?: (files: ProjectFile[]) => void
 }
 
-export function useChatInput({ disabled, isRunning, isActive, taskId: taskIdProp, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange }: UseChatInputOptions) {
+export function useChatInput({ disabled, isRunning, isActive, taskId: taskIdProp, workspace, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange }: UseChatInputOptions) {
   const [value, setValue] = useState(initialValue ?? '')
   const [slashIndex, setSlashIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const backendCommands = useSettingsStore((s) => s.availableCommands)
   const { panel, dismissPanel, execute, executeFullInput } = useSlashAction()
 
-  const attachmentsBag = useAttachments(initialAttachments, initialFolderPaths, isActive)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const attachmentsBag = useAttachments(initialAttachments, initialFolderPaths, isActive, containerRef)
   const mentionBag = useFileMention({ textareaRef, value, setValue, initialMentionedFiles })
+
+  // Sync dropped files from file tree into mentioned files
+  useEffect(() => {
+    for (const file of attachmentsBag.droppedFiles) {
+      mentionBag.addMentionedFile(file)
+    }
+  }, [attachmentsBag.droppedFiles, mentionBag.addMentionedFile])
 
   // ── Track Shift key for raw paste (Cmd+Shift+V) ────────────────
   const isShiftHeldRef = useRef(false)
@@ -302,29 +313,64 @@ export function useChatInput({ disabled, isRunning, isActive, taskId: taskIdProp
       }
       message = `<kirodex_tangent>${question.replace(/<\/?kirodex_tangent>/gi, '')}</kirodex_tangent>`
     }
-    if (mentionBag.mentionedFiles.length > 0) {
-      const missingRefs = mentionBag.mentionedFiles.filter((f) => !message.includes(`@${f.path}`))
-      if (missingRefs.length > 0) {
-        message = missingRefs.map((f) => `@${f.path}`).join(' ') + ' ' + message
+
+    // Resolve @file/@folder mentions inline before sending
+    const prompts = useKiroStore.getState().config.prompts
+    const resolvedWorkspace = workspace ?? null
+
+    // Build the final message asynchronously, then send
+    const buildAndSend = async () => {
+      // 1. Expand @mentions (files, folders, prompts)
+      let resolved = message
+      if (resolved.includes('@')) {
+        resolved = await resolveMentions(resolved, { workspace: resolvedWorkspace, prompts })
       }
+
+      // 2. Append any remaining @path mentions that weren't already inlined
+      //    (e.g. agent: and skill: prefixes that resolveMentions skips)
+      if (mentionBag.mentionedFiles.length > 0) {
+        const agentSkillRefs = mentionBag.mentionedFiles
+          .filter((f) => f.path.startsWith('agent:') || f.path.startsWith('skill:'))
+          .filter((f) => !resolved.includes(`@${f.path}`))
+        if (agentSkillRefs.length > 0) {
+          resolved = agentSkillRefs.map((f) => `@${f.path}`).join(' ') + ' ' + resolved
+        }
+      }
+
+      // 3. Expand folder attachments to directory trees
+      if (attachmentsBag.folderPaths.length > 0 && resolvedWorkspace) {
+        const treeParts = await Promise.all(
+          attachmentsBag.folderPaths.map((p) => buildFolderTree(resolvedWorkspace, p).catch(() => `[Folder: ${p}]`))
+        )
+        resolved = treeParts.join('\n\n') + '\n\n' + resolved
+      } else if (attachmentsBag.folderPaths.length > 0) {
+        // No workspace — fall back to plain reference
+        const folderRefs = attachmentsBag.folderPaths.map((p) => `[Folder: ${p}]`).join(' ')
+        resolved = folderRefs + ' ' + resolved
+      }
+
+      // 4. Inline image attachments
+      if (hasAttachments) {
+        resolved = buildMessageWithInlineImages(resolved, attachmentsBag.attachments)
+      }
+
+      const ipcAttachments = hasAttachments ? extractIpcAttachments(attachmentsBag.attachments) : undefined
+      onSendMessage(resolved, ipcAttachments)
     }
-    if (attachmentsBag.folderPaths.length > 0) {
-      const folderRefs = attachmentsBag.folderPaths.map((p) => `[Folder: ${p}]`).join(' ')
-      message = folderRefs + ' ' + message
-    }
-    if (hasAttachments) {
-      message = buildMessageWithInlineImages(message, attachmentsBag.attachments)
-    }
-    const ipcAttachments = hasAttachments ? extractIpcAttachments(attachmentsBag.attachments) : undefined
+
+    // Clear input immediately for snappy UX, then resolve and send
     setValue('')
     setSlashIndex(0)
     setPastedChunks([])
     mentionBag.clearMentions()
     attachmentsBag.clearAttachments()
-    onSendMessage(message, ipcAttachments)
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     textareaRef.current?.focus()
-  }, [value, disabled, onSendMessage, dismissPanel, mentionBag, attachmentsBag, expandChunks, executeFullInput])
+
+    void buildAndSend().catch((err) => {
+      console.error('[useChatInput] buildAndSend failed:', err)
+    })
+  }, [value, disabled, onSendMessage, dismissPanel, mentionBag, attachmentsBag, expandChunks, executeFullInput, workspace])
 
   const handleSelectCommand = useCallback((cmd: { name: string }) => {
     const name = cmd.name.replace(/^\/+/, '')
@@ -464,6 +510,7 @@ export function useChatInput({ disabled, isRunning, isActive, taskId: taskIdProp
     value,
     setValue,
     textareaRef,
+    containerRef,
     canSend,
     // Slash commands
     slashIndex,

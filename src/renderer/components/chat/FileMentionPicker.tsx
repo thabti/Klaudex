@@ -1,5 +1,5 @@
-import { memo, useEffect, useRef, useState, useCallback } from 'react'
-import { IconRobot, IconBolt, IconCode, IconListCheck, IconX } from '@tabler/icons-react'
+import { memo, useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { IconRobot, IconBolt, IconCode, IconListCheck, IconX, IconAlignLeft } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -181,13 +181,15 @@ const searchFiles = (files: ProjectFile[], query: string, limit: number = 50): P
 export const FileMentionPill = memo(function FileMentionPill({ path, onRemove }: { path: string; onRemove?: () => void }) {
   const isAgent = path.startsWith('agent:')
   const isSkill = path.startsWith('skill:')
+  // Prompts don't have a prefix — they're just the name
+  const isPrompt = !isAgent && !isSkill && !path.includes('/') && !path.includes('.')
   const rawName = isAgent || isSkill ? path.split(':').slice(1).join(':') : (path.split('/').pop() ?? path)
-  const ext = (!isAgent && !isSkill && rawName.includes('.')) ? rawName.split('.').pop() ?? '' : ''
+  const ext = (!isAgent && !isSkill && !isPrompt && rawName.includes('.')) ? rawName.split('.').pop() ?? '' : ''
 
   const formatName = (name: string): string =>
     name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 
-  const displayName = isAgent ? formatName(rawName) : isSkill ? `skill: ${formatName(rawName)}` : rawName
+  const displayName = isAgent ? formatName(rawName) : isSkill ? `skill: ${formatName(rawName)}` : isPrompt ? `@${rawName}` : rawName
 
   let icon: React.ReactNode
   let pillCls: string
@@ -199,6 +201,9 @@ export const FileMentionPill = memo(function FileMentionPill({ path, onRemove }:
   } else if (isSkill) {
     icon = <IconBolt className="size-3.5 text-yellow-600 dark:text-yellow-400" />
     pillCls = 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400'
+  } else if (isPrompt) {
+    icon = <IconAlignLeft className="size-3.5 text-indigo-600 dark:text-indigo-400" />
+    pillCls = 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
   } else {
     icon = <FileIcon ext={ext} isDir={false} />
     pillCls = 'bg-accent/60 text-foreground/70'
@@ -245,6 +250,7 @@ export const FileMentionPicker = memo(function FileMentionPicker({
   const respectGitignore = useSettingsStore((s) => s.settings.respectGitignore ?? true)
   const agents = useKiroStore((s) => s.config.agents)
   const skills = useKiroStore((s) => s.config.skills)
+  const prompts = useKiroStore((s) => s.config.prompts)
 
   // Ensure kiro config is loaded
   useEffect(() => {
@@ -269,46 +275,63 @@ export const FileMentionPicker = memo(function FileMentionPicker({
     return () => { cancelled = true }
   }, [workspace, respectGitignore])
 
-  // Build kiro items filtered by query — built-in agents first, then .kiro agents, then skills
+  // Build kiro items filtered by query — built-in agents first, then .kiro agents, then skills, then prompts
   const q = (query ?? '').replace(/^[@./]+/, '').trim()
-  type KiroItem = { type: 'agent' | 'skill'; name: string; description?: string; builtinIcon?: typeof IconRobot; builtinColor?: string; builtinBgCls?: string }
-  const scoredKiroItems: Array<{ item: KiroItem; score: number }> = []
-  for (const b of BUILT_IN_MENTION_AGENTS) {
-    if (!q) {
-      scoredKiroItems.push({ item: { type: 'agent', name: b.id, description: b.description, builtinIcon: b.icon, builtinColor: b.color, builtinBgCls: b.bgCls }, score: 0 })
-    } else {
-      const nameScore = fuzzyScore(q, b.name)
-      const idScore = fuzzyScore(q, b.id)
-      const best = nameScore !== null && idScore !== null ? Math.min(nameScore, idScore) : nameScore ?? idScore
-      if (best !== null) {
-        scoredKiroItems.push({ item: { type: 'agent', name: b.id, description: b.description, builtinIcon: b.icon, builtinColor: b.color, builtinBgCls: b.bgCls }, score: best })
+  type KiroItem = { type: 'agent' | 'skill' | 'prompt'; name: string; description?: string; builtinIcon?: typeof IconRobot; builtinColor?: string; builtinBgCls?: string }
+
+  const kiroItems = useMemo((): KiroItem[] => {
+    const scored: Array<{ item: KiroItem; score: number }> = []
+    for (const b of BUILT_IN_MENTION_AGENTS) {
+      if (!q) {
+        scored.push({ item: { type: 'agent', name: b.id, description: b.description, builtinIcon: b.icon, builtinColor: b.color, builtinBgCls: b.bgCls }, score: 0 })
+      } else {
+        const nameScore = fuzzyScore(q, b.name)
+        const idScore = fuzzyScore(q, b.id)
+        const best = nameScore !== null && idScore !== null ? Math.min(nameScore, idScore) : nameScore ?? idScore
+        if (best !== null) {
+          scored.push({ item: { type: 'agent', name: b.id, description: b.description, builtinIcon: b.icon, builtinColor: b.color, builtinBgCls: b.bgCls }, score: best })
+        }
       }
     }
-  }
-  for (const a of agents) {
-    if (!q) {
-      scoredKiroItems.push({ item: { type: 'agent', name: a.name, description: a.description }, score: 0 })
-    } else {
-      const nameScore = fuzzyScore(q, a.name)
-      const descScore = fuzzyScore(q, a.description)
-      const best = nameScore !== null && descScore !== null ? Math.min(nameScore, descScore + 50) : nameScore ?? (descScore !== null ? descScore + 50 : null)
-      if (best !== null) {
-        scoredKiroItems.push({ item: { type: 'agent', name: a.name, description: a.description }, score: best })
+    for (const a of agents) {
+      if (!q) {
+        scored.push({ item: { type: 'agent', name: a.name, description: a.description }, score: 0 })
+      } else {
+        const nameScore = fuzzyScore(q, a.name)
+        const descScore = fuzzyScore(q, a.description)
+        const best = nameScore !== null && descScore !== null ? Math.min(nameScore, descScore + 50) : nameScore ?? (descScore !== null ? descScore + 50 : null)
+        if (best !== null) {
+          scored.push({ item: { type: 'agent', name: a.name, description: a.description }, score: best })
+        }
       }
     }
-  }
-  for (const s of skills) {
-    if (!q) {
-      scoredKiroItems.push({ item: { type: 'skill', name: s.name }, score: 0 })
-    } else {
-      const score = fuzzyScore(q, s.name)
-      if (score !== null) {
-        scoredKiroItems.push({ item: { type: 'skill', name: s.name }, score })
+    for (const s of skills) {
+      if (!q) {
+        scored.push({ item: { type: 'skill', name: s.name }, score: 0 })
+      } else {
+        const score = fuzzyScore(q, s.name)
+        if (score !== null) {
+          scored.push({ item: { type: 'skill', name: s.name }, score })
+        }
       }
     }
-  }
-  if (q) scoredKiroItems.sort((a, b) => a.score - b.score)
-  const kiroItems = scoredKiroItems.map((s) => s.item)
+    for (const p of prompts) {
+      // Cap content search at 500 chars to avoid O(n × content_length) on every keystroke
+      const searchableContent = p.content.slice(0, 500)
+      if (!q) {
+        scored.push({ item: { type: 'prompt', name: p.name, description: p.content.slice(0, 60).replace(/\n/g, ' ') }, score: 0 })
+      } else {
+        const nameScore = fuzzyScore(q, p.name)
+        const contentScore = fuzzyScore(q, searchableContent)
+        const best = nameScore !== null && contentScore !== null ? Math.min(nameScore, contentScore + 80) : nameScore ?? (contentScore !== null ? contentScore + 80 : null)
+        if (best !== null) {
+          scored.push({ item: { type: 'prompt', name: p.name, description: p.content.slice(0, 60).replace(/\n/g, ' ') }, score: best })
+        }
+      }
+    }
+    if (q) scored.sort((a, b) => a.score - b.score)
+    return scored.map((s) => s.item)
+  }, [q, agents, skills, prompts])
 
   // Update filtered results when query changes
   const filtered = query ? searchFiles(filesRef.current, query) : filesRef.current.slice(0, 50)
@@ -326,8 +349,10 @@ export const FileMentionPicker = memo(function FileMentionPicker({
       const normalizedIdx = idx % totalItems
       if (normalizedIdx < kiroItems.length) {
         const item = kiroItems[normalizedIdx]
-        const prefix = item.type === 'agent' ? 'agent' : 'skill'
-        onSelect({ path: `${prefix}:${item.name}`, name: item.name, dir: '', isDir: false, ext: '', gitStatus: '', linesAdded: 0, linesDeleted: 0, modifiedAt: 0 })
+        const prefix = item.type === 'agent' ? 'agent' : item.type === 'skill' ? 'skill' : 'prompt'
+        // Prompts use their name directly (no prefix) — they resolve by name in resolveMentions
+        const path = item.type === 'prompt' ? item.name : `${prefix}:${item.name}`
+        onSelect({ path, name: item.name, dir: '', isDir: false, ext: '', gitStatus: '', linesAdded: 0, linesDeleted: 0, modifiedAt: 0 })
       } else {
         const file = filtered[(normalizedIdx - kiroItems.length) % filtered.length]
         if (file) onSelect(file)
@@ -381,12 +406,14 @@ export const FileMentionPicker = memo(function FileMentionPicker({
           const isActive = i === activeIndex % totalItems
           const formatName = (name: string): string =>
             name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-          const ItemIcon = item.builtinIcon ?? (item.type === 'agent' ? IconRobot : IconBolt)
-          const iconColor = item.builtinColor ?? (item.type === 'agent' ? 'text-violet-600 dark:text-violet-400' : 'text-yellow-600 dark:text-yellow-400')
-          const iconBg = item.builtinBgCls ?? (item.type === 'agent' ? 'bg-violet-500/20' : 'bg-yellow-500/20')
+          const ItemIcon = item.builtinIcon ?? (item.type === 'agent' ? IconRobot : item.type === 'skill' ? IconBolt : IconAlignLeft)
+          const iconColor = item.builtinColor ?? (item.type === 'agent' ? 'text-violet-600 dark:text-violet-400' : item.type === 'skill' ? 'text-yellow-600 dark:text-yellow-400' : 'text-indigo-600 dark:text-indigo-400')
+          const iconBg = item.builtinBgCls ?? (item.type === 'agent' ? 'bg-violet-500/20' : item.type === 'skill' ? 'bg-yellow-500/20' : 'bg-indigo-500/20')
           const displayName = item.builtinIcon
             ? BUILT_IN_MENTION_AGENTS.find((b) => b.id === item.name)?.name ?? item.name
             : formatName(item.name)
+          // Prompts use their name directly; agents/skills use prefix:name
+          const selectPath = item.type === 'prompt' ? item.name : `${item.type}:${item.name}`
           return (
             <li
               key={`${item.type}:${item.name}`}
@@ -394,7 +421,7 @@ export const FileMentionPicker = memo(function FileMentionPicker({
               aria-selected={isActive}
               onMouseDown={(e) => {
                 e.preventDefault()
-                onSelect({ path: `${item.type}:${item.name}`, name: item.name, dir: '', isDir: false, ext: '', gitStatus: '', linesAdded: 0, linesDeleted: 0, modifiedAt: 0 })
+                onSelect({ path: selectPath, name: item.name, dir: '', isDir: false, ext: '', gitStatus: '', linesAdded: 0, linesDeleted: 0, modifiedAt: 0 })
               }}
               className={cn(
                 'flex cursor-pointer items-center gap-2.5 px-3 py-1.5 transition-colors',

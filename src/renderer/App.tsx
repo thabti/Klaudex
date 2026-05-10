@@ -3,6 +3,9 @@ import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { applyTheme, listenSystemTheme, persistTheme } from "@/lib/theme";
+import { preloadHighlighterIdle } from "@/lib/chatHighlighter";
+import { startConnectionHealthMonitor } from "@/lib/connection-health";
+import { getReceiptBus } from "@/lib/typed-receipts";
 import { AppHeader } from "@/components/AppHeader";
 import { TaskSidebar } from "@/components/sidebar/TaskSidebar";
 const ChatPanel = lazy(() =>
@@ -27,6 +30,11 @@ const DebugPanel = lazy(() =>
     default: m.DebugPanel,
   })),
 );
+const FileTreePanel = lazy(() =>
+  import("@/components/file-tree/FileTreePanel").then((m) => ({
+    default: m.FileTreePanel,
+  })),
+);
 const AnalyticsDashboard = lazy(() =>
   import("@/components/analytics/AnalyticsDashboard").then((m) => ({
     default: m.AnalyticsDashboard,
@@ -36,6 +44,7 @@ import { useTaskStore, initTaskListeners } from "@/stores/taskStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDebugStore } from "@/stores/debugStore";
 import { useDiffStore } from "@/stores/diffStore";
+import { useFileTreeStore } from "@/stores/fileTreeStore";
 import { useKiroStore, initKiroListeners } from "@/stores/kiroStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useSessionTracker } from "@/hooks/useSessionTracker";
@@ -48,6 +57,7 @@ import { useUpdateStore } from "@/stores/updateStore";
 import { startAutoFlush, stopAutoFlush } from "@/lib/analytics-collector";
 import { WorktreeCleanupDialog } from "@/components/sidebar/WorktreeCleanupDialog";
 import { CloneRepoDialog } from "@/components/CloneRepoDialog";
+import { GlobalFilePreviewModal } from "@/components/GlobalFilePreviewModal";
 import { getVersion } from "@tauri-apps/api/app";
 import {
   initAnalytics,
@@ -264,6 +274,7 @@ export function App() {
   const analyticsEnabled = useSettingsStore((s) => s.settings.analyticsEnabled ?? true);
   const analyticsAnonId = useSettingsStore((s) => s.settings.analyticsAnonId ?? null);
   const fontSize = useSettingsStore((s) => s.settings.fontSize);
+  const chatFontSize = useSettingsStore((s) => s.settings.chatFontSize);
   const theme = useSettingsStore((s) => s.settings.theme ?? 'dark');
   const sidebarPosition = useSettingsStore((s) => s.settings.sidebarPosition ?? 'left');
   const isRightSidebar = sidebarPosition === 'right';
@@ -272,10 +283,21 @@ export function App() {
   useSessionTracker();
   useZoomLimit();
 
-  // Apply font size from settings to the document root
+  // Apply font size from settings to the document root.
+  // This sets the html element's font-size which cascades through all rem-based
+  // sizing in the app. The CSS variable is kept for components that need it directly.
   useEffect(() => {
-    document.documentElement.style.setProperty('--app-font-size', `${fontSize ?? 13}px`);
+    const size = fontSize ?? 13;
+    document.documentElement.style.setProperty('--app-font-size', `${size}px`);
+    document.documentElement.style.fontSize = `${size}px`;
   }, [fontSize]);
+
+  // Apply chat font size as a CSS var. Falls back to UI font size so users on
+  // existing settings (no chatFontSize key) keep current behavior.
+  useEffect(() => {
+    const resolved = chatFontSize ?? fontSize ?? 15;
+    document.documentElement.style.setProperty('--chat-font-size', `${resolved}px`);
+  }, [chatFontSize, fontSize]);
 
   // Apply theme and listen for OS preference changes (for 'system' mode)
   useEffect(() => {
@@ -284,6 +306,12 @@ export function App() {
     if (theme !== 'system') return
     return listenSystemTheme(() => applyTheme('system'))
   }, [theme]);
+
+  // Warm the chat code-block highlighter in the background so the first
+  // fenced code block doesn't pay the full Shiki cold-start cost. The
+  // returned cleanup cancels the idle callback if App unmounts before it
+  // runs (effectively never, but kept for correctness).
+  useEffect(() => preloadHighlighterIdle(), []);
 
   // Sync active workspace → apply per-project model/autoApprove prefs
   useEffect(() => {
@@ -313,24 +341,43 @@ export function App() {
   sidebarCollapsedRef.current = isSidebarCollapsed;
 
   // Sync diffStore.isOpen → sidePanelOpen (for openToFile)
+  // Note: sidePanelOpen intentionally excluded from deps — we only react to diffIsOpen changes
   const diffIsOpen = useDiffStore((s) => s.isOpen);
   useEffect(() => {
     if (diffIsOpen && !sidePanelOpen) setSidePanelOpen(true);
-  }, [diffIsOpen]);
+    if (diffIsOpen) useFileTreeStore.getState().setOpen(false);
+  }, [diffIsOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync fileTreeStore.isOpen → sidePanelOpen
+  // Note: sidePanelOpen intentionally excluded from deps — we only react to fileTreeIsOpen changes
+  const fileTreeIsOpen = useFileTreeStore((s) => s.isOpen);
+  useEffect(() => {
+    if (fileTreeIsOpen && !sidePanelOpen) setSidePanelOpen(true);
+  }, [fileTreeIsOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     useTaskStore.getState().loadTasks().then(() => {
       useTaskStore.getState().purgeExpiredSoftDeletes();
+      useTaskStore.getState().autoArchiveStaleThreads();
+      // Initialize VCS status for all known projects
+      import('@/stores/vcsStatusStore').then(({ initVcsStatus }) => {
+        const projects = useTaskStore.getState().projects
+        initVcsStatus(projects)
+      }).catch((e) => {
+        if (import.meta.env.DEV) console.warn('[App] vcsStatusStore init failed:', e)
+      })
       // Restore persisted UI state (selected thread, view, panels)
       import('@/lib/history-store').then(({ loadUiState }) => {
         loadUiState().then((ui) => {
           if (!ui) return
-          const tasks = useTaskStore.getState().tasks
-          if (ui.selectedTaskId && tasks[ui.selectedTaskId]) {
-            useTaskStore.getState().setSelectedTask(ui.selectedTaskId)
+          const state = useTaskStore.getState()
+          const tasks = state.tasks
+          const archivedMeta = state.archivedMeta
+          if (ui.selectedTaskId && (tasks[ui.selectedTaskId] || archivedMeta[ui.selectedTaskId])) {
+            state.setSelectedTask(ui.selectedTaskId)
             const validViews = ['chat', 'dashboard', 'analytics'] as const
             if (validViews.includes(ui.view as typeof validViews[number])) {
-              useTaskStore.getState().setView(ui.view as typeof validViews[number])
+              state.setView(ui.view as typeof validViews[number])
             }
           }
           setSidePanelOpen(ui.sidePanelOpen ?? false)
@@ -350,6 +397,27 @@ export function App() {
             const validPins = ui.pinnedThreadIds.filter((id) => tasks[id])
             if (validPins.length > 0) {
               useTaskStore.setState({ pinnedThreadIds: validPins })
+            }
+          }
+          // Restore per-thread model and mode selections so picks survive
+          // restart. Filter to known task ids to avoid leaking entries from
+          // deleted threads.
+          if (ui.taskModels) {
+            const validModels: Record<string, string> = {}
+            for (const [tid, mid] of Object.entries(ui.taskModels)) {
+              if (tasks[tid]) validModels[tid] = mid
+            }
+            if (Object.keys(validModels).length > 0) {
+              useTaskStore.setState({ taskModels: validModels })
+            }
+          }
+          if (ui.taskModes) {
+            const validModes: Record<string, string> = {}
+            for (const [tid, m] of Object.entries(ui.taskModes)) {
+              if (tasks[tid]) validModes[tid] = m
+            }
+            if (Object.keys(validModes).length > 0) {
+              useTaskStore.setState({ taskModes: validModes })
             }
           }
         }).catch(() => {})
@@ -391,6 +459,18 @@ export function App() {
     window.addEventListener("focus", handleWindowFocus);
     const cleanupTask = initTaskListeners();
     const cleanupKiro = initKiroListeners();
+    // Begin probing the kiro-cli subprocess so we can show "reconnecting…"
+    // banners and clear stale latency entries on disconnect.
+    const cleanupHealth = startConnectionHealthMonitor();
+    // When a `diff.ready` receipt is published (after `turn_end`), refresh
+    // the diff panel if it's open. This replaces the old pattern of polling
+    // `gitDiffStats` from the panel itself.
+    const unsubDiffReceipt = getReceiptBus().subscribe('diff.ready', (receipt) => {
+      const diffStore = useDiffStore.getState()
+      if (diffStore.isOpen) {
+        void diffStore.fetchDiff(receipt.taskId)
+      }
+    });
     startAutoFlush();
     // Listen for native menu events
     let unlistenNewThread: (() => void) | null = null
@@ -403,7 +483,7 @@ export function App() {
       listen('app://flush-before-quit', () => {
         useTaskStore.getState().persistHistory()
         import('@/lib/history-store').then((hs) => {
-          const { selectedTaskId, view, splitViews, activeSplitId, pinnedThreadIds } = useTaskStore.getState()
+          const { selectedTaskId, view, splitViews, activeSplitId, pinnedThreadIds, taskModels, taskModes } = useTaskStore.getState()
           hs.saveUiState({
             selectedTaskId,
             view,
@@ -412,6 +492,8 @@ export function App() {
             splitViews,
             activeSplitId,
             pinnedThreadIds,
+            taskModels,
+            taskModes,
           }).catch(() => {})
           hs.flush().then(() => {
             // Ack the flush so Rust can proceed with shutdown
@@ -480,6 +562,8 @@ export function App() {
       stopAutoFlush();
       cleanupTask();
       cleanupKiro();
+      cleanupHealth();
+      unsubDiffReceipt();
       if (unlistenNewThread) unlistenNewThread()
       if (unlistenNewProject) unlistenNewProject()
       if (unlistenRecentProject) unlistenRecentProject()
@@ -557,13 +641,17 @@ export function App() {
 
   const toggleSidePanel = useCallback(() => {
     setSidePanelOpen((prev) => {
-      if (prev) useDiffStore.getState().setOpen(false)
+      if (prev) {
+        useDiffStore.getState().setOpen(false)
+        useFileTreeStore.getState().setOpen(false)
+      }
       return !prev
     })
   }, [])
   const closeSidePanel = useCallback(() => {
     setSidePanelOpen(false)
     useDiffStore.getState().setOpen(false)
+    useFileTreeStore.getState().setOpen(false)
   }, [])
   const toggleSidebar = useCallback(() => setIsSidebarCollapsed((v) => !v), []);
 
@@ -605,7 +693,7 @@ export function App() {
             <ErrorBoundary>
               <div
                 className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl"
-                style={{ fontSize: 'var(--app-font-size, 14px)' }}
+                style={{ fontSize: 'var(--app-font-size, 13px)' }}
               >
                 <Suspense>
                   {view === 'analytics' ? (
@@ -625,7 +713,11 @@ export function App() {
             {sidePanelOpen && !activeSplitId && (selectedTaskId || pendingWorkspace) && (
               <ErrorBoundary>
                 <Suspense>
-                  <CodePanel onClose={closeSidePanel} workspace={pendingWorkspace ?? undefined} />
+                  {fileTreeIsOpen ? (
+                    <FileTreePanel onClose={closeSidePanel} workspace={pendingWorkspace ?? undefined} />
+                  ) : (
+                    <CodePanel onClose={closeSidePanel} workspace={pendingWorkspace ?? undefined} />
+                  )}
                 </Suspense>
               </ErrorBoundary>
             )}
@@ -665,6 +757,9 @@ export function App() {
       <UpdateAvailableDialog />
       <WorktreeCleanupDialog />
       <CloneRepoDialog open={isCloneDialogOpen} onOpenChange={setIsCloneDialogOpen} />
+      <ErrorBoundary>
+        <GlobalFilePreviewModal />
+      </ErrorBoundary>
       {whatsNewEntry && !isUpdateDialogActive && (
         <WhatsNewDialog open={!!whatsNewEntry} entry={whatsNewEntry} onDismiss={handleWhatsNewDismiss} />
       )}

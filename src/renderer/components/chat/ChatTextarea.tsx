@@ -159,11 +159,11 @@ export const ChatTextarea = memo(function ChatTextarea({
         disabled={disabled}
         rows={1}
         className={cn(
-          'block max-h-[200px] min-h-[70px] w-full resize-none rounded-lg bg-transparent text-sm leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground',
+          'block max-h-[200px] min-h-[70px] w-full resize-none rounded-lg bg-transparent leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground',
           hasContextRing && 'pr-8',
           disabled && 'cursor-not-allowed opacity-50',
         )}
-        style={{ overflow: 'auto', fontFamily: 'inherit', caretColor: 'var(--foreground)' }}
+        style={{ overflowY: 'auto', overflowX: 'hidden', fontFamily: 'inherit', caretColor: 'var(--foreground)', fontSize: 'var(--chat-font-size, 15px)' }}
       />
     </div>
   )

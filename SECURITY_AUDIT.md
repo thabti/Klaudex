@@ -303,3 +303,42 @@ These are things done well:
 | 6 | M4: Tighten CSP connect-src wildcards | Small | Reduces exfiltration surface |
 | 7 | M1: Validate PTY cwd | Small | Prevents shell spawning in arbitrary directories |
 | 8 | M7: Pin rolldown-vite version | Small | Reduces supply chain risk |
+
+---
+
+## Addendum: PR review (2026-05-10) — Hitesh-Sisara/main
+
+**Scope:** 221 files, +33,854/-3,807 lines
+
+### Fixes applied in this PR
+
+Several findings from the original audit were addressed:
+
+| Original finding | Status | How fixed |
+|-----------------|--------|-----------|
+| H1: Unrestricted file reads | ✅ Fixed | `is_sensitive_path()` blocks `.ssh/`, `.gnupg/`, `.aws/`, `.config/gh/`, `.netrc` |
+| H2: Command injection in `open_in_editor` | ✅ Fixed | Uses `system attribute "KIRODEX_CD_PATH"` env var instead of string interpolation |
+| H3: Command injection in `open_terminal_with_command` | ✅ Fixed | Allowlist restricts to `kiro-cli login/logout/whoami` only |
+| M1: PTY cwd not validated | ✅ Fixed | Canonicalization + allowlist (home, /tmp, /Volumes, /opt, /srv, /var/www) |
+| C1: Sandbox bypass via `/` | ⚠️ Partially fixed | `extract_paths_from_message` now requires ≥2 path segments, but `/Users` still passes |
+
+### New findings introduced by this PR
+
+| Severity | Finding | File |
+|----------|---------|------|
+| Critical | Path traversal in project_watcher file operations (no containment check) | `project_watcher.rs` |
+| Medium | `open_terminal_at` uses old AppleScript interpolation pattern | `project_watcher.rs` |
+| Medium | HttpTransport has no URL validation (SSRF to internal services) | `transport.rs` |
+| Medium | `checkpoint_revert` does hard git reset without dirty-check guard | `checkpoint.rs` |
+| Low | `set_protocol_version` silently drops update on lock contention | `transport.rs` |
+
+### New positive security patterns
+
+1. **SQL injection prevention** — All `thread_db.rs` queries use parameterized statements
+2. **Process signaling restricted** — `signal_process` verifies target is a descendant of the app
+3. **XSS prevention** — `dangerouslySetInnerHTML` usages escape `&`, `<`, `>` before inserting markup
+4. **Connection death recovery** — Synthetic `turn_end` prevents stuck UI on ACP connection failure
+5. **Resumption preamble capped** — 60KB/40 messages prevents context overflow on thread resume
+6. **Thread DB robustness** — Integrity checks, corruption recovery with timestamped backups, in-memory fallback
+
+See `docs/pr-review-hitesh-sisara-main.md` for the full PR review with code examples and fix recommendations.

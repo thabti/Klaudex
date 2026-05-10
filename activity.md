@@ -1,5 +1,142 @@
 # Activity Log
 
+## 2026-05-10 02:12 GST (Dubai)
+### Security: Fix findings S1-S4 from PR review
+Fixed four security findings: (S1) Added `validate_path_containment()` to all project_watcher.rs file operations — canonicalizes paths and verifies they stay within the workspace root, preventing `../` traversal. (S2) Replaced AppleScript string interpolation in `open_terminal_at` with the env-var pattern (`KIRODEX_CD_PATH` + `system attribute`). (S3) Added URL validation to `HttpTransport::new()` — rejects non-HTTP(S) schemes, restricts plain HTTP to localhost, blocks private/link-local IPs and cloud metadata endpoints. (S4) Added dirty-check guard to `checkpoint_revert` — refuses hard reset if uncommitted changes exist unless `force=true`.
+
+**Modified:** `src-tauri/src/commands/project_watcher.rs`, `src-tauri/src/commands/transport.rs`, `src-tauri/src/commands/checkpoint.rs`, `src-tauri/Cargo.toml`, `src/renderer/lib/ipc.ts`, `src/renderer/components/diff/CheckpointTimeline.tsx`
+
+## 2026-05-10 02:04 GST (Dubai)
+### Security: In-depth code and security review of Hitesh-Sisara/main PR
+Performed a comprehensive code and security review of the 221-file PR (+33,854/-3,807 lines). Identified one critical finding (path traversal in project_watcher.rs file operations — no containment check on rel_path), two medium findings (AppleScript injection in open_terminal_at, SSRF risk in HttpTransport), and documented several positive security patterns (parameterized SQL, command injection fixes, PTY cwd validation). Created a full PR review document and updated the security audit with an addendum tracking fixes applied and new issues introduced.
+
+**Modified:** `SECURITY_AUDIT.md`, `activity.md`
+**Added:** `docs/pr-review-hitesh-sisara-main.md`
+
+## 2026-05-09 GST (Dubai)
+### MCP Panel: kiro-cli integration for add/remove + OAuth click-through
+Wired the MCP sidebar to the Kiro CLI's own subcommands instead of editing `mcp.json` blindly. Added `mcp_add_server` and `mcp_remove_server` Tauri commands that shell out to `kiro-cli mcp add` / `mcp remove` so registry-mode governance, name validation, and any future CLI-side effects all run. Built an `AddMcpServerDialog` (transport picker, scope picker for global/workspace/agent, env var editor with `${VAR}` reminder) wired through a "+" button next to the MCP section header. The right-click menu now exposes an "Authenticate" entry when `oauthUrl` arrives via the `kiro.dev/mcp/oauth_request` notification — clicking opens the provider page and the CLI auto-reconnects after the redirect. Replaced the dead "Reconnect" stub (no kiro-cli runtime API exists for it) with the working "Remove server…" entry. Clicking on a `needs-auth` row now opens the OAuth URL directly so users don't have to hunt for the action.
+
+Visual fixes on the row itself: replaced the truncated text status (`"Disablea"`, `"Auth requir…"`) with iconographic status (`IconPlugOff`/`IconLock`/`IconAlertTriangle`/spinning loader), surfaced enabled/total tool counts as a coloured pill, and added a `SourceDot` so identical-name servers from `~/.kiro` vs project-level `mcp.json` are now distinguishable. Backend dedup also lands here: `load_mcp_file` takes `is_global` and merges by name (local wins), eliminating the duplicate rows that the screenshot showed for `chrome-devtools`.
+
+Sidebar: skill, agent, and steering rows are now `draggable`. Skills attach as `@skill:<name>` mentions, agents as `@agent:<name>`, and steering rules as regular file mentions via their `filePath`. A new drag-tip icon next to the Kiro panel header makes the affordance discoverable. The panel is rendered even when zero servers are configured so the "Add MCP server…" button is reachable from a fresh install.
+
+**Modified:** `src-tauri/src/commands/kiro_config.rs`, `src-tauri/src/lib.rs`, `src/renderer/lib/ipc.ts`, `src/renderer/types/index.ts`, `src/renderer/components/sidebar/KiroConfigPanel.tsx`, `src/renderer/components/sidebar/KiroMcpRow.tsx`, `src/renderer/components/sidebar/KiroSkillRow.tsx`, `src/renderer/components/sidebar/KiroSteeringRow.tsx`, `src/renderer/components/sidebar/KiroAgentSection.tsx`
+**Added:** `src/renderer/components/sidebar/AddMcpServerDialog.tsx`
+
+## 2026-05-06 GST (Dubai)
+### Settings: Persist inline tool calls toggle (and other camelCase fields)
+The Rust `AppSettings` struct in `commands/settings.rs` was missing several frontend fields including `inlineToolCalls`. With `#[serde(rename_all = "camelCase")]` and no matching field, serde silently dropped the value during deserialization, so the toggle worked in-session but reset on app restart. Added `chat_font_size`, `sidebar_position`, `custom_app_icon`, `last_seen_changelog_version`, `btw_max_chars`, `terminal_scrollback`, `terminal_auto_close_idle_mins`, and `inline_tool_calls` to the struct (all `Option`-typed with `skip_serializing_if`) so they round-trip through confy.
+
+**Modified:** `src-tauri/src/commands/settings.rs`
+
+## 2026-05-05 17:05 GST (Dubai)
+### MarkdownViewer: Add proper markdown file viewing support
+Created a shared `MarkdownViewer` component with rich rendering: code blocks with language labels and copy buttons, GFM task list checkboxes, heading anchors, styled tables with alternating rows, blockquotes, external link handling, and proper image rendering. Updated `FilePreviewModal` and `KiroFileViewer` to use the new component instead of bare `ReactMarkdown` with inline prose classes.
+
+**Modified:** `src/renderer/components/MarkdownViewer.tsx` (new), `src/renderer/components/file-tree/FilePreviewModal.tsx`, `src/renderer/components/sidebar/KiroFileViewer.tsx`, `src/tailwind.css`
+
+## 2026-05-05 16:55 GST (Dubai)
+### FileTree: Show hidden/dotfiles in file tree
+Fixed the `list_via_walk()` function in the Rust backend that was filtering out all dotfiles (`.gitignore`, `.pr_agent.toml`, `.github/`, etc.). The `ignore` crate's `WalkBuilder` was configured with `.hidden(true)` which skips any entry starting with a dot. Changed to `.hidden(false)` so dotfiles appear in the tree just like in VS Code. The `.git` directory is still excluded via the `IGNORED_DIRS` list.
+
+**Modified:** `src-tauri/src/commands/fs_ops.rs`
+
+## 2026-05-05 16:45 GST (Dubai)
+### Code Review: Fix issues in file-tree feature branch
+Fixed all issues identified during code review: removed debug `console.warn` from FileTreePanel, added explanatory comment for module-level mutable state in useAttachments (cross-component drag communication), memoized `serverTools` derivation in KiroMcpRow to avoid defeating useCallback, added scroll/blur listeners to context menu dismiss logic, pinned `material-icon-theme` to exact version, and added clarifying comment on eslint-disable for containerRef dep.
+
+**Modified:** `src/renderer/components/file-tree/FileTreePanel.tsx`, `src/renderer/hooks/useAttachments.ts`, `src/renderer/components/sidebar/KiroMcpRow.tsx`, `package.json`
+
+## 2026-05-05 15:10 GST (Dubai)
+### Zoom: Cap max zoom at 1.3x and disable Tauri's native zoom bypass
+Disabled `zoomHotkeysEnabled` in `tauri.conf.json` so Tauri's built-in Cmd+/- shortcuts no longer bypass the app's zoom limiter. The `useZoomLimit` hook now controls zoom exclusively with a range of 60%–130% (was 50%–100%). This prevents the UI from getting excessively zoomed in while still allowing slight magnification.
+
+**Modified:** `src/renderer/hooks/useZoomLimit.ts`, `src-tauri/tauri.conf.json`
+
+## 2026-05-05 15:05 GST (Dubai)
+### Layout: Fix chat input clipping when zoomed in
+Removed `max-height: 100vh` from `html, body` in CSS and the inline style on `<html>` in `index.html`. When the webview is zoomed in (via Tauri's built-in zoom hotkeys), `100vh` represents fewer CSS pixels than the actual window, causing the bottom of the layout (chat input, toolbar) to be clipped. Using just `height: 100%` with `overflow: hidden` correctly constrains the layout to the window regardless of zoom level.
+
+**Modified:** `src/tailwind.css`, `index.html`
+
+## 2026-05-05 15:00 GST (Dubai)
+### FileTree: Disable deleted files and reduce indentation
+Deleted files (git status "D") are now greyed out with strikethrough text, a faded icon, and are non-clickable/non-draggable — preventing the "could not read file" error when users click them. Reduced tree indentation from 14px to 10px per depth level to prevent excessive nesting in deep folder structures.
+
+**Modified:** `src/renderer/components/file-tree/FileTreePanel.tsx`
+
+## 2026-05-05 14:52 GST (Dubai)
+### FileTree: Recurse into submodule/nested-repo directories
+Directories identified as submodules or nested git repos appeared as empty folders because the parent repo's git index only tracks the directory entry, not its contents. Added a third pass in `list_via_git2` that detects directories with no children listed and recursively walks them using `list_via_walk` (filesystem-based), prefixing all paths correctly. This ensures expanding a submodule folder shows its full file tree.
+
+**Modified:** `src-tauri/src/commands/fs_ops.rs`
+
+## 2026-05-05 14:45 GST (Dubai)
+### FileTree: Fix directories showing as files in git-based listing
+The `list_via_git2` function always set `is_dir: false` for entries from git status and the index, even when those entries are actually directories on disk (submodules, or paths tracked as gitlinks with mode `0o160000`). Added filesystem checks (`full_path.is_dir()`) in both the status pass and the index pass to correctly identify directories. Also changed `exclude_submodules` from `true` to `false` so submodule directories appear in the tree.
+
+**Modified:** `src-tauri/src/commands/fs_ops.rs`
+
+## 2026-05-05 14:32 GST (Dubai)
+### useAttachments: Fix file tree drag-drop — complete rewrite based on runtime logs
+Runtime logging revealed the root cause: on macOS WebKit, Tauri's native drag handler intercepts ALL drag events at the OS level, so HTML5 `dragenter`/`dragover`/`drop` events **never fire on the DOM**. Only Tauri's `onDragDropEvent` fires. Additionally, `dragend` fires ~2ms BEFORE Tauri's drop event, which was clearing the stored data prematurely. Rewrote the hook to: (1) handle in-app drops entirely via Tauri's `onDragDropEvent` when `paths: []` and `inAppDragData` is set, (2) keep `inAppDragData` alive across `dragend` with a 50ms timeout so Tauri's delayed drop handler can still consume it, (3) retain HTML5 handlers as fallback for Linux/Windows.
+
+**Modified:** `src/renderer/hooks/useAttachments.ts`, `src/renderer/hooks/useAttachments.test.ts`
+
+## 2026-05-05 09:12 GST (Dubai)
+### FileTree: Add Material Icon Theme file type icons
+Replaced generic `IconFile` / `IconFolder` with the VS Code Material Icon Theme icons (1200+ file type SVGs). Created a `file-icons.ts` utility that resolves file names and extensions to the correct icon using the theme's manifest, a `FileTypeIcon` component, and a Vite plugin that serves the SVGs in dev and copies them to dist for production. Updated `FileTreePanel`, `DiffFileSidebar`, `DiffPanel`, and `ChangedFilesSummary` to use the new icons.
+
+**Modified:** `src/renderer/lib/file-icons.ts` (new), `src/renderer/components/file-tree/FileTypeIcon.tsx` (new), `src/renderer/components/file-tree/FileTreePanel.tsx`, `src/renderer/components/code/DiffFileSidebar.tsx`, `src/renderer/components/diff/DiffPanel.tsx`, `src/renderer/components/chat/ChangedFilesSummary.tsx`, `vite.config.ts`, `package.json`
+
+## 2026-05-05 08:34 GST (Dubai)
+### Drag Drop: Preserve file-tree drops when Tauri swallows WebKit drop events
+Fixed the chat attachment hook so in-app file tree drags survive macOS WebKit/Tauri native drop interception and only the hovered chat input can consume the stored payload. The drag session now clears on the next tick after `dragend`, the HTML5 listeners bind to the actual chat container instead of `document`, the native empty-path drop handler is scoped to the active drop zone, and the regression tests cover both the `dragend`-before-drop race and cross-panel drop ownership.
+
+**Modified:** `src/renderer/hooks/useAttachments.ts`, `src/renderer/hooks/useAttachments.test.ts`
+
+## 2026-05-05 04:00 GST (Dubai)
+### FileTree: Fix file preview using relative paths instead of absolute
+The `buildTree` function was setting `node.path = file.path` (relative) for files, while directories correctly got `rootPath + '/' + relDir` (absolute). When `FilePreviewModal` passed this relative path to `ipc.readFile()`, Rust's `std::fs::read_to_string()` resolved it against the process CWD instead of the project root, triggering repeated macOS TCC permission prompts and ultimately failing with "Could not read file." Fixed by constructing the absolute path (`rootPath + '/' + rel`) for file nodes too.
+
+**Modified:** `src/renderer/components/file-tree/build-tree.ts`
+
+## 2026-05-05 01:30 GST (Dubai)
+### Code Review Fixes: Tokenizer, deprecated API, store guards, Rust error types
+Fixed all issues from code review: rewrote the file preview tokenizer to use a single-pass regex (eliminates double-wrapping and UUID placeholder bug), replaced deprecated `unescape()` with `TextEncoder`-based UTF-8→base64 for SVG rendering, added bail-out guard to `fileTreeStore.setOpen`, removed duplicate `.dark` CSS rules, switched `save_mcp_server_config` from `Result<(), String>` to `Result<(), AppError>`, fixed `IconPencil` (not exported) → `IconEdit`, added proper eslint-disable comments with explanations for intentional dep omissions.
+
+**Modified:**
+- `src/renderer/components/file-tree/FilePreviewModal.tsx`
+- `src/renderer/stores/fileTreeStore.ts`
+- `src/renderer/hooks/useAttachments.ts`
+- `src/renderer/hooks/useChatInput.ts`
+- `src/renderer/App.tsx`
+- `src/tailwind.css`
+- `src-tauri/src/commands/kiro_config.rs`
+- `src/renderer/components/sidebar/KiroConfigPanel.tsx`
+
+## 2026-05-05 01:09 GST (Dubai)
+### MCP: Kiro IDE parity — single mcp.json, context menu, per-tool toggle
+Aligned MCP server management with the official Kiro IDE pattern. Dropped `mcp-disabled.json` support; now reads inline `"disabled"` and `"disabledTools"` fields from a single `mcp.json`. Added `save_mcp_server_config` Tauri command for writing config. Rewrote `KiroMcpRow` with full right-click context menu (Enable/Disable, Reconnect greyed, Disable All Tools, Enable All Tools, Show MCP Logs), expandable server rows with per-tool toggle checkboxes, Kiro IDE styling (status labels, chevron, italic disabled). Added `mcpServerName` filter to debug panel with visual chip. Added "Open MCP Config" pencil button to section header.
+
+**Modified:** src-tauri/src/commands/kiro_config.rs, src-tauri/src/lib.rs, src/renderer/types/index.ts, src/renderer/lib/ipc.ts, src/renderer/stores/kiroStore.ts, src/renderer/stores/kiroStore.test.ts, src/renderer/stores/debugStore.ts, src/renderer/stores/debugStore.test.ts, src/renderer/components/sidebar/KiroMcpRow.tsx, src/renderer/components/sidebar/KiroConfigPanel.tsx, src/renderer/components/debug/KiroDebugTab.tsx
+
+## 2026-05-05 00:47 GST (Dubai)
+### File Tree: VS Code-style file tree panel with rich file preview modal
+Added a file tree panel on the right side (same slot as diff panel) with VS Code-style expand/collapse folders, git status indicators (M/A/D colored dots), drag-and-drop files/folders into chat as context pills, and a rich file preview modal supporting syntax-highlighted code (15+ languages), raster images, SVG (inline + source toggle), markdown, CSV tables, and pretty-printed JSON. Triggered via a new toolbar button; mutually exclusive with the diff panel.
+
+**Modified:**
+- `src/renderer/stores/fileTreeStore.ts` (new)
+- `src/renderer/components/file-tree/build-tree.ts` (new)
+- `src/renderer/components/file-tree/FileTreePanel.tsx` (new)
+- `src/renderer/components/file-tree/FilePreviewModal.tsx` (new)
+- `src/renderer/components/header-toolbar.tsx`
+- `src/renderer/App.tsx`
+- `src/renderer/hooks/useAttachments.ts`
+- `src/renderer/hooks/useChatInput.ts`
+- `src/renderer/hooks/useFileMention.ts`
+
 ## 2026-04-29 13:39 GST (Dubai)
 ### Website: Condense changelog and add collapsible UI
 Replaced the live-fetch markdown parser on the changelog page with a pre-processed data file (`changelog-data.js`). Merged 40 versions into 25 entries by folding patches into their minor versions and filtering noise (downloads.json, activity log, merge commits, empty releases). The first five entries show expanded; older releases collapse behind a "Show N older releases" pill button with keyboard and aria support.

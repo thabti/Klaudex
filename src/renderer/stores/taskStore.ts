@@ -1,8 +1,9 @@
 import { create } from 'zustand'
-import type { AgentTask, ActivityEntry, SoftDeletedThread, TaskMessage } from '@/types'
+import type { AgentTask, ActivityEntry, SoftDeletedThread, TaskMessage, ToolCall } from '@/types'
 import { ipc } from '@/lib/ipc'
 import { joinChunk } from '@/lib/utils'
 import * as historyStore from '@/lib/history-store'
+import * as threadDb from '@/lib/thread-db'
 import type { ArchivedThreadMeta } from '@/lib/history-store'
 import { useSettingsStore } from './settingsStore'
 import { track } from '@/lib/analytics'
@@ -65,9 +66,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   streamingChunks: {},
   thinkingChunks: {},
   liveToolCalls: {},
+  liveToolSplits: {},
   queuedMessages: {},
   activityFeed: [],
   connected: false,
+  connectionStatus: { phase: 'idle', attemptCount: 0, reconnectAttemptCount: 0, reconnectMaxAttempts: 5, hasConnected: false, connectedAt: null, disconnectedAt: null, lastError: null, lastErrorAt: null, nextRetryAt: null },
+  dispatchSnapshots: {},
   terminalOpenTasks: new Set<string>(),
   isWorkspaceTerminalOpen: false,
   drafts: {},
@@ -78,6 +82,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   notifiedTaskIds: [],
   taskModes: {},
   taskModels: {},
+  sessionIds: {},
   isForking: false,
   lastAddedProject: null,
   worktreeCleanupPending: null,
@@ -353,6 +358,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       streamingChunks: { ...s.streamingChunks, [id]: '' },
       thinkingChunks: { ...s.thinkingChunks, [id]: '' },
       liveToolCalls: { ...s.liveToolCalls, [id]: [] },
+      liveToolSplits: { ...s.liveToolSplits, [id]: [] },
     }))
     void ipc.deleteTask(id)
     get().persistHistory()
@@ -393,8 +399,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const { [id]: _c, ...chunks } = state.streamingChunks
       const { [id]: _t, ...thinking } = state.thinkingChunks
       const { [id]: _tc, ...tools } = state.liveToolCalls
+      const { [id]: _ts, ...splits } = state.liveToolSplits
       const { [id]: _m, ...modes } = state.taskModes
       const { [id]: _mdl, ...models } = state.taskModels
+      const { [id]: _ds, ...remainingSnapshots } = state.dispatchSnapshots
       const deletedTaskIds = new Set(state.deletedTaskIds)
       deletedTaskIds.add(id)
       const softDeleted = {
@@ -406,8 +414,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         streamingChunks: chunks,
         thinkingChunks: thinking,
         liveToolCalls: tools,
+        liveToolSplits: splits,
         taskModes: modes,
         taskModels: models,
+        dispatchSnapshots: remainingSnapshots,
         deletedTaskIds,
         softDeleted,
         selectedTaskId: state.selectedTaskId === id ? null : state.selectedTaskId,
@@ -482,6 +492,67 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     get().persistHistory()
   },
 
+  /**
+   * Auto-archive threads that have been inactive for longer than the configured
+   * `autoArchiveDays` setting. Only archives completed/error/cancelled threads
+   * (never running or paused). Called on app startup alongside purgeExpiredSoftDeletes.
+   *
+   * The heavy lifting (scanning threads, computing staleness) is done by the
+   * Rust backend via the thread_db_auto_archive command. The frontend just
+   * updates its local state with the results.
+   */
+  autoArchiveStaleThreads: () => {
+    const settings = useSettingsStore.getState().settings
+    const days = settings.autoArchiveDays
+    if (!days || days <= 0) return
+
+    // Delegate to backend — it queries SQLite, identifies stale threads, and deletes them.
+    void ipc.threadDbAutoArchive(days).then((archivedThreads) => {
+      if (!archivedThreads || archivedThreads.length === 0) return
+
+      const staleIds = new Set(archivedThreads.map((t) => t.id))
+
+      set((state) => {
+        const tasks = { ...state.tasks }
+        const archivedMeta = { ...state.archivedMeta }
+
+        for (const info of archivedThreads) {
+          // If the thread is currently loaded in memory, remove it from tasks
+          const task = tasks[info.id]
+          if (task) {
+            delete tasks[info.id]
+          }
+          // Add to archivedMeta so it still appears in the sidebar as archived
+          archivedMeta[info.id] = {
+            id: info.id,
+            name: info.name,
+            workspace: info.workspace,
+            createdAt: info.createdAt,
+            lastActivityAt: info.lastActivityAt,
+            messageCount: info.messageCount,
+            ...(info.parentTaskId ? { parentTaskId: info.parentTaskId } : {}),
+            // Preserve worktree/project info from the in-memory task if available
+            ...(task?.worktreePath ? { worktreePath: task.worktreePath } : {}),
+            ...(task?.originalWorkspace ? { originalWorkspace: task.originalWorkspace } : {}),
+            ...(task?.projectId ? { projectId: task.projectId } : {}),
+          }
+        }
+
+        const selectedTaskId = staleIds.has(state.selectedTaskId ?? '') ? null : state.selectedTaskId
+        return { tasks, archivedMeta, selectedTaskId }
+      })
+
+      // Notify the backend to clean up any lingering ACP resources for these threads.
+      for (const id of staleIds) {
+        void ipc.deleteTask(id).catch(() => {})
+      }
+
+      get().persistHistory()
+    }).catch((err) => {
+      if (import.meta.env.DEV) console.warn('[autoArchive] backend call failed, skipping:', err)
+    })
+  },
+
   appendChunk: (taskId, chunk) =>
     set((state) => ({
       streamingChunks: {
@@ -502,14 +573,60 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set((state) => {
       const existing = state.liveToolCalls[taskId] ?? []
       const idx = existing.findIndex((tc) => tc.toolCallId === toolCall.toolCallId)
-      if (idx >= 0 && existing[idx].status === toolCall.status && existing[idx].content === toolCall.content) {
+      if (idx >= 0
+        && existing[idx].status === toolCall.status
+        && existing[idx].content === toolCall.content
+        && existing[idx].title === toolCall.title
+        && existing[idx].kind === toolCall.kind
+      ) {
         return state
       }
-      const updated = idx >= 0
-        ? existing.map((tc, i) => (i === idx ? toolCall : tc))
-        : [...existing, toolCall]
+      // Stamp createdAt on first appearance so we can order tool calls
+      // relative to text segments when rendering inline.
+      const isNew = idx < 0
+      const isTerminal = toolCall.status === 'completed' || toolCall.status === 'failed' || toolCall.status === 'cancelled'
+      const now = new Date().toISOString()
+      const stamped: ToolCall = isNew
+        ? {
+          ...toolCall,
+          createdAt: toolCall.createdAt ?? now,
+          // If the first sighting is already terminal (rare), stamp
+          // completedAt so duration is accurate even when we miss the
+          // pending → completed transition.
+          ...(isTerminal && !toolCall.completedAt ? { completedAt: now } : {}),
+        }
+        : toolCall
+      const updated = isNew
+        ? [...existing, stamped]
+        : existing.map((tc, i) => {
+          if (i !== idx) return tc
+          // Stamp completedAt the first time we see a terminal status so
+          // fetch/web tool entries can show elapsed duration. Preserves
+          // createdAt across updates.
+          const completedAt =
+            isTerminal && !tc.completedAt && !stamped.completedAt
+              ? now
+              : tc.completedAt ?? stamped.completedAt
+          return {
+            ...stamped,
+            createdAt: tc.createdAt ?? stamped.createdAt,
+            ...(completedAt ? { completedAt } : {}),
+          }
+        })
+      // Record the streaming-text offset at which this tool call appeared.
+      // Only recorded once per toolCallId, on first sight.
+      let nextSplits = state.liveToolSplits
+      if (isNew) {
+        const at = state.streamingChunks[taskId]?.length ?? 0
+        const existingSplits = state.liveToolSplits[taskId] ?? []
+        nextSplits = {
+          ...state.liveToolSplits,
+          [taskId]: [...existingSplits, { at, toolCallId: toolCall.toolCallId }],
+        }
+      }
       return {
         liveToolCalls: { ...state.liveToolCalls, [taskId]: updated },
+        liveToolSplits: nextSplits,
       }
     }),
 
@@ -583,11 +700,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const hasChunks = !!state.streamingChunks[taskId]
       const hasThinking = !!state.thinkingChunks[taskId]
       const hasTools = state.liveToolCalls[taskId]?.length > 0
-      if (!hasChunks && !hasThinking && !hasTools) return state
+      const hasSplits = (state.liveToolSplits[taskId]?.length ?? 0) > 0
+      if (!hasChunks && !hasThinking && !hasTools && !hasSplits) return state
       return {
         streamingChunks: { ...state.streamingChunks, [taskId]: '' },
         thinkingChunks: { ...state.thinkingChunks, [taskId]: '' },
         liveToolCalls: { ...state.liveToolCalls, [taskId]: [] },
+        liveToolSplits: { ...state.liveToolSplits, [taskId]: [] },
       }
     }),
 
@@ -687,8 +806,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     try {
       const task = get().tasks[taskId]
       const forked = await ipc.forkTask(taskId, task?.workspace, task?.name)
-      forked.parentTaskId = taskId
-      // Preserve worktree fields from parent so forked thread nests under the same project
+      // Backend sets parent_task_id; preserve worktree fields from parent so
+      // the forked thread nests under the same project in the sidebar.
       if (task?.worktreePath) forked.worktreePath = task.worktreePath
       if (task?.originalWorkspace) forked.originalWorkspace = task.originalWorkspace
       forked.projectId = task?.projectId ?? get().getProjectId(task?.originalWorkspace ?? forked.workspace)
@@ -864,8 +983,24 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
             // Live task exists — merge worktree metadata the backend doesn't
             // track (without copying messages or other heavy fields).
             const live = tasks[saved.id]
+            // If the live task has fewer messages than the persisted version,
+            // the backend likely lost assistant responses on restart. Prefer
+            // the richer persisted message history in that case.
+            let savedMessages: TaskMessage[] | null = null
+            if (saved.messages.length > live.messages.length) {
+              savedMessages = saved.messages.map((m) => ({
+                role: m.role as TaskMessage['role'],
+                content: m.content,
+                timestamp: m.timestamp,
+                ...(m.thinking ? { thinking: m.thinking } : {}),
+                ...(m.toolCalls && m.toolCalls.length > 0 ? { toolCalls: m.toolCalls } : {}),
+                ...(m.toolCallSplits && m.toolCallSplits.length > 0 ? { toolCallSplits: m.toolCallSplits } : {}),
+              }))
+            }
+
             tasks[saved.id] = {
               ...live,
+              ...(savedMessages ? { messages: savedMessages } : {}),
               ...(!live.worktreePath && saved.worktreePath ? { worktreePath: saved.worktreePath } : {}),
               ...(!live.originalWorkspace && saved.originalWorkspace ? { originalWorkspace: saved.originalWorkspace } : {}),
               ...(!live.projectId && saved.projectId ? { projectId: saved.projectId } : {}),
@@ -881,7 +1016,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         // threads still show up).
         const savedOrder = savedProjects.map((sp) => sp.workspace)
         const projectsSet = new Set(savedOrder)
-        const projects = [...savedOrder]
+        const projects = [...projectsSet]
         for (const t of Object.values(tasks)) {
           const ws = t.originalWorkspace ?? t.workspace
           if (!projectsSet.has(ws)) { projectsSet.add(ws); projects.push(ws) }
@@ -962,6 +1097,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           if (sp.threadOrder?.length) threadOrders[sp.workspace] = sp.threadOrder
         }
         set({ tasks, archivedMeta, projects, projectIds, projectNames, softDeleted, deletedTaskIds, threadOrders, connected: true })
+        // One-time migration: sync JSON history threads into SQLite (background, best-effort).
+        // This ensures all historical threads are available via the SQLite store going forward.
+        threadDb.migrateFromJsonHistory(historyStore.loadThreads).then((result) => {
+          if (result.migrated > 0) {
+            console.info(`[thread-db] Migrated ${result.migrated} threads from JSON to SQLite (${result.skipped} already existed, ${result.failed} failed)`)
+          }
+        }).catch(() => {})
       } catch {
         // History load failed — derive projects from live tasks, filtering worktree paths
         const projects = [...new Set(list.map((t) => t.originalWorkspace ?? t.workspace))]
@@ -984,7 +1126,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           if (softDeletedIds.has(saved.id)) continue
           archivedMeta[saved.id] = projectMeta(saved)
         }
-        const projects = savedProjects.map((sp) => sp.workspace)
+        const projects = [...new Set(savedProjects.map((sp) => sp.workspace))]
         const projectNames: Record<string, string> = {}
         const projectIds: Record<string, string> = {}
         for (const sp of savedProjects) {
@@ -1049,38 +1191,60 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const meta = state.archivedMeta[id]
     if (!meta) return false
     try {
-      const saved = await historyStore.loadThread(id)
-      if (!saved) {
-        // Stale meta: drop it so the sidebar stops showing this thread
-        set((s) => {
-          if (!s.archivedMeta[id]) return s
-          const { [id]: _drop, ...rest } = s.archivedMeta
-          return { archivedMeta: rest }
+      // Try SQLite first (source of truth for message content)
+      let task: AgentTask | null = null
+      try {
+        task = await threadDb.loadFullThread(id)
+      } catch {
+        // SQLite unavailable — fall through to JSON
+      }
+
+      // Fall back to JSON history store
+      if (!task) {
+        const saved = await historyStore.loadThread(id)
+        if (!saved) {
+          // Stale meta: drop it so the sidebar stops showing this thread
+          set((s) => {
+            if (!s.archivedMeta[id]) return s
+            const { [id]: _drop, ...rest } = s.archivedMeta
+            return { archivedMeta: rest }
+          })
+          return false
+        }
+        const messages: TaskMessage[] = saved.messages.map((m) => ({
+          role: m.role as TaskMessage['role'],
+          content: m.content,
+          timestamp: m.timestamp,
+          ...(m.thinking ? { thinking: m.thinking } : {}),
+          ...(m.toolCalls && m.toolCalls.length > 0 ? { toolCalls: m.toolCalls } : {}),
+          ...(m.toolCallSplits && m.toolCallSplits.length > 0 ? { toolCallSplits: m.toolCallSplits } : {}),
+        }))
+        task = {
+          id: saved.id,
+          name: saved.name,
+          workspace: saved.workspace,
+          status: 'completed',
+          createdAt: saved.createdAt,
+          messages,
+          isArchived: true,
+          ...(saved.parentTaskId ? { parentTaskId: saved.parentTaskId } : {}),
+          ...(saved.worktreePath ? { worktreePath: saved.worktreePath } : {}),
+          ...(saved.originalWorkspace ? { originalWorkspace: saved.originalWorkspace } : {}),
+          ...(saved.projectId ? { projectId: saved.projectId } : {}),
+        }
+        // Backfill SQLite so future loads are faster and more reliable.
+        // Save thread metadata first (required FK for messages), then messages.
+        const backfillTask = task
+        threadDb.saveThread(backfillTask).then(() =>
+          threadDb.saveAllMessages(backfillTask.id, backfillTask.messages),
+        ).catch((err) => {
+          console.warn(`[hydrateArchivedTask] SQLite backfill failed for ${id}:`, err)
         })
-        return false
       }
-      const messages: TaskMessage[] = saved.messages.map((m) => ({
-        role: m.role as TaskMessage['role'],
-        content: m.content,
-        timestamp: m.timestamp,
-        ...(m.thinking ? { thinking: m.thinking } : {}),
-      }))
-      const task: AgentTask = {
-        id: saved.id,
-        name: saved.name,
-        workspace: saved.workspace,
-        status: 'completed',
-        createdAt: saved.createdAt,
-        messages,
-        isArchived: true,
-        ...(saved.parentTaskId ? { parentTaskId: saved.parentTaskId } : {}),
-        ...(saved.worktreePath ? { worktreePath: saved.worktreePath } : {}),
-        ...(saved.originalWorkspace ? { originalWorkspace: saved.originalWorkspace } : {}),
-        ...(saved.projectId ? { projectId: saved.projectId } : {}),
-      }
+
       set((s) => {
         const { [id]: _drop, ...remainingMeta } = s.archivedMeta
-        return { tasks: { ...s.tasks, [id]: task }, archivedMeta: remainingMeta }
+        return { tasks: { ...s.tasks, [id]: task! }, archivedMeta: remainingMeta }
       })
       return true
     } catch {
@@ -1093,18 +1257,95 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set({ connected: v })
   },
 
+  setConnectionStatus: (status) => {
+    set({ connectionStatus: status })
+  },
+
+  setDispatchSnapshot: (taskId, snapshot) => {
+    set((s) => {
+      if (snapshot) {
+        return { dispatchSnapshots: { ...s.dispatchSnapshots, [taskId]: snapshot } }
+      }
+      // Bail out early if the taskId isn't in the map — avoids creating a
+      // fresh object identity (and the spurious re-render that follows) for
+      // every clear() call on an already-empty key.
+      if (!(taskId in s.dispatchSnapshots)) return s
+      const { [taskId]: _drop, ...rest } = s.dispatchSnapshots
+      return { dispatchSnapshots: rest }
+    })
+  },
+
+  rekeyDispatchSnapshot: (fromTaskId, toTaskId) => {
+    // Atomically move the snapshot from `fromTaskId` to `toTaskId`. Used
+    // after `ipc.createTask` returns a backend-assigned id so the snapshot
+    // we recorded against the draft id follows the task. We do this in a
+    // single setState so a concurrent `turn_end` listener can't observe a
+    // half-applied state where the snapshot is missing from both keys.
+    set((s) => {
+      if (!(fromTaskId in s.dispatchSnapshots)) return s
+      const { [fromTaskId]: snapshot, ...rest } = s.dispatchSnapshots
+      // If `toTaskId` already has a snapshot (e.g. turn_end fired for the
+      // new id while we were re-keying), keep the newer one — the old draft
+      // snapshot is stale by definition.
+      if (toTaskId in rest) {
+        return { dispatchSnapshots: rest }
+      }
+      return {
+        dispatchSnapshots: { ...rest, [toTaskId]: { ...snapshot, taskId: toTaskId } },
+      }
+    })
+  },
+
   persistHistory: () => {
-    const { tasks, projectNames, projectIds, softDeleted, projects, threadOrders, archivedMeta } = get()
+    const { tasks, projectNames, projectIds, softDeleted, projects, threadOrders, archivedMeta, streamingChunks, thinkingChunks, liveToolCalls, liveToolSplits } = get()
     // Tell saveThreads which on-disk archived ids to preserve verbatim.
     // Without this set, saveThreads would drop every archived thread that
     // isn't currently inflated in `tasks`.
     const keepArchivedIds = new Set(Object.keys(archivedMeta))
-    historyStore.saveThreads(tasks, projectNames, projectIds, projects, threadOrders, keepArchivedIds).catch((err) => {
+    // For mid-turn persistence: if a task is currently streaming, append the
+    // in-flight chunk as a partial assistant message so it survives a dev
+    // hot-reload or crash. The partial message is only written to the JSON
+    // history store (not SQLite) and will be superseded by the real turn_end.
+    let tasksToSave = tasks
+    for (const [taskId, chunk] of Object.entries(streamingChunks)) {
+      if (!chunk) continue
+      const task = tasks[taskId]
+      if (!task || task.status !== 'running') continue
+      const thinking = thinkingChunks[taskId] ?? ''
+      const tools = liveToolCalls[taskId] ?? []
+      const splits = liveToolSplits[taskId] ?? []
+      // Lazily clone the tasks map only if we have streaming content to save
+      if (tasksToSave === tasks) tasksToSave = { ...tasks }
+      tasksToSave[taskId] = {
+        ...task,
+        messages: [
+          ...task.messages,
+          {
+            role: 'assistant' as const,
+            content: chunk,
+            timestamp: new Date().toISOString(),
+            ...(thinking ? { thinking } : {}),
+            ...(tools.length > 0 ? { toolCalls: tools } : {}),
+            ...(splits.length > 0 ? { toolCallSplits: splits } : {}),
+          },
+        ],
+      }
+    }
+    historyStore.saveThreads(tasksToSave, projectNames, projectIds, projects, threadOrders, keepArchivedIds).catch((err) => {
       console.warn('[persistHistory] saveThreads failed:', err)
     })
     historyStore.saveSoftDeleted(Object.values(softDeleted)).catch((err) => {
       console.warn('[persistHistory] saveSoftDeleted failed:', err)
     })
+    // Also persist to SQLite for robust recovery (per-message granularity).
+    // This runs in parallel with the JSON save — SQLite is the source of truth
+    // for message content, JSON remains for project/ordering metadata.
+    // Only save thread metadata here — individual messages are saved
+    // incrementally by the turn-end and send handlers.
+    for (const task of Object.values(tasks)) {
+      if (task.messages.length === 0) continue
+      threadDb.saveThread(task).catch(() => {})
+    }
   },
 
   clearHistory: async () => {
@@ -1115,8 +1356,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         ipc.cancelTask(id).catch(() => {})
       }
     }
-    // Clear the persisted thread/project store
+    // Clear the persisted thread/project store (includes uiState)
     await historyStore.clearHistory()
+    // Clear the SQLite thread database
+    await threadDb.clearAll().catch((err) => {
+      console.warn('[clearHistory] Failed to clear SQLite thread DB:', err)
+    })
     // Reset all in-memory state
     set({
       tasks: {},
@@ -1131,14 +1376,26 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       streamingChunks: {},
       thinkingChunks: {},
       liveToolCalls: {},
+      liveToolSplits: {},
+      dispatchSnapshots: {},
       queuedMessages: {},
       terminalOpenTasks: new Set<string>(),
       isWorkspaceTerminalOpen: false,
       drafts: {},
+      draftAttachments: {},
+      draftPastedChunks: {},
+      draftMentionedFiles: {},
       _suppressDraftSave: null,
       notifiedTaskIds: [],
       activityFeed: [],
       threadOrders: {},
+      taskModes: {},
+      taskModels: {},
+      sessionIds: {},
+      splitViews: [],
+      pinnedThreadIds: [],
+      activeSplitId: null,
+      scrollPositions: {},
     })
     // Clear project-specific preferences but preserve core settings (onboarding, CLI path, model, etc.)
     const currentSettings = useSettingsStore.getState().settings
@@ -1162,6 +1419,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         streamingChunks: { ...s.streamingChunks, [taskId]: '' },
         thinkingChunks: { ...s.thinkingChunks, [taskId]: '' },
         liveToolCalls: { ...s.liveToolCalls, [taskId]: [] },
+        liveToolSplits: { ...s.liveToolSplits, [taskId]: [] },
       }))
       void ipc.deleteTask(taskId)
     } else {
@@ -1172,8 +1430,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         const { [taskId]: _c, ...chunks } = state.streamingChunks
         const { [taskId]: _t, ...thinking } = state.thinkingChunks
         const { [taskId]: _tc, ...tools } = state.liveToolCalls
+        const { [taskId]: _ts, ...splits } = state.liveToolSplits
         const { [taskId]: _m, ...modes } = state.taskModes
         const { [taskId]: _mdl, ...models } = state.taskModels
+        const { [taskId]: _ds, ...remainingSnapshots } = state.dispatchSnapshots
         const deletedTaskIds = new Set(state.deletedTaskIds)
         deletedTaskIds.add(taskId)
         const softDeleted = {
@@ -1185,8 +1445,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           streamingChunks: chunks,
           thinkingChunks: thinking,
           liveToolCalls: tools,
+          liveToolSplits: splits,
           taskModes: modes,
           taskModels: models,
+          dispatchSnapshots: remainingSnapshots,
           deletedTaskIds,
           softDeleted,
           selectedTaskId: state.selectedTaskId === taskId ? null : state.selectedTaskId,

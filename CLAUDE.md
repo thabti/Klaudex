@@ -16,7 +16,7 @@ Kirodex is a cross-platform native desktop app (macOS, Windows, Linux) for manag
 - **Virtualization**: @tanstack/react-virtual
 - **Diffing**: diff + @pierre/diffs
 - **Terminal**: ghostty-web (WebAssembly terminal emulator) + portable-pty (Rust)
-- **Code highlighting**: Shiki (stubbed via shiki-stub Vite plugin to reduce bundle ~8MB)
+- **Code highlighting**: Shiki via @pierre/diffs (Oniguruma WASM engine), dynamically imported and warmed during `requestIdleCallback` after first paint
 - **Analytics**: posthog-js (client telemetry), recharts (charts), redb (Rust ACID-compliant local DB)
 - **Toasts**: sonner
 - **Slugs**: slugify (worktree branch names)
@@ -57,8 +57,8 @@ src/
 │   │   ├── jsInterceptors.ts # Console/network interceptors for debug panel
 │   │   ├── open-external.ts # Open URLs in default browser
 │   │   ├── relaunch.ts      # App relaunch helper
-│   │   ├── shiki-stub.ts    # Lightweight Shiki stub (saves ~8MB)
-│   │   └── shikijs-transformers-stub.ts
+│   │   ├── lruCache.ts      # Bounded LRU for highlighted code HTML
+│   │   └── diffRendering.ts # Shared theme + hash helpers for Shiki
 │   ├── hooks/
 │   │   ├── useSidebarTasks.ts    # Sidebar task list with grouping/filtering
 │   │   ├── useUpdateChecker.ts   # Auto-update checker (tauri-plugin-updater)
@@ -209,7 +209,7 @@ bun run clean             # Remove dist/ and cargo clean
 - **Cross-platform title bar**: `unified-title-bar/` provides platform-specific title bars (macOS traffic lights, Windows controls, Linux fallback).
 - **Onboarding**: Multi-step wizard (Welcome → Setup → CLI detection → Auth → Theme) for first-run experience.
 - **Path aliases**: `@/*` maps to `./src/renderer/*` (configured in tsconfig.json and vite.config.ts).
-- **Vite config**: shiki-stub plugin redirects all shiki imports to lightweight stubs. Manual chunks split vendor code (analytics, diffs, react, markdown, terminal, tauri, icons). Dev server on port 5174. Watch ignores README.md, activity.md, and src-tauri/.
+- **Vite config**: Manual chunks split vendor code (analytics, diffs, react, markdown, shiki, terminal, tauri, icons); the `vendor-shiki` chunk is lazy-loaded by `ChatMarkdown` on first code block. Dev server on port 5174. Watch ignores README.md, activity.md, and src-tauri/.
 - **CI pipeline**: 3-stage sequential pipeline (check → test-ui → test-rust) with PR comment bot summarizing results. Runs on ubuntu-latest with system deps for WebKit.
 
 ## Conventions

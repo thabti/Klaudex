@@ -1,8 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { IconArrowDown } from '@tabler/icons-react'
-import type { TaskMessage, ToolCall } from '@/types'
+import type { TaskMessage, ToolCall, ToolCallSplit } from '@/types'
 import { deriveTimeline, type TimelineRow } from '@/lib/timeline'
+import { computeStableTimelineRows, EMPTY_STABLE_STATE, type StableTimelineState } from '@/lib/timeline-stability'
 import { cn } from '@/lib/utils'
 import { useTaskStore } from '@/stores/taskStore'
 import { createContext, useContext } from 'react'
@@ -19,33 +20,26 @@ import {
 export const MessageListTaskIdContext = createContext<string | null>(null)
 export const useMessageListTaskId = (): string | null => useContext(MessageListTaskIdContext)
 
-const AUTO_SCROLL_THRESHOLD = 150
-
-/** Per-row-type height estimates so the virtualizer doesn't leave large gaps
- *  before measureElement fires. Overestimating slightly is better than
- *  underestimating — underestimates cause rows to overlap until measured. */
-const ROW_HEIGHT_ESTIMATES: Record<string, number> = {
-  'user-message': 72,
-  'system-message': 44,
-  'assistant-text': 100,
-  'work': 64,
-  'working': 40,
-  'changed-files': 120,
-}
+import { AUTO_SCROLL_THRESHOLD, ROW_HEIGHT_ESTIMATES } from './MessageList.logic'
 
 interface MessageListProps {
   taskId?: string | null
   messages: TaskMessage[]
   streamingChunk?: string
   liveToolCalls?: ToolCall[]
+  liveToolSplits?: ToolCallSplit[]
   liveThinking?: string
   isRunning?: boolean
+  /** When true, render tool calls inline within prose (Cursor / Kiro IDE style). */
+  inlineToolCalls?: boolean
   /** IDs of timeline rows that match the current search query */
   searchMatchIds?: string[]
   /** ID of the currently active (focused) search match */
   activeMatchId?: string | null
   /** Callback to expose derived timeline rows to the parent */
   onTimelineRows?: (rows: TimelineRow[]) => void
+  /** Optional header content rendered inside the scroll container (scrolls with messages) */
+  headerContent?: React.ReactNode
 }
 
 export const MessageList = memo(function MessageList({
@@ -53,11 +47,14 @@ export const MessageList = memo(function MessageList({
   messages,
   streamingChunk,
   liveToolCalls,
+  liveToolSplits,
   liveThinking,
   isRunning,
+  inlineToolCalls,
   searchMatchIds,
   activeMatchId,
   onTimelineRows,
+  headerContent,
 }: MessageListProps) {
   const parentRef = useRef<HTMLDivElement>(null)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
@@ -77,6 +74,8 @@ export const MessageList = memo(function MessageList({
       useTaskStore.getState().saveScrollPosition(prevId, parentRef.current.scrollTop)
     }
     prevTaskIdRef.current = taskId
+    // Reset stable timeline state for the new thread
+    stableStateRef.current = EMPTY_STABLE_STATE
     // Determine where to scroll in the new thread
     if (!taskId) return
     const saved = useTaskStore.getState().scrollPositions[taskId]
@@ -107,10 +106,26 @@ export const MessageList = memo(function MessageList({
     }
   }, [])
 
-  const timelineRows = useMemo(
-    () => deriveTimeline(messages, streamingChunk, liveToolCalls, liveThinking, isRunning),
-    [messages, streamingChunk, liveToolCalls, liveThinking, isRunning],
+  // Derive raw timeline rows
+  const rawTimelineRows = useMemo(
+    () => deriveTimeline(messages, streamingChunk, liveToolCalls, liveThinking, isRunning, {
+      inlineToolCalls,
+      liveToolSplits,
+    }),
+    [messages, streamingChunk, liveToolCalls, liveThinking, isRunning, inlineToolCalls, liveToolSplits],
   )
+
+  // Stabilize row references: reuse previous objects when content hasn't changed.
+  // This prevents unnecessary virtualizer re-measurement and React re-renders
+  // during streaming, where only the live-text row changes each frame.
+  const stableStateRef = useRef<StableTimelineState>(EMPTY_STABLE_STATE)
+  const stableState = useMemo(() => {
+    const next = computeStableTimelineRows(rawTimelineRows, stableStateRef.current)
+    stableStateRef.current = next
+    return next
+  }, [rawTimelineRows])
+
+  const timelineRows = stableState.result
 
   // Expose timeline rows to parent for search
   useEffect(() => {
@@ -263,6 +278,7 @@ export const MessageList = memo(function MessageList({
         data-testid="message-list"
         className="h-full overflow-auto overscroll-y-contain px-0"
       >
+        {headerContent}
         <div
           style={{
             height: `${virtualizer.getTotalSize()}px`,

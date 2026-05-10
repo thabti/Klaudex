@@ -4,6 +4,7 @@ import {
   IconTerminal2,
   IconGitBranch,
   IconLayoutColumns,
+  IconFiles,
 } from "@tabler/icons-react"
 import { useTaskStore } from "@/stores/taskStore"
 import {
@@ -17,6 +18,7 @@ import { GitActionsGroup } from "@/components/GitActionsGroup"
 import { SplitThreadPicker } from "@/components/chat/SplitThreadPicker"
 import { ipc } from "@/lib/ipc"
 import { cn } from "@/lib/utils"
+import { useFileTreeStore } from "@/stores/fileTreeStore"
 import type { TaskStatus } from "@/types"
 
 /** Toggle button for split-screen mode. Opens a thread picker or closes split. */
@@ -72,6 +74,35 @@ const SplitToggleButton = memo(function SplitToggleButton() {
         />
       )}
     </>
+  )
+})
+
+/** Toggle button for file tree panel. */
+const FileTreeToggleButton = memo(function FileTreeToggleButton() {
+  const isOpen = useFileTreeStore((s) => s.isOpen)
+  const toggle = useFileTreeStore((s) => s.toggle)
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          data-testid="toggle-file-tree-button"
+          aria-label="Toggle file tree"
+          aria-pressed={isOpen}
+          onClick={toggle}
+          className={cn(
+            "inline-flex h-6 items-center rounded-md border border-input px-1.5 text-xs shadow-xs/5 transition-colors",
+            isOpen
+              ? "bg-input/64 dark:bg-input text-foreground"
+              : "bg-popover hover:bg-accent/50 dark:bg-input/32 text-muted-foreground",
+          )}
+        >
+          <IconFiles className="size-3" aria-hidden />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">File tree</TooltipContent>
+    </Tooltip>
   )
 })
 
@@ -249,6 +280,8 @@ export const HeaderToolbar = memo(function HeaderToolbar({
           <TooltipContent side="bottom">Terminal</TooltipContent>
         </Tooltip>
       )}
+
+      <FileTreeToggleButton />
 
       <SplitToggleButton />
 

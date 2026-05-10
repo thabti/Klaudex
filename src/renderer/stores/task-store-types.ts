@@ -1,6 +1,8 @@
-import type { AgentTask, ActivityEntry, ToolCall, PlanStep, SoftDeletedThread, CompactionStatus, Attachment, ProjectFile, IpcAttachment } from '@/types'
+import type { AgentTask, ActivityEntry, ToolCall, ToolCallSplit, PlanStep, SoftDeletedThread, CompactionStatus, Attachment, ProjectFile, IpcAttachment } from '@/types'
 import type { PastedChunk } from '@/hooks/useChatInput'
 import type { ArchivedThreadMeta } from '@/lib/history-store'
+import type { LocalDispatchSnapshot } from '@/lib/dispatch-snapshot'
+import type { ConnectionStatus } from '@/lib/connection-state'
 
 export interface QueuedMessage {
   readonly text: string
@@ -38,10 +40,21 @@ export interface TaskStore {
   thinkingChunks: Record<string, string>
   /** Live tool calls for the current turn (by taskId) */
   liveToolCalls: Record<string, ToolCall[]>
+  /**
+   * Anchors recorded during streaming for inline tool-call rendering.
+   * Each entry records the streaming-text length at the moment the
+   * corresponding tool call was first seen. Sorted ascending by `at`.
+   * Cleared at turn end alongside {@link liveToolCalls}.
+   */
+  liveToolSplits: Record<string, ToolCallSplit[]>
   /** Queued messages per task — typed while agent is running, sent on turn end */
   queuedMessages: Record<string, QueuedMessage[]>
   activityFeed: ActivityEntry[]
   connected: boolean
+  /** Rich connection status for UI indicators (phase, retry count, timestamps) */
+  connectionStatus: ConnectionStatus
+  /** Local dispatch snapshots per task — tracks optimistic UI state */
+  dispatchSnapshots: Record<string, LocalDispatchSnapshot>
   terminalOpenTasks: Set<string>
   /** Workspace-level terminal open state (for PendingChat when no task is selected) */
   isWorkspaceTerminalOpen: boolean
@@ -61,6 +74,8 @@ export interface TaskStore {
   taskModes: Record<string, string>
   /** Per-thread model ID so switching model in one thread doesn't affect others */
   taskModels: Record<string, string>
+  /** Per-thread kiro CLI session ID (from ACP new_session) for debugging */
+  sessionIds: Record<string, string>
   /** Whether a fork operation is in progress */
   isForking: boolean
   /** Workspace path of the most recently added project (for auto-focus) */
@@ -98,6 +113,8 @@ export interface TaskStore {
   purgeExpiredSoftDeletes: () => void
   /** Drop every soft-deleted thread immediately, regardless of age. */
   purgeAllSoftDeletes: () => void
+  /** Auto-archive threads inactive for longer than settings.autoArchiveDays. */
+  autoArchiveStaleThreads: () => void
   appendChunk: (taskId: string, chunk: string) => void
   appendThinkingChunk: (taskId: string, chunk: string) => void
   upsertToolCall: (taskId: string, toolCall: ToolCall) => void
@@ -134,6 +151,12 @@ export interface TaskStore {
    *  rendered. No-op if already hydrated. Returns true on success. */
   hydrateArchivedTask: (id: string) => Promise<boolean>
   setConnected: (v: boolean) => void
+  /** Update the rich connection status */
+  setConnectionStatus: (status: ConnectionStatus) => void
+  /** Set a dispatch snapshot for optimistic UI tracking */
+  setDispatchSnapshot: (taskId: string, snapshot: LocalDispatchSnapshot | null) => void
+  /** Atomically move a dispatch snapshot from one task id to another. */
+  rekeyDispatchSnapshot: (fromTaskId: string, toTaskId: string) => void
   persistHistory: () => void
   clearHistory: () => Promise<void>
   resolveWorktreeCleanup: (remove: boolean) => void
