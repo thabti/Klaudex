@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useEffect } from 'react'
-import { IconChevronRight, IconChevronDown, IconEdit, IconTrash, IconArchive, IconMessagePlus, IconFolderOpen, IconPalette, IconMessage, IconCopy, IconArrowUp, IconArrowDown } from '@tabler/icons-react'
+import { IconEdit, IconTrash, IconArchive, IconMessagePlus, IconFolderOpen, IconPalette, IconMessage, IconCopy, IconArrowUp, IconArrowDown } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
@@ -83,10 +83,6 @@ export const ProjectItem = memo(function ProjectItem({
             'hover:bg-accent hover:text-foreground transition-colors',
           )}
         >
-          {expanded
-            ? <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground/70" aria-hidden />
-            : <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" aria-hidden />
-          }
           <ProjectIcon icon={projectIcon} />
           <span className={cn('flex-1 truncate text-[13px] text-foreground/85', isActiveProject ? 'font-semibold' : 'font-normal')}>{name}</span>
           {jumpLabel && (
