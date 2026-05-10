@@ -1,5 +1,11 @@
 # Activity Log
 
+## 2026-05-10 19:53 GST (Dubai)
+### ChatPanel: Hide archived banner when message is initiated
+The blue zigzag "Resumed from history" divider now hides as soon as the user sends a message (task enters running state), rather than persisting until the backend confirms the new connection.
+
+**Modified:** `src/renderer/components/chat/ChatPanel.tsx`
+
 ## 2026-05-10 19:43 GST (Dubai)
 ### TaskListDisplay: Default to collapsed
 Changed the task list to start collapsed by default. Users click the header to expand.
