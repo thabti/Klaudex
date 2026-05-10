@@ -10,6 +10,7 @@ import { useResizeHandle } from '@/hooks/useResizeHandle'
 import { useModifierKeys } from '@/hooks/useModifierKeys'
 import { measureMemory, formatBytes } from '@/lib/thread-memory'
 import { KiroConfigPanel } from './KiroConfigPanel'
+import { HeaderUserMenu } from '@/components/header-user-menu'
 
 const MEMORY_SPIKE_THRESHOLD = 100 * 1024 * 1024
 const MEMORY_CHECK_INTERVAL_MS = 5000
@@ -18,7 +19,7 @@ const hasUpdateIndicator = (status: UpdateStatus): boolean =>
   status === 'available' || status === 'downloading' || status === 'ready'
 
 const KiroConfigFooter = memo(function KiroConfigFooter() {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
   const [height, setHeight] = useState(160)
 
   const toggleCollapse = useCallback(() => setCollapsed((v) => !v), [])
@@ -85,24 +86,11 @@ export const SidebarFooter = memo(function SidebarFooter() {
   return (
     <>
       <KiroConfigFooter />
-      <div className="flex shrink-0 flex-col gap-1 px-2 pb-4 pt-1.5">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button type="button" onClick={() => useDebugStore.getState().toggleOpen()}
-              className="flex w-full h-8 cursor-pointer items-center gap-2 overflow-hidden rounded-lg px-2 text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <IconBug className="size-4" aria-hidden />
-              <span className="text-[13px]">Debug</span>
-              {isMetaHeld && (
-                <kbd className="pointer-events-none ml-auto shrink-0 rounded-sm bg-muted px-1 font-mono text-[10px] font-medium text-muted-foreground select-none">⌘⇧D</kbd>
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top">Toggle debug panel</TooltipContent>
-        </Tooltip>
+      <div className="flex shrink-0 items-center gap-1 px-2 pb-2 pt-1.5">
         <Tooltip>
           <TooltipTrigger asChild>
             <button type="button" onClick={handleSettingsClick}
-              className="flex w-full h-8 cursor-pointer items-center gap-2 overflow-hidden rounded-lg px-2 text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              className="flex flex-1 h-8 cursor-pointer items-center gap-2 overflow-hidden rounded-lg px-2 text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <span className="relative">
                 <IconSettings className={isMemorySpike ? 'size-4 text-destructive' : 'size-4'} aria-hidden />
                 {isMemorySpike && (
@@ -150,6 +138,19 @@ export const SidebarFooter = memo(function SidebarFooter() {
                 : 'Open settings'}
           </TooltipContent>
         </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button type="button" onClick={() => useDebugStore.getState().toggleOpen()}
+              className="flex size-8 cursor-pointer items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Toggle debug panel">
+              <IconBug className="size-4" aria-hidden />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">Toggle debug panel</TooltipContent>
+        </Tooltip>
+        <div className="ml-auto">
+          <HeaderUserMenu />
+        </div>
       </div>
     </>
   )
