@@ -1,5 +1,12 @@
 # Activity Log
 
+## 2026-05-10 22:34 GST (Dubai)
+### Docs: Update screenshots and simplify README image layout
+
+Replaced both `screenshots/main.png` and `website/assets/main.png` with a cleaner new-thread screenshot. Removed the second image column from the README table so it shows only one hero image.
+
+**Modified:** `screenshots/main.png`, `website/assets/main.png`, `README.md`
+
 ## 2026-05-10 22:30 GST (Dubai)
 ### CI: Fix failing SidebarFooter test
 

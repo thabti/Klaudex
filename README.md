@@ -21,7 +21,6 @@
   <table>
     <tr>
       <td><img src="screenshots/main.png" alt="Kirodex main view" width="100%" /></td>
-      <td><img src="screenshots/chat-task-list-diff-panel.png" alt="Kirodex chat, task list, and diff panel" width="100%" /></td>
     </tr>
   </table>
 
