@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import {
   IconUser, IconSettings2, IconPaint, IconKeyboard, IconTool, IconArchive, IconActivity,
 } from '@tabler/icons-react'
@@ -78,15 +78,17 @@ interface SettingRowProps {
   className?: string
 }
 
-export const SettingRow = ({ label, description, children, className }: SettingRowProps) => (
-  <div className={cn('flex items-center justify-between gap-4 py-2.5', className)}>
-    <div className="min-w-0 flex-1">
-      <p className="text-[12.5px] font-medium text-foreground">{label}</p>
-      <p className="text-[11px] leading-relaxed text-muted-foreground">{description}</p>
+export const SettingRow = memo(function SettingRow({ label, description, children, className }: SettingRowProps) {
+  return (
+    <div className={cn('flex items-center justify-between gap-4 py-2.5', className)}>
+      <div className="min-w-0 flex-1">
+        <p className="text-[12.5px] font-medium text-foreground">{label}</p>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">{description}</p>
+      </div>
+      <div className="shrink-0">{children}</div>
     </div>
-    <div className="shrink-0">{children}</div>
-  </div>
-)
+  )
+})
 
 export const SectionLabel = ({ title }: { title: string }) => (
   <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</p>
@@ -106,14 +108,16 @@ export const SectionHeader = ({ section }: { section: Section }) => {
   )
 }
 
-export const SettingsCard = ({ children, className }: { children: React.ReactNode; className?: string }) => (
-  <div className={cn(
-    'rounded-xl border border-border/50 bg-card/70 px-4 py-2 shadow-sm',
-    className,
-  )}>
-    {children}
-  </div>
-)
+export const SettingsCard = memo(function SettingsCard({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn(
+      'rounded-xl border border-border/50 bg-card/70 px-4 py-2 shadow-sm',
+      className,
+    )}>
+      {children}
+    </div>
+  )
+})
 
 export const Divider = () => <div className="border-t border-border/40" />
 
