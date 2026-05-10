@@ -206,7 +206,7 @@ pub struct AppSettings {
     /// PostHog `distinct_id` — never tied to OS identity, email, or machine ID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub analytics_anon_id: Option<String>,
-    /// Theme mode: "dark", "light", "system", or "claude" (orange variant). Default: "dark".
+    /// Theme mode: "dark", "light", or "system". Default: "dark" (Claude orange-on-dark).
     #[serde(default = "default_theme")]
     pub theme: String,
     /// Most-recently-opened project workspaces, newest-first. Capped at
@@ -228,7 +228,7 @@ fn default_font_size() -> u32 {
     13
 }
 fn default_theme() -> String {
-    "claude".to_string()
+    "dark".to_string()
 }
 fn default_true() -> bool {
     true

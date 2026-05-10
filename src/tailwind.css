@@ -65,6 +65,9 @@
     animation-duration: 0s !important;
 }
 
+/* Light theme — white surfaces with Claude Code's signature terracotta
+   accent (#D97757). Hex values only: oklch() can fail in Tauri's WebKit
+   per the project learnings. */
 :root {
     color-scheme: light;
     --radius: 0.625rem;
@@ -74,19 +77,19 @@
     --card-foreground: #1a1a1a;
     --popover: #ffffff;
     --popover-foreground: #1a1a1a;
-    --primary: #3b82f6;
+    --primary: #D97757;
     --primary-foreground: #ffffff;
     --secondary: color-mix(in srgb, black 5%, transparent);
     --secondary-foreground: #1a1a1a;
     --muted: color-mix(in srgb, black 4%, transparent);
     --muted-foreground: #636363;
-    --accent: color-mix(in srgb, black 5%, transparent);
+    --accent: #B95F3D;
     --sidebar: #f7f7f8;
-    --accent-foreground: #1a1a1a;
+    --accent-foreground: #ffffff;
     --destructive: #ef4444;
     --border: #e5e5e5;
     --input: color-mix(in srgb, black 10%, transparent);
-    --ring: #3b82f6;
+    --ring: #D97757;
     --destructive-foreground: #b91c1c;
     --info: #3b82f6;
     --info-foreground: #1d4ed8;
@@ -98,44 +101,8 @@
     --pink-foreground: #ffffff;
 }
 
+/* Dark theme — Klaudex's default. Dark surfaces + Claude orange accents. */
 .dark {
-    color-scheme: dark;
-    --background: #0D0D0D;
-    --foreground: #f0f0f0;
-    --card: #141414;
-    --card-foreground: #f0f0f0;
-    --popover: #161616;
-    --popover-foreground: #f0f0f0;
-    --primary: #60a5fa;
-    --primary-foreground: #ffffff;
-    --secondary: color-mix(in srgb, white 6%, transparent);
-    --secondary-foreground: #f0f0f0;
-    --muted: color-mix(in srgb, white 6%, transparent);
-    --muted-foreground: #9a9a9a;
-    --accent: color-mix(in srgb, white 7%, transparent);
-    --sidebar: #111111;
-    --accent-foreground: #f0f0f0;
-    --destructive: #f87171;
-    --border: color-mix(in srgb, white 10%, transparent);
-    --input: color-mix(in srgb, white 12%, transparent);
-    --ring: #3b82f6;
-    --destructive-foreground: #fca5a5;
-    --info: #60a5fa;
-    --info-foreground: #93c5fd;
-    --success: #34d399;
-    --success-foreground: #6ee7b7;
-    --warning: #fbbf24;
-    --warning-foreground: #fcd34d;
-    --pink: #f472b6;
-    --pink-foreground: #ffffff;
-}
-
-/* Claude Orange — dark base + Claude Code's signature terracotta accent.
-   Inherits the .dark surface tokens (background / foreground / card /
-   popover / etc.) and overrides accent-and-action tokens to #D97757. Hex
-   values only: oklch() can fail in Tauri's WebKit (renders magenta) per
-   the project learnings. */
-.claude {
     color-scheme: dark;
     --background: #0D0D0D;
     --foreground: #f0f0f0;

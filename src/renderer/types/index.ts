@@ -137,7 +137,7 @@ export interface ProjectPrefs {
 }
 
 export type SidebarPosition = 'left' | 'right'
-export type ThemeMode = 'dark' | 'light' | 'system' | 'claude'
+export type ThemeMode = 'dark' | 'light' | 'system'
 
 export interface AppSettings {
   claudeBin: string

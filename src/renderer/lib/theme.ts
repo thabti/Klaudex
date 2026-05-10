@@ -2,21 +2,27 @@ import type { ThemeMode } from '@/types'
 
 const THEME_KEY = 'klaudex-theme'
 
-/** Resolve 'system' to the actual dark/light/claude value based on OS preference. */
-export const getResolvedTheme = (mode: ThemeMode): 'dark' | 'light' | 'claude' => {
+/** Resolve 'system' to the actual dark/light value based on OS preference. */
+export const getResolvedTheme = (mode: ThemeMode): 'dark' | 'light' => {
   if (mode === 'system') {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   }
   return mode
 }
 
-/** Read the persisted theme from localStorage (falls back to 'claude'). */
+/**
+ * Read the persisted theme from localStorage (falls back to 'dark', the
+ * default Claude orange-on-dark look). Migrates the legacy `'claude'` value
+ * (shipped briefly when the orange theme was a separate variant) to `'dark'`
+ * silently — both now produce the orange-on-dark surface.
+ */
 export const readPersistedTheme = (): ThemeMode => {
   try {
     const stored = localStorage.getItem(THEME_KEY)
-    if (stored === 'dark' || stored === 'light' || stored === 'system' || stored === 'claude') return stored
+    if (stored === 'dark' || stored === 'light' || stored === 'system') return stored
+    if (stored === 'claude') return 'dark'
   } catch { /* ignore */ }
-  return 'claude'
+  return 'dark'
 }
 
 /** Persist theme choice to localStorage for instant access before React boots. */
@@ -25,31 +31,24 @@ export const persistTheme = (mode: ThemeMode): void => {
 }
 
 /**
- * Apply the theme to the document. Sets the `dark` or `claude` class on
- * <html> (mutually exclusive — only one is active at a time), adjusts
- * color-scheme, and updates the body background for the splash screen.
- * Suppresses transitions briefly to avoid a flash.
+ * Apply the theme to the document. Sets the `dark` class on <html> when
+ * resolved theme is dark; otherwise the `:root` light styles apply. Adjusts
+ * the splash background and suppresses transitions briefly to avoid a flash.
  */
 export const applyTheme = (mode: ThemeMode): void => {
   const resolved = getResolvedTheme(mode)
   const root = document.documentElement
 
-  // Suppress transitions during theme switch
   root.classList.add('no-transitions')
-
-  // Reset both theme classes; re-add the active one. Mutually exclusive.
+  // Strip the legacy `claude` class if present from an older build.
   root.classList.remove('dark', 'claude')
   if (resolved === 'dark') {
     root.classList.add('dark')
-    document.body.style.backgroundColor = '#0a0a0a'
-  } else if (resolved === 'claude') {
-    root.classList.add('claude')
     document.body.style.backgroundColor = '#0a0a0a'
   } else {
     document.body.style.backgroundColor = '#ffffff'
   }
 
-  // Re-enable transitions after a frame
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       root.classList.remove('no-transitions')

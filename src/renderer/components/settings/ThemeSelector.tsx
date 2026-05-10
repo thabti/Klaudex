@@ -8,7 +8,7 @@ import type { ThemeMode } from '@/types'
  * miniature mockup always renders correctly regardless of the
  * currently active theme.
  */
-const THEME_COLORS: Record<'dark' | 'light' | 'claude', {
+const THEME_COLORS: Record<'dark' | 'light', {
   bg: string
   sidebar: string
   card: string
@@ -23,8 +23,8 @@ const THEME_COLORS: Record<'dark' | 'light' | 'claude', {
     card: '#141414',
     fg: '#f0f0f0',
     fgMuted: '#555555',
-    border: 'rgba(255,255,255,0.10)',
-    primary: '#6366f1',
+    border: '#3a2a25',
+    primary: '#D97757',
   },
   light: {
     bg: '#ffffff',
@@ -33,15 +33,6 @@ const THEME_COLORS: Record<'dark' | 'light' | 'claude', {
     fg: '#1a1a1a',
     fgMuted: '#c0c0c0',
     border: '#e5e5e5',
-    primary: '#6366f1',
-  },
-  claude: {
-    bg: '#0D0D0D',
-    sidebar: '#111111',
-    card: '#141414',
-    fg: '#f0f0f0',
-    fgMuted: '#555555',
-    border: '#3a2a25',
     primary: '#D97757',
   },
 }
@@ -55,7 +46,6 @@ const THEMES: ThemeOption[] = [
   { mode: 'light', label: 'Light' },
   { mode: 'dark', label: 'Dark' },
   { mode: 'system', label: 'System' },
-  { mode: 'claude', label: 'Claude' },
 ]
 
 /** Miniature UI mockup rendered with hardcoded colors. */
