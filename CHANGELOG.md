@@ -1,5 +1,37 @@
 # Changelog
 
+## [v0.43.0] - 2026-05-10
+
+### Features
+
+- add KiroGhostIcon component ([`6ad4ba6`](https://github.com/thabti/kirodex/commit/6ad4ba6293601bfc2f10da4993cec38c2ae3d2f6))
+
+### Bug fixes
+
+- fix clipped unmodified lines separator ([`b51e6b4`](https://github.com/thabti/kirodex/commit/b51e6b4ff01108e993c37e36b6adc57b3e7714e8))
+
+### Styling
+
+- restyle nav sidebar ([`209b122`](https://github.com/thabti/kirodex/commit/209b122381decd9307ea03c761c712bb1da0e9db))
+- restyle toolbar as connected button group ([`cde5ee2`](https://github.com/thabti/kirodex/commit/cde5ee21cc063f4c58c647f5d1c6d8de4b10bcaa))
+- darken border and sidebar colors ([`464e553`](https://github.com/thabti/kirodex/commit/464e5532c92b245fe7c387c415d91c0cdccf0a61))
+
+### Refactoring
+
+- add memo, useCallback, and tooltips to all sections ([`308276e`](https://github.com/thabti/kirodex/commit/308276e48eec7f8431835138d5978a4e15d1f64b))
+- make sidebar full height, move header into content column ([`8876435`](https://github.com/thabti/kirodex/commit/88764354bae83bfae555ff0bef3092a6c7129437))
+- remove chevron from ProjectItem ([`5c51d88`](https://github.com/thabti/kirodex/commit/5c51d880706addf88114bae75d54b11af2356abf))
+- restyle footer with inline buttons and user menu ([`03909be`](https://github.com/thabti/kirodex/commit/03909be0f82cf6b4e96394199ac0707719e6e16f))
+
+### Performance
+
+- wrap SettingRow and SettingsCard in memo ([`6cb5c85`](https://github.com/thabti/kirodex/commit/6cb5c85fdf5d449caa9430fd26f9e533f298d4b0))
+
+### Documentation
+
+- update activity log ([`83e9806`](https://github.com/thabti/kirodex/commit/83e9806477bec4451eab71aef05e17cf6f5e5776))
+- update activity log ([`16c52ed`](https://github.com/thabti/kirodex/commit/16c52ed8302437ec792e3024bbd10560acddb204))
+
 ## [v0.42.0] - 2026-05-10
 
 ### Bug fixes
