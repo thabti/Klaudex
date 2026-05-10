@@ -1,0 +1,430 @@
+{
+  "title": "Claude Code feature parity (permissions / orange theme / output styles / hooks / statusline / commands / memory)",
+  "branch": "feat/claude-code-features",
+  "mode": "HOLD",
+  "overview": "Bring Klaudex closer to Claude Code feature parity by layering a real permission model on top of the existing auto_approve flag, adding a 'Claude Orange' theme variant, surfacing output styles / hooks / statusline configs that Claude Code reads from ~/.claude/settings.json, and adding in-app browsers for slash commands and CLAUDE.md memory files. Reuses Klaudex's existing auto_approve plumbing, claude_config.rs parsers, theme infrastructure, and settings-panel sections; only builds what's net-new on top.",
+  "scopeChallenge": "User selected HOLD mode. Klaudex already has AppSettings.auto_approve + task_set_auto_approve cmd + AutoApproveToggle.tsx; gap is the UX layer (allowlist/denylist patterns, header YOLO toggle, settings section, Cmd+Shift+Y). Theme system already supports dark/light/system + ThemeSelector.tsx; adding 'claude' is a 3-file change. claude_config.rs already parses agents/skills/commands/steering/memory/MCP; output styles + hooks + statusline follow the same pattern. ClaudeCommand and ClaudeMemoryFile already parsed; only UI components missing. Ruled out: Klaudex executing hooks itself (handled by claude subprocess), subagent UI (already shipped), plan mode (already wired).",
+  "existingCodeLeverage": [
+    { "subProblem": "Auto-approve infra (per-task + global)", "existingCode": "src-tauri/src/commands/settings.rs (AppSettings.auto_approve), src-tauri/src/commands/acp/client.rs:131, src-tauri/src/commands/acp/commands.rs:286 (task_set_auto_approve)", "action": "reuse" },
+    { "subProblem": "Settings file persistence", "existingCode": "src-tauri/src/commands/settings.rs save_settings/get_settings via confy", "action": "reuse" },
+    { "subProblem": "Theme tokens", "existingCode": "src/tailwind.css :root and .dark blocks", "action": "extend" },
+    { "subProblem": "Theme selector UI", "existingCode": "src/renderer/components/settings/ThemeSelector.tsx (178 LOC)", "action": "extend" },
+    { "subProblem": "Theme persistence", "existingCode": "AppSettings.theme: String (default 'dark')", "action": "extend" },
+    { "subProblem": "Claude config parsing", "existingCode": "src-tauri/src/commands/claude_config.rs scan_agents / scan_skills / scan_commands / scan_steering_rules / scan_memory_files / parse_mcp_servers", "action": "extend" },
+    { "subProblem": "Slash commands data", "existingCode": "ClaudeCommand struct + scan_commands fn already populate claudeConfigStore", "action": "reuse" },
+    { "subProblem": "Memory files data", "existingCode": "ClaudeMemoryFile struct + scan_memory_files already populate claudeConfigStore", "action": "reuse" },
+    { "subProblem": "Settings panel section pattern", "existingCode": "src/renderer/components/settings/general-section.tsx, account-section.tsx, keymap-section.tsx + SettingsPanel.tsx mount logic", "action": "reuse" },
+    { "subProblem": "Sidebar row pattern", "existingCode": "src/renderer/components/sidebar/ClaudeSkillRow.tsx, ClaudeMcpRow.tsx, ClaudeSteeringRow.tsx", "action": "reuse" },
+    { "subProblem": "Keyboard shortcut hook", "existingCode": "src/renderer/hooks/useKeyboardShortcuts.ts", "action": "extend" },
+    { "subProblem": "Slash command dispatch", "existingCode": "src/renderer/hooks/useSlashAction.ts", "action": "extend" },
+    { "subProblem": "Watcher subscription", "existingCode": "claudeConfigStore watcher (wave 3) + ipc.onClaudeConfigChanged", "action": "reuse" }
+  ],
+  "failureModes": [
+    { "risk": "Pattern matcher mishandles glob edge cases (e.g., '**') resulting in over-permissive auto-approve", "affectedTasks": ["TASK-102", "TASK-105"], "mitigation": "TASK-117 table-driven tests cover glob + edge cases. Default to Deny on malformed pattern." },
+    { "risk": "User imports ~/.claude/settings.json with broad allow rules they didn't author themselves", "affectedTasks": ["TASK-116"], "mitigation": "Confirmation dialog shows per-rule preview before merge; merge is dedup not replace." },
+    { "risk": "Statusline shell command runs untrusted code from ~/.claude/settings.json", "affectedTasks": ["TASK-115"], "mitigation": "Sandbox: 2s timeout, 1KB stdout cap, PATH-only env. Klaudex doesn't add new attack surface vs Claude Code itself." },
+    { "risk": "Theme switch flickers / FOUC during page load", "affectedTasks": ["TASK-103"], "mitigation": "Apply .claude class to <html> in index.html AND in main.tsx before React renders, matching the existing dark-theme pattern documented in CLAUDE.md." },
+    { "risk": "Bypass mode + deny rule conflict confuses user about which wins", "affectedTasks": ["TASK-105", "TASK-107"], "mitigation": "Deny always wins (Claude Code semantics). Banner text reads 'Bypassing permissions (deny rules still enforced)' when there's a non-empty deny list." },
+    { "risk": "Legacy auto_approve: true + new permissions block both present after upgrade", "affectedTasks": ["TASK-101"], "mitigation": "Migration: explicit permissions block wins. Once user touches permissions UI, auto_approve is dropped on next save." },
+    { "risk": "Hooks UI suggests Klaudex executes hooks (it doesn't)", "affectedTasks": ["TASK-114"], "mitigation": "Explicit copy: 'Hooks are executed by the Claude CLI, not Klaudex.'" },
+    { "risk": "Statusline command depends on env vars not in PATH-only sandbox", "affectedTasks": ["TASK-115"], "mitigation": "Pipe context as JSON on stdin (cwd, model, task_id, message_count). Document the contract in code comment + statusline section copy." }
+  ],
+  "testCoverageMap": [
+    { "codepath": "Permissions struct serde round-trip + legacy migration", "coveringTask": "TASK-117", "testType": "unit" },
+    { "codepath": "match_permission matcher (all glob cases)", "coveringTask": "TASK-117", "testType": "unit" },
+    { "codepath": "ACP request_permission integration with matcher", "coveringTask": "TASK-117", "testType": "integration" },
+    { "codepath": "Permissions section UI: mode switch, add/remove rule", "coveringTask": "TASK-117", "testType": "unit" },
+    { "codepath": "scan_output_styles parser", "coveringTask": "TASK-118", "testType": "unit" },
+    { "codepath": "scan_hooks parser", "coveringTask": "TASK-118", "testType": "unit" },
+    { "codepath": "read_statusline parser", "coveringTask": "TASK-118", "testType": "unit" },
+    { "codepath": "Statusline command exec sandbox (timeout, truncation, env)", "coveringTask": "TASK-115", "testType": "integration" }
+  ],
+  "tasks": [
+    {
+      "id": "TASK-101",
+      "title": "Permissions Rust type + AppSettings extension (with per-project migration)",
+      "description": "Add Permissions struct (mode: PermissionMode, allow: Vec<String>, deny: Vec<String>) to settings.rs. Add permissions field to AppSettings with #[serde(default)]. Add permissions: Option<Permissions> to ProjectPrefs (mirrors how auto_approve: Option<bool> is per-project today). Migration: legacy auto_approve: true → mode=Bypass; per-project Some(true) → Some({mode: Bypass}); None left as None so global wins.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Permissions struct + PermissionMode enum compile, both #[serde(rename_all = \"camelCase\")]",
+        "AppSettings.permissions defaults to { mode: Ask, allow: [], deny: [] } when missing",
+        "ProjectPrefs.permissions is Option<Permissions>; None means 'fall back to global'",
+        "Backward compat (global): existing settings file with auto_approve: true and no permissions block deserializes to mode: Bypass",
+        "Backward compat (per-project): projectPrefs[*].auto_approve: Some(true) migrates to projectPrefs[*].permissions = Some({ mode: Bypass }); Some(false) → Ask; None → None",
+        "Round-trip serialize → deserialize preserves all fields including per-project",
+        "bun run check:rust passes"
+      ],
+      "filesToModify": ["src-tauri/src/commands/settings.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-102",
+      "title": "Permission pattern matcher",
+      "description": "Create src-tauri/src/commands/permissions.rs with a pattern matcher: given tool name, args, and lists of allow + deny patterns, return Allow | Deny | NoMatch. Pattern grammar: Tool(arg-glob:*). Deny rules win over allow rules. Pure function, table-driven tests.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "match_permission(tool, args, allow, deny) returns Deny if any deny pattern matches even when an allow pattern also matches",
+        "Bash(npm test:*) matches both 'npm test' and 'npm test --watch'",
+        "Read(./src/**) does NOT match Read(./node_modules/foo.ts) (failure case)",
+        "Empty allow + empty deny + mode=ask returns NoMatch",
+        "Malformed pattern (e.g., 'Bash(') is logged and skipped, not panicked",
+        "Tests cover glob *, prefix match, exact match, deny-overrides-allow, malformed input"
+      ],
+      "filesToModify": ["src-tauri/src/commands/mod.rs"],
+      "filesToCreate": ["src-tauri/src/commands/permissions.rs"],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-103",
+      "title": "Claude Orange theme variant",
+      "description": "Add 'claude' as a 4th theme option. Modify src/tailwind.css with a .claude CSS class block (color-scheme: dark + #D97757 accent tokens), src/renderer/components/settings/ThemeSelector.tsx with the new option, and src-tauri/src/commands/settings.rs doc comment.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Selecting 'Claude' applies .claude class to <html> and changes accent to orange immediately",
+        "dark/light/system themes continue to work unchanged",
+        "system theme matches OS dark preference but stays in orange variant when user explicitly picked 'claude'",
+        "Failure case: theme: 'invalid' falls back to dark without crashing",
+        "bun run check:ts and bun run check:rust pass"
+      ],
+      "filesToModify": [
+        "src/tailwind.css",
+        "src/renderer/components/settings/ThemeSelector.tsx",
+        "src-tauri/src/commands/settings.rs"
+      ],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-104",
+      "title": "Output style + hook + statusline Rust types",
+      "description": "Add ClaudeOutputStyle, ClaudeHook, StatuslineConfig structs to claude_config.rs. Extend ClaudeConfig with output_styles, hooks, statusline fields with #[serde(default)]. Just types; parsers come in TASK-108/109/110.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "All three structs derive Serialize, Deserialize, Clone, Debug with #[serde(rename_all = \"camelCase\")]",
+        "ClaudeConfig gains the three fields with #[serde(default)]",
+        "Existing get_claude_config callers don't break — empty arrays / None for new fields",
+        "bun run check:rust passes"
+      ],
+      "filesToModify": ["src-tauri/src/commands/claude_config.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-105",
+      "title": "Wire permission matcher into ACP request_permission flow",
+      "description": "Extend acp/client.rs around line 131 (where auto_approve is checked) to call match_permission from TASK-102. Apply rule: Deny always wins, Allow auto-approves, NoMatch + Bypass auto-approves, NoMatch + AllowListed/Ask falls through to user prompt.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-101", "TASK-102"],
+      "acceptanceCriteria": [
+        "Allow-listed Bash invocation auto-approves without prompt",
+        "Deny-listed Bash invocation auto-denies even when mode is Bypass (deny > bypass)",
+        "No-match in Ask mode prompts the user (existing behavior preserved)",
+        "Failure case: matcher panic falls back to user prompt (don't auto-anything dangerous)",
+        "No Send/!Send regression — matcher is sync + pure"
+      ],
+      "filesToModify": ["src-tauri/src/commands/acp/client.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-106",
+      "title": "Settings → Permissions UI section",
+      "description": "Create src/renderer/components/settings/permissions-section.tsx. Mode radio (Ask/AllowListed/Bypass), allow + deny pattern lists with add/remove, persistence via settingsStore. Mount in SettingsPanel.tsx as a new section.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-101"],
+      "acceptanceCriteria": [
+        "Selecting a mode persists and survives app restart",
+        "Adding/removing patterns updates state and persists immediately",
+        "Failure case: empty allow + empty deny + Bypass mode renders correctly with the same banner as the header",
+        "bun run check:ts passes"
+      ],
+      "filesToModify": ["src/renderer/components/settings/SettingsPanel.tsx"],
+      "filesToCreate": ["src/renderer/components/settings/permissions-section.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-107",
+      "title": "YOLO mode header toggle + safety banner + Cmd+Shift+Y shortcut + retire AutoApproveToggle",
+      "description": "Extend AppHeader.tsx with a permission-mode chip. Click cycles Ask → Listed → Bypass. Render red banner above chat panel when Bypass active. Add Cmd+Shift+Y to useKeyboardShortcuts.ts and /yolo slash command in useSlashAction.ts. Retire the legacy AutoApproveToggle.tsx: preferred path is to remove it + its mount points; fallback is to rebind it to read permissions.mode === 'bypass' (with per-project override). No widget should still write to legacy auto_approve boolean after this task.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-101"],
+      "acceptanceCriteria": [
+        "Mode chip reflects settings.permissions.mode (with per-project override) and updates on settings change",
+        "Click on chip cycles modes (3-way)",
+        "Cmd+Shift+Y toggles between Ask ↔ Bypass",
+        "/yolo slash command toggles same way",
+        "Red safety banner appears within one render of switching to Bypass",
+        "Legacy AutoApproveToggle is either removed OR rebound to permissions.mode; no widget writes to legacy auto_approve boolean after this task",
+        "Failure case: settings save fails → toast error, mode reverts to previous"
+      ],
+      "filesToModify": [
+        "src/renderer/components/AppHeader.tsx",
+        "src/renderer/hooks/useKeyboardShortcuts.ts",
+        "src/renderer/hooks/useSlashAction.ts",
+        "src/renderer/components/chat/AutoApproveToggle.tsx"
+      ],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-108",
+      "title": "scan_output_styles parser",
+      "description": "Add scan_output_styles(base, is_global) -> Vec<ClaudeOutputStyle> to claude_config.rs. Reads <base>/output-styles/*.md with YAML frontmatter via serde_yaml. Wire into get_claude_config.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-104"],
+      "acceptanceCriteria": [
+        "Returns empty Vec when <base>/output-styles/ doesn't exist",
+        "Parses frontmatter name field; falls back to filename when absent",
+        "Failure case: malformed YAML — log warning, skip file, don't fail whole scan",
+        "Two unit tests: happy path + missing dir"
+      ],
+      "filesToModify": ["src-tauri/src/commands/claude_config.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-109",
+      "title": "scan_hooks parser",
+      "description": "Add scan_hooks(base) -> Vec<ClaudeHook> to claude_config.rs. Reads <base>/settings.json hooks block per Claude Code's schema (event → array of {matcher, command}). Read-only — execution is the claude subprocess's job.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-104"],
+      "acceptanceCriteria": [
+        "Returns empty Vec when settings.json absent or has no hooks key",
+        "Parses canonical Claude Code hooks schema",
+        "Failure case: malformed JSON — log warning, return empty, don't fail",
+        "One test for happy path with all 4 events (PreToolUse / PostToolUse / SessionStart / Stop)"
+      ],
+      "filesToModify": ["src-tauri/src/commands/claude_config.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-110",
+      "title": "read_statusline parser",
+      "description": "Add read_statusline(base) -> Option<StatuslineConfig> to claude_config.rs. Reads <base>/settings.json statusLine block. Project scope wins over global.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-104"],
+      "acceptanceCriteria": [
+        "Returns None when settings.json absent or has no statusLine",
+        "Returns Some(StatuslineConfig) with correct fields when present",
+        "Failure case: type is not 'command' — log warning, return None",
+        "One test for happy path + one for missing config"
+      ],
+      "filesToModify": ["src-tauri/src/commands/claude_config.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-111",
+      "title": "Slash command browser sidebar row",
+      "description": "Create src/renderer/components/sidebar/ClaudeCommandRow.tsx modeled on ClaudeSkillRow.tsx. Renders one ClaudeCommand (existing struct exposes only { name, source, file_path } — no body field). Show name + relative file path; clicking lazy-reads file via ipc.readTextFile (already exists — verify) and shows body on demand. No struct change required. Mount in ClaudeConfigPanel.tsx between Skills and Steering.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P2",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Renders one row per command showing name + relative file path",
+        "Empty state placeholder when array is empty",
+        "Click expands; lazy-reads file via ipc.readTextFile and shows body. Second click collapses.",
+        "Failure case: file read fails (deleted/permission) → row shows inline 'Could not read file' instead of crashing",
+        "bun run check:ts passes"
+      ],
+      "filesToModify": ["src/renderer/components/sidebar/ClaudeConfigPanel.tsx"],
+      "filesToCreate": ["src/renderer/components/sidebar/ClaudeCommandRow.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-112",
+      "title": "CLAUDE.md memory file editor",
+      "description": "Create src/renderer/components/sidebar/MemoryFileEditor.tsx. Dialog with textarea bound to file body, Save button writes via ipc.writeTextFile (add wrapper if missing), Reload pulls latest from disk. Subscribes to onClaudeConfigChanged for hot-reload.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P2",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Editor opens with file body pre-loaded",
+        "Save persists to disk; reload pulls latest",
+        "External edit re-loads editor body within ~300ms via watcher",
+        "Failure case: write error — inline error message, body preserved",
+        "bun run check:ts passes"
+      ],
+      "filesToModify": ["src/renderer/lib/ipc.ts"],
+      "filesToCreate": ["src/renderer/components/sidebar/MemoryFileEditor.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-113",
+      "title": "Output style picker UI + subprocess flag wiring",
+      "description": "Create src/renderer/components/chat/OutputStylePicker.tsx (dropdown next to model picker). Lists claudeConfigStore.config.outputStyles. Persists selection to task.outputStyle. acp/commands.rs appends --output-style <name> on next subprocess invocation.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P2",
+      "dependsOn": ["TASK-108"],
+      "acceptanceCriteria": [
+        "Picker renders outputStyles; 'Default' is always first",
+        "Switching style on a task persists to the task record",
+        "Subsequent claude invocations include --output-style <name> flag",
+        "Failure case: invalid style name — claude rejects, Klaudex catches stderr and surfaces toast",
+        "bun run check:ts and bun run check:rust pass"
+      ],
+      "filesToModify": [
+        "src/renderer/components/chat/ChatToolbar.tsx",
+        "src-tauri/src/commands/acp/commands.rs",
+        "src-tauri/src/commands/acp/types.rs",
+        "src/renderer/stores/task-store-types.ts"
+      ],
+      "filesToCreate": ["src/renderer/components/chat/OutputStylePicker.tsx"],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-114",
+      "title": "Hooks viewer in Settings → Advanced",
+      "description": "Create src/renderer/components/settings/hooks-section.tsx. Read-only display of claudeConfigStore.config.hooks grouped by event. Note: 'Hooks are executed by the Claude CLI, not Klaudex.' Mount in SettingsPanel.tsx under Advanced.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P2",
+      "dependsOn": ["TASK-109"],
+      "acceptanceCriteria": [
+        "Renders hooks grouped by event name",
+        "Empty state when no hooks defined",
+        "Failure case: hook with empty command renders <empty> rather than crashing",
+        "bun run check:ts passes"
+      ],
+      "filesToModify": ["src/renderer/components/settings/SettingsPanel.tsx"],
+      "filesToCreate": ["src/renderer/components/settings/hooks-section.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-115",
+      "title": "Statusline renderer with sandboxed shell exec",
+      "description": "Create src/renderer/components/chat/Statusline.tsx mounted under ChatInput. Reads claudeConfigStore.config.statusline. New Tauri command run_statusline_command runs the shell command with 2s timeout, 1KB stdout cap, PATH-only env, JSON context on stdin (cwd, model, task_id, message_count).",
+      "type": "feature",
+      "effort": "L",
+      "priority": "P2",
+      "dependsOn": ["TASK-110"],
+      "acceptanceCriteria": [
+        "Statusline appears only when config.statusline is non-null",
+        "Re-renders on task state change without flicker",
+        "Failure case: command times out → '[statusline timeout]' placeholder, no crash",
+        "Failure case: > 1KB stdout → truncated with ellipsis",
+        "Failure case: non-zero exit → renders truncated stderr (80 chars)",
+        "Sandbox: PATH-only env, HOME and PWD explicitly set",
+        "Integration test (cargo, in src-tauri/src/commands/statusline.rs #[cfg(test)] mod tests): three cases — (a) fast happy-path 'echo hi' returns 'hi' within 100ms, (b) 'sleep 5' terminates and returns timeout placeholder at ~2s, (c) infinite stdout truncates at 1KB",
+        "bun run check:ts and bun run check:rust pass"
+      ],
+      "filesToModify": [
+        "src/renderer/components/chat/ChatPanel.tsx",
+        "src/renderer/lib/ipc.ts",
+        "src-tauri/src/lib.rs"
+      ],
+      "filesToCreate": [
+        "src/renderer/components/chat/Statusline.tsx",
+        "src-tauri/src/commands/statusline.rs"
+      ],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-116",
+      "title": "Import permissions from ~/.claude/settings.json",
+      "description": "Add 'Import from Claude Code settings' button to permissions-section.tsx. New Tauri command read_claude_settings_permissions reads file. Confirm dialog shows allow/deny counts before merging dedup-style.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P3",
+      "dependsOn": ["TASK-106"],
+      "acceptanceCriteria": [
+        "Button reads file, opens confirm dialog with rule counts",
+        "After confirm, dedup-merges into current settings",
+        "Failure case: file missing — button disabled with tooltip",
+        "Failure case: malformed JSON — toast error, no merge",
+        "bun run check:ts and bun run check:rust pass"
+      ],
+      "filesToModify": [
+        "src/renderer/components/settings/permissions-section.tsx",
+        "src-tauri/src/commands/settings.rs",
+        "src/renderer/lib/ipc.ts"
+      ],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-117",
+      "title": "Permission matcher + UI integration tests",
+      "description": "Vitest tests for permissions-section.tsx (mode switch, add/remove rule, banner state). Cargo tests for matcher edge cases (already in TASK-102 — verify).",
+      "type": "test",
+      "effort": "M",
+      "priority": "P2",
+      "dependsOn": ["TASK-102", "TASK-105", "TASK-106"],
+      "acceptanceCriteria": [
+        "At least 8 matcher test cases pass",
+        "At least 5 UI test cases pass",
+        "Failure case test: deny rule + allow rule both match → result is Deny",
+        "All tests pass under npx vitest run and cargo test"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/settings/permissions-section.test.tsx"],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-118",
+      "title": "Output style + hook + statusline parser tests",
+      "description": "Add #[cfg(test)] modules to claude_config.rs covering scan_output_styles, scan_hooks, read_statusline. Each: happy path, missing dir/file, malformed input. Use tempfile.",
+      "type": "test",
+      "effort": "S",
+      "priority": "P2",
+      "dependsOn": ["TASK-108", "TASK-109", "TASK-110"],
+      "acceptanceCriteria": [
+        "At least 2 tests per parser (happy + failure)",
+        "All tests pass under cargo test",
+        "Failure case: malformed JSON in settings.json — scan_hooks and read_statusline both return empty/None without panicking"
+      ],
+      "filesToModify": ["src-tauri/src/commands/claude_config.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    }
+  ],
+  "dependencies": {
+    "TASK-101": [],
+    "TASK-102": [],
+    "TASK-103": [],
+    "TASK-104": [],
+    "TASK-105": ["TASK-101", "TASK-102"],
+    "TASK-106": ["TASK-101"],
+    "TASK-107": ["TASK-101"],
+    "TASK-108": ["TASK-104"],
+    "TASK-109": ["TASK-104"],
+    "TASK-110": ["TASK-104"],
+    "TASK-111": [],
+    "TASK-112": [],
+    "TASK-113": ["TASK-108"],
+    "TASK-114": ["TASK-109"],
+    "TASK-115": ["TASK-110"],
+    "TASK-116": ["TASK-106"],
+    "TASK-117": ["TASK-102", "TASK-105", "TASK-106"],
+    "TASK-118": ["TASK-108", "TASK-109", "TASK-110"]
+  }
+}
