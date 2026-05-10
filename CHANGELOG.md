@@ -1,5 +1,68 @@
 # Changelog
 
+## [v0.40.6] - 2026-05-10
+
+### Features
+
+- remaining performance improvements and new features ([`d638abf`](https://github.com/thabti/kirodex/commit/d638abfaa9508d5cded66f1ebb00bd01876fd1f4))
+- performance improvements and new commands ([`c90011c`](https://github.com/thabti/kirodex/commit/c90011c0c1531bafaf362eb5608ca863a4ba005d))
+- file tree panel, MCP server management, drag-drop to chat ([`5a9fc6d`](https://github.com/thabti/kirodex/commit/5a9fc6de7f378ef6bfe807878f838324aed088dc))
+- condense changelog with collapsible older releases ([`14c24af`](https://github.com/thabti/kirodex/commit/14c24af04f43f17f3e629c62dbf899aa67ca3520))
+
+### Bug fixes
+
+- make commands module public and add generate_for_smoke ([`db3fee8`](https://github.com/thabti/kirodex/commit/db3fee8b5143d60d7f777d7589847fef2a02e67a))
+- prevent PTY cwd bypass via unset HOME on Windows ([`397d4f5`](https://github.com/thabti/kirodex/commit/397d4f56b401041126915f714ba50e9a5f2d8470))
+- use valid ToolCallStatus in chat-persistence test ([`39d5e7e`](https://github.com/thabti/kirodex/commit/39d5e7ecc450aaf0bfa039cb0a87944892bc999b))
+- path traversal, SSRF, AppleScript injection, and NSOpenPanel crash ([`4cf12cc`](https://github.com/thabti/kirodex/commit/4cf12cc093250d4c600ddee534c70a289ae65543))
+- robust JSON parsing for kiro-cli warnings and improve persistence ([`550471a`](https://github.com/thabti/kirodex/commit/550471a77a53659d2e5a7ee779ec300f06167361))
+- address code review issues ([`da0a737`](https://github.com/thabti/kirodex/commit/da0a7378c3a2e451df8c18d9cc1cfe91713466bc))
+- include changelog-data.js in website deployment ([`fe13453`](https://github.com/thabti/kirodex/commit/fe13453916ae04cbbc42745eee1ac57c7f9b6869))
+
+### Performance
+
+- extend backend commands and refactor chat/file tree UI ([`abc6c57`](https://github.com/thabti/kirodex/commit/abc6c57ebef27c9487ee02664f3115ddfe4be8cd))
+- lazy Shiki, inline tool calls, sticky task list, connection state ([`8353e2a`](https://github.com/thabti/kirodex/commit/8353e2abdb7a704623c4ccbff64534dfccb19c79))
+- connection health monitor with exponential backoff ([`4e99013`](https://github.com/thabti/kirodex/commit/4e9901356a56c2b3e906d411620e6c49b1175d4d))
+- normalized selectors, dual-stream sidebar pattern, oxlint ([`ab8dde3`](https://github.com/thabti/kirodex/commit/ab8dde3f98ceac15b0a066776d33692f69fb2e45))
+- stable timeline rows, logic/UI separation, structural equality, tool call collapsing ([`8ed9320`](https://github.com/thabti/kirodex/commit/8ed9320fa2e279a1d99973133cc823f73f453484))
+
+### Tests
+
+- comprehensive test coverage for performance modules ([`5b286e0`](https://github.com/thabti/kirodex/commit/5b286e0dc38247ef5dc4593916d35aab30668e22))
+
+### Chores
+
+- bump version to 0.40.5 ([`32c6107`](https://github.com/thabti/kirodex/commit/32c6107d6535fff01a77ef4306b76e19e84ec938))
+- update downloads.json ([`5b786a6`](https://github.com/thabti/kirodex/commit/5b786a65031a6e430ee42ceede8cd8707cb3e5f3))
+- update downloads.json ([`4ed85bc`](https://github.com/thabti/kirodex/commit/4ed85bc3e402c1b2742a28700694fc46f0d13914))
+- remove T3 Code/Zed attribution comments from codebase ([`0221ed3`](https://github.com/thabti/kirodex/commit/0221ed3ad2d3711ca6683fd601a084e950a98433))
+- update downloads.json ([`c42da60`](https://github.com/thabti/kirodex/commit/c42da60ad4bcc217162faa2d6cfa9b5713213e81))
+- update downloads.json ([`e3e401d`](https://github.com/thabti/kirodex/commit/e3e401d21ec3d9b1f1a33699ea6823011e0cd304))
+- update downloads.json ([`701640e`](https://github.com/thabti/kirodex/commit/701640e4db9f62839bfdc2feec6256e09517ecf4))
+- update downloads.json ([`b922722`](https://github.com/thabti/kirodex/commit/b92272264ff0ada8bf49d47ad4abb37489e24893))
+- update downloads.json ([`cd28caf`](https://github.com/thabti/kirodex/commit/cd28cafa974f37af33ee4f5d2ccf9e7825d34cdb))
+- update downloads.json ([`b208ac3`](https://github.com/thabti/kirodex/commit/b208ac3d82f1913146c3d190f6e618d671719ca4))
+- update downloads.json ([`4f59a0a`](https://github.com/thabti/kirodex/commit/4f59a0af8817f9be6e84dc3362777bf8ff42e2af))
+- update downloads.json ([`0851db3`](https://github.com/thabti/kirodex/commit/0851db338612f6c1154d2ded4a68373735eb4cf8))
+- update downloads.json ([`e7331f6`](https://github.com/thabti/kirodex/commit/e7331f6227a55b7b15adab04fe93e0fde5536a78))
+- update downloads.json ([`bde7485`](https://github.com/thabti/kirodex/commit/bde7485fe55e14391d6d1b2636f0f685b62671f3))
+- update downloads.json ([`db8899a`](https://github.com/thabti/kirodex/commit/db8899a425ed602c89aeb2416e20018d5a2ae13b))
+- update downloads.json ([`83a7ba7`](https://github.com/thabti/kirodex/commit/83a7ba7aaf8951ddc37ad895b05d78891f0a3692))
+- update downloads.json ([`1b744f5`](https://github.com/thabti/kirodex/commit/1b744f58d4f04ffb3bb6d810da3fca03599253fc))
+- update downloads.json ([`7a62955`](https://github.com/thabti/kirodex/commit/7a62955a7fdb270c05ee8c0b2e4a1881df2f2287))
+- update downloads.json ([`f71896d`](https://github.com/thabti/kirodex/commit/f71896d3480d70396a6ef77e5e06835ccf9e7d23))
+
+### Other changes
+
+- Merge branch 'Hitesh-Sisara/main' ([`4749e16`](https://github.com/thabti/kirodex/commit/4749e16d8e1f7347d02a68032ef8da13c1930a72))
+- Merge branch 'main' into Hitesh-Sisara/main ([`7884386`](https://github.com/thabti/kirodex/commit/78843861a7fbc7fe8860cd4aa52eb2cdd258fe81))
+- merge: bring remaining performance-improvement changes into main ([`3098364`](https://github.com/thabti/kirodex/commit/309836463836f364a59c597dda4ebe9ae4393c39))
+- Merge pull request #3 from Hitesh-Sisara/performance-improvement ([`eea9c6f`](https://github.com/thabti/kirodex/commit/eea9c6f034f8e6ff5801888903ddd77eae5324f7))
+- Merge pull request #2 from Hitesh-Sisara/performance-improvement ([`09de7e4`](https://github.com/thabti/kirodex/commit/09de7e4eb4c112faaefc08d11bd1046241f8d0f6))
+- Merge branch 'thabti:main' into main ([`a3ecaa7`](https://github.com/thabti/kirodex/commit/a3ecaa7f1cc245e96153618d1d2d99e35aec4673))
+- Merge pull request #1 from Hitesh-Sisara/file-tree ([`5b5b844`](https://github.com/thabti/kirodex/commit/5b5b8447e511660609d4e981385d6bbd00cfaa94))
+
 ## Unreleased
 
 ### Features
