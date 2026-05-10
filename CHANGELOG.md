@@ -9,6 +9,7 @@
 ### Bug fixes
 
 - fix clipped unmodified lines separator ([`b51e6b4`](https://github.com/thabti/kirodex/commit/b51e6b4ff01108e993c37e36b6adc57b3e7714e8))
+- update SidebarFooter test for icon-only Debug button ([`51b5dd2`](https://github.com/thabti/kirodex/commit/51b5dd2))
 
 ### Styling
 
@@ -29,6 +30,8 @@
 
 ### Documentation
 
+- update screenshots and simplify README to single image ([`a816cd1`](https://github.com/thabti/kirodex/commit/a816cd1))
+- update main screenshot with new splash screen ([`9439f20`](https://github.com/thabti/kirodex/commit/9439f20))
 - update activity log ([`83e9806`](https://github.com/thabti/kirodex/commit/83e9806477bec4451eab71aef05e17cf6f5e5776))
 - update activity log ([`16c52ed`](https://github.com/thabti/kirodex/commit/16c52ed8302437ec792e3024bbd10560acddb204))
 

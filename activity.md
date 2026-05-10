@@ -1,5 +1,19 @@
 # Activity Log
 
+## 2026-05-10 22:36 GST (Dubai)
+### Docs: Update website changelog with v0.41–v0.43
+
+Added v0.41.0, v0.42.0, and v0.43.0 entries to `website/changelog-data.js`. Also expanded the v0.40.x entry with previously missing features (file tree, MCP server management, performance improvements) and security fixes.
+
+**Modified:** `CHANGELOG.md`, `website/changelog-data.js`
+
+## 2026-05-10 22:35 GST (Dubai)
+### Docs: Update changelog with post-release commits
+
+Added the three post-v0.43.0 commits (screenshot updates, SidebarFooter test fix) to the v0.43.0 changelog entry under their respective sections.
+
+**Modified:** `CHANGELOG.md`
+
 ## 2026-05-10 22:34 GST (Dubai)
 ### Docs: Update screenshots and simplify README image layout
 
