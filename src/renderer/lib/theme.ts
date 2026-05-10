@@ -10,13 +10,13 @@ export const getResolvedTheme = (mode: ThemeMode): 'dark' | 'light' | 'claude' =
   return mode
 }
 
-/** Read the persisted theme from localStorage (falls back to 'dark'). */
+/** Read the persisted theme from localStorage (falls back to 'claude'). */
 export const readPersistedTheme = (): ThemeMode => {
   try {
     const stored = localStorage.getItem(THEME_KEY)
     if (stored === 'dark' || stored === 'light' || stored === 'system' || stored === 'claude') return stored
   } catch { /* ignore */ }
-  return 'dark'
+  return 'claude'
 }
 
 /** Persist theme choice to localStorage for instant access before React boots. */

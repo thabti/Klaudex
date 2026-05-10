@@ -10,7 +10,7 @@
         <script>
             // Apply theme before first paint to prevent flash
             (function(){
-                var t='dark';try{t=localStorage.getItem('klaudex-theme')||'dark'}catch(e){}
+                var t='claude';try{t=localStorage.getItem('klaudex-theme')||'claude'}catch(e){}
                 if(t==='system'){t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}
                 var r=document.documentElement;
                 r.classList.remove('dark','claude');

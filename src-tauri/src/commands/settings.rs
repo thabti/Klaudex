@@ -228,7 +228,7 @@ fn default_font_size() -> u32 {
     13
 }
 fn default_theme() -> String {
-    "dark".to_string()
+    "claude".to_string()
 }
 fn default_true() -> bool {
     true
