@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.42.0] - 2026-05-10
+
+### Bug fixes
+
+- hide archived banner when message is initiated ([`d634861`](https://github.com/thabti/kirodex/commit/d63486133d444705a77ddb652bf1148366a25c54))
+
 ## [v0.41.0] - 2026-05-10
 
 ### Bug fixes
