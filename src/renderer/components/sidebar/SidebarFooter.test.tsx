@@ -120,8 +120,8 @@ describe('SidebarFooter update indicator', () => {
     expect(screen.getByText('Settings')).toBeInTheDocument()
   })
 
-  it('renders Debug button text', () => {
+  it('renders Debug button', () => {
     render(wrap(<SidebarFooter />))
-    expect(screen.getByText('Debug')).toBeInTheDocument()
+    expect(screen.getByLabelText('Toggle debug panel')).toBeInTheDocument()
   })
 })

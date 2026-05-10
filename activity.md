@@ -1,5 +1,19 @@
 # Activity Log
 
+## 2026-05-10 22:30 GST (Dubai)
+### CI: Fix failing SidebarFooter test
+
+The Debug button was changed to an icon-only button with `aria-label="Toggle debug panel"` but the test still expected `screen.getByText('Debug')`. Updated the test to use `getByLabelText('Toggle debug panel')` instead. All 1286 tests pass.
+
+**Modified:** `src/renderer/components/sidebar/SidebarFooter.test.tsx`
+
+## 2026-05-10 22:26 GST (Dubai)
+### Assets: Update README and website main screenshot
+
+Replaced `screenshots/main.png` and `website/assets/main.png` with the new Kirodex empty-thread splash screen screenshot. Both the README and website `index.html` already reference these paths, so no markup changes were needed.
+
+**Modified:** `screenshots/main.png`, `website/assets/main.png`
+
 ## 2026-05-10 21:45 GST (Dubai)
 ### Settings: Apply sidebar look and feel to settings nav
 
