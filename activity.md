@@ -1,5 +1,12 @@
 # Activity Log
 
+## 2026-05-10 22:39 GST (Dubai)
+### Docs: Update main screenshot
+
+Saved new screenshot (3824×2354, 863KB) showing the new thread splash with slash commands, mentions, and "Use worktree" checkbox to both `screenshots/main.png` and `website/assets/main.png`.
+
+**Modified:** `screenshots/main.png`, `website/assets/main.png`
+
 ## 2026-05-10 22:36 GST (Dubai)
 ### Docs: Update website changelog with v0.41–v0.43
 
