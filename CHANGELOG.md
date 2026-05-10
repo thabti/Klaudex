@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.41.0] - 2026-05-10
+
+### Bug fixes
+
+- improve chat UX and fix git diff output ([`ef16bdf`](https://github.com/thabti/kirodex/commit/ef16bdffe0f8a4dba14d4476c9313cce6b630db6))
+
 ## [v0.40.6] - 2026-05-10
 
 ### Features
