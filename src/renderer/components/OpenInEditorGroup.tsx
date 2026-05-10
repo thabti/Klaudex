@@ -142,8 +142,7 @@ export function OpenInEditorGroup({ workspace }: { workspace: string }) {
         <TooltipTrigger asChild>
           <button type="button" onClick={() => open(primary.bin)}
             className={cn(
-              'inline-flex h-6 items-center gap-1 border border-input bg-popover px-1.5 text-xs text-muted-foreground shadow-xs/5 transition-colors hover:bg-accent/50 hover:text-foreground dark:bg-input/32',
-              rest.length > 0 ? 'rounded-l-md' : 'rounded-md',
+              'inline-flex size-7 items-center justify-center text-xs text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground',
             )}>
             {primary.icon}
           </button>
@@ -152,9 +151,9 @@ export function OpenInEditorGroup({ workspace }: { workspace: string }) {
       </Tooltip>
       {rest.length > 0 && (
         <>
-          <div className="pointer-events-none relative z-[2] w-px bg-input dark:bg-input/32" />
+          <div className="pointer-events-none relative z-[2] w-px bg-border" />
           <button type="button" aria-label="More editors" onClick={() => setMenuOpen((v) => !v)}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-r-md border border-input bg-popover text-foreground shadow-xs/5 transition-colors hover:bg-accent/50 dark:bg-input/32">
+            className="inline-flex size-7 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground">
             <IconChevronDown className="size-3.5" aria-hidden />
           </button>
         </>

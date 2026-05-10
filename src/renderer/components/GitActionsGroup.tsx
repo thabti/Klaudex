@@ -132,7 +132,7 @@ export function GitActionsGroup({ workspace }: { workspace: string }) {
         <TooltipTrigger asChild>
           <button type="button" aria-label="Git options" data-testid="git-options-button"
             onClick={() => { setMenuOpen((v) => !v) }}
-            className="inline-flex h-6 w-5 items-center justify-center rounded-r-md border border-l-0 border-input bg-popover text-muted-foreground shadow-xs/5 transition-colors hover:bg-accent/50 hover:text-foreground dark:bg-input/32">
+            className="inline-flex h-7 w-6 items-center justify-center rounded-r-lg text-emerald-400 transition-colors hover:bg-emerald-500/10">
             <IconChevronDown className={cn('size-3 transition-transform', menuOpen && 'rotate-180')} aria-hidden />
           </button>
         </TooltipTrigger>
