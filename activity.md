@@ -1,5 +1,73 @@
 # Activity Log
 
+## 2026-05-10 21:38 GST (Dubai)
+### HeaderBreadcrumb: Remove first separator slash
+Removed the leading `/` separator before the project name in the breadcrumb nav so it no longer shows a slash as the first visible element.
+
+**Modified:** `src/renderer/components/header-breadcrumb.tsx`
+
+## 2026-05-10 21:37 GST (Dubai)
+### SidebarFooter: Move debug button to the right of settings
+Swapped the order of the debug and settings buttons in the sidebar footer so debug now appears after (to the right of) settings.
+
+**Modified:** `src/renderer/components/sidebar/SidebarFooter.tsx`
+
+## 2026-05-10 21:34 GST (Dubai)
+### DiffPanel: Fix clipped "unmodified lines" separator text
+The `@pierre/diffs` library's separator element (showing "N unmodified lines" between hunks) was being clipped on the left due to `overflow: clip` on `[data-separator-content]`. Added `overflow: visible !important` overrides for `[data-separator-content]` and `[data-unmodified-lines]` in both `DiffPanel.tsx` and `diff-viewer-utils.ts` UNSAFE_CSS.
+
+**Modified:** `src/renderer/components/diff/DiffPanel.tsx`, `src/renderer/components/code/diff-viewer-utils.ts`
+
+## 2026-05-10 21:22 GST (Dubai)
+### KiroConfigPanel: Replace chevron with Kiro ghost icon
+Replaced the `IconChevronRight` expand/collapse indicator in the Kiro side panel header with a custom `KiroGhostIcon` SVG component. The ghost uses `currentColor` for the body and black for the eyes, matching the provided SVG.
+
+**Modified:**
+- `src/renderer/components/icons/KiroGhostIcon.tsx` (new)
+- `src/renderer/components/sidebar/KiroConfigPanel.tsx`
+
+## 2026-05-10 21:20 GST (Dubai)
+### Layout: Make sidebar full height, bleeding into the top
+Restructured the app layout so the sidebar sits at the top level of the flex container, spanning the full window height. The header and content are now in a nested column to the right. Sidebar has `pt-9` for traffic light clearance. Header no longer needs `pl-[74px]`.
+
+**Modified:** src/renderer/App.tsx, src/renderer/components/sidebar/TaskSidebar.tsx, src/renderer/components/AppHeader.tsx
+
+## 2026-05-10 21:16 GST (Dubai)
+### HeaderToolbar: Polish toolbar with subtle dividers, muted background, and ring borders
+Replaced the hard border with a soft `ring-1 ring-white/[0.04]` and `bg-muted/40` background on the button group. Added thin vertical dividers between each button. Unified active states to `bg-white/[0.08]`. Git section uses `rounded-lg` with ring styling. All buttons now `size-7` for consistent height.
+
+**Modified:** src/renderer/components/header-toolbar.tsx, src/renderer/components/GitActionsGroup.tsx
+
+## 2026-05-10 21:11 GST (Dubai)
+### HeaderToolbar: Join toolbar buttons into a connected strip
+Removed individual borders and border-radius from toolbar icon buttons (editor, terminal, file tree, split). They now sit inside a single rounded container with a shared border, forming a connected button group with no gaps.
+
+**Modified:** src/renderer/components/header-toolbar.tsx, src/renderer/components/OpenInEditorGroup.tsx
+
+## 2026-05-10 21:08 GST (Dubai)
+### Theme: Darken border color to near-invisible
+Reduced the dark mode `--border` from 10% white to 4% white so sidebar and panel borders blend into the background.
+
+**Modified:** src/tailwind.css
+
+## 2026-05-10 21:05 GST (Dubai)
+### SidebarFooter: Move user menu from header to sidebar footer
+Moved the `HeaderUserMenu` (user avatar/auth button) from the top header bar to the sidebar footer row, positioned on the far right next to the debug and settings buttons.
+
+**Modified:** src/renderer/components/AppHeader.tsx, src/renderer/components/sidebar/SidebarFooter.tsx
+
+## 2026-05-10 21:01 GST (Dubai)
+### HeaderToolbar: Move git section to far right with emerald accent
+Moved the git diff/actions group to the rightmost position in the header toolbar. Added a subtle emerald accent border and background to the git section, matching the green accent style from the reference. Reordered toolbar items: editor → terminal → file tree → split → git.
+
+**Modified:** src/renderer/components/header-toolbar.tsx, src/renderer/components/GitActionsGroup.tsx
+
+## 2026-05-10 20:56 GST (Dubai)
+### SidebarFooter: Inline debug and settings buttons, remove debug text
+Made the debug and settings buttons render side by side in a single row. Removed the "Debug" text label from the debug button so it's icon-only with a tooltip. Settings button retains its label.
+
+**Modified:** src/renderer/components/sidebar/SidebarFooter.tsx
+
 ## 2026-05-10 19:53 GST (Dubai)
 ### ChatPanel: Hide archived banner when message is initiated
 The blue zigzag "Resumed from history" divider now hides as soon as the user sends a message (task enters running state), rather than persisting until the backend confirms the new connection.
