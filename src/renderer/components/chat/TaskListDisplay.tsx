@@ -106,12 +106,11 @@ interface TaskListDisplayProps {
   compact?: boolean
 }
 
-/** Approximate row height used to size the scroll cap to ~3 visible tasks. */
-const COMPACT_VISIBLE_ROWS = 3
-const ROW_PX = 28 // matches py-1 + leading-[1.6] for a single-line task
+/** Max height for the compact task list body (fits content up to this cap). */
+const COMPACT_MAX_HEIGHT_PX = 600
 
 export const TaskListDisplay = memo(function TaskListDisplay({ allToolCalls, compact = false }: TaskListDisplayProps) {
-  const [expanded, setExpanded] = useState(!compact)
+  const [expanded, setExpanded] = useState(false)
 
   const { tasks, description } = useMemo(() => aggregateLatestTasks(allToolCalls), [allToolCalls])
 
@@ -133,7 +132,6 @@ export const TaskListDisplay = memo(function TaskListDisplay({ allToolCalls, com
   if (!tasks.length) return null
 
   const completed = tasks.filter((t) => t.completed).length
-  const maxBodyPx = COMPACT_VISIBLE_ROWS * ROW_PX + 16 // + py-2 padding
 
   return (
     <div className="rounded-lg border border-border/60 bg-card/60">
@@ -159,7 +157,7 @@ export const TaskListDisplay = memo(function TaskListDisplay({ allToolCalls, com
         <div
           ref={scrollRef}
           className="overflow-y-auto border-t border-border/50 px-3 py-2"
-          style={compact ? { maxHeight: `${maxBodyPx}px` } : undefined}
+          style={compact ? { maxHeight: `${COMPACT_MAX_HEIGHT_PX}px` } : undefined}
         >
           {tasks.map((task, idx) => (
             <div

@@ -27,7 +27,7 @@ function formatElapsed(startMs: number, nowMs: number): string {
   if (diffSec < 60) return `${diffSec}s`
   const min = Math.floor(diffSec / 60)
   const sec = diffSec % 60
-  return sec > 0 ? `${min}m ${sec}s` : `${min}m`
+  return sec > 0 ? `${min}m ${String(sec).padStart(2, '0')}s` : `${min}m`
 }
 
 /** Renders a formatted elapsed string, driven by the parent's tick. */
@@ -88,7 +88,7 @@ export const WorkingRow = memo(function WorkingRow({ row }: { row: WorkingRowDat
   if (isStuck) {
     return (
       <div className="py-2 select-none" data-timeline-row-kind="working">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <span className="inline-flex shrink-0 items-center gap-[3px]">
             <span className="h-1 w-1 rounded-full bg-amber-500/60" />
             <span className="h-1 w-1 rounded-full bg-amber-500/60 [animation-delay:200ms]" />
@@ -97,7 +97,8 @@ export const WorkingRow = memo(function WorkingRow({ row }: { row: WorkingRowDat
           <span className="shrink-0 whitespace-nowrap text-[12px] font-medium text-amber-600 dark:text-amber-400">
             Looks stuck&hellip;
           </span>
-          <span className="shrink-0 whitespace-nowrap text-[11px] text-muted-foreground/50">
+          <span className="shrink-0 text-[11px] text-muted-foreground/30" aria-hidden="true">·</span>
+          <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground/50">
             {formatElapsed(startMsRef.current, nowMs)}
           </span>
           {resolvedTaskId && (
@@ -135,7 +136,7 @@ export const WorkingRow = memo(function WorkingRow({ row }: { row: WorkingRowDat
   // ── Normal cycling spinner ──
   return (
     <div className="py-2 select-none" data-timeline-row-kind="working">
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2">
         <span className="inline-flex shrink-0 items-center gap-[3px]">
           <span className={`h-1 w-1 rounded-full animate-pulse ${isPlan ? 'bg-teal-500/60' : 'bg-blue-500/60'}`} />
           <span className={`h-1 w-1 rounded-full animate-pulse [animation-delay:200ms] ${isPlan ? 'bg-teal-500/60' : 'bg-blue-500/60'}`} />
@@ -147,7 +148,8 @@ export const WorkingRow = memo(function WorkingRow({ row }: { row: WorkingRowDat
         >
           {LOADING_WORDS[idx]}&hellip;
         </span>
-        <span className="shrink-0 whitespace-nowrap text-[11px] text-muted-foreground/50">
+        <span className="shrink-0 text-[11px] text-muted-foreground/30" aria-hidden="true">·</span>
+        <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground/50">
           <ElapsedTimer startMs={startMsRef.current} nowMs={nowMs} />
         </span>
       </div>

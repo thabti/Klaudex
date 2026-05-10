@@ -1,5 +1,35 @@
 # Activity Log
 
+## 2026-05-10 19:43 GST (Dubai)
+### TaskListDisplay: Default to collapsed
+Changed the task list to start collapsed by default. Users click the header to expand.
+
+**Modified:** `src/renderer/components/chat/TaskListDisplay.tsx`
+
+## 2026-05-10 19:41 GST (Dubai)
+### WorkingRow: Improve elapsed time alignment and readability
+Added a middle-dot separator between the loading word and elapsed time, switched to `tabular-nums` so digits don't shift width on each tick, zero-padded seconds (e.g., "1m 03s"), and tightened gap from `gap-2.5` to `gap-2` for better visual cohesion across all three states (normal, streaming, stuck).
+
+**Modified:** `src/renderer/components/chat/WorkingRow.tsx`
+
+## 2026-05-10 19:37 GST (Dubai)
+### Git: Fix diff viewer showing only "unmodified lines" instead of actual changes
+The `task_diff`, `git_diff`, and `git_commit_diff` functions were only outputting lines with `+`, `-`, or ` ` origins, skipping file headers (`F`), hunk headers (`H`), and metadata lines. Without these headers, `@pierre/diffs` couldn't parse the diff into proper file/hunk structures. Applied the same match pattern already used in `git_diff_file`.
+
+**Modified:** `src-tauri/src/commands/git.rs`, `src-tauri/src/commands/git_history.rs`
+
+## 2026-05-10 19:34 GST (Dubai)
+### TaskListDisplay: Expand compact max-height from 100px to 600px
+Changed the sticky task list's compact scroll cap from ~100px (3 rows) to 600px so the full task list is visible without excessive scrolling. The list still scrolls if content exceeds 600px.
+
+**Modified:** `src/renderer/components/chat/TaskListDisplay.tsx`
+
+## 2026-05-10 19:32 GST (Dubai)
+### Chat UI: Hide thread/session ID caption, add copy to context menu
+Removed the `ThreadIdCaption` strip from the chat panel. Added "Copy Thread ID" and "Copy Session ID" options to the thread right-click context menu in the sidebar so users can still access the IDs when needed.
+
+**Modified:** `src/renderer/components/chat/ChatPanel.tsx`, `src/renderer/components/sidebar/ThreadItem.tsx`
+
 ## 2026-05-10 02:12 GST (Dubai)
 ### Security: Fix findings S1-S4 from PR review
 Fixed four security findings: (S1) Added `validate_path_containment()` to all project_watcher.rs file operations — canonicalizes paths and verifies they stay within the workspace root, preventing `../` traversal. (S2) Replaced AppleScript string interpolation in `open_terminal_at` with the env-var pattern (`KIRODEX_CD_PATH` + `system attribute`). (S3) Added URL validation to `HttpTransport::new()` — rejects non-HTTP(S) schemes, restricts plain HTTP to localhost, blocks private/link-local IPs and cloud metadata endpoints. (S4) Added dirty-check guard to `checkpoint_revert` — refuses hard reset if uncommitted changes exist unless `force=true`.

@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useEffect, useCallback } from 'react'
-import { IconPencil, IconTrash, IconHistory, IconGitBranch, IconLayoutColumns, IconArrowsSplit, IconPin, IconPinnedOff, IconArrowUp, IconArrowDown } from '@tabler/icons-react'
+import { IconPencil, IconTrash, IconHistory, IconGitBranch, IconLayoutColumns, IconArrowsSplit, IconPin, IconPinnedOff, IconArrowUp, IconArrowDown, IconCopy } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTaskStore } from '@/stores/taskStore'
 import { SplitThreadPicker } from '@/components/chat/SplitThreadPicker'
@@ -123,6 +123,17 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
     } else {
       state.pinThread(task.id)
     }
+  }, [task.id])
+
+  const handleCopyThreadId = useCallback(() => {
+    void navigator.clipboard.writeText(task.id)
+    setCtxMenu(null)
+  }, [task.id])
+
+  const handleCopySessionId = useCallback(() => {
+    const sessionId = useTaskStore.getState().sessionIds[task.id]
+    if (sessionId) void navigator.clipboard.writeText(sessionId)
+    setCtxMenu(null)
   }, [task.id])
 
   return (
@@ -271,6 +282,21 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
                   >
                     {isPinned ? <IconPinnedOff className="size-3.5" /> : <IconPin className="size-3.5" />}
                     {isPinned ? 'Unpin' : 'Pin thread'}
+                  </button>
+                  <div className="my-1 border-t border-border/50" />
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                    onClick={handleCopyThreadId}
+                  >
+                    <IconCopy className="size-3.5" /> Copy Thread ID
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                    onClick={handleCopySessionId}
+                  >
+                    <IconCopy className="size-3.5" /> Copy Session ID
                   </button>
                   <div className="my-1 border-t border-border/50" />
                   {isInSplit ? (
