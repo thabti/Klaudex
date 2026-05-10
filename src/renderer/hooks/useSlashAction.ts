@@ -1,8 +1,63 @@
 import { useCallback, useState } from 'react'
+import { toast } from 'sonner'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { ipc } from '@/lib/ipc'
 import { track } from '@/lib/analytics'
+import type { AppSettings } from '@/types'
+
+// ── TASK-107: /yolo permission-mode toggle ─────────────────
+// Local mirror of the Rust enum until shared types declare it.
+type PermissionMode = 'ask' | 'allowListed' | 'bypass'
+interface Permissions {
+  mode: PermissionMode
+  allow: string[]
+  deny: string[]
+}
+type SettingsWithPermissions = AppSettings & { permissions?: Permissions }
+type ProjectPrefsWithPermissions = { permissions?: Permissions } & Record<string, unknown>
+
+const DEFAULT_PERMISSIONS: Permissions = { mode: 'ask', allow: [], deny: [] }
+
+const toggleYoloMode = async (): Promise<PermissionMode> => {
+  const { settings, activeWorkspace, setProjectPref, saveSettings } =
+    useSettingsStore.getState()
+  const settingsWithPerms = settings as SettingsWithPermissions
+  const globalPerms = settingsWithPerms.permissions ?? DEFAULT_PERMISSIONS
+  const projectPerms = activeWorkspace
+    ? (settings.projectPrefs?.[activeWorkspace] as ProjectPrefsWithPermissions | undefined)?.permissions
+    : undefined
+  const currentScope: Permissions = projectPerms ?? globalPerms
+  const previousMode: PermissionMode = currentScope.mode ?? 'ask'
+  const nextMode: PermissionMode = previousMode === 'bypass' ? 'ask' : 'bypass'
+  const nextScope: Permissions = { ...currentScope, mode: nextMode }
+
+  try {
+    if (activeWorkspace) {
+      setProjectPref(
+        activeWorkspace,
+        { permissions: nextScope } as unknown as Parameters<typeof setProjectPref>[1],
+      )
+    } else {
+      const nextSettings: SettingsWithPermissions = {
+        ...settingsWithPerms,
+        permissions: nextScope,
+      }
+      await saveSettings(nextSettings as AppSettings)
+    }
+    return nextMode
+  } catch (err) {
+    console.warn('[permissions] save failed, reverting', err)
+    toast.error('Failed to update permission mode')
+    if (activeWorkspace) {
+      setProjectPref(
+        activeWorkspace,
+        { permissions: { ...currentScope, mode: previousMode } } as unknown as Parameters<typeof setProjectPref>[1],
+      )
+    }
+    return previousMode
+  }
+}
 
 export type SlashPanel = 'model' | 'agent' | 'usage' | 'stats' | 'branch' | 'worktree' | null
 
@@ -51,7 +106,7 @@ export const useSlashAction = (): SlashActionResult => {
     // Track every recognized slash command. The switch below rejects unknown
     // names by returning false, so we gate the track call on that path via
     // the `default` case.
-    const KNOWN = new Set(['clear', 'model', 'agent', 'settings', 'upload', 'plan', 'usage', 'stats', 'close', 'exit', 'branch', 'worktree', 'btw', 'tangent', 'fork', 'undo'])
+    const KNOWN = new Set(['clear', 'model', 'agent', 'settings', 'upload', 'plan', 'usage', 'stats', 'close', 'exit', 'branch', 'worktree', 'btw', 'tangent', 'fork', 'undo', 'yolo'])
     if (KNOWN.has(name)) {
       track('feature_used', { feature: 'slash_command', detail: name })
     }
@@ -134,6 +189,20 @@ export const useSlashAction = (): SlashActionResult => {
       case 'fork': {
         const { selectedTaskId, forkTask } = useTaskStore.getState()
         if (selectedTaskId) void forkTask(selectedTaskId)
+        setPanel(null)
+        return true
+      }
+      case 'yolo': {
+        // Toggle Ask ↔ Bypass (same scope rules as the AppHeader chip and
+        // Cmd+Shift+Y). Posts a system message so the chat surfaces the
+        // mode change inline.
+        void toggleYoloMode().then((newMode) => {
+          addSystemMessage(
+            newMode === 'bypass'
+              ? '⚠️ YOLO mode enabled — all tool calls auto-approved'
+              : 'YOLO mode disabled — permission prompts re-enabled',
+          )
+        })
         setPanel(null)
         return true
       }

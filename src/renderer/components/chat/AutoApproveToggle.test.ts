@@ -15,23 +15,36 @@ describe('selectAutoApprove', () => {
     expect(selectAutoApprove(state)).toBe(false)
   })
 
-  it('returns global autoApprove when no workspace', () => {
-    const state = { activeWorkspace: null, settings: { claudeBin: '', agentProfiles: [], fontSize: 13, autoApprove: true } } as any
-    expect(selectAutoApprove(state)).toBe(true)
-  })
-
-  it('returns project pref when workspace set', () => {
+  // TASK-107: AutoApproveToggle was rebound to read permissions.mode === 'bypass'
+  // (with per-project override) instead of the legacy autoApprove boolean.
+  it('returns true when global permissions.mode is bypass', () => {
     const state = {
-      activeWorkspace: '/ws',
-      settings: { claudeBin: '', agentProfiles: [], fontSize: 13, autoApprove: false, projectPrefs: { '/ws': { autoApprove: true } } },
+      activeWorkspace: null,
+      settings: { claudeBin: '', agentProfiles: [], fontSize: 13, permissions: { mode: 'bypass', allow: [], deny: [] } },
     } as any
     expect(selectAutoApprove(state)).toBe(true)
   })
 
-  it('falls back to global when project pref undefined', () => {
+  it('returns true when project permissions.mode is bypass', () => {
     const state = {
       activeWorkspace: '/ws',
-      settings: { claudeBin: '', agentProfiles: [], fontSize: 13, autoApprove: true, projectPrefs: { '/ws': {} } },
+      settings: {
+        claudeBin: '', agentProfiles: [], fontSize: 13,
+        permissions: { mode: 'ask', allow: [], deny: [] },
+        projectPrefs: { '/ws': { permissions: { mode: 'bypass', allow: [], deny: [] } } },
+      },
+    } as any
+    expect(selectAutoApprove(state)).toBe(true)
+  })
+
+  it('falls back to global permissions when project pref has no permissions block', () => {
+    const state = {
+      activeWorkspace: '/ws',
+      settings: {
+        claudeBin: '', agentProfiles: [], fontSize: 13,
+        permissions: { mode: 'bypass', allow: [], deny: [] },
+        projectPrefs: { '/ws': {} },
+      },
     } as any
     expect(selectAutoApprove(state)).toBe(true)
   })

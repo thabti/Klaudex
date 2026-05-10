@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
-import { IconRobot, IconBolt, IconCompass, IconChevronRight, IconSearch, IconPlug } from '@tabler/icons-react'
+import { IconRobot, IconCommand, IconCompass, IconChevronRight, IconSearch, IconPlug } from '@tabler/icons-react'
 import { useClaudeConfigStore } from '@/stores/claudeConfigStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { ClaudeFileViewer } from './ClaudeFileViewer'
 import { type ViewerState, EMPTY_ARRAY, getAgentStack, SectionToggle, InlineSearch } from './claude-config-helpers'
 import { AgentRow, AgentStackGroup } from './ClaudeAgentSection'
-import { SkillRow } from './ClaudeSkillRow'
+import { ClaudeCommandRow } from './ClaudeCommandRow'
 import { SteeringRow } from './ClaudeSteeringRow'
 import { McpRow } from './ClaudeMcpRow'
 
@@ -118,13 +118,20 @@ export const ClaudeConfigPanel = memo(function ClaudeConfigPanel({
               </ul>
             )}
 
-            {commands.length > 0 && (filteredCommands.length > 0 || !search) && (
-              <SectionToggle icon={IconBolt} iconColor="text-amber-600 dark:text-amber-400" label="Commands" count={filteredCommands.length} expanded={skillsOpen} onToggle={() => setSkillsOpen((v) => !v)} />
+            {(commands.length > 0 || !search) && (
+              <SectionToggle icon={IconCommand} iconColor="text-amber-600 dark:text-amber-400" label="Commands" count={filteredCommands.length} expanded={skillsOpen} onToggle={() => setSkillsOpen((v) => !v)} />
             )}
             {skillsOpen && filteredCommands.length > 0 && (
               <ul className="flex min-w-0 flex-col gap-px border-l mx-1 px-1.5 py-px" style={{ borderColor: 'var(--border)' }}>
-                {filteredCommands.map((skill: any) => <SkillRow key={`${skill.source}-${skill.name}`} skill={skill} onOpen={openViewer} />)}
+                {filteredCommands.map((cmd) => (
+                  <ClaudeCommandRow key={`${cmd.source}:${cmd.filePath}`} command={cmd} />
+                ))}
               </ul>
+            )}
+            {skillsOpen && commands.length === 0 && !search && (
+              <p className="border-l mx-1 px-2 py-1.5 text-[10px] text-muted-foreground" style={{ borderColor: 'var(--border)' }}>
+                No slash commands
+              </p>
             )}
 
             {agents.length > 0 && (totalAgents > 0 || !search) && (

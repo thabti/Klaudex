@@ -5,6 +5,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
+import { Statusline } from './Statusline'
 import { PermissionBanner } from './PermissionBanner'
 import { ExecutionPlan } from './ExecutionPlan'
 import { CompactSuggestBanner } from './CompactSuggestBanner'
@@ -342,6 +343,7 @@ export const ChatPanel = memo(function ChatPanel() {
             onToggleCollapse={handleToggleCollapse}
           />
         )}
+        <Statusline />
       </div>
       {terminalOpen && taskWorkspace && selectedTaskId && (
         <TerminalDrawer key={selectedTaskId} cwd={taskWorkspace} onClose={() => toggleTerminal(selectedTaskId)} />

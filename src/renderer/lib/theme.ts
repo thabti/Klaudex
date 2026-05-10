@@ -2,8 +2,8 @@ import type { ThemeMode } from '@/types'
 
 const THEME_KEY = 'klaudex-theme'
 
-/** Resolve 'system' to the actual dark/light value based on OS preference. */
-export const getResolvedTheme = (mode: ThemeMode): 'dark' | 'light' => {
+/** Resolve 'system' to the actual dark/light/claude value based on OS preference. */
+export const getResolvedTheme = (mode: ThemeMode): 'dark' | 'light' | 'claude' => {
   if (mode === 'system') {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   }
@@ -14,7 +14,7 @@ export const getResolvedTheme = (mode: ThemeMode): 'dark' | 'light' => {
 export const readPersistedTheme = (): ThemeMode => {
   try {
     const stored = localStorage.getItem(THEME_KEY)
-    if (stored === 'dark' || stored === 'light' || stored === 'system') return stored
+    if (stored === 'dark' || stored === 'light' || stored === 'system' || stored === 'claude') return stored
   } catch { /* ignore */ }
   return 'dark'
 }
@@ -25,8 +25,9 @@ export const persistTheme = (mode: ThemeMode): void => {
 }
 
 /**
- * Apply the theme to the document. Adds/removes the `dark` class on <html>,
- * sets color-scheme, and updates the body background for the splash screen.
+ * Apply the theme to the document. Sets the `dark` or `claude` class on
+ * <html> (mutually exclusive — only one is active at a time), adjusts
+ * color-scheme, and updates the body background for the splash screen.
  * Suppresses transitions briefly to avoid a flash.
  */
 export const applyTheme = (mode: ThemeMode): void => {
@@ -36,11 +37,15 @@ export const applyTheme = (mode: ThemeMode): void => {
   // Suppress transitions during theme switch
   root.classList.add('no-transitions')
 
+  // Reset both theme classes; re-add the active one. Mutually exclusive.
+  root.classList.remove('dark', 'claude')
   if (resolved === 'dark') {
     root.classList.add('dark')
     document.body.style.backgroundColor = '#0a0a0a'
+  } else if (resolved === 'claude') {
+    root.classList.add('claude')
+    document.body.style.backgroundColor = '#0a0a0a'
   } else {
-    root.classList.remove('dark')
     document.body.style.backgroundColor = '#ffffff'
   }
 

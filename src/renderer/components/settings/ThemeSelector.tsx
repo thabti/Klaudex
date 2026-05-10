@@ -8,7 +8,7 @@ import type { ThemeMode } from '@/types'
  * miniature mockup always renders correctly regardless of the
  * currently active theme.
  */
-const THEME_COLORS: Record<'dark' | 'light', {
+const THEME_COLORS: Record<'dark' | 'light' | 'claude', {
   bg: string
   sidebar: string
   card: string
@@ -35,6 +35,15 @@ const THEME_COLORS: Record<'dark' | 'light', {
     border: '#e5e5e5',
     primary: '#6366f1',
   },
+  claude: {
+    bg: '#0D0D0D',
+    sidebar: '#111111',
+    card: '#141414',
+    fg: '#f0f0f0',
+    fgMuted: '#555555',
+    border: '#3a2a25',
+    primary: '#D97757',
+  },
 }
 
 interface ThemeOption {
@@ -46,6 +55,7 @@ const THEMES: ThemeOption[] = [
   { mode: 'light', label: 'Light' },
   { mode: 'dark', label: 'Dark' },
   { mode: 'system', label: 'System' },
+  { mode: 'claude', label: 'Claude' },
 ]
 
 /** Miniature UI mockup rendered with hardcoded colors. */
@@ -128,9 +138,9 @@ interface ThemeSelectorProps {
   onChange: (mode: ThemeMode) => void
 }
 
-/** Visual theme selector with preview cards for Light, Dark, and System. */
+/** Visual theme selector with preview cards for Light, Dark, System, and Claude. */
 const ThemeSelector = ({ value, onChange }: ThemeSelectorProps) => (
-  <div className="grid grid-cols-3 gap-3">
+  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
     {THEMES.map(({ mode, label }) => {
       const isActive = value === mode
       return (

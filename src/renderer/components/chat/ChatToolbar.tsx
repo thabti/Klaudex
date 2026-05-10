@@ -4,6 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import { BranchSelector } from './BranchSelector'
 import { ModelPicker } from './ModelPicker'
+import { OutputStylePicker } from './OutputStylePicker'
 import { PlanToggle } from './PlanToggle'
 import { AutoApproveToggle } from './AutoApproveToggle'
 
@@ -72,6 +73,8 @@ export const ChatToolbar = memo(function ChatToolbar({
           <PlanToggle />
           <Dot />
           <ModelPicker />
+          <Dot />
+          <OutputStylePicker />
           <Dot />
           <AutoApproveToggle />
         </ToolbarGroup>

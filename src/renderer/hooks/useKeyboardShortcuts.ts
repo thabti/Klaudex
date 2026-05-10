@@ -1,7 +1,66 @@
 import { useEffect } from 'react'
+import { toast } from 'sonner'
 import { useTaskStore } from '@/stores/taskStore'
 import { useDiffStore } from '@/stores/diffStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { ipc } from '@/lib/ipc'
+import type { AppSettings } from '@/types'
+
+// ── TASK-107: Cmd+Shift+Y permission-mode toggle ────────────
+// Local mirror of the Rust enum until the shared types in
+// `types/index.ts` declare a `permissions` field.
+type PermissionMode = 'ask' | 'allowListed' | 'bypass'
+interface Permissions {
+  mode: PermissionMode
+  allow: string[]
+  deny: string[]
+}
+type SettingsWithPermissions = AppSettings & { permissions?: Permissions }
+type ProjectPrefsWithPermissions = { permissions?: Permissions } & Record<string, unknown>
+
+const DEFAULT_PERMISSIONS: Permissions = { mode: 'ask', allow: [], deny: [] }
+
+/** Toggle between Ask ↔ Bypass at the active scope (project override
+ *  takes precedence over the global policy). Skips AllowListed because
+ *  the Cmd+Shift+Y / `/yolo` shortcut models a binary "safe / yolo"
+ *  mental model — three-way cycling lives on the chip click. */
+const toggleYoloMode = async (): Promise<void> => {
+  const { settings, activeWorkspace, setProjectPref, saveSettings } =
+    useSettingsStore.getState()
+  const settingsWithPerms = settings as SettingsWithPermissions
+  const globalPerms = settingsWithPerms.permissions ?? DEFAULT_PERMISSIONS
+  const projectPerms = activeWorkspace
+    ? (settings.projectPrefs?.[activeWorkspace] as ProjectPrefsWithPermissions | undefined)?.permissions
+    : undefined
+  const currentScope: Permissions = projectPerms ?? globalPerms
+  const previousMode: PermissionMode = currentScope.mode ?? 'ask'
+  const nextMode: PermissionMode = previousMode === 'bypass' ? 'ask' : 'bypass'
+  const nextScope: Permissions = { ...currentScope, mode: nextMode }
+
+  try {
+    if (activeWorkspace) {
+      setProjectPref(
+        activeWorkspace,
+        { permissions: nextScope } as unknown as Parameters<typeof setProjectPref>[1],
+      )
+    } else {
+      const nextSettings: SettingsWithPermissions = {
+        ...settingsWithPerms,
+        permissions: nextScope,
+      }
+      await saveSettings(nextSettings as AppSettings)
+    }
+  } catch (err) {
+    console.warn('[permissions] save failed, reverting', err)
+    toast.error('Failed to update permission mode')
+    if (activeWorkspace) {
+      setProjectPref(
+        activeWorkspace,
+        { permissions: { ...currentScope, mode: previousMode } } as unknown as Parameters<typeof setProjectPref>[1],
+      )
+    }
+  }
+}
 
 /**
  * Returns a flat, ordered list of all thread IDs across all projects.
@@ -130,6 +189,13 @@ export function useKeyboardShortcuts() {
         } else if (state.pendingWorkspace) {
           state.setPendingWorkspace(null)
         }
+        return
+      }
+
+      // ── Cmd+Shift+Y → Toggle Ask ↔ Bypass (YOLO) ──────────
+      if (e.shiftKey && key === 'y') {
+        e.preventDefault()
+        void toggleYoloMode()
         return
       }
 

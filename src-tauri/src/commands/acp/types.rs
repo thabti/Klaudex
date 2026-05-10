@@ -81,6 +81,11 @@ pub struct Task {
     pub context_usage: Option<ContextUsage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_approve: Option<bool>,
+    /// TASK-113: Optional Claude output style name (e.g. "Explanatory") forwarded to
+    /// the `claude` subprocess as `--output-style <name>` on next invocation.
+    /// `None` means default — no flag appended.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_style: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_paused: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
