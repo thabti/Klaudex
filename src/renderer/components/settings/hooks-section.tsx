@@ -191,13 +191,17 @@ const EventGroup = ({ group }: { group: HookGroup }) => {
 
 /* ── Main section ──────────────────────────────────────────────────*/
 
+// Stable empty fallback — returning `[]` literally inline causes Zustand to
+// see a new reference every selector call → infinite re-render loop.
+const EMPTY_HOOKS: readonly ClaudeHook[] = []
+
 export const HooksSection = () => {
   // Subscribe to the hooks slice only — auto-refreshes when the
   // claude_watcher (wave-1) re-loads `~/.claude/settings.json` or the
   // project settings file.
   const hooks = useClaudeConfigStore((s) => {
     const cfg = s.config as ClaudeConfigWithHooks
-    return cfg.hooks ?? []
+    return cfg.hooks ?? EMPTY_HOOKS
   })
 
   const groups = useMemo(() => groupByEvent(hooks), [hooks])

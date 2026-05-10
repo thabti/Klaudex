@@ -3,15 +3,21 @@ import { IconSparkles } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTaskStore } from '@/stores/taskStore'
 import { useClaudeConfigStore } from '@/stores/claudeConfigStore'
+import type { ClaudeOutputStyle } from '@/types'
 
 const DEFAULT_LABEL = 'Default'
+// Stable empty fallback — returning `[]` literally inline causes Zustand to
+// see a new reference every selector call → infinite re-render loop.
+const EMPTY_STYLES: readonly ClaudeOutputStyle[] = []
 
 export const OutputStylePicker = memo(function OutputStylePicker() {
   const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
   const currentStyle = useTaskStore((s) =>
     s.selectedTaskId ? s.tasks[s.selectedTaskId]?.outputStyle : undefined
   )
-  const styles = useClaudeConfigStore((s) => s.config?.outputStyles ?? [])
+  const styles = useClaudeConfigStore(
+    (s) => s.config?.outputStyles ?? EMPTY_STYLES
+  )
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
