@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { IconRobot, IconBolt, IconCompass, IconChevronRight, IconSearch, IconPlug, IconEdit, IconHandFinger, IconPlus, IconAlignLeft } from '@tabler/icons-react'
+import { KiroGhostIcon } from '@/components/icons/KiroGhostIcon'
 import { useKiroStore } from '@/stores/kiroStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { ipc } from '@/lib/ipc'
@@ -117,8 +118,8 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
         <div className="flex w-full min-w-0 flex-col">
           <div className="mb-0.5 flex items-center justify-between pr-1.5">
             <button type="button" onClick={onToggleCollapse}
-              className="flex h-6 flex-1 items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors">
-              <IconChevronRight className={cn('size-3 shrink-0 transition-transform duration-150', !collapsed && 'rotate-90')} aria-hidden />
+              className="flex h-6 flex-1 cursor-pointer items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors">
+              <KiroGhostIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
               Kiro
             </button>
           </div>
@@ -146,8 +147,8 @@ export const KiroConfigPanel = memo(function KiroConfigPanel({
       <div className="flex w-full min-w-0 flex-col">
         <div className="mb-0.5 flex items-center justify-between pr-1.5">
           <button type="button" onClick={onToggleCollapse}
-            className="flex h-6 flex-1 items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors">
-            <IconChevronRight className={cn('size-3 shrink-0 transition-transform duration-150', !collapsed && 'rotate-90')} aria-hidden />
+            className="flex h-6 flex-1 cursor-pointer items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors">
+            <KiroGhostIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
             Kiro
           </button>
           {!collapsed && (
