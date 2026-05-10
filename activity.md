@@ -1,5 +1,12 @@
 # Activity Log
 
+## 2026-05-10 21:45 GST (Dubai)
+### Settings: Apply sidebar look and feel to settings nav
+
+Aligned the settings panel sidebar to match the main TaskSidebar visual patterns: `bg-sidebar` background, same `h-8` item height, `bg-accent/85 dark:bg-accent/55` active state (replacing `bg-primary/10` with accent bar), `hover:bg-accent` hover, matching section header typography (`text-[11px] font-medium uppercase tracking-wider`), and tighter padding/spacing. Also applied `memo()`, `useCallback`, Tooltips, and aria-labels to all settings section components following sidebar discipline.
+
+**Modified:** `src/renderer/components/settings/SettingsPanel.tsx`, `src/renderer/components/settings/appearance-section.tsx`, `src/renderer/components/settings/general-section.tsx`, `src/renderer/components/settings/advanced-section.tsx`, `src/renderer/components/settings/account-section.tsx`, `src/renderer/components/settings/keymap-section.tsx`, `src/renderer/components/settings/memory-section.tsx`, `src/renderer/components/settings/archives-section.tsx`, `src/renderer/components/settings/settings-shared.tsx`
+
 ## 2026-05-10 21:38 GST (Dubai)
 ### HeaderBreadcrumb: Remove first separator slash
 Removed the leading `/` separator before the project name in the breadcrumb nav so it no longer shows a slash as the first visible element.
