@@ -73,6 +73,7 @@ interface TaskSidebarProps {
   width: number
   onResize: (width: number) => void
   position?: 'left' | 'right'
+  onCollapse?: () => void
 }
 
 /** Sidebar section showing saved split view pairings */
@@ -203,7 +204,7 @@ const saveSortPreference = (sort: SortKey): void => {
   try { localStorage.setItem(SORT_STORAGE_KEY, sort) } catch { /* best-effort */ }
 }
 
-export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position = 'left' }: TaskSidebarProps) {
+export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position = 'left', onCollapse }: TaskSidebarProps) {
   const isRight = position === 'right'
   const [sort, setSort] = useState<SortKey>(loadSortPreference)
   const handleSortChange = useCallback((s: SortKey) => {
@@ -314,7 +315,18 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
   })
 
   return (
-    <div data-testid="task-sidebar" onContextMenu={handleContextMenu} className={cn('relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-sidebar text-foreground', isRight ? 'border-l pr-1 order-last' : 'border-r pl-1')} style={{ width }}>
+    <div data-testid="task-sidebar" onContextMenu={handleContextMenu} className={cn('relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-sidebar pt-9 text-foreground', isRight ? 'border-l pr-1 order-last' : 'border-r pl-1')} style={{ width }}>
+      {/* Collapse button in traffic lights zone */}
+      {onCollapse && (
+        <button
+          type="button"
+          aria-label="Collapse sidebar"
+          onClick={onCollapse}
+          className="absolute right-2 top-2 z-20 inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          {isRight ? <IconLayoutSidebarRightCollapse className="size-4" aria-hidden /> : <IconLayoutSidebarLeftCollapse className="size-4" aria-hidden />}
+        </button>
+      )}
       {ctxMenu && (
         <>
           <div className="fixed inset-0 z-[199]" onClick={() => setCtxMenu(null)} onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null) }} />

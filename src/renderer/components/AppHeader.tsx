@@ -6,7 +6,6 @@ import { WindowsControls } from "@/components/unified-title-bar/WindowsControls"
 import { HeaderBreadcrumb } from "@/components/header-breadcrumb"
 import { HeaderToolbar } from "@/components/header-toolbar"
 import { HeaderGhostToolbar } from "@/components/header-ghost-toolbar"
-import { HeaderUserMenu } from "@/components/header-user-menu"
 import { cn } from "@/lib/utils"
 
 // ── Platform detection ───────────────────────────────────────
@@ -78,7 +77,7 @@ const AppHeaderInner = memo(function AppHeaderInner({
       onMouseDown={handleHeaderMouseDown}
       className={cn(
         "flex h-[38px] shrink-0 items-center gap-3 border-b border-border bg-background p-0 pt-1 select-none [-webkit-user-select:none]",
-        IS_MAC ? (isFullscreen ? "pl-2 pr-2" : "pl-[74px] pr-2") : "pl-2 pr-[138px]",
+        IS_MAC ? (isFullscreen ? "pl-2 pr-2" : isSidebarCollapsed ? "pl-[74px] pr-2" : "pl-2 pr-2") : "pl-2 pr-[138px]",
       )}
     >
       {/* Breadcrumb left */}
@@ -98,9 +97,6 @@ const AppHeaderInner = memo(function AppHeaderInner({
           onToggleSidePanel={onToggleSidePanel}
         />
       )}
-
-      {/* User menu */}
-      <HeaderUserMenu />
 
       {/* Window controls for Windows/Linux */}
       {!IS_MAC && (

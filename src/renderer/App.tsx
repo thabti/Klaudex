@@ -672,24 +672,28 @@ export function App() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div data-testid="app-container" className="flex h-full flex-col bg-background text-foreground">
-        {/* Top-level breadcrumb header */}
+      <div data-testid="app-container" className="flex h-full bg-background text-foreground">
+        {/* Sidebar — full height, bleeds into top */}
         <ErrorBoundary>
-          <AppHeader
-            sidePanelOpen={sidePanelOpen}
-            onToggleSidePanel={toggleSidePanel}
-            isSidebarCollapsed={isSidebarCollapsed}
-            onToggleSidebar={toggleSidebar}
-            sidebarPosition={sidebarPosition}
-          />
+          {!isSidebarCollapsed && <TaskSidebar width={sidebarWidth} onResize={setSidebarWidth} position={sidebarPosition} onCollapse={toggleSidebar} />}
         </ErrorBoundary>
 
-        {/* Main area: sidebar + content + side panel */}
-        <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Right column: header + content */}
+        <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", isRightSidebar && "order-first")}>
+          {/* Top-level breadcrumb header */}
           <ErrorBoundary>
-            {!isSidebarCollapsed && <TaskSidebar width={sidebarWidth} onResize={setSidebarWidth} position={sidebarPosition} />}
+            <AppHeader
+              sidePanelOpen={sidePanelOpen}
+              onToggleSidePanel={toggleSidePanel}
+              isSidebarCollapsed={isSidebarCollapsed}
+              onToggleSidebar={toggleSidebar}
+              sidebarPosition={sidebarPosition}
+            />
           </ErrorBoundary>
-          <main data-testid="main-content" className={cn('flex min-h-0 min-w-0 flex-1 overflow-hidden', isRightSidebar && 'order-first')}>
+
+          {/* Main area: content + side panel */}
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <main data-testid="main-content" className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
             <ErrorBoundary>
               <div
                 className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl"
@@ -722,16 +726,17 @@ export function App() {
               </ErrorBoundary>
             )}
           </main>
-        </div>
+          </div>
 
-        {/* Bottom debug panel */}
-        {debugOpen && (
-          <ErrorBoundary>
-            <Suspense>
-              <DebugPanel />
-            </Suspense>
-          </ErrorBoundary>
-        )}
+          {/* Bottom debug panel */}
+          {debugOpen && (
+            <ErrorBoundary>
+              <Suspense>
+                <DebugPanel />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+        </div>
       </div>
       <ErrorBoundary>
         <NewProjectSheet />
