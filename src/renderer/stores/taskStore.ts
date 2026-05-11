@@ -618,6 +618,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
               : tc.completedAt ?? stamped.completedAt
           return {
             ...stamped,
+            title: stamped.title || tc.title,
+            kind: stamped.kind ?? tc.kind,
             createdAt: tc.createdAt ?? stamped.createdAt,
             ...(completedAt ? { completedAt } : {}),
           }
