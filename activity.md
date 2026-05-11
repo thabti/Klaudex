@@ -1,3 +1,9 @@
+## 2026-05-11 09:21 GST (Dubai)
+### Chat: port BtwOverlay component tests
+Ported upstream commit 3400c0e. Added test file covering rendering states (null checkpoint, question text, thinking, assistant response), permission banner display and interaction, dismiss via button/Escape/backdrop click, and tool name formatting. Adapted kiroStore mock to claudeConfigStore and added required `name`/`createdAt` fields to task fixtures.
+
+**Modified:** `src/renderer/components/chat/BtwOverlay.test.tsx`
+
 ## 2026-05-11 09:19 GST (Dubai)
 ### HeaderToolbar: simplify terminal toggle to use selectedTaskId
 Ported upstream commit 275a073. Removed focusedTaskId derivation and use selectedTaskId directly for terminal toggle state and click handler. Updated split view tooltip copy from 'work side-by-side' to 'compare two threads'.
