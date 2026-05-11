@@ -125,10 +125,10 @@
     --muted: color-mix(in srgb, white 6%, transparent);
     --muted-foreground: #9a9a9a;
     --accent: #B95F3D;
-    --sidebar: #111111;
+    --sidebar: #272627;
     --accent-foreground: #ffffff;
     --destructive: #f87171;
-    --border: #3a2a25;
+    --border: color-mix(in srgb, white 2%, transparent);
     --input: color-mix(in srgb, white 12%, transparent);
     --ring: #D97757;
     --destructive-foreground: #fca5a5;

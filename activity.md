@@ -1,3 +1,9 @@
+## 2026-05-11 12:04 GST (Dubai)
+### Port: Darken border and sidebar colors (kirodex@464e553)
+Cherry-picked upstream theme tweak: reduced `--border` to near-invisible (2% white mix) and changed `--sidebar` from `#111111` to `#272627` for a warmer dark tone.
+
+**Modified:** src/tailwind.css
+
 ## 2026-05-11 12:02 GST (Dubai)
 ### Port: Hide archived banner when message is initiated (kirodex@d634861)
 Cherry-picked upstream fix: the blue zigzag "Resumed from history" divider now disappears immediately when the user sends a message, rather than persisting until the backend confirms the new connection.
