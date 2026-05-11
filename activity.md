@@ -1,3 +1,9 @@
+## 2026-05-11 09:46 GST (Dubai)
+### Chat: port cleaning review card component
+Ported upstream commit aa62518 adding CleaningReviewCard component that renders a star-rating review card for cleaning/starring operations in chat.
+
+**Modified:** src/renderer/components/chat/CleaningReviewCard.tsx
+
 ## 2026-05-11 09:43 GST (Dubai)
 ### Git: port clone from GitHub dialog and git_clone command
 Ported upstream commit 56c5f1a adding CloneRepoDialog component, `git_clone` Tauri command (uses system git for SSH/credential helper support), IPC binding, and File menu entry with Cmd+Shift+O shortcut. Removed pre-existing duplicate gitClone/gitInit stubs in ipc.ts that conflicted with the new real implementations.
