@@ -1,3 +1,9 @@
+## 2026-05-11 06:26 GST (Dubai)
+### Tests: Align applyTurnEnd and timeline tests with implementation
+Ported upstream commit 45e3884b from kirodex. Updated applyTurnEnd test baseState from status:'running' to 'paused' to match production flow. Fixed timeline test expectation where 'working' row is suppressed when live activity is present. Added dedicated test for the running task guard.
+
+**Modified:** `src/renderer/stores/taskStore.test.ts`, `src/renderer/lib/timeline.test.ts`
+
 ## 2026-05-11 06:24 GST (Dubai)
 ### Chat: Fix whitespace gaps, scroll jank, and steering duplication
 Ported upstream commit 7b10772e from kirodex. Uses per-row-type height estimates in the virtualizer, replaces scrollToIndex with raw scrollTop for streaming auto-scroll, adds a programmatic scroll guard, only shows the working indicator when no live content exists, and guards applyTurnEnd against late turn_end events during steering.
