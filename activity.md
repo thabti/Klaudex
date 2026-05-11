@@ -1,3 +1,9 @@
+## 2026-05-11 07:28 GST (Dubai)
+### History: Add tests for live task preservation during loadTasks
+Ported upstream commit 14f322b from kirodex. Added two test cases verifying that running and paused tasks survive loadTasks calls — messages and status are never overwritten by stale history data.
+
+**Modified:** `src/renderer/stores/taskStore.test.ts`
+
 ## 2026-05-11 07:26 GST (Dubai)
 ### History: Preserve live tasks when loadTasks is called mid-session
 Ported upstream commit 95d6958 from kirodex. loadTasks now checks the existing store for tasks with status running or paused and preserves them, preventing active ACP sessions from being overwritten by stale history data.
