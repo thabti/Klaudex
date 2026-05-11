@@ -1,3 +1,9 @@
+## 2026-05-11 08:13 GST (Dubai)
+### PlanToggle: replace toggle button with explicit mode dropdown
+Cherry-picked 26597f9 from kirodex. Replaced the ambiguous Plan toggle button (which showed "Plan" in both states) with a dropdown that displays the current mode name ("Code" or "Plan") with distinct icons (IconCode, IconListCheck) and a chevron indicator. Adapted mode IDs from kirodex's `kiro_default`/`kiro_planner` to klaudex's `default`/`plan`.
+
+**Modified:** `src/renderer/components/chat/PlanToggle.tsx`
+
 ## 2026-05-11 08:10 GST (Dubai)
 ### AutoApproveToggle: rewrite as dropdown with explicit labels
 Cherry-picked 4dc52f60 from kirodex. Replaced the "Full"/"Ask" toggle button with a dropdown picker matching PlanToggle's pattern. Labels are now "Auto-approve" and "Ask first" with short descriptions. Icons changed from shield to IconHandStop/IconMessageQuestion. Auto-approve state uses amber color. Adapted to klaudex's PermissionMode system (ask/bypass).
