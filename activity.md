@@ -1,3 +1,9 @@
+## 2026-05-11 06:29 GST (Dubai)
+### Multi-window: Add multi-window support and native File menu commands
+Ported upstream commit 90db6f0e from kirodex. Built custom native menu in Rust with New Window (⇧⌘N), New Thread (⌘N), New Project (⌘O) in File submenu. New windows share projects/threads via tauri-plugin-store with cross-window sync using LazyStore.onKeyChange and 300ms debounce. Secondary windows close without quit confirmation; only the last window triggers shutdown dialog. Removed conflicting Cmd+N/Cmd+O JS handlers since native menu accelerators handle them.
+
+**Modified:** `src-tauri/src/lib.rs`, `src-tauri/capabilities/default.json`, `src-tauri/gen/schemas/capabilities.json`, `src/renderer/App.tsx`, `src/renderer/hooks/useKeyboardShortcuts.ts`, `src/renderer/lib/history-store.ts`
+
 ## 2026-05-11 06:27 GST (Dubai)
 ### Chat: Persist draft attachments and pasted chunks across thread switches
 Ported upstream commit e9410e2e from kirodex. Lifted attachment and pasted chunk state from React local state into zustand store (draftAttachments, draftPastedChunks maps keyed by workspace). Passes initial values and onChange callbacks through PendingChat → ChatInput → useChatInput. Clears draft attachments and chunks on send.

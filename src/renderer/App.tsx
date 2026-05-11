@@ -296,12 +296,53 @@ export function App() {
     };
     window.addEventListener("focus", handleWindowFocus);
     startAutoFlush();
+    // Listen for native menu events
+    let unlistenNewThread: (() => void) | null = null
+    let unlistenNewProject: (() => void) | null = null
+    import('@tauri-apps/api/event').then(({ listen }) => {
+      listen('menu-new-thread', () => {
+        const state = useTaskStore.getState()
+        const task = state.selectedTaskId ? state.tasks[state.selectedTaskId] : null
+        const workspace = task
+          ? (task.originalWorkspace ?? task.workspace)
+          : state.projects[0]
+        if (workspace) {
+          state.setPendingWorkspace(workspace)
+        }
+      }).then((fn) => { unlistenNewThread = fn })
+      listen('menu-new-project', () => {
+        useTaskStore.getState().setNewProjectOpen(true)
+      }).then((fn) => { unlistenNewProject = fn })
+    })
+    // Cross-window state sync — reload when another window persists changes
+    let unsubSync: (() => void) | null = null
+    let syncDebounce: ReturnType<typeof setTimeout> | null = null
+    import('@/lib/history-store').then(({ subscribeToChanges }) => {
+      subscribeToChanges(
+        () => {
+          if (syncDebounce) clearTimeout(syncDebounce)
+          syncDebounce = setTimeout(() => {
+            useTaskStore.getState().loadTasks()
+          }, 300)
+        },
+        () => {
+          if (syncDebounce) clearTimeout(syncDebounce)
+          syncDebounce = setTimeout(() => {
+            useTaskStore.getState().loadTasks()
+          }, 300)
+        },
+      ).then((fn) => { unsubSync = fn })
+    })
     return () => {
       window.removeEventListener("focus", handleWindowFocus);
       clearInterval(purgeInterval);
       stopAutoFlush();
       cleanupTask();
       cleanupClaude();
+      if (unlistenNewThread) unlistenNewThread()
+      if (unlistenNewProject) unlistenNewProject()
+      if (unsubSync) unsubSync()
+      if (syncDebounce) clearTimeout(syncDebounce)
     };
   }, []);
 

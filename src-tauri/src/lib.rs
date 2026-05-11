@@ -6,8 +6,9 @@ extern crate objc;
 
 mod commands;
 
-use commands::{acp, analytics, claude_config, claude_watcher, fs_ops, git, pty, settings, statusline};
-use tauri::{Emitter, Manager};
+use commands::{acp, analytics, fs_ops, git, kiro_config, pty, settings};
+use tauri::Manager;
+use tauri::Emitter;
 
 /// Install a global panic hook that logs the panic message and backtrace.
 /// This catches panics on *any* thread (background ACP, probe, PTY reader)
@@ -134,6 +135,124 @@ fn reposition_traffic_lights(ns_window: cocoa::base::id) {
     }
 }
 
+/// Create a new Klaudex window with the same configuration as the main window.
+fn create_new_window(app: &tauri::AppHandle) {
+    let label = format!("window-{}", uuid::Uuid::new_v4().simple());
+    let url = tauri::WebviewUrl::App("index.html".into());
+    let builder = tauri::WebviewWindowBuilder::new(app, &label, url)
+        .title("Klaudex")
+        .inner_size(1400.0, 900.0)
+        .min_inner_size(800.0, 600.0)
+        .decorations(true)
+        .zoom_hotkeys_enabled(true);
+
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true)
+        .traffic_light_position(tauri::Position::Logical(tauri::LogicalPosition::new(14.0, 22.0)));
+
+    match builder.build() {
+        Ok(_new_window) => {
+            log::info!("Created new window: {}", label);
+            #[cfg(target_os = "macos")]
+            #[allow(deprecated)]
+            {
+                use cocoa::appkit::NSWindow;
+                use cocoa::base::id;
+                use objc::msg_send;
+                use objc::sel;
+                use objc::sel_impl;
+                if let Ok(ns_win) = _new_window.ns_window() {
+                    let ns_win = ns_win as id;
+                    unsafe {
+                        let content_view: id = ns_win.contentView();
+                        let _: () = msg_send![content_view, setWantsLayer: true];
+                        let layer: id = msg_send![content_view, layer];
+                        let _: () = msg_send![layer, setCornerRadius: 12.0_f64];
+                        let _: () = msg_send![layer, setMasksToBounds: true];
+                    }
+                    reposition_traffic_lights(ns_win);
+                }
+            }
+        }
+        Err(e) => log::error!("Failed to create new window: {e}"),
+    }
+}
+
+/// Build the native application menu with custom File items.
+fn build_app_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+
+    let new_window = MenuItemBuilder::new("New Window")
+        .id("new_window")
+        .accelerator("CmdOrCtrl+Shift+N")
+        .build(app)?;
+    let new_thread = MenuItemBuilder::new("New Thread")
+        .id("new_thread")
+        .accelerator("CmdOrCtrl+N")
+        .build(app)?;
+    let new_project = MenuItemBuilder::new("New Project…")
+        .id("new_project")
+        .accelerator("CmdOrCtrl+O")
+        .build(app)?;
+
+    let app_submenu = SubmenuBuilder::new(app, "Klaudex")
+        .about(None)
+        .separator()
+        .services()
+        .separator()
+        .hide()
+        .hide_others()
+        .show_all()
+        .separator()
+        .quit()
+        .build()?;
+
+    let file_submenu = SubmenuBuilder::new(app, "File")
+        .item(&new_window)
+        .item(&new_thread)
+        .item(&new_project)
+        .separator()
+        .close_window()
+        .build()?;
+
+    let edit_submenu = SubmenuBuilder::new(app, "Edit")
+        .undo()
+        .redo()
+        .separator()
+        .cut()
+        .copy()
+        .paste()
+        .select_all()
+        .build()?;
+
+    let view_submenu = SubmenuBuilder::new(app, "View")
+        .fullscreen()
+        .build()?;
+
+    let window_submenu = SubmenuBuilder::new(app, "Window")
+        .minimize()
+        .maximize()
+        .separator()
+        .close_window()
+        .build()?;
+
+    let help_submenu = SubmenuBuilder::new(app, "Help")
+        .build()?;
+
+    MenuBuilder::new(app)
+        .items(&[
+            &app_submenu,
+            &file_submenu,
+            &edit_submenu,
+            &view_submenu,
+            &window_submenu,
+            &help_submenu,
+        ])
+        .build()
+}
+
 pub fn run() {
     install_panic_hook();
 
@@ -168,50 +287,23 @@ pub fn run() {
             let _window = app.get_webview_window("main")
                 .ok_or_else(|| "main window not found".to_string())?;
 
-            // Build and install the native menu (File → Open Recent etc.).
-            // Must run after `.manage(SettingsState)` so the recent-projects
-            // submenu can read the persisted list.
-            match settings::build_app_menu(app.handle()) {
-                Ok(menu) => {
-                    if let Err(e) = app.set_menu(menu) {
-                        log::error!("set_menu failed: {e}");
-                    }
-                }
-                Err(e) => log::error!("build_app_menu failed: {e}"),
-            }
+            // Build and set the custom native menu
+            let menu = build_app_menu(app)?;
+            app.set_menu(menu)?;
 
-            // Dispatch native menu clicks back to the renderer.
+            // Handle custom menu item clicks
             app.on_menu_event(|app_handle, event| {
-                let id = event.id().0.as_str();
-                match id {
-                    "clear_recent" => {
-                        if let Some(state) = app_handle.try_state::<settings::SettingsState>() {
-                            {
-                                let mut store = state.0.lock();
-                                store.settings.recent_projects.clear();
-                                let _ = settings::persist_store(&store);
-                            }
-                            if let Ok(menu) = settings::build_app_menu(app_handle) {
-                                let _ = app_handle.set_menu(menu);
-                            }
-                        }
+                match event.id().0.as_str() {
+                    "new_window" => create_new_window(app_handle),
+                    "new_thread" => {
+                        let _ = app_handle.emit("menu-new-thread", ());
                     }
-                    _ if id.starts_with("recent:") => {
-                        let path = &id["recent:".len()..];
-                        if !path.is_empty() {
-                            let _ = app_handle.emit("open-recent-project", path.to_string());
-                        }
+                    "new_project" => {
+                        let _ = app_handle.emit("menu-new-project", ());
                     }
-                    other => {
-                        // Generic fallback so the renderer can listen for any
-                        // menu item we haven't bound a specific handler for.
-                        let _ = app_handle.emit("menu-action", other.to_string());
-                    }
+                    _ => {}
                 }
             });
-
-            // Start watching the global ~/.claude directory.
-            claude_watcher::watch_global_claude(app.handle());
 
             #[cfg(desktop)]
             app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
@@ -241,8 +333,15 @@ pub fn run() {
         .on_window_event(|window, event| {
             match event {
                 tauri::WindowEvent::CloseRequested { api, .. } => {
+                    let app = window.app_handle();
+                    let window_count = app.webview_windows().len();
+                    // Secondary windows close without confirmation
+                    if window_count > 1 {
+                        return;
+                    }
+                    // Last window — show quit confirmation
                     api.prevent_close();
-                    let app = window.app_handle().clone();
+                    let app = app.clone();
                     use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
                     app.dialog()
                         .message("Are you sure you want to quit Klaudex?")
@@ -257,9 +356,7 @@ pub fn run() {
                 }
                 #[cfg(target_os = "macos")]
                 tauri::WindowEvent::Focused(_) => {
-                    // Re-position traffic lights on every focus/blur event.
-                    // macOS resets their position when the window resigns/becomes key,
-                    // causing them to be clipped by the content view's corner radius mask.
+                    // Re-position traffic lights on every focus/blur event for all windows.
                     #[allow(deprecated)]
                     if let Ok(ns_window) = window.ns_window() {
                         reposition_traffic_lights(ns_window as cocoa::base::id);
