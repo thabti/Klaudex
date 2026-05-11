@@ -34,6 +34,12 @@ const UNSAFE_CSS = `
   background: var(--card) !important;
   border-bottom: 1px solid var(--border) !important;
 }
+[data-separator-content] {
+  overflow: visible !important;
+}
+[data-unmodified-lines] {
+  overflow: visible !important;
+}
 `
 
 // ── File stats helper ────────────────────────────────────────────

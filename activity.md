@@ -1,3 +1,9 @@
+## 2026-05-11 12:06 GST (Dubai)
+### Port: Fix clipped unmodified lines separator (kirodex@b51e6b4)
+Cherry-picked upstream fix adding `overflow: visible !important` overrides for `[data-separator-content]` and `[data-unmodified-lines]` in both DiffPanel and diff-viewer-utils UNSAFE_CSS to prevent @pierre/diffs separator text from being clipped.
+
+**Modified:** src/renderer/components/code/diff-viewer-utils.ts, src/renderer/components/diff/DiffPanel.tsx
+
 ## 2026-05-11 12:04 GST (Dubai)
 ### Port: Darken border and sidebar colors (kirodex@464e553)
 Cherry-picked upstream theme tweak: reduced `--border` to near-invisible (2% white mix) and changed `--sidebar` from `#111111` to `#272627` for a warmer dark tone.
