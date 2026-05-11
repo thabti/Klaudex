@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { IconHistory } from '@tabler/icons-react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { applyTurnEnd } from '@/stores/task-store-listeners'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
@@ -211,6 +212,10 @@ export const ChatPanel = memo(function ChatPanel() {
     await ipc.pauseTask(id)
     // Remove from queue
     state.removeQueuedMessage(id, index)
+    // Persist the interrupted turn's live state (streaming text + tool calls)
+    // before starting the new turn, so nothing is lost. The turn_end event
+    // may arrive late (after the new turn starts), so we handle it here.
+    useTaskStore.setState((s) => applyTurnEnd(s, id))
     // Send the message (will resume the agent with new direction)
     await sendMessageDirect(msg)
   }, [])

@@ -1,3 +1,9 @@
+## 2026-05-11 06:24 GST (Dubai)
+### Chat: Fix whitespace gaps, scroll jank, and steering duplication
+Ported upstream commit 7b10772e from kirodex. Uses per-row-type height estimates in the virtualizer, replaces scrollToIndex with raw scrollTop for streaming auto-scroll, adds a programmatic scroll guard, only shows the working indicator when no live content exists, and guards applyTurnEnd against late turn_end events during steering.
+
+**Modified:** `src/renderer/components/chat/ChatPanel.tsx`, `src/renderer/components/chat/MessageList.tsx`, `src/renderer/lib/timeline.ts`, `src/renderer/stores/task-store-listeners.ts`
+
 ## 2026-05-11 06:22 GST (Dubai)
 ### UI: Open external links in OS default browser
 Ported upstream commit e5fc335a from kirodex. Added shared `open-external.ts` helper using Tauri's `open_url` command. Applied to chat markdown, settings, about dialog, onboarding, and claude file viewer so links open in the user's default browser instead of failing silently.

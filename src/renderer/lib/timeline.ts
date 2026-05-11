@@ -202,8 +202,10 @@ export function deriveTimeline(
     })
   }
 
-  // Show "Working..." indicator above tool calls so it reads as a status header
-  if (isRunning) {
+  // Show "Working..." indicator only when the agent is running but hasn't
+  // produced any visible content yet. Once there's live text or tool calls,
+  // those rows already signal activity and the indicator just adds a gap.
+  if (isRunning && !hasLiveActivity) {
     rows.push({ kind: 'working', id: 'working' })
   }
 

@@ -14,7 +14,17 @@ import {
 } from './TimelineRows'
 
 const AUTO_SCROLL_THRESHOLD = 150
-const ESTIMATED_ROW_HEIGHT = 80
+
+/** Per-row-type height estimates so the virtualizer doesn't leave large gaps
+ *  before measureElement fires. Closer estimates = less visual jank. */
+const ROW_HEIGHT_ESTIMATES: Record<string, number> = {
+  'user-message': 60,
+  'system-message': 40,
+  'assistant-text': 80,
+  'work': 52,
+  'working': 36,
+  'changed-files': 48,
+}
 
 interface MessageListProps {
   messages: TaskMessage[]
@@ -43,6 +53,8 @@ export const MessageList = memo(function MessageList({
   const parentRef = useRef<HTMLDivElement>(null)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
   const isNearBottomRef = useRef(true)
+  /** Guard so programmatic scrolls don't flip isNearBottomRef */
+  const isProgrammaticScrollRef = useRef(false)
 
   const timelineRows = useMemo(
     () => deriveTimeline(messages, streamingChunk, liveToolCalls, liveThinking, isRunning),
@@ -59,23 +71,36 @@ export const MessageList = memo(function MessageList({
     [searchMatchIds],
   )
 
+  const estimateSize = useCallback(
+    (index: number) => ROW_HEIGHT_ESTIMATES[timelineRows[index]?.kind] ?? 60,
+    [timelineRows],
+  )
+
   const virtualizer = useVirtualizer({
     count: timelineRows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => ESTIMATED_ROW_HEIGHT,
+    estimateSize,
     overscan: 5,
   })
 
   const scrollToBottom = useCallback(() => {
-    if (timelineRows.length > 0) {
-      virtualizer.scrollToIndex(timelineRows.length - 1, { align: 'end' })
-    }
-  }, [virtualizer, timelineRows.length])
+    const el = parentRef.current
+    if (!el) return
+    isNearBottomRef.current = true
+    setShowScrollBtn(false)
+    isProgrammaticScrollRef.current = true
+    el.scrollTop = el.scrollHeight
+    requestAnimationFrame(() => {
+      isProgrammaticScrollRef.current = false
+    })
+  }, [])
 
   useEffect(() => {
     const el = parentRef.current
     if (!el) return
     const handleScroll = () => {
+      // Ignore scroll events triggered by our own programmatic scrolls
+      if (isProgrammaticScrollRef.current) return
       const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
       const nearBottom = distFromBottom < AUTO_SCROLL_THRESHOLD
       isNearBottomRef.current = nearBottom
@@ -85,14 +110,22 @@ export const MessageList = memo(function MessageList({
     return () => el.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Auto-scroll when new content arrives and user is near bottom
+  // Auto-scroll when new content arrives and user is near bottom.
+  // Use raw scrollTop instead of scrollToIndex to avoid fighting
+  // the virtualizer's stale measurements during streaming.
   useEffect(() => {
-    if (isNearBottomRef.current && timelineRows.length > 0) {
+    if (!isNearBottomRef.current) return
+    const el = parentRef.current
+    if (!el) return
+    requestAnimationFrame(() => {
+      isProgrammaticScrollRef.current = true
+      el.scrollTop = el.scrollHeight
+      // Reset the flag after the browser processes the scroll event
       requestAnimationFrame(() => {
-        virtualizer.scrollToIndex(timelineRows.length - 1, { align: 'end' })
+        isProgrammaticScrollRef.current = false
       })
-    }
-  }, [timelineRows, streamingChunk, liveToolCalls, liveThinking, virtualizer])
+    })
+  }, [timelineRows, streamingChunk, liveToolCalls, liveThinking])
 
   // Scroll to the active search match
   useEffect(() => {
