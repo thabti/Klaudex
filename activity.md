@@ -1,3 +1,9 @@
+## 2026-05-11 08:10 GST (Dubai)
+### AutoApproveToggle: rewrite as dropdown with explicit labels
+Cherry-picked 4dc52f60 from kirodex. Replaced the "Full"/"Ask" toggle button with a dropdown picker matching PlanToggle's pattern. Labels are now "Auto-approve" and "Ask first" with short descriptions. Icons changed from shield to IconHandStop/IconMessageQuestion. Auto-approve state uses amber color. Adapted to klaudex's PermissionMode system (ask/bypass).
+
+**Modified:** `src/renderer/components/chat/AutoApproveToggle.tsx`
+
 ## 2026-05-11 08:09 GST (Dubai)
 ### Chat: move working indicator dot above tool calls in timeline
 Cherry-picked 67a85baa from kirodex. Reordered the live streaming section of deriveTimeline() so the working indicator row renders above live tool calls instead of below them. Timeline order is now: live text → working dot → live tool calls.
