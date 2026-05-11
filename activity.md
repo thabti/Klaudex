@@ -1,3 +1,9 @@
+## 2026-05-11 07:56 GST (Dubai)
+### Port: update docs terminal description and fix shortcut/command docs
+Cherry-picked e985fb23 from kirodex. Updated keyboard shortcuts to alphabetical order, added Escape terminal note, added /data alias, and fixed /usage description in slash commands docs.
+
+**Modified:** `docs/keyboard-shortcuts.md`, `docs/slash-commands.md`
+
 ## 2026-05-11 07:54 GST (Dubai)
 ### Port: reconnect restored threads after soft-delete
 Cherry-picked a4174442 from kirodex. Added `needsNewConnection` flag to `AgentTask`. `restoreTask` now sets status to paused and flags the task so `sendMessageDirect` spawns a fresh ACP connection via `ipc.createTask` instead of sending on a dead handle.
