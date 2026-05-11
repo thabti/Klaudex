@@ -1,3 +1,9 @@
+## 2026-05-11 08:48 GST (Dubai)
+### Sidebar: drag-to-reorder projects and Cmd+N project jumping
+Ported upstream commit adding pointer-based vertical drag reorder in 'Custom' sort mode, a `useModifierKeys` hook with delayed show / instant hide, ⌘1–⌘9 kbd badges on sidebar projects, and Cmd+N project jumping. Updated test file to match new boolean-returning hook API.
+
+**Modified:** `src/renderer/components/sidebar/ProjectItem.tsx`, `src/renderer/components/sidebar/TaskSidebar.tsx`, `src/renderer/hooks/useKeyboardShortcuts.ts`, `src/renderer/hooks/useModifierKeys.ts`, `src/renderer/hooks/useModifierKeys.test.ts`, `src/renderer/hooks/useSidebarTasks.ts`
+
 ## 2026-05-11 08:35 GST (Dubai)
 ### UpdateNotifier: deduplicate toast and style Sonner toasts
 Ported upstream fix replacing the `toastIdRef` pattern with a stable `UPDATE_TOAST_ID` constant so Sonner deduplicates by ID. Added dark-themed CSS overrides for Sonner toasts and switched Toaster theme to dark.
