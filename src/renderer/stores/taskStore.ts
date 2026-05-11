@@ -36,6 +36,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   terminalOpenTasks: new Set<string>(),
   isWorkspaceTerminalOpen: false,
   drafts: {},
+  draftAttachments: {},
+  draftPastedChunks: {},
   _suppressDraftSave: null,
   notifiedTaskIds: [],
   taskModes: {},
@@ -668,6 +670,38 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         _suppressDraftSave: workspace,
       }
     })
+  },
+
+  setDraftAttachments: (workspace, attachments) => {
+    if (attachments.length === 0) {
+      const { [workspace]: _, ...rest } = get().draftAttachments
+      if (_ === undefined) return
+      set({ draftAttachments: rest })
+    } else {
+      set((s) => ({ draftAttachments: { ...s.draftAttachments, [workspace]: attachments } }))
+    }
+  },
+
+  setDraftPastedChunks: (workspace, chunks) => {
+    if (chunks.length === 0) {
+      const { [workspace]: _, ...rest } = get().draftPastedChunks
+      if (_ === undefined) return
+      set({ draftPastedChunks: rest })
+    } else {
+      set((s) => ({ draftPastedChunks: { ...s.draftPastedChunks, [workspace]: chunks } }))
+    }
+  },
+
+  removeDraftAttachments: (workspace) => {
+    if (get().draftAttachments[workspace] === undefined) return
+    const { [workspace]: _, ...rest } = get().draftAttachments
+    set({ draftAttachments: rest })
+  },
+
+  removeDraftPastedChunks: (workspace) => {
+    if (get().draftPastedChunks[workspace] === undefined) return
+    const { [workspace]: _, ...rest } = get().draftPastedChunks
+    set({ draftPastedChunks: rest })
   },
 
   toggleTerminal: (taskId) => set((s) => {

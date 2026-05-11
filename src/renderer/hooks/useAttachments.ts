@@ -3,8 +3,8 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { processDroppedFile, processNativePath } from '@/components/chat/attachment-utils'
 import type { Attachment } from '@/types'
 
-export function useAttachments() {
-  const [attachments, setAttachments] = useState<Attachment[]>([])
+export function useAttachments(initialAttachments?: Attachment[]) {
+  const [attachments, setAttachments] = useState<Attachment[]>(initialAttachments ?? [])
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 

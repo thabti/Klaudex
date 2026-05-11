@@ -1,3 +1,9 @@
+## 2026-05-11 06:27 GST (Dubai)
+### Chat: Persist draft attachments and pasted chunks across thread switches
+Ported upstream commit e9410e2e from kirodex. Lifted attachment and pasted chunk state from React local state into zustand store (draftAttachments, draftPastedChunks maps keyed by workspace). Passes initial values and onChange callbacks through PendingChat → ChatInput → useChatInput. Clears draft attachments and chunks on send.
+
+**Modified:** `src/renderer/components/chat/ChatInput.tsx`, `src/renderer/components/chat/PendingChat.tsx`, `src/renderer/hooks/useAttachments.ts`, `src/renderer/hooks/useChatInput.ts`, `src/renderer/stores/task-store-types.ts`, `src/renderer/stores/taskStore.ts`
+
 ## 2026-05-11 06:26 GST (Dubai)
 ### Tests: Align applyTurnEnd and timeline tests with implementation
 Ported upstream commit 45e3884b from kirodex. Updated applyTurnEnd test baseState from status:'running' to 'paused' to match production flow. Fixed timeline test expectation where 'working' row is suppressed when live activity is present. Added dedicated test for the running task guard.
