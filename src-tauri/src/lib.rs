@@ -10,6 +10,7 @@ use commands::{acp, analytics, fs_ops, git, kiro_config, pty, settings};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
 use tauri::Emitter;
+use tauri::Listener;
 
 /// Flag set by the frontend before calling `relaunch()` so the
 /// `CloseRequested` handler skips the quit confirmation dialog.
@@ -356,6 +357,14 @@ pub fn run() {
                     // and let the close proceed so `relaunch()` can restart the app.
                     if let Some(flag) = app.try_state::<RelaunchFlag>() {
                         if flag.0.load(Ordering::Acquire) {
+                            let _ = app.emit("app://flush-before-quit", ());
+                            // Wait for the frontend to ack the flush, with a 2s timeout
+                            let (tx, rx) = std::sync::mpsc::channel::<()>();
+                            let app_clone = app.clone();
+                            let _listener_id = app_clone.listen("app://flush-ack", move |_| {
+                                let _ = tx.send(());
+                            });
+                            let _ = rx.recv_timeout(std::time::Duration::from_secs(2));
                             shutdown_app(&app);
                             return;
                         }
@@ -376,6 +385,15 @@ pub fn run() {
                         .buttons(MessageDialogButtons::OkCancelCustom("Quit".to_string(), "Cancel".to_string()))
                         .show(move |confirmed| {
                             if confirmed {
+                                // Tell the frontend to flush persisted state to disk
+                                let _ = app.emit("app://flush-before-quit", ());
+                                // Wait for the frontend to ack the flush, with a 2s timeout
+                                let (tx, rx) = std::sync::mpsc::channel::<()>();
+                                let app_clone = app.clone();
+                                let _listener_id = app_clone.listen("app://flush-ack", move |_| {
+                                    let _ = tx.send(());
+                                });
+                                let _ = rx.recv_timeout(std::time::Duration::from_secs(2));
                                 shutdown_app(&app);
                                 app.exit(0);
                             }

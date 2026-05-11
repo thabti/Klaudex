@@ -466,7 +466,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       }
     }),
 
-  updateCompactionStatus: (taskId, status, summary) =>
+  updateCompactionStatus: (taskId, status, summary) => {
     set((state) => {
       const task = state.tasks[taskId]
       if (!task) return state
@@ -505,7 +505,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       return {
         tasks: { ...state.tasks, [taskId]: { ...task, compactionStatus: status, messages } },
       }
-    }),
+    })
+    get().persistHistory()
+  },
 
   clearTurn: (taskId) =>
     set((state) => {
@@ -583,6 +585,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       ].slice(0, 20),
     }))
     track('task_created', { has_prompt: false })
+    get().persistHistory()
     return id
   },
 
@@ -648,14 +651,16 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  reorderProject: (from, to) =>
+  reorderProject: (from, to) => {
+    if (from === to) return
     set((state) => {
-      if (from === to) return state
       const arr = [...state.projects]
       const [item] = arr.splice(from, 1)
       arr.splice(to, 0, item)
       return { projects: arr }
-    }),
+    })
+    get().persistHistory()
+  },
 
   setDraft: (workspace, content) => {
     // Skip save if this workspace was just explicitly deleted (unmount flush guard)
@@ -908,8 +913,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   persistHistory: () => {
     const { tasks, projectNames, projectIds, softDeleted } = get()
-    historyStore.saveThreads(tasks, projectNames, projectIds).catch(() => {})
-    historyStore.saveSoftDeleted(Object.values(softDeleted)).catch(() => {})
+    historyStore.saveThreads(tasks, projectNames, projectIds).catch((err) => {
+      console.warn('[persistHistory] saveThreads failed:', err)
+    })
+    historyStore.saveSoftDeleted(Object.values(softDeleted)).catch((err) => {
+      console.warn('[persistHistory] saveSoftDeleted failed:', err)
+    })
   },
 
   clearHistory: async () => {
@@ -946,10 +955,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       activityFeed: [],
       pendingUserInputs: {},
     })
-    // Reset settings to defaults and go back to onboarding
-    const defaultSettings = { ...useSettingsStore.getState().settings, hasOnboardedV2: false, projectPrefs: {} }
-    await useSettingsStore.getState().saveSettings(defaultSettings)
-    useSettingsStore.setState({ settings: defaultSettings })
+    // Clear project-specific preferences but preserve core settings (onboarding, CLI path, model, etc.)
+    const currentSettings = useSettingsStore.getState().settings
+    const updatedSettings = { ...currentSettings, projectPrefs: {} }
+    await useSettingsStore.getState().saveSettings(updatedSettings)
+    useSettingsStore.setState({ settings: updatedSettings })
   },
 
   resolveWorktreeCleanup: (removeWorktree) => {

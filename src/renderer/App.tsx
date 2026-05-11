@@ -297,9 +297,38 @@ export function App() {
     window.addEventListener("focus", handleWindowFocus);
     startAutoFlush();
     // Listen for native menu events
+    let unlistenFlushBeforeQuit: (() => void) | null = null
     let unlistenNewThread: (() => void) | null = null
     let unlistenNewProject: (() => void) | null = null
     import('@tauri-apps/api/event').then(({ listen }) => {
+      // Rust emits this right before app.exit(0) — flush all state to disk
+      listen('app://flush-before-quit', () => {
+        useTaskStore.getState().persistHistory()
+        import('@/lib/history-store').then((hs) => {
+          const { selectedTaskId, view } = useTaskStore.getState()
+          hs.saveUiState({
+            selectedTaskId,
+            view,
+            sidePanelOpen,
+            sidebarCollapsed: isSidebarCollapsed,
+          }).catch(() => {})
+          hs.flush().then(() => {
+            // Ack the flush so Rust can proceed with shutdown
+            import('@tauri-apps/api/event').then(({ emit }) => {
+              emit('app://flush-ack').catch(() => {})
+            })
+          }).catch(() => {
+            // Ack even on failure so Rust doesn't hang
+            import('@tauri-apps/api/event').then(({ emit }) => {
+              emit('app://flush-ack').catch(() => {})
+            })
+          })
+        }).catch(() => {
+          import('@tauri-apps/api/event').then(({ emit }) => {
+            emit('app://flush-ack').catch(() => {})
+          })
+        })
+      }).then((fn) => { unlistenFlushBeforeQuit = fn })
       listen('menu-new-thread', () => {
         const state = useTaskStore.getState()
         const task = state.selectedTaskId ? state.tasks[state.selectedTaskId] : null
@@ -317,29 +346,21 @@ export function App() {
     // Cross-window state sync — reload when another window persists changes
     let unsubSync: (() => void) | null = null
     let syncDebounce: ReturnType<typeof setTimeout> | null = null
-    import('@/lib/history-store').then(({ subscribeToChanges }) => {
-      // Skip sync reloads when this window has live ACP sessions — loadTasks
-      // would overwrite running/paused tasks with archived versions from history.
-      // Only reload when all tasks are completed (no active sessions).
-      const hasLiveTasks = () => Object.values(useTaskStore.getState().tasks).some(
+    import('@/lib/history-store').then(({ subscribeToChanges, isSelfWriting }) => {
+      // Skip sync reloads when:
+      // 1. This window wrote the change (isSelfWriting) — avoids reloading our own saves
+      // 2. This window has live ACP sessions — loadTasks would overwrite running/paused tasks
+      const shouldSkipSync = () => isSelfWriting() || Object.values(useTaskStore.getState().tasks).some(
         (t) => t.status === 'running' || t.status === 'paused',
       )
-      subscribeToChanges(
-        () => {
-          if (hasLiveTasks()) return
-          if (syncDebounce) clearTimeout(syncDebounce)
-          syncDebounce = setTimeout(() => {
-            useTaskStore.getState().loadTasks()
-          }, 300)
-        },
-        () => {
-          if (hasLiveTasks()) return
-          if (syncDebounce) clearTimeout(syncDebounce)
-          syncDebounce = setTimeout(() => {
-            useTaskStore.getState().loadTasks()
-          }, 300)
-        },
-      ).then((fn) => { unsubSync = fn })
+      const handleChange = () => {
+        if (shouldSkipSync()) return
+        if (syncDebounce) clearTimeout(syncDebounce)
+        syncDebounce = setTimeout(() => {
+          useTaskStore.getState().loadTasks()
+        }, 300)
+      }
+      subscribeToChanges(handleChange, handleChange).then((fn) => { unsubSync = fn })
     })
     return () => {
       window.removeEventListener("focus", handleWindowFocus);
@@ -347,6 +368,7 @@ export function App() {
       stopAutoFlush();
       cleanupTask();
       cleanupClaude();
+      if (unlistenFlushBeforeQuit) unlistenFlushBeforeQuit()
       if (unlistenNewThread) unlistenNewThread()
       if (unlistenNewProject) unlistenNewProject()
       if (unsubSync) unsubSync()

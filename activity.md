@@ -1,3 +1,9 @@
+## 2026-05-11 07:31 GST (Dubai)
+### Persistence: Add missing persistHistory calls, ack-based quit flush, warn on failures
+Ported upstream commit f68dcd85 from kirodex. Added `persistHistory()` to `createDraftThread`, `updateCompactionStatus`, `reorderProject`. Replaced silent `.catch(() => {})` with `console.warn`. Added `_selfWriteCount` guard to history-store to skip same-window `onKeyChange` reloads. Replaced sleep-based quit flush in `lib.rs` with ack-based mpsc channel + 2s timeout. Updated `App.tsx` to check `isSelfWriting()` in cross-window sync and emit `flush-ack`. `clearHistory` now preserves core settings.
+
+**Modified:** `src-tauri/src/lib.rs`, `src/renderer/App.tsx`, `src/renderer/lib/history-store.ts`, `src/renderer/stores/taskStore.ts`
+
 ## 2026-05-11 07:29 GST (Dubai)
 ### Store: Persist history after removeProject/archiveThreads and fix merge mutation
 Ported upstream commit 0c6da34 from kirodex. Added `persistHistory()` calls after `removeProject` and `archiveThreads` so state survives crashes. Fixed direct object mutation in `loadTasks` merge to create new objects (preserves Zustand reactivity). Reset `activityFeed` in `clearHistory`.
