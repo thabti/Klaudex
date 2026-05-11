@@ -46,13 +46,13 @@ fn is_sensitive_path(path: &str) -> bool {
 }
 
 #[tauri::command]
-pub fn read_text_file(path: String) -> Option<String> {
+pub async fn read_text_file(path: String) -> Option<String> {
     log::info!("[fs] read_text_file called with path: {}", path);
     if is_sensitive_path(&path) {
         log::warn!("[fs] read_text_file blocked sensitive path: {}", path);
         return None;
     }
-    match std::fs::read_to_string(&path) {
+    match tokio::fs::read_to_string(&path).await {
         Ok(content) => Some(content),
         Err(e) => {
             log::warn!("[fs] read_text_file failed for '{}': {}", path, e);
@@ -62,14 +62,14 @@ pub fn read_text_file(path: String) -> Option<String> {
 }
 
 #[tauri::command]
-pub fn read_file_base64(path: String) -> Option<String> {
+pub async fn read_file_base64(path: String) -> Option<String> {
     log::info!("[fs] read_file_base64 called with path: {}", path);
     if is_sensitive_path(&path) {
         log::warn!("[fs] read_file_base64 blocked sensitive path: {}", path);
         return None;
     }
     use base64::Engine;
-    match std::fs::read(&path) {
+    match tokio::fs::read(&path).await {
         Ok(bytes) => Some(base64::engine::general_purpose::STANDARD.encode(&bytes)),
         Err(e) => {
             log::warn!("[fs] read_file_base64 failed for '{}': {}", path, e);
@@ -1008,7 +1008,7 @@ pub async fn claude_login(
 #[tauri::command]
 pub fn open_terminal_with_command(command: String) -> Result<(), AppError> {
     // Only allow known safe commands to prevent arbitrary command injection
-    const ALLOWED_COMMANDS: &[&str] = &["kiro-cli login", "kiro-cli logout", "kiro-cli whoami"];
+    const ALLOWED_COMMANDS: &[&str] = &["claude /login", "claude /logout", "claude /status"];
     let is_allowed = ALLOWED_COMMANDS.iter().any(|&allowed| {
         command == allowed || command.starts_with(&format!("{} ", allowed))
     });

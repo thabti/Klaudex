@@ -50,7 +50,7 @@ pub struct GeneratedCommitMessage {
 
 /// Internal — what we expect the model to emit.
 #[derive(Deserialize, Debug)]
-struct ModelOutput {
+pub(crate) struct ModelOutput {
     #[serde(default)]
     subject: String,
     #[serde(default)]

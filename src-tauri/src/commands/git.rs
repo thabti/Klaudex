@@ -1048,7 +1048,7 @@ mod tests {
     #[test]
     fn worktree_create_rejects_worktree_path_as_cwd() {
         let result = git_worktree_create(
-            "/project/.klaudex/worktrees/feat".to_string(),
+            "/project/.kiro/worktrees/feat".to_string(),
             "new-branch".to_string(),
         );
         assert!(result.is_err());

@@ -97,12 +97,22 @@ pub struct ClaudeMcpServer {
     pub source: String,
 }
 
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeCommand {
+    pub name: String,
+    pub source: String,
+    pub file_path: String,
+}
+
 #[derive(Serialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeConfig {
     pub agents: Vec<ClaudeAgent>,
+    pub commands: Vec<ClaudeCommand>,
     pub skills: Vec<ClaudeSkill>,
     pub steering_rules: Vec<ClaudeSteeringRule>,
+    pub memory_files: Vec<ClaudeSteeringRule>,
     pub mcp_servers: Vec<ClaudeMcpServer>,
     pub prompts: Vec<ClaudePrompt>,
 }
@@ -179,31 +189,72 @@ fn scan_agents(base: &Path, is_global: bool) -> Vec<ClaudeAgent> {
         .filter(|e| {
             let name = e.file_name();
             let name = name.to_string_lossy();
-            name.ends_with(".json") && !name.starts_with('.')
+            (name.ends_with(".json") || name.ends_with(".md")) && !name.starts_with('.')
         })
         .filter_map(|e| {
             let fp = e.path();
-            let raw: serde_json::Value = serde_json::from_str(&fs::read_to_string(&fp).ok()?).ok()?;
-            let obj = raw.as_object()?;
+            let content = fs::read_to_string(&fp).ok()?;
             let file_name = fp.file_stem()?.to_string_lossy().to_string();
-            Some(ClaudeAgent {
-                name: obj.get("name").and_then(|v| v.as_str()).unwrap_or(&file_name).to_string(),
-                description: obj.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                tools: obj.get("tools").and_then(|v| v.as_array()).map(|a| {
-                    a.iter().filter_map(|v| v.as_str().map(String::from)).collect()
-                }).unwrap_or_default(),
-                source: source.to_string(),
-                file_path: fp.to_string_lossy().to_string(),
-                welcome_message: obj.get("welcomeMessage").and_then(|v| v.as_str()).map(String::from),
-                keyboard_shortcut: obj.get("keyboardShortcut").and_then(|v| v.as_str()).map(String::from),
-                model: obj.get("model").and_then(|v| v.as_str()).map(String::from),
-                resources: obj.get("resources").and_then(|v| v.as_array()).map(|a| {
-                    a.iter().filter_map(|v| v.as_str().map(String::from)).collect()
-                }).unwrap_or_default(),
-                hooks: parse_agent_hooks(obj),
-            })
+            let ext = fp.extension()?.to_string_lossy().to_string();
+            if ext == "json" {
+                let raw: serde_json::Value = serde_json::from_str(&content).ok()?;
+                let obj = raw.as_object()?;
+                Some(ClaudeAgent {
+                    name: obj.get("name").and_then(|v| v.as_str()).unwrap_or(&file_name).to_string(),
+                    description: obj.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    tools: obj.get("tools").and_then(|v| v.as_array()).map(|a| {
+                        a.iter().filter_map(|v| v.as_str().map(String::from)).collect()
+                    }).unwrap_or_default(),
+                    source: source.to_string(),
+                    file_path: fp.to_string_lossy().to_string(),
+                    welcome_message: obj.get("welcomeMessage").and_then(|v| v.as_str()).map(String::from),
+                    keyboard_shortcut: obj.get("keyboardShortcut").and_then(|v| v.as_str()).map(String::from),
+                    model: obj.get("model").and_then(|v| v.as_str()).map(String::from),
+                    resources: obj.get("resources").and_then(|v| v.as_array()).map(|a| {
+                        a.iter().filter_map(|v| v.as_str().map(String::from)).collect()
+                    }).unwrap_or_default(),
+                    hooks: parse_agent_hooks(obj),
+                })
+            } else {
+                // .md file with YAML frontmatter
+                parse_agent_md(&content, &file_name, &fp, source)
+            }
         })
         .collect()
+}
+
+/// Parse a `.md` agent file with YAML frontmatter (used by `~/.claude/agents/`).
+fn parse_agent_md(content: &str, file_name: &str, fp: &Path, source: &str) -> Option<ClaudeAgent> {
+    if !content.starts_with("---") {
+        return None;
+    }
+    let end_idx = content[3..].find("\n---")?;
+    let fm = &content[3..3 + end_idx];
+    let yaml: serde_yaml::Value = serde_yaml::from_str(fm).ok()?;
+    let obj = yaml.as_mapping()?;
+    let get_str = |key: &str| -> Option<String> {
+        obj.get(&serde_yaml::Value::String(key.to_string()))
+            .and_then(|v| v.as_str())
+            .map(|s| s.trim().to_string())
+    };
+    let get_str_vec = |key: &str| -> Vec<String> {
+        obj.get(&serde_yaml::Value::String(key.to_string()))
+            .and_then(|v| v.as_sequence())
+            .map(|seq| seq.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+            .unwrap_or_default()
+    };
+    Some(ClaudeAgent {
+        name: get_str("name").unwrap_or_else(|| file_name.to_string()),
+        description: get_str("description").unwrap_or_default(),
+        tools: get_str_vec("tools"),
+        source: source.to_string(),
+        file_path: fp.to_string_lossy().to_string(),
+        welcome_message: get_str("welcomeMessage"),
+        keyboard_shortcut: get_str("keyboardShortcut"),
+        model: get_str("model"),
+        resources: get_str_vec("resources"),
+        hooks: None,
+    })
 }
 
 fn scan_skills(base: &Path, is_global: bool) -> Vec<ClaudeSkill> {
@@ -276,6 +327,29 @@ fn scan_prompts(base: &Path, is_global: bool) -> Vec<ClaudePrompt> {
                 source: source.to_string(),
                 file_path: fp.to_string_lossy().to_string(),
             })
+        })
+        .collect()
+}
+
+fn scan_commands(base: &Path, is_global: bool) -> Vec<ClaudeCommand> {
+    let dir = base.join("commands");
+    let Ok(entries) = fs::read_dir(&dir) else { return vec![] };
+    let source = source_str(is_global);
+    entries
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            let name = e.file_name();
+            let name = name.to_string_lossy();
+            name.ends_with(".md") && !name.starts_with('.')
+        })
+        .map(|e| {
+            let fp = e.path();
+            let name = fp.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+            ClaudeCommand {
+                name,
+                source: source.to_string(),
+                file_path: fp.to_string_lossy().to_string(),
+            }
         })
         .collect()
 }
@@ -357,6 +431,7 @@ pub fn get_claude_config(project_path: Option<String>) -> ClaudeConfig {
     if let Some(home) = dirs::home_dir() {
         let global_claude = home.join(".claude");
         config.agents.extend(scan_agents(&global_claude, true));
+        config.commands.extend(scan_commands(&global_claude, true));
         config.skills.extend(scan_skills(&global_claude, true));
         config.steering_rules.extend(scan_steering(&global_claude, true));
         config.prompts.extend(scan_prompts(&global_claude, true));
@@ -366,6 +441,7 @@ pub fn get_claude_config(project_path: Option<String>) -> ClaudeConfig {
     if let Some(ref project) = project_path {
         let local_claude = Path::new(project).join(".claude");
         config.agents.extend(scan_agents(&local_claude, false));
+        config.commands.extend(scan_commands(&local_claude, false));
         config.skills.extend(scan_skills(&local_claude, false));
         config.steering_rules.extend(scan_steering(&local_claude, false));
         let root_rules = scan_root_steering(&local_claude, false, &config.steering_rules);
@@ -381,6 +457,12 @@ pub fn get_claude_config(project_path: Option<String>) -> ClaudeConfig {
         }
         load_mcp_file(&local_claude.join("settings").join("mcp.json"), false, &mut config.mcp_servers);
     }
+
+    // Populate memory_files from steering rules that have alwaysApply: true
+    config.memory_files = config.steering_rules.iter()
+        .filter(|r| r.always_apply)
+        .cloned()
+        .collect();
 
     config
 }
@@ -878,6 +960,8 @@ mod tests {
     fn claude_config_default_is_empty() {
         let config = super::ClaudeConfig::default();
         assert!(config.agents.is_empty());
+        assert!(config.commands.is_empty());
+        assert!(config.memory_files.is_empty());
         assert!(config.mcp_servers.is_empty());
     }
 
