@@ -1,3 +1,9 @@
+## 2026-05-11 07:23 GST (Dubai)
+### Steering Queue: Preserve image attachments in queued messages
+Ported upstream commit 3065af5 from kirodex. Changed `queuedMessages` from `Record<string, string[]>` to `Record<string, QueuedMessage[]>` carrying text + optional attachments. Attachments flow through enqueue, steer, and auto-drain paths. QueuedMessages component shows photo icon with count tooltip. Updated thread-memory.ts to remove the now-unnecessary string→object adaptation layer.
+
+**Modified:** `src/renderer/components/chat/ChatPanel.tsx`, `src/renderer/components/chat/QueuedMessages.tsx`, `src/renderer/components/chat/QueuedMessages.test.tsx`, `src/renderer/stores/task-store-types.ts`, `src/renderer/stores/taskStore.ts`, `src/renderer/stores/taskStore.test.ts`, `src/renderer/stores/task-store-listeners.ts`, `src/renderer/lib/thread-memory.ts`
+
 ## 2026-05-11 07:21 GST (Dubai)
 ### Sidebar: Resolve orphaned UUID project entries on re-add
 Ported upstream commit 8612b64 from kirodex. When re-adding a previously removed project, restored soft-deleted threads now get the new UUID as projectId. removeProject falls back to matching by projectId for orphaned entries, and useSidebarTasks skips orphaned UUID entries with no workspace mapping. Added liveSubagents to applyTurnEnd test state for klaudex compatibility.

@@ -20,12 +20,13 @@ import { useMessageSearch } from '@/hooks/useMessageSearch'
 import { ipc } from '@/lib/ipc'
 import { record } from '@/lib/analytics-collector'
 import type { TaskMessage, ToolCall, IpcAttachment } from '@/types'
+import type { QueuedMessage } from '@/stores/task-store-types'
 import type { TimelineRow } from '@/lib/timeline'
 
 const EMPTY_MESSAGES: TaskMessage[] = []
 const EMPTY_TOOL_CALLS: ToolCall[] = []
 const EMPTY_OPTIONS: Array<{ optionId: string; name: string; kind: string }> = []
-const EMPTY_QUEUE: string[] = []
+const EMPTY_QUEUE: QueuedMessage[] = []
 
 /** Format cost as USD with appropriate decimal places */
 const formatCost = (cost: number): string => {
@@ -190,7 +191,7 @@ export const ChatPanel = memo(function ChatPanel() {
     // If the agent is running, queue the message instead of sending directly
     // Exception: btw mode messages should always send immediately
     if (task.status === 'running' && !state.btwCheckpoint) {
-      state.enqueueMessage(task.id, msg)
+      state.enqueueMessage(task.id, msg, attachments)
       return
     }
 
@@ -206,8 +207,8 @@ export const ChatPanel = memo(function ChatPanel() {
     const state = useTaskStore.getState()
     const id = state.selectedTaskId
     if (!id) return
-    const msg = state.queuedMessages[id]?.[index]
-    if (!msg) return
+    const queued = state.queuedMessages[id]?.[index]
+    if (!queued) return
     // Pause the agent first
     await ipc.pauseTask(id)
     // Remove from queue
@@ -217,7 +218,7 @@ export const ChatPanel = memo(function ChatPanel() {
     // may arrive late (after the new turn starts), so we handle it here.
     useTaskStore.setState((s) => applyTurnEnd(s, id))
     // Send the message (will resume the agent with new direction)
-    await sendMessageDirect(msg)
+    await sendMessageDirect(queued.text, queued.attachments ? [...queued.attachments] : undefined)
   }, [])
 
   const handleReorderQueued = useCallback((from: number, to: number) => {

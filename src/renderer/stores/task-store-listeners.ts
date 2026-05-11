@@ -330,7 +330,7 @@ export function initTaskListeners(): () => void {
       if (task) {
         const userMsg: import('@/types').TaskMessage = {
           role: 'user' as const,
-          content: nextMsg,
+          content: nextMsg.text,
           timestamp: new Date().toISOString(),
         }
         useTaskStore.getState().upsertTask({
@@ -339,7 +339,7 @@ export function initTaskListeners(): () => void {
           messages: [...task.messages, userMsg],
         })
         useTaskStore.getState().clearTurn(taskId)
-        ipc.sendMessage(taskId, nextMsg)
+        ipc.sendMessage(taskId, nextMsg.text, nextMsg.attachments ? [...nextMsg.attachments] : undefined)
       }
     }
   })

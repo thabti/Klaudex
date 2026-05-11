@@ -204,8 +204,15 @@ describe('queue', () => {
     useTaskStore.getState().enqueueMessage('t1', 'msg1')
     useTaskStore.getState().enqueueMessage('t1', 'msg2')
     const msgs = useTaskStore.getState().dequeueMessages('t1')
-    expect(msgs).toEqual(['msg1', 'msg2'])
+    expect(msgs).toEqual([{ text: 'msg1' }, { text: 'msg2' }])
     expect(useTaskStore.getState().queuedMessages['t1']).toEqual([])
+  })
+
+  it('enqueue with attachments', () => {
+    const attachment = { base64: 'abc', mimeType: 'image/png', name: 'img.png' }
+    useTaskStore.getState().enqueueMessage('t1', 'look', [attachment])
+    const msgs = useTaskStore.getState().dequeueMessages('t1')
+    expect(msgs).toEqual([{ text: 'look', attachments: [attachment] }])
   })
 
   it('removeQueuedMessage removes by index', () => {
@@ -213,7 +220,7 @@ describe('queue', () => {
     useTaskStore.getState().enqueueMessage('t1', 'b')
     useTaskStore.getState().enqueueMessage('t1', 'c')
     useTaskStore.getState().removeQueuedMessage('t1', 1)
-    expect(useTaskStore.getState().queuedMessages['t1']).toEqual(['a', 'c'])
+    expect(useTaskStore.getState().queuedMessages['t1']).toEqual([{ text: 'a' }, { text: 'c' }])
   })
 
   it('reorderQueuedMessage moves item', () => {
@@ -221,7 +228,7 @@ describe('queue', () => {
     useTaskStore.getState().enqueueMessage('t1', 'b')
     useTaskStore.getState().enqueueMessage('t1', 'c')
     useTaskStore.getState().reorderQueuedMessage('t1', 0, 2)
-    expect(useTaskStore.getState().queuedMessages['t1']).toEqual(['b', 'c', 'a'])
+    expect(useTaskStore.getState().queuedMessages['t1']).toEqual([{ text: 'b' }, { text: 'c' }, { text: 'a' }])
   })
 })
 

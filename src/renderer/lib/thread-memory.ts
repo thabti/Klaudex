@@ -212,7 +212,7 @@ type StoreSnapshot = TaskStore & {
   }>
   draftAttachments?: Record<string, readonly Attachment[]>
   draftPastedChunks?: Record<string, readonly unknown[]>
-  queuedMessages: Record<string, readonly string[]>
+  queuedMessages: Record<string, readonly import('@/stores/task-store-types').QueuedMessage[]>
 }
 
 /**
@@ -228,10 +228,7 @@ export const measureMemory = (
   const snap = store as StoreSnapshot
   const threads: ThreadMemoryBreakdown[] = []
   for (const task of Object.values(snap.tasks)) {
-    const queuedStrings = snap.queuedMessages[task.id] ?? []
-    // Klaudex stores queued messages as plain strings; Kirodex stored {text}.
-    // Adapt to measureThread's expected shape without copying memory.
-    const queuedAdapted = queuedStrings.map((text) => ({ text }))
+    const queuedAdapted = snap.queuedMessages[task.id] ?? []
     threads.push(measureThread(
       task,
       snap.streamingChunks[task.id],
@@ -311,8 +308,7 @@ export const estimateThreadMemory = (taskId: string): number => {
   const state = useTaskStore.getState() as StoreSnapshot
   const task = state.tasks[taskId] ?? state.softDeleted[taskId]?.task
   if (!task) return 0
-  const queuedStrings = state.queuedMessages[taskId] ?? []
-  const queuedAdapted = queuedStrings.map((text) => ({ text }))
+  const queuedAdapted = state.queuedMessages[taskId] ?? []
   const breakdown = measureThread(
     task,
     state.streamingChunks[taskId],
