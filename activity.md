@@ -1,3 +1,9 @@
+## 2026-05-11 07:58 GST (Dubai)
+### Port: folder drop support, working row streaming indicator, dev/prod icon split
+Cherry-picked 1d30a803 from kirodex. Added folder drag-and-drop support (new `is_directory` IPC command, `useAttachments` handles folders separately), WorkingRow shows pulse dot when streaming content is visible, split app icons into dev/prod directories, removed SVG icons.
+
+**Modified:** `src-tauri/src/commands/fs_ops.rs`, `src-tauri/src/lib.rs`, `src-tauri/tauri.conf.json`, `src/renderer/components/chat/ChatInput.tsx`, `src/renderer/components/chat/MessageList.tsx`, `src/renderer/components/chat/WorkingRow.tsx`, `src/renderer/components/chat/WorkingRow.test.tsx`, `src/renderer/hooks/useAttachments.ts`, `src/renderer/hooks/useChatInput.ts`, `src/renderer/lib/ipc.ts`, `src/renderer/lib/timeline.ts`, `src-tauri/icons/dev/*`, `src-tauri/icons/prod/*`
+
 ## 2026-05-11 07:56 GST (Dubai)
 ### Port: update docs terminal description and fix shortcut/command docs
 Cherry-picked e985fb23 from kirodex. Updated keyboard shortcuts to alphabetical order, added Escape terminal note, added /data alias, and fixed /usage description in slash commands docs.

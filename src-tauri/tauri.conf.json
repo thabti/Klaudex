@@ -35,7 +35,7 @@
   "bundle": {
     "active": true,
     "targets": ["app", "dmg", "deb", "appimage", "nsis"],
-    "icon": ["icons/icon.png", "icons/icon.icns", "icons/icon.ico"],
+    "icon": ["icons/dev/icon.png", "icons/dev/icon.icns", "icons/dev/icon.ico"],
     "macOS": {
       "minimumSystemVersion": "11.0",
       "signingIdentity": null,

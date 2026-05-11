@@ -33,24 +33,26 @@ interface UseChatInputOptions {
   isRunning?: boolean
   initialValue?: string
   initialAttachments?: Attachment[]
+  initialFolderPaths?: string[]
   initialPastedChunks?: PastedChunk[]
   initialMentionedFiles?: ProjectFile[]
   onSendMessage: (message: string, attachments?: IpcAttachment[]) => void
   onPause?: () => void
   onDraftChange?: (value: string) => void
   onAttachmentsChange?: (attachments: Attachment[]) => void
+  onFolderPathsChange?: (paths: string[]) => void
   onPastedChunksChange?: (chunks: PastedChunk[]) => void
   onMentionedFilesChange?: (files: ProjectFile[]) => void
 }
 
-export function useChatInput({ disabled, isRunning, initialValue, initialAttachments, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onPastedChunksChange, onMentionedFilesChange }: UseChatInputOptions) {
+export function useChatInput({ disabled, isRunning, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange }: UseChatInputOptions) {
   const [value, setValue] = useState(initialValue ?? '')
   const [slashIndex, setSlashIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const backendCommands = useSettingsStore((s) => s.availableCommands)
   const { panel, dismissPanel, execute, executeFullInput } = useSlashAction()
 
-  const attachmentsBag = useAttachments(initialAttachments)
+  const attachmentsBag = useAttachments(initialAttachments, initialFolderPaths)
   const mentionBag = useFileMention({ textareaRef, value, setValue, initialMentionedFiles })
 
   // ── Track Shift key for raw paste (Cmd+Shift+V) ────────────────
@@ -177,6 +179,13 @@ export function useChatInput({ disabled, isRunning, initialValue, initialAttachm
     onAttachmentsChangeRef.current?.(attachmentsBag.attachments)
   }, [attachmentsBag.attachments])
 
+  const onFolderPathsChangeRef = useRef(onFolderPathsChange)
+  onFolderPathsChangeRef.current = onFolderPathsChange
+
+  useEffect(() => {
+    onFolderPathsChangeRef.current?.(attachmentsBag.folderPaths)
+  }, [attachmentsBag.folderPaths])
+
   useEffect(() => {
     onPastedChunksChangeRef.current?.(pastedChunks)
   }, [pastedChunks])
@@ -296,6 +305,10 @@ export function useChatInput({ disabled, isRunning, initialValue, initialAttachm
       if (missingRefs.length > 0) {
         message = missingRefs.map((f) => `@${f.path}`).join(' ') + ' ' + message
       }
+    }
+    if (attachmentsBag.folderPaths.length > 0) {
+      const folderRefs = attachmentsBag.folderPaths.map((p) => `[Folder: ${p}]`).join(' ')
+      message = folderRefs + ' ' + message
     }
     if (hasAttachments) {
       message = buildMessageWithInlineImages(message, attachmentsBag.attachments)
@@ -435,7 +448,7 @@ export function useChatInput({ disabled, isRunning, initialValue, initialAttachm
     prevAttachmentCountRef.current = images.length
   }, [attachmentsBag.attachments]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const canSend = !disabled && (value.trim().length > 0 || attachmentsBag.attachments.length > 0)
+  const canSend = !disabled && (value.trim().length > 0 || attachmentsBag.attachments.length > 0 || attachmentsBag.folderPaths.length > 0)
 
   // Combined paste: intercept large text first, then fall through to image handler
   const handlePaste = useCallback((e: ClipboardEvent) => {
@@ -478,6 +491,9 @@ export function useChatInput({ disabled, isRunning, initialValue, initialAttachm
     handleFileInputChange: attachmentsBag.handleFileInputChange,
     clearAttachments: attachmentsBag.clearAttachments,
     handlePaste,
+    // Folder paths
+    folderPaths: attachmentsBag.folderPaths,
+    handleRemoveFolder: attachmentsBag.handleRemoveFolder,
     // Pasted chunks
     pastedChunks,
     handleRemoveChunk,

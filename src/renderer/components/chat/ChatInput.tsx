@@ -23,6 +23,7 @@ interface ChatInputProps {
   isRunning?: boolean
   initialValue?: string
   initialAttachments?: Attachment[]
+  initialFolderPaths?: string[]
   initialPastedChunks?: PastedChunk[]
   initialMentionedFiles?: ProjectFile[]
   autoFocus?: boolean
@@ -31,6 +32,7 @@ interface ChatInputProps {
   onPause?: () => void
   onDraftChange?: (value: string) => void
   onAttachmentsChange?: (attachments: Attachment[]) => void
+  onFolderPathsChange?: (paths: string[]) => void
   onPastedChunksChange?: (chunks: PastedChunk[]) => void
   onMentionedFilesChange?: (files: ProjectFile[]) => void
   workspace?: string | null
@@ -39,7 +41,7 @@ interface ChatInputProps {
   isWorktree?: boolean
 }
 
-export const ChatInput = memo(function ChatInput({ disabled, disabledReason, contextUsage, messageCount = 0, isRunning, initialValue, initialAttachments, initialPastedChunks, initialMentionedFiles, autoFocus, hasQueuedMessages, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onPastedChunksChange, onMentionedFilesChange, workspace, isCollapsed, onToggleCollapse, isWorktree }: ChatInputProps) {
+export const ChatInput = memo(function ChatInput({ disabled, disabledReason, contextUsage, messageCount = 0, isRunning, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, autoFocus, hasQueuedMessages, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange, workspace, isCollapsed, onToggleCollapse, isWorktree }: ChatInputProps) {
   const {
     value, setValue, textareaRef, canSend,
     slashIndex, slashQuery, commands, filteredCmds, showPicker,
@@ -48,9 +50,10 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
     handleSelectFile, handleRemoveMention, detectMentionTrigger, dismissMention,
     attachments, isDragOver, fileInputRef,
     handleRemoveAttachment, handlePaste, handleFilePickerClick, handleFileInputChange,
+    folderPaths, handleRemoveFolder,
     pastedChunks, handleRemoveChunk,
     handleChange, handleSend, handleKeyDown, handleSelect,
-  } = useChatInput({ disabled, isRunning, initialValue, initialAttachments, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onPastedChunksChange, onMentionedFilesChange })
+  } = useChatInput({ disabled, isRunning, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange })
 
   const currentModeId = useSettingsStore((s) => s.currentModeId)
   const compactionStatus = useTaskStore((s) => s.selectedTaskId ? s.tasks[s.selectedTaskId]?.compactionStatus : undefined)

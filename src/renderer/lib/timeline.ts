@@ -58,6 +58,8 @@ export interface WorkRow {
 export interface WorkingRow {
   kind: 'working'
   id: string
+  /** True when streaming text/thinking is already visible — show a subtle dot instead of cycling words */
+  hasStreamingContent?: boolean
 }
 
 export interface ChangedFilesRow {
@@ -209,13 +211,11 @@ export function deriveTimeline(
     })
   }
 
-  // Show "Working..." indicator when the agent is running and there's no
-  // live streaming text. During long tool calls (e.g. subagents), the
-  // indicator appears below the tool call display so the user still sees
-  // a "Crafting..." signal. Only suppress when text is actively streaming,
-  // since the streaming text itself signals activity.
-  if (isRunning && !hasLiveText && !hasLiveThinking) {
-    rows.push({ kind: 'working', id: 'working' })
+  // Show activity indicator whenever the agent is running (green pause
+  // button visible). When streaming text/thinking is already on screen,
+  // the row renders as a subtle dot so it doesn't compete visually.
+  if (isRunning) {
+    rows.push({ kind: 'working', id: 'working', hasStreamingContent: hasLiveText || hasLiveThinking })
   }
 
   return rows

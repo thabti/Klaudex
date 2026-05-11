@@ -247,7 +247,9 @@ export const ipc = {
   writeTextFile: (filePath: string, content: string): Promise<void> =>
     tracedInvoke('write_text_file', { path: filePath, content }),
   readFileBase64: (filePath: string): Promise<string | null> =>
-    tracedInvoke('read_file_base64', { path: filePath }),
+    invoke('read_file_base64', { path: filePath }),
+  isDirectory: (path: string): Promise<boolean> =>
+    invoke('is_directory', { path }),
   listProjectFiles: (root: string, respectGitignore: boolean = true): Promise<ProjectFile[]> =>
     tracedInvoke('list_project_files', { root, respectGitignore }),
   openUrl: (url: string): Promise<void> =>
@@ -397,15 +399,13 @@ export const ipc = {
   // ---------------------------------------------------------------------
   // File ops (additional)
   //
-  // NOTE: `pick_image` and `is_directory` are not currently registered in
-  // the Rust `invoke_handler!`. Wrappers stay here for type-stability of
-  // any UI code that calls them; at runtime the call rejects until the
-  // backend command lands.
+  // NOTE: `pick_image` is not currently registered in the Rust
+  // `invoke_handler!`. Wrapper stays here for type-stability of any UI
+  // code that calls it; at runtime the call rejects until the backend
+  // command lands.
   // ---------------------------------------------------------------------
   pickImage: (): Promise<string | null> =>
     tracedInvoke('pick_image'),
-  isDirectory: (path: string): Promise<boolean> =>
-    tracedInvoke('is_directory', { path }),
 
   // ---------------------------------------------------------------------
   // PTY (additional)
