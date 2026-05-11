@@ -1,3 +1,9 @@
+## 2026-05-11 12:19 GST (Dubai)
+### Port: Restyle toolbar as connected button group (kirodex@cde5ee2)
+Cherry-picked upstream styling commit that joins editor, terminal, file tree, and split buttons into a single rounded container with bg-muted/40 and thin vertical dividers. Git section moved to far right with emerald accent background. Resolved conflict where upstream had isGitRepo conditionals not present in klaudex.
+
+**Modified:** src/renderer/components/header-toolbar.tsx, src/renderer/components/GitActionsGroup.tsx, src/renderer/components/OpenInEditorGroup.tsx
+
 ## 2026-05-11 12:18 GST (Dubai)
 ### Port: Remove chevron from ProjectItem (kirodex@5c51d88)
 Cherry-picked upstream refactor that removes the expand/collapse chevron icon from project items in the sidebar. Projects now toggle purely by clicking the row.

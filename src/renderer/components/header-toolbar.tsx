@@ -53,10 +53,10 @@ const SplitToggleButton = memo(function SplitToggleButton() {
             aria-pressed={isSplit}
             onClick={handleClick}
             className={cn(
-              "inline-flex h-6 items-center gap-1 rounded-md px-2 text-xs transition-all duration-150",
+              "inline-flex size-7 items-center justify-center text-xs transition-colors",
               isSplit
-                ? "bg-primary text-white border border-primary/80 hover:bg-primary/90"
-                : "bg-gradient-to-r from-violet-500/10 to-blue-500/10 text-violet-400 border border-violet-500/20 hover:from-violet-500/20 hover:to-blue-500/20 hover:text-violet-300",
+                ? "bg-violet-500/20 text-violet-300"
+                : "text-violet-400/70 hover:bg-violet-500/10 hover:text-violet-300",
             )}
           >
             <IconLayoutColumns className="size-3.5" aria-hidden />
@@ -92,13 +92,13 @@ const FileTreeToggleButton = memo(function FileTreeToggleButton() {
           aria-pressed={isOpen}
           onClick={toggle}
           className={cn(
-            "inline-flex h-6 items-center rounded-md border border-input px-1.5 text-xs shadow-xs/5 transition-colors",
+            "inline-flex size-7 items-center justify-center text-xs transition-colors",
             isOpen
-              ? "bg-input/64 dark:bg-input text-foreground"
-              : "bg-popover hover:bg-accent/50 dark:bg-input/32 text-muted-foreground",
+              ? "bg-white/[0.08] text-foreground"
+              : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground",
           )}
         >
-          <IconFiles className="size-3" aria-hidden />
+          <IconFiles className="size-3.5" aria-hidden />
         </button>
       </TooltipTrigger>
       <TooltipContent side="bottom">File tree</TooltipContent>
@@ -155,12 +155,46 @@ export const HeaderToolbar = memo(function HeaderToolbar({
 
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <ErrorBoundary fallback={null}>
-        <OpenInEditorGroup workspace={workspace} />
-      </ErrorBoundary>
+      <div className="flex items-center rounded-lg bg-muted/40" data-no-drag>
+        <ErrorBoundary fallback={null}>
+          <OpenInEditorGroup workspace={workspace} />
+        </ErrorBoundary>
 
-      {/* Diff stats + git dropdown as one split button */}
-      <div className="flex">
+        {selectedTaskId && (
+          <>
+            <div className="h-4 w-px bg-white/[0.06]" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  data-testid="toggle-terminal-button"
+                  aria-label="Toggle terminal"
+                  aria-pressed={terminalOpen}
+                  onClick={() => toggleTerminal(selectedTaskId)}
+                  className={cn(
+                    "inline-flex size-7 items-center justify-center text-xs transition-colors",
+                    terminalOpen
+                      ? "bg-white/[0.08] text-foreground"
+                      : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground",
+                  )}
+                >
+                  <IconTerminal2 className="size-3.5" aria-hidden />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Terminal</TooltipContent>
+            </Tooltip>
+          </>
+        )}
+
+        <div className="h-4 w-px bg-white/[0.06]" />
+        <FileTreeToggleButton />
+
+        <div className="h-4 w-px bg-white/[0.06]" />
+        <SplitToggleButton />
+      </div>
+
+      {/* Git section — far right with accent */}
+      <div className="flex items-center rounded-lg bg-emerald-500/[0.06]">
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -170,11 +204,10 @@ export const HeaderToolbar = memo(function HeaderToolbar({
               aria-pressed={sidePanelOpen}
               onClick={onToggleSidePanel}
               className={cn(
-                "inline-flex h-6 items-center gap-1.5 px-1.5 text-xs shadow-xs/5 transition-colors border border-input",
-                "rounded-l-md",
+                "inline-flex h-7 items-center gap-1.5 rounded-l-lg px-2 text-xs transition-colors",
                 sidePanelOpen
-                  ? "bg-input/64 dark:bg-input text-foreground"
-                  : "bg-popover hover:bg-accent/50 dark:bg-input/32 text-muted-foreground",
+                  ? "bg-emerald-500/15 text-emerald-300"
+                  : "text-emerald-400 hover:bg-emerald-500/10",
               )}
             >
               <IconGitCompare className="size-3" aria-hidden />
@@ -186,14 +219,14 @@ export const HeaderToolbar = memo(function HeaderToolbar({
                   )}
                 >
                   {diffStats.fileCount > 0 && (
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-[10px] text-emerald-400/60">
                       {diffStats.fileCount}
                     </span>
                   )}
-                  <span className="text-[10px] font-semibold text-emerald-500">
+                  <span className="text-[10px] font-semibold text-emerald-400">
                     +{diffStats.additions.toLocaleString()}
                   </span>
-                  <span className="text-[10px] font-semibold text-red-500">
+                  <span className="text-[10px] font-semibold text-red-400">
                     -{diffStats.deletions.toLocaleString()}
                   </span>
                 </span>
@@ -206,34 +239,6 @@ export const HeaderToolbar = memo(function HeaderToolbar({
           <GitActionsGroup workspace={workspace} />
         </ErrorBoundary>
       </div>
-
-      {selectedTaskId && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              data-testid="toggle-terminal-button"
-              aria-label="Toggle terminal"
-              aria-pressed={terminalOpen}
-              onClick={() => toggleTerminal(selectedTaskId)}
-              className={cn(
-                "inline-flex h-6 items-center rounded-md border border-input px-1.5 text-xs shadow-xs/5 transition-colors",
-                terminalOpen
-                  ? "bg-input/64 dark:bg-input text-foreground"
-                  : "bg-popover hover:bg-accent/50 dark:bg-input/32 text-muted-foreground",
-              )}
-            >
-              <IconTerminal2 className="size-3" aria-hidden />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Terminal</TooltipContent>
-        </Tooltip>
-      )}
-
-      <FileTreeToggleButton />
-
-      <SplitToggleButton />
-
     </div>
   )
 })
