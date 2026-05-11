@@ -1,3 +1,9 @@
+## 2026-05-11 08:25 GST (Dubai)
+### Tests: fix 3 timeline tests to match current deriveTimeline behavior
+Ported upstream commit updating test expectations for working row placement. The working row now always emits when isRunning is true (placed before live tool calls) with a hasStreamingContent flag instead of being suppressed when streaming text is active.
+
+**Modified:** `src/renderer/lib/timeline.test.ts`
+
 ## 2026-05-11 08:24 GST (Dubai)
 ### UI: consistent kbd styling in header breadcrumb and settings
 Ported upstream commit for consistent kbd element styling. HeaderBreadcrumb and SettingsPanel tooltips now use `bg-background/15` instead of `bg-muted`. KeymapSection replaces bordered kbd with plain mono text for shortcut display.

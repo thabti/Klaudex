@@ -89,18 +89,20 @@ describe('deriveTimeline', () => {
 
   it('combines persisted messages with live state', () => {
     const msgs = [makeMsg('user', 'hi')]
-    // 'working' row is suppressed when there's live streaming text
+    // 'working' row appears before live tool calls with hasStreamingContent flag
     const rows = deriveTimeline(msgs, 'responding...', [makeTool()], undefined, true)
-    expect(rows.map((r) => r.kind)).toEqual(['user-message', 'assistant-text', 'work'])
+    expect(rows.map((r) => r.kind)).toEqual(['user-message', 'assistant-text', 'working', 'work'])
   })
 
   it('shows working indicator alongside live tool calls when running', () => {
     const rows = deriveTimeline([], undefined, [makeTool()], undefined, true)
-    expect(rows.map((r) => r.kind)).toEqual(['work', 'working'])
+    expect(rows.map((r) => r.kind)).toEqual(['working', 'work'])
   })
 
-  it('suppresses working indicator when streaming text is active', () => {
+  it('shows working indicator with hasStreamingContent when streaming text is active', () => {
     const rows = deriveTimeline([], 'typing...', [makeTool()], undefined, true)
-    expect(rows.map((r) => r.kind)).toEqual(['assistant-text', 'work'])
+    expect(rows.map((r) => r.kind)).toEqual(['assistant-text', 'working', 'work'])
+    const workingRow = rows.find((r) => r.kind === 'working') as { hasStreamingContent?: boolean }
+    expect(workingRow.hasStreamingContent).toBe(true)
   })
 })
