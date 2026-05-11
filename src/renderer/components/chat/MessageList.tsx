@@ -4,6 +4,7 @@ import { IconArrowDown } from '@tabler/icons-react'
 import type { TaskMessage, ToolCall } from '@/types'
 import { deriveTimeline, type TimelineRow } from '@/lib/timeline'
 import { cn } from '@/lib/utils'
+import { useTaskStore } from '@/stores/taskStore'
 import {
   UserMessageRow,
   SystemMessageRow,
@@ -28,6 +29,7 @@ const ROW_HEIGHT_ESTIMATES: Record<string, number> = {
 }
 
 interface MessageListProps {
+  taskId?: string | null
   messages: TaskMessage[]
   streamingChunk?: string
   liveToolCalls?: ToolCall[]
@@ -42,6 +44,7 @@ interface MessageListProps {
 }
 
 export const MessageList = memo(function MessageList({
+  taskId,
   messages,
   streamingChunk,
   liveToolCalls,
@@ -56,6 +59,28 @@ export const MessageList = memo(function MessageList({
   const isNearBottomRef = useRef(true)
   /** Guard so programmatic scrolls don't flip isNearBottomRef */
   const isProgrammaticScrollRef = useRef(false)
+  const prevTaskIdRef = useRef(taskId)
+
+  // Save scroll position when switching away from a thread
+  useEffect(() => {
+    const prevId = prevTaskIdRef.current
+    if (prevId === taskId) return
+    // Save the old thread's scroll position
+    if (prevId && parentRef.current) {
+      useTaskStore.getState().saveScrollPosition(prevId, parentRef.current.scrollTop)
+    }
+    prevTaskIdRef.current = taskId
+  }, [taskId])
+
+  // Save scroll position on unmount (e.g., switching to dashboard/analytics)
+  useEffect(() => {
+    return () => {
+      const id = prevTaskIdRef.current
+      if (id && parentRef.current) {
+        useTaskStore.getState().saveScrollPosition(id, parentRef.current.scrollTop)
+      }
+    }
+  }, [])
 
   const timelineRows = useMemo(
     () => deriveTimeline(messages, streamingChunk, liveToolCalls, liveThinking, isRunning),
@@ -136,6 +161,26 @@ export const MessageList = memo(function MessageList({
       virtualizer.scrollToIndex(idx, { align: 'center', behavior: 'smooth' })
     }
   }, [activeMatchId, timelineRows, virtualizer])
+
+  // Restore saved scroll position when switching to a thread
+  useEffect(() => {
+    if (!taskId) return
+    const el = parentRef.current
+    if (!el) return
+    const saved = useTaskStore.getState().scrollPositions[taskId]
+    if (saved === undefined) return
+    // Wait for the virtualizer to lay out the new content
+    isProgrammaticScrollRef.current = true
+    requestAnimationFrame(() => {
+      el.scrollTop = saved
+      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+      isNearBottomRef.current = distFromBottom < AUTO_SCROLL_THRESHOLD
+      setShowScrollBtn(!isNearBottomRef.current)
+      requestAnimationFrame(() => {
+        isProgrammaticScrollRef.current = false
+      })
+    })
+  }, [taskId])
 
   if (!timelineRows.length) {
     return (

@@ -189,8 +189,8 @@ export interface PersistedUiState {
   view: string
   sidePanelOpen: boolean
   sidebarCollapsed: boolean
-  splitTaskId?: string | null
-  splitRatio?: number
+  splitViews?: Array<{ id: string; left: string; right: string; ratio: number }>
+  activeSplitId?: string | null
 }
 
 /** Save the current UI state so it can be restored on next launch */

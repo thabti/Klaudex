@@ -201,12 +201,12 @@ const navigateToNotifiedTask = (taskId: string): void => {
 }
 
 export function App() {
-  const { view, selectedTaskId, pendingWorkspace, splitTaskId } = useTaskStore(
+  const { view, selectedTaskId, pendingWorkspace, activeSplitId } = useTaskStore(
     useShallow((s) => ({
       view: s.view,
       selectedTaskId: s.selectedTaskId,
       pendingWorkspace: s.pendingWorkspace,
-      splitTaskId: s.splitTaskId,
+      activeSplitId: s.activeSplitId,
     })),
   );
   const debugOpen = useDebugStore((s) => s.isOpen);
@@ -279,10 +279,15 @@ export function App() {
           }
           setSidePanelOpen(ui.sidePanelOpen ?? false)
           setIsSidebarCollapsed(ui.sidebarCollapsed ?? false)
-          // Restore split-screen state
-          if (ui.splitTaskId && tasks[ui.splitTaskId]) {
-            useTaskStore.getState().setSplitTask(ui.splitTaskId)
-            if (ui.splitRatio) useTaskStore.getState().setSplitRatio(ui.splitRatio)
+          // Restore split views
+          if (ui.splitViews && ui.splitViews.length > 0) {
+            const validSplits = ui.splitViews.filter((sv) => tasks[sv.left] && tasks[sv.right])
+            if (validSplits.length > 0) {
+              useTaskStore.setState({ splitViews: validSplits })
+              if (ui.activeSplitId && validSplits.some((sv) => sv.id === ui.activeSplitId)) {
+                useTaskStore.getState().setActiveSplit(ui.activeSplitId)
+              }
+            }
           }
         }).catch(() => {})
       })
@@ -329,14 +334,14 @@ export function App() {
       listen('app://flush-before-quit', () => {
         useTaskStore.getState().persistHistory()
         import('@/lib/history-store').then((hs) => {
-          const { selectedTaskId, view, splitTaskId, splitRatio } = useTaskStore.getState()
+          const { selectedTaskId, view, splitViews, activeSplitId } = useTaskStore.getState()
           hs.saveUiState({
             selectedTaskId,
             view,
             sidePanelOpen,
             sidebarCollapsed: isSidebarCollapsed,
-            splitTaskId,
-            splitRatio,
+            splitViews,
+            activeSplitId,
           }).catch(() => {})
           hs.flush().then(() => {
             // Ack the flush so Rust can proceed with shutdown
@@ -489,7 +494,7 @@ export function App() {
                 <Suspense>
                   {view === 'analytics' ? (
                     <AnalyticsDashboard />
-                  ) : selectedTaskId && splitTaskId ? (
+                  ) : selectedTaskId && activeSplitId ? (
                     <SplitChatLayout />
                   ) : selectedTaskId ? (
                     <ChatPanel />
@@ -501,7 +506,7 @@ export function App() {
                 </Suspense>
               </div>
             </ErrorBoundary>
-            {sidePanelOpen && !splitTaskId && (selectedTaskId || pendingWorkspace) && (
+            {sidePanelOpen && !activeSplitId && (selectedTaskId || pendingWorkspace) && (
               <ErrorBoundary>
                 <Suspense>
                   <CodePanel onClose={closeSidePanel} workspace={pendingWorkspace ?? undefined} />

@@ -1,3 +1,9 @@
+## 2026-05-11 09:06 GST (Dubai)
+### Split-screen: persistent split views with sidebar entries and Cmd+\ shortcut
+Ported upstream commit a7e3b6d. Refactored split-screen from ephemeral `splitTaskId` to persistent `splitViews` array model. Split pairings survive thread creation and navigation. Added sidebar "Split Views" section, `createSplitView`/`removeSplitView`/`setActiveSplit` actions, Cmd+\ toggle, per-thread scroll position memory, and split state persistence via history-store.
+
+**Modified:** `src/renderer/App.tsx`, `src/renderer/components/chat/ChatPanel.tsx`, `src/renderer/components/chat/MessageList.tsx`, `src/renderer/components/chat/SplitChatLayout.tsx`, `src/renderer/components/chat/SplitThreadPicker.tsx`, `src/renderer/components/header-toolbar.tsx`, `src/renderer/components/sidebar/TaskSidebar.tsx`, `src/renderer/components/sidebar/ThreadItem.tsx`, `src/renderer/hooks/useKeyboardShortcuts.ts`, `src/renderer/lib/history-store.ts`, `src/renderer/stores/task-store-types.ts`, `src/renderer/stores/taskStore.ts`
+
 ## 2026-05-11 09:05 GST (Dubai)
 ### Store: add reorder and custom sort tests
 Ported upstream commit 7cdea39. Added four reorderProject tests (no-op, adjacent swap forward/backward, last-to-first) and four useSidebarTasks custom sort tests (preserves store order, recent sort, custom sort no reorder, task order within project).

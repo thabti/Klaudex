@@ -22,8 +22,8 @@ import type { TaskStatus } from "@/types"
 /** Toggle button for split-screen mode. Opens a thread picker or closes split. */
 const SplitToggleButton = memo(function SplitToggleButton() {
   const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
-  const splitTaskId = useTaskStore((s) => s.splitTaskId)
-  const isSplit = splitTaskId !== null
+  const activeSplitId = useTaskStore((s) => s.activeSplitId)
+  const isSplit = activeSplitId !== null
   const [pickerPos, setPickerPos] = useState<{ x: number; y: number } | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
 

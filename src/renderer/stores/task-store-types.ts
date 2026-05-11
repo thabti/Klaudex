@@ -62,14 +62,14 @@ export interface TaskStore {
   lastAddedProject: string | null
   /** Pending worktree cleanup — set when a worktree thread is being deleted/archived */
   worktreeCleanupPending: { taskId: string; worktreePath: string; branch: string; originalWorkspace: string; action: 'archive' | 'delete'; hasChanges: boolean | null } | null
-  /** Split-screen: task ID shown in the right panel (null = single panel mode) */
-  splitTaskId: string | null
-  /** Split-screen: ratio of left panel width (0–1, default 0.5) */
-  splitRatio: number
+  /** Saved split view pairings */
+  splitViews: Array<{ id: string; left: string; right: string; ratio: number }>
+  /** Currently active split view ID (null = single panel mode) */
+  activeSplitId: string | null
   /** Split-screen: which panel is focused */
   focusedPanel: 'left' | 'right'
-  /** Remembered split pair — restored when clicking either thread */
-  lastSplitPair: { left: string; right: string } | null
+  /** Per-thread scroll positions (in-memory only, not persisted) */
+  scrollPositions: Record<string, number>
   setSelectedTask: (id: string | null) => void
   setView: (view: 'chat' | 'dashboard' | 'analytics') => void
   setNewProjectOpen: (open: boolean) => void
@@ -123,12 +123,18 @@ export interface TaskStore {
   resolveWorktreeCleanup: (remove: boolean) => void
   enterBtwMode: (taskId: string, question: string) => void
   exitBtwMode: (keepTail: boolean) => void
-  /** Open split-screen with a second thread */
-  setSplitTask: (id: string | null) => void
-  /** Update the split panel width ratio */
+  /** Create a saved split view pairing and activate it */
+  createSplitView: (left: string, right: string) => string
+  /** Remove a saved split view */
+  removeSplitView: (id: string) => void
+  /** Activate a saved split view (null to deactivate) */
+  setActiveSplit: (id: string | null) => void
+  /** Update the active split view's ratio */
   setSplitRatio: (ratio: number) => void
   /** Set which panel is focused */
   setFocusedPanel: (panel: 'left' | 'right') => void
-  /** Close split-screen mode */
+  /** Deactivate split view without removing the saved pairing */
   closeSplit: () => void
+  /** Save scroll position for a thread (in-memory only) */
+  saveScrollPosition: (taskId: string, scrollTop: number) => void
 }

@@ -160,19 +160,34 @@ export function useKeyboardShortcuts() {
       if ((key === '\\' || e.code === 'Backslash') && !e.shiftKey) {
         e.preventDefault()
         const state = useTaskStore.getState()
-        if (state.splitTaskId) {
+        if (state.activeSplitId) {
           state.closeSplit()
+        } else if (state.splitViews.length > 0) {
+          state.setActiveSplit(state.splitViews[0].id)
         } else if (state.selectedTaskId) {
           const current = state.selectedTaskId
           const candidate = Object.values(state.tasks)
-            .filter((t) => t.id !== current && !t.isArchived && t.messages.length > 0)
-            .sort((a, b) => {
-              const aTime = a.messages[a.messages.length - 1]?.timestamp ?? a.createdAt
-              const bTime = b.messages[b.messages.length - 1]?.timestamp ?? b.createdAt
-              return bTime.localeCompare(aTime)
-            })[0]
-          if (candidate) state.setSplitTask(candidate.id)
+            .filter((t) => t.id !== current && !t.isArchived && t.status !== 'completed' && t.status !== 'cancelled' && t.messages.length > 0)
+            .sort((a, b) => (b.messages[b.messages.length - 1]?.timestamp ?? b.createdAt).localeCompare(a.messages[a.messages.length - 1]?.timestamp ?? a.createdAt))[0]
+          if (candidate) state.createSplitView(current, candidate.id)
         }
+        return
+      }
+
+      // ── Cmd+Shift+\ → New split view with current thread ──
+      if ((key === '\\' || e.code === 'Backslash') && e.shiftKey) {
+        e.preventDefault()
+        const state = useTaskStore.getState()
+        const current = state.selectedTaskId
+        if (!current) return
+        const candidate = Object.values(state.tasks)
+          .filter((t) => t.id !== current && !t.isArchived && t.status !== 'completed' && t.status !== 'cancelled' && t.messages.length > 0)
+          .sort((a, b) => {
+            const aTime = a.messages[a.messages.length - 1]?.timestamp ?? a.createdAt
+            const bTime = b.messages[b.messages.length - 1]?.timestamp ?? b.createdAt
+            return bTime.localeCompare(aTime)
+          })[0]
+        if (candidate) state.createSplitView(current, candidate.id)
         return
       }
 

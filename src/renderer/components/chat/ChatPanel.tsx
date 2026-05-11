@@ -60,6 +60,7 @@ const StreamingMessageList = memo(function StreamingMessageList({
 
   return (
     <MessageList
+      taskId={resolvedId}
       messages={messages}
       streamingChunk={streamingChunk}
       liveToolCalls={liveToolCalls}
