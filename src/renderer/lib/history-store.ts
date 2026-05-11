@@ -260,10 +260,24 @@ export async function saveSoftDeleted(items: SoftDeletedThread[]): Promise<void>
 /** Clear all persisted history */
 export async function clearHistory(): Promise<void> {
   const store = await getStore()
-  await store.delete('threads')
-  await store.delete('projects')
-  await store.delete('softDeleted')
-  await store.save()
+  _selfWriteCount++
+  try {
+    await store.delete('threads')
+    await store.delete('projects')
+    await store.delete('softDeleted')
+    await store.delete('uiState')
+    await store.save()
+  } finally {
+    // Keep the guard up past the onKeyChange debounce window (300ms in App.tsx)
+    // plus the autoSave window (500ms) to prevent cross-window sync from reloading.
+    setTimeout(() => { _selfWriteCount-- }, 1000)
+  }
+  // Also clear the backup so loadTasks doesn't restore threads from there
+  try {
+    const backup = await getBackupStore()
+    await backup.clear()
+    await backup.save()
+  } catch { /* best-effort */ }
 }
 
 // ── Flush & Backup ───────────────────────────────────────────────
@@ -284,6 +298,12 @@ export interface PersistedUiState {
   splitViews?: Array<{ id: string; left: string; right: string; ratio: number }>
   activeSplitId?: string | null
   pinnedThreadIds?: string[]
+  /** Per-thread model selection so picks made in a specific thread survive
+   *  restart. Mirrors {@link taskStore.taskModels}. */
+  taskModels?: Record<string, string>
+  /** Per-thread mode selection so picks made in a specific thread survive
+   *  restart. Mirrors {@link taskStore.taskModes}. */
+  taskModes?: Record<string, string>
 }
 
 /** Save the current UI state so it can be restored on next launch */

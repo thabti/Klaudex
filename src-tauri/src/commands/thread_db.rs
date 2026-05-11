@@ -647,6 +647,22 @@ impl ThreadDatabase {
         .await
     }
 
+    /// Delete ALL threads, messages, context, and FTS data. Used by "Clear conversation history".
+    pub async fn clear_all(&self) -> Result<(), ThreadDbError> {
+        self.write(move |conn| {
+            let tx = conn.unchecked_transaction()?;
+            // Delete messages first so the AFTER DELETE trigger cleans up the FTS index
+            tx.execute_batch("DELETE FROM messages;")?;
+            tx.execute_batch("DELETE FROM thread_context;")?;
+            tx.execute_batch("DELETE FROM threads;")?;
+            // Rebuild FTS index to reclaim space
+            tx.execute_batch("INSERT INTO messages_fts(messages_fts) VALUES('rebuild');")?;
+            tx.commit()?;
+            Ok(())
+        })
+        .await
+    }
+
     // ── Message CRUD ──────────────────────────────────────────────────────────
 
     /// Save a single message to a thread (dispatched to background writer).
@@ -857,6 +873,13 @@ pub async fn thread_db_stats(
     state: State<'_, ThreadDbState>,
 ) -> Result<ThreadStats, ThreadDbError> {
     state.db.stats().await
+}
+
+#[tauri::command]
+pub async fn thread_db_clear_all(
+    state: State<'_, ThreadDbState>,
+) -> Result<(), ThreadDbError> {
+    state.db.clear_all().await
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

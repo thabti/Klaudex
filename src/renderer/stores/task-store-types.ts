@@ -51,6 +51,8 @@ export interface TaskStore {
   liveSubagents: Record<string, SubagentInfo[]>
   /** Queued messages per task — typed while agent is running, sent on turn end */
   queuedMessages: Record<string, QueuedMessage[]>
+  /** Pending user input requests per task */
+  pendingUserInputs: Record<string, { requestId: string; fields: Array<{ name: string; label: string; type: string; required?: boolean; options?: string[] }> }>
   activityFeed: ActivityEntry[]
   connected: boolean
   /** Rich connection status for UI indicators (phase, retry count, timestamps) */
@@ -76,6 +78,8 @@ export interface TaskStore {
   taskModes: Record<string, string>
   /** Per-thread model ID so switching model in one thread doesn't affect others */
   taskModels: Record<string, string>
+  /** Per-thread claude CLI session ID (from ACP new_session) for debugging */
+  sessionIds: Record<string, string>
   /** Whether a fork operation is in progress */
   isForking: boolean
   /** Workspace path of the most recently added project (for auto-focus) */
@@ -113,6 +117,8 @@ export interface TaskStore {
   purgeExpiredSoftDeletes: () => void
   /** Drop every soft-deleted thread immediately, regardless of age. */
   purgeAllSoftDeletes: () => void
+  /** Auto-archive threads inactive for longer than settings.autoArchiveDays. */
+  autoArchiveStaleThreads: () => void
   appendChunk: (taskId: string, chunk: string) => void
   appendThinkingChunk: (taskId: string, chunk: string) => void
   upsertToolCall: (taskId: string, toolCall: ToolCall) => void

@@ -6,7 +6,7 @@ extern crate objc;
 
 mod commands;
 
-use commands::{acp, analytics, diff_parse, fs_ops, fuzzy, git, highlight, kiro_config, kiro_watcher, markdown, project_watcher, pty, settings, streaming_diff, thread_db, transport};
+use commands::{acp, analytics, branch_ai, diff_parse, fs_ops, fuzzy, git, git_ai, git_stack, highlight, claude_config, claude_watcher, markdown, pr_ai, process_diagnostics, project_watcher, pty, settings, streaming_diff, thread_db, thread_title, transport, vcs_status};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
 use tauri::Emitter;
@@ -134,7 +134,7 @@ fn shutdown_app(app: &tauri::AppHandle) {
     }
 
     // Stop all file watchers
-    kiro_watcher::stop_all(app);
+    claude_watcher::stop_all(app);
     project_watcher::stop_all_project_watchers(app);
 
     log::info!("Shutdown completed in {:?}", start.elapsed());
@@ -342,7 +342,7 @@ pub fn run() {
         .manage(pty::PtyState::default())
         .manage(claude_watcher::ClaudeWatcherState::default())
         .manage(RelaunchFlag::default())
-        .manage(kiro_watcher::KiroWatcherState::default())
+        .manage(claude_watcher::ClaudeWatcherState::default())
         .manage(project_watcher::ProjectWatcherState::default())
         .manage(thread_db::ThreadDbState {
             db: thread_db::ThreadDatabase::open(),
@@ -527,6 +527,12 @@ pub fn run() {
             git::git_diff_stats,
             git::git_staged_stats,
             git::git_remote_url,
+            git_ai::git_generate_commit_message,
+            git::git_changed_files,
+            git::git_stage_files,
+            git::git_commit_files,
+            git::git_create_and_checkout_branch,
+            git::git_add_remote,
             git::git_worktree_create,
             git::git_worktree_remove,
             git::git_worktree_has_changes,
@@ -547,6 +553,7 @@ pub fn run() {
             acp::task_rollback,
             acp::task_respond_user_input,
             acp::set_mode,
+            acp::set_model,
             acp::list_models,
             acp::probe_capabilities,
             // PTY
@@ -555,12 +562,14 @@ pub fn run() {
             pty::pty_resize,
             pty::pty_kill,
             pty::pty_count,
-            // Kiro config
+            // Claude config
             claude_config::get_claude_config,
             claude_config::save_mcp_server_config,
-            // Kiro watcher
-            kiro_watcher::watch_kiro_path,
-            kiro_watcher::unwatch_kiro_path,
+            claude_config::mcp_add_server,
+            claude_config::mcp_remove_server,
+            // Claude watcher
+            claude_watcher::watch_claude_path,
+            claude_watcher::unwatch_claude_path,
             // Project watcher & file operations
             project_watcher::watch_project_tree,
             project_watcher::unwatch_project_tree,
@@ -607,6 +616,16 @@ pub fn run() {
             fuzzy::fuzzy_match,
             // MCP Transport
             transport::mcp_transport_test,
+            // Thread title generation
+            thread_title::generate_thread_title,
+            branch_ai::generate_branch_name,
+            branch_ai::rename_worktree_branch,
+            pr_ai::generate_pr_content,
+            vcs_status::git_vcs_status,
+            git_stack::git_list_stack,
+            git_stack::git_stacked_push,
+            process_diagnostics::list_child_processes,
+            process_diagnostics::signal_process,
             // Thread Database
             thread_db::thread_db_list,
             thread_db::thread_db_load,
@@ -616,6 +635,7 @@ pub fn run() {
             thread_db::thread_db_save_message,
             thread_db::thread_db_search,
             thread_db::thread_db_stats,
+            thread_db::thread_db_clear_all,
             // Relaunch
             set_relaunch_flag,
             // Reset

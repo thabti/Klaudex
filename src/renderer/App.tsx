@@ -57,6 +57,7 @@ import { useUpdateStore } from "@/stores/updateStore";
 import { startAutoFlush, stopAutoFlush } from "@/lib/analytics-collector";
 import { WorktreeCleanupDialog } from "@/components/sidebar/WorktreeCleanupDialog";
 import { CloneRepoDialog } from "@/components/CloneRepoDialog";
+import { GlobalFilePreviewModal } from "@/components/GlobalFilePreviewModal";
 import { getVersion } from "@tauri-apps/api/app";
 import {
   initAnalytics,
@@ -294,7 +295,7 @@ export function App() {
   // Apply chat font size as a CSS var. Falls back to UI font size so users on
   // existing settings (no chatFontSize key) keep current behavior.
   useEffect(() => {
-    const resolved = chatFontSize ?? fontSize ?? 14;
+    const resolved = chatFontSize ?? fontSize ?? 15;
     document.documentElement.style.setProperty('--chat-font-size', `${resolved}px`);
   }, [chatFontSize, fontSize]);
 
@@ -355,6 +356,14 @@ export function App() {
     const cleanupClaude = initClaudeConfigListeners();
     useTaskStore.getState().loadTasks().then(() => {
       useTaskStore.getState().purgeExpiredSoftDeletes();
+      useTaskStore.getState().autoArchiveStaleThreads();
+      // Initialize VCS status for all known projects
+      import('@/stores/vcsStatusStore').then(({ initVcsStatus }) => {
+        const projects = useTaskStore.getState().projects
+        initVcsStatus(projects)
+      }).catch((e) => {
+        if (import.meta.env.DEV) console.warn('[App] vcsStatusStore init failed:', e)
+      })
       // Restore persisted UI state (selected thread, view, panels)
       import('@/lib/history-store').then(({ loadUiState }) => {
         loadUiState().then((ui) => {
@@ -384,6 +393,27 @@ export function App() {
             const validPins = ui.pinnedThreadIds.filter((id) => tasks[id])
             if (validPins.length > 0) {
               useTaskStore.setState({ pinnedThreadIds: validPins })
+            }
+          }
+          // Restore per-thread model and mode selections so picks survive
+          // restart. Filter to known task ids to avoid leaking entries from
+          // deleted threads.
+          if (ui.taskModels) {
+            const validModels: Record<string, string> = {}
+            for (const [tid, mid] of Object.entries(ui.taskModels)) {
+              if (tasks[tid]) validModels[tid] = mid
+            }
+            if (Object.keys(validModels).length > 0) {
+              useTaskStore.setState({ taskModels: validModels })
+            }
+          }
+          if (ui.taskModes) {
+            const validModes: Record<string, string> = {}
+            for (const [tid, m] of Object.entries(ui.taskModes)) {
+              if (tasks[tid]) validModes[tid] = m
+            }
+            if (Object.keys(validModes).length > 0) {
+              useTaskStore.setState({ taskModes: validModes })
             }
           }
         }).catch(() => {})
@@ -419,7 +449,7 @@ export function App() {
     // navigates to the thread (via sidebar click or native notification).
     const handleWindowFocus = () => {};
     window.addEventListener("focus", handleWindowFocus);
-    // Begin probing the kiro-cli subprocess so we can show "reconnecting…"
+    // Begin probing the claude subprocess so we can show "reconnecting…"
     // banners and clear stale latency entries on disconnect.
     const cleanupHealth = startConnectionHealthMonitor();
     // When a `diff.ready` receipt is published (after `turn_end`), refresh
@@ -443,7 +473,7 @@ export function App() {
       listen('app://flush-before-quit', () => {
         useTaskStore.getState().persistHistory()
         import('@/lib/history-store').then((hs) => {
-          const { selectedTaskId, view, splitViews, activeSplitId, pinnedThreadIds } = useTaskStore.getState()
+          const { selectedTaskId, view, splitViews, activeSplitId, pinnedThreadIds, taskModels, taskModes } = useTaskStore.getState()
           hs.saveUiState({
             selectedTaskId,
             view,
@@ -452,6 +482,8 @@ export function App() {
             splitViews,
             activeSplitId,
             pinnedThreadIds,
+            taskModels,
+            taskModes,
           }).catch(() => {})
           hs.flush().then(() => {
             // Ack the flush so Rust can proceed with shutdown
@@ -715,6 +747,9 @@ export function App() {
       <UpdateAvailableDialog />
       <WorktreeCleanupDialog />
       <CloneRepoDialog open={isCloneDialogOpen} onOpenChange={setIsCloneDialogOpen} />
+      <ErrorBoundary>
+        <GlobalFilePreviewModal />
+      </ErrorBoundary>
       {whatsNewEntry && !isUpdateDialogActive && (
         <WhatsNewDialog open={!!whatsNewEntry} entry={whatsNewEntry} currentVersion={appVersion} onDismiss={handleWhatsNewDismiss} />
       )}

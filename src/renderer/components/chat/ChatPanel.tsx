@@ -17,9 +17,12 @@ import { SearchQueryContext } from './HighlightText'
 import { BtwOverlay } from './BtwOverlay'
 import { PanelProvider } from './PanelContext'
 import { StickyTaskList } from './StickyTaskList'
+import { ThreadIdCaption } from './ThreadIdCaption'
 import { useMessageSearch } from '@/hooks/useMessageSearch'
 import { ipc } from '@/lib/ipc'
+import { resolveModelId } from '@/lib/resolve-model'
 import { record } from '@/lib/analytics-collector'
+import * as threadDb from '@/lib/thread-db'
 import {
   EMPTY_MESSAGES,
   EMPTY_TOOL_CALLS,
@@ -48,12 +51,14 @@ const StreamingMessageList = memo(function StreamingMessageList({
   searchMatchIds,
   activeMatchId,
   onTimelineRows,
+  headerContent,
 }: {
   taskId?: string | null
   isRunning: boolean
   searchMatchIds?: string[]
   activeMatchId?: string | null
   onTimelineRows?: (rows: TimelineRow[]) => void
+  headerContent?: React.ReactNode
 }) {
   const storeSelectedId = useTaskStore((s) => s.selectedTaskId)
   const resolvedId = taskIdProp ?? storeSelectedId
@@ -62,7 +67,7 @@ const StreamingMessageList = memo(function StreamingMessageList({
   const liveToolCalls = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? EMPTY_TOOL_CALLS : resolvedId ? s.liveToolCalls[resolvedId] ?? EMPTY_TOOL_CALLS : EMPTY_TOOL_CALLS)
   const liveToolSplits = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? EMPTY_TOOL_SPLITS : resolvedId ? s.liveToolSplits[resolvedId] ?? EMPTY_TOOL_SPLITS : EMPTY_TOOL_SPLITS)
   const liveThinking = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? '' : resolvedId ? s.thinkingChunks[resolvedId] ?? '' : '')
-  const inlineToolCalls = useSettingsStore((s) => s.settings.inlineToolCalls === true)
+  const inlineToolCalls = useSettingsStore((s) => s.settings.inlineToolCalls !== false)
 
   return (
     <MessageList
@@ -77,6 +82,7 @@ const StreamingMessageList = memo(function StreamingMessageList({
       searchMatchIds={searchMatchIds}
       activeMatchId={activeMatchId}
       onTimelineRows={onTimelineRows}
+      headerContent={headerContent}
     />
   )
 })
@@ -88,7 +94,7 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
   if (!task) return
   const shouldCreateNew = needsNewConnection(task)
   // Resumed-from-history: keep the original thread id and replay the prior
-  // transcript so the fresh kiro-cli subprocess has context. Mirrors Zed's
+  // transcript so the fresh claude subprocess has context. Mirrors Zed's
   // `Thread::from_db()` + `thread.replay(cx)` step.
   const isResumed = shouldCreateNew && (task.isArchived === true || task.needsNewConnection === true) && task.messages.length > 0
 
@@ -103,17 +109,23 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
   state.upsertTask({ ...task, status: 'running', messages: [...task.messages, userMsg] })
   state.clearTurn(task.id)
 
+  // Persist user message to SQLite immediately (survives crashes)
+  threadDb.saveThread(task).catch(() => {})
+  threadDb.saveMessage(targetTaskId, userMsg).catch(() => {})
+
   const proj = extractProjectName(task)
   record('message_sent', { project: proj, thread: task.id, value: msg.split(/\s+/).filter(Boolean).length })
 
   if (shouldCreateNew) {
-    const { settings, currentModeId } = useSettingsStore.getState()
+    const { settings, currentModeId, currentModelId } = useSettingsStore.getState()
     const taskState = useTaskStore.getState()
     const projectRoot = task.originalWorkspace ?? task.workspace
     const projectPrefs = projectRoot ? settings.projectPrefs?.[projectRoot] : undefined
     const autoApprove = projectPrefs?.autoApprove !== undefined ? projectPrefs.autoApprove : settings.autoApprove
     const modeId = taskState.taskModes[targetTaskId] ?? currentModeId
     const effectiveModeId = modeId && modeId !== 'kiro_default' ? modeId : undefined
+    const taskModelId = taskState.taskModels[targetTaskId]
+    const modelId = resolveModelId({ taskModelId, projectPrefs, settings, currentModelId })
     const created = await ipc.createTask({
       name: task.name,
       workspace: task.workspace,
@@ -129,7 +141,14 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
               content: m.content,
               timestamp: m.timestamp,
               ...(m.thinking ? { thinking: m.thinking } : {}),
+              // Carry tool data through the resumption round-trip. The
+              // backend's TaskMessage struct doesn't model `toolCallSplits`,
+              // so the field is dropped at deserialization on the Rust side
+              // — but we still send it here so that any future backend
+              // version that adds the field will get it, and so the
+              // intent of the mapping is explicit.
               ...(m.toolCalls ? { toolCalls: m.toolCalls } : {}),
+              ...(m.toolCallSplits ? { toolCallSplits: m.toolCallSplits } : {}),
             })),
           }
         : {}),
@@ -307,7 +326,7 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
   const searchQuery = search.isOpen ? search.query : ''
 
   const content = (
-    <div data-testid="chat-panel" className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col">
+    <div data-testid="chat-panel" className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col" style={{ fontSize: 'var(--chat-font-size, 15px)' }}>
       {isBtwMode && <BtwOverlay taskId={resolvedTaskId} />}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {taskPlan && taskPlan.length > 0 && (
@@ -337,6 +356,7 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
             searchMatchIds={search.isOpen ? search.matchIds : undefined}
             activeMatchId={search.isOpen ? search.activeMatchId : undefined}
             onTimelineRows={handleTimelineRows}
+            headerContent={resolvedTaskId ? <ThreadIdCaption taskId={resolvedTaskId} /> : undefined}
           />
         </SearchQueryContext.Provider>
 

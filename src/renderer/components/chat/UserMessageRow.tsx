@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useCallback, useContext, useMemo, type ReactNode } from 'react'
-import { IconCopy, IconCheck, IconPhoto, IconFileText, IconFile, IconRobot, IconBolt, IconGitFork } from '@tabler/icons-react'
+import { IconCopy, IconCheck, IconPhoto, IconFileText, IconFile, IconRobot, IconBolt, IconGitFork, IconX } from '@tabler/icons-react'
 import {
   Tooltip,
   TooltipContent,
@@ -7,9 +7,10 @@ import {
 } from '@/components/ui/tooltip'
 import { CollapsedAnswers } from './CollapsedAnswers'
 import { highlightNode, SearchQueryContext } from './HighlightText'
-import { useDiffStore } from '@/stores/diffStore'
+import { useFilePreviewStore } from '@/stores/filePreviewStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore, selectChatFontSize } from '@/stores/settingsStore'
+import { FileTypeIcon } from '@/components/file-tree/FileTypeIcon'
 import type { UserMessageRow as UserMessageRowData } from '@/lib/timeline'
 
 /** Match all @mentions: @agent:name, @skill:name, @file/paths */
@@ -38,12 +39,14 @@ function renderWithMentions(text: string): ReactNode {
         </span>
       )
     } else {
+      const fileName = ref.split('/').pop() ?? ref
       parts.push(
         <button key={idx} type="button"
-          onClick={() => useDiffStore.getState().openToFile(ref)}
-          className="mx-0.5 inline-flex items-center gap-0.5 rounded bg-accent/40 px-1 py-px align-middle font-mono text-[13px] leading-normal text-foreground/80 transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
+          onClick={() => useFilePreviewStore.getState().openPreview(ref)}
+          className="mx-0.5 inline-flex items-center gap-1 rounded bg-accent/40 px-1.5 py-px align-middle font-mono text-[13px] leading-normal text-foreground/80 transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
         >
-          <IconFileText className="size-3 shrink-0" />{ref.split('/').pop()}
+          <FileTypeIcon name={fileName} isDir={false} className="size-3.5 shrink-0" />
+          {fileName}
         </button>
       )
     }
@@ -93,6 +96,52 @@ const AttachmentPill = memo(function AttachmentPill({ name, type, src }: { name:
   const [showPreview, setShowPreview] = useState(false)
   const Icon = type === 'image' ? IconPhoto : name.match(/\.(ts|js|tsx|jsx|py|rs|go|rb|java|c|cpp|h|css|html|json|yaml|yml|toml|xml|md|sql|sh)$/i) ? IconFileText : IconFile
 
+  if (type === 'image' && src) {
+    return (
+      <div className="inline-flex flex-col gap-1">
+        <button
+          type="button"
+          onClick={() => setShowPreview((v) => !v)}
+          className="group/img overflow-hidden rounded-lg border border-border/60 bg-background/70 transition-colors hover:border-border"
+          aria-label={`Preview ${name}`}
+        >
+          <img
+            src={src}
+            alt={name}
+            className="block h-auto max-h-[180px] w-full max-w-[240px] cursor-zoom-in object-cover transition-transform group-hover/img:scale-[1.02]"
+          />
+        </button>
+        {showPreview && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowPreview(false)}
+            onKeyDown={(e) => e.key === 'Escape' && setShowPreview(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Image preview"
+            tabIndex={-1}
+            ref={(el) => el?.focus()}
+            style={{ overflow: 'hidden' }}
+          >
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setShowPreview(false) }}
+              className="absolute right-4 top-4 flex size-8 items-center justify-center rounded-full bg-black/50 text-white/80 transition-colors hover:bg-black/70 hover:text-white"
+              aria-label="Close preview"
+            >
+              <IconX className="size-5" />
+            </button>
+            <img
+              src={src}
+              alt={name}
+              className="max-h-[85vh] max-w-[90vw] rounded-lg border border-border/40 object-contain shadow-2xl"
+            />
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="inline-flex flex-col gap-1">
       <button
@@ -103,9 +152,6 @@ const AttachmentPill = memo(function AttachmentPill({ name, type, src }: { name:
         <Icon className="size-3 shrink-0" />
         <span className="max-w-[200px] truncate">{name}</span>
       </button>
-      {showPreview && src && (
-        <img src={src} alt={name} className="max-h-48 max-w-[280px] rounded-lg border border-border/60 object-contain" />
-      )}
     </div>
   )
 })
@@ -152,7 +198,7 @@ export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserM
                     </p>
                   )}
                   {parsedAttachments.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="grid max-w-[420px] grid-cols-2 gap-2">
                       {parsedAttachments.map((a, i) => (
                         <AttachmentPill key={i} name={a.name} type={a.type} src={a.src} />
                       ))}

@@ -75,7 +75,7 @@ export const WorktreePanel = memo(function WorktreePanel({ onDismiss }: { onDism
         void ipc.gitWorktreeRemove(workspace, result.worktreePath).catch(() => {})
         throw setupErr
       }
-      const task = await ipc.createTask({ name: normalizedSlug, workspace: result.worktreePath, prompt: '', autoApprove: settings.autoApprove })
+      const task = await ipc.createTask({ name: normalizedSlug, workspace: result.worktreePath, prompt: '', autoApprove: settings.autoApprove, deferSpawn: true })
       const store = useTaskStore.getState()
       store.upsertTask({ ...task, worktreePath: result.worktreePath, originalWorkspace: workspace, messages: [{ role: 'system', content: `Working in worktree \`${result.worktreePath}\` on branch \`${result.branch}\``, timestamp: new Date().toISOString() }] })
       store.setSelectedTask(task.id)

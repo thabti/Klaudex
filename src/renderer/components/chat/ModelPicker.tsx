@@ -98,15 +98,24 @@ export const ModelPicker = memo(function ModelPicker() {
               type="button"
               onMouseDown={(e) => {
                 e.stopPropagation()
-                const { activeWorkspace, setProjectPref } = useSettingsStore.getState()
+                const { activeWorkspace, setProjectPref, settings, saveSettings } = useSettingsStore.getState()
                 if (activeWorkspace) {
                   setProjectPref(activeWorkspace, { modelId: m.modelId })
                 } else {
+                  // No active workspace: persist as the user's global default
+                  // so the choice survives a restart instead of being held
+                  // only in transient zustand state.
                   useSettingsStore.setState({ currentModelId: m.modelId })
+                  if (settings.defaultModel !== m.modelId) {
+                    saveSettings({ ...settings, defaultModel: m.modelId }).catch(() => {})
+                  }
                 }
                 // Store per-task model so split panels stay independent
                 if (resolvedTaskId) {
                   useTaskStore.getState().setTaskModel(resolvedTaskId, m.modelId)
+                  // Push the selection to the live ACP session so claude
+                  // actually starts using the new model on the next prompt.
+                  ipc.setModel(resolvedTaskId, m.modelId).catch(() => {})
                 }
                 setOpen(false)
               }}

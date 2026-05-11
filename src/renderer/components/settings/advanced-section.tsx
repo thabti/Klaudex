@@ -31,8 +31,8 @@ export const AdvancedSection = ({ draft, updateDraft, onClose }: AdvancedSection
   useEffect(() => { refreshDbSize() }, [refreshDbSize])
   useEffect(() => { setAnalyticsSize(dbSize) }, [dbSize])
 
-  const handleClearHistory = () => {
-    useTaskStore.getState().clearHistory()
+  const handleClearHistory = async () => {
+    await useTaskStore.getState().clearHistory()
     onClose()
   }
 
@@ -59,6 +59,14 @@ export const AdvancedSection = ({ draft, updateDraft, onClose }: AdvancedSection
 
       <SettingsGrid label="Git" description="Commit trailers and reports">
         <SettingsCard>
+          <SettingRow label="AI commit messages" description="Show a sparkle button to draft a commit message from the diff">
+            <Switch
+              checked={draft.aiCommitMessages ?? true}
+              onCheckedChange={(checked) => updateDraft({ aiCommitMessages: checked })}
+              aria-label="Toggle AI commit messages"
+            />
+          </SettingRow>
+          <Divider />
           <SettingRow label="Co-authored-by Klaudex" description="Append trailer to every commit">
             <Switch
               checked={draft.coAuthor ?? true}

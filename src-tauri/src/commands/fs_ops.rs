@@ -1013,12 +1013,22 @@ pub struct ProjectIconInfo {
 
 /// Search for a favicon file in the given directory, returning the first match.
 fn find_favicon_in(dir: &Path) -> Option<PathBuf> {
-    // Check favicon.ico first (most common)
+    // Check favicon.svg first (modern, vector format)
+    let svg = dir.join("favicon.svg");
+    if svg.is_file() { return Some(svg); }
+    // Check favicon.ico (most common)
     let ico = dir.join("favicon.ico");
     if ico.is_file() { return Some(ico); }
     // Check favicon.png
     let png = dir.join("favicon.png");
     if png.is_file() { return Some(png); }
+    // Check icon.svg / icon.png / icon.ico (Next.js App Router convention)
+    let icon_svg = dir.join("icon.svg");
+    if icon_svg.is_file() { return Some(icon_svg); }
+    let icon_png = dir.join("icon.png");
+    if icon_png.is_file() { return Some(icon_png); }
+    let icon_ico = dir.join("icon.ico");
+    if icon_ico.is_file() { return Some(icon_ico); }
     // Check any .ico file
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
@@ -1031,6 +1041,89 @@ fn find_favicon_in(dir: &Path) -> Option<PathBuf> {
         }
     }
     None
+}
+
+/// Extract an icon path from an HTML file by parsing `<link rel="icon" href="...">`.
+/// Returns the resolved absolute path if the referenced file exists.
+fn extract_icon_from_html(project_root: &Path, html_path: &Path) -> Option<PathBuf> {
+    let content = std::fs::read_to_string(html_path).ok()?;
+    // Quick bail-out: if there's no <link tag at all, skip the scan.
+    let lower = content.to_lowercase();
+    if !lower.contains("<link") {
+        return None;
+    }
+    // Work entirely on the lowercased string for tag detection, but extract
+    // href values from the original content using the same byte offsets.
+    // This is safe because `to_lowercase()` preserves byte length for ASCII
+    // characters, and HTML tag syntax (<link, rel=, href=, >) is pure ASCII.
+    // Non-ASCII characters only appear in attribute values (like href paths),
+    // and we extract those from the original `content` using the same offsets.
+    let mut pos = 0;
+    while pos < lower.len() {
+        let tag_start = match lower[pos..].find("<link") {
+            Some(i) => pos + i,
+            None => break,
+        };
+        let tag_end = match lower[tag_start..].find('>') {
+            Some(i) => tag_start + i,
+            None => break,
+        };
+        // Verify the slice boundaries are valid UTF-8 char boundaries
+        if !lower.is_char_boundary(tag_start) || !lower.is_char_boundary(tag_end + 1) {
+            pos = tag_end + 1;
+            continue;
+        }
+        let tag = &lower[tag_start..=tag_end];
+        pos = tag_end + 1;
+
+        // Check if this link tag has rel="icon" or rel="shortcut icon"
+        let has_icon_rel = tag.contains("rel=\"icon\"")
+            || tag.contains("rel='icon'")
+            || tag.contains("rel=\"shortcut icon\"")
+            || tag.contains("rel='shortcut icon'");
+        if !has_icon_rel { continue; }
+
+        // Extract href value from the original (case-preserved) content
+        let orig_tag = &content[tag_start..=tag_end];
+        let href = match extract_href_value(orig_tag) {
+            Some(h) => h,
+            None => continue,
+        };
+
+        // Resolve the href to an absolute path
+        let clean_href = href.trim_start_matches('/');
+        // Try public/ first, then project root
+        let candidates = [
+            project_root.join("public").join(clean_href),
+            project_root.join(clean_href),
+        ];
+        for candidate in &candidates {
+            if candidate.is_file() {
+                // Security: ensure the path is within the project
+                if candidate.starts_with(project_root) {
+                    return Some(candidate.clone());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Extract the href attribute value from a tag string.
+fn extract_href_value(tag: &str) -> Option<String> {
+    // Find href=" or href='
+    let lower = tag.to_lowercase();
+    let href_pos = lower.find("href=")?;
+    let after_href = &tag[href_pos + 5..];
+    let quote = after_href.chars().next()?;
+    if quote != '"' && quote != '\'' { return None; }
+    let value_start = 1; // skip the opening quote
+    let value_end = after_href[value_start..].find(quote)?;
+    let value = &after_href[value_start..value_start + value_end];
+    // Strip query params
+    let clean = value.split('?').next().unwrap_or(value);
+    if clean.is_empty() { return None; }
+    Some(clean.to_string())
 }
 
 /// Detect the framework/language of a project from marker files.
@@ -1083,13 +1176,14 @@ fn detect_framework(root: &Path) -> Option<&'static str> {
 pub fn detect_project_icon(cwd: String) -> Option<ProjectIconInfo> {
     let root = Path::new(&cwd);
     if !root.is_dir() { return None; }
-    // 1. Search for favicon files
+    // 1. Search for favicon files in well-known directories
     let favicon_dirs: Vec<PathBuf> = vec![
         root.to_path_buf(),
         root.join("public"),
         root.join("static"),
         root.join("assets"),
         root.join("src").join("app"),
+        root.join("app"),
     ];
     for dir in &favicon_dirs {
         if let Some(path) = find_favicon_in(dir) {
@@ -1099,7 +1193,39 @@ pub fn detect_project_icon(cwd: String) -> Option<ProjectIconInfo> {
             });
         }
     }
-    // Monorepo: check apps/*/public and packages/*/public
+    // 1b. Check .idea/icon.svg (JetBrains project icon)
+    let idea_icon = root.join(".idea").join("icon.svg");
+    if idea_icon.is_file() {
+        return Some(ProjectIconInfo {
+            icon_type: "favicon".to_string(),
+            value: idea_icon.to_string_lossy().to_string(),
+        });
+    }
+    // 1c. Check assets/logo.svg and assets/logo.png
+    for name in &["logo.svg", "logo.png"] {
+        let logo = root.join("assets").join(name);
+        if logo.is_file() {
+            return Some(ProjectIconInfo {
+                icon_type: "favicon".to_string(),
+                value: logo.to_string_lossy().to_string(),
+            });
+        }
+    }
+    // 2. Parse HTML source files for <link rel="icon" href="...">
+    let html_sources = [
+        root.join("index.html"),
+        root.join("public").join("index.html"),
+        root.join("src").join("index.html"),
+    ];
+    for html_path in &html_sources {
+        if let Some(icon_path) = extract_icon_from_html(root, html_path) {
+            return Some(ProjectIconInfo {
+                icon_type: "favicon".to_string(),
+                value: icon_path.to_string_lossy().to_string(),
+            });
+        }
+    }
+    // 3. Monorepo: check apps/*/public and packages/*/public
     for subdir in &["apps", "packages"] {
         let parent = root.join(subdir);
         if let Ok(entries) = std::fs::read_dir(&parent) {
@@ -1116,7 +1242,7 @@ pub fn detect_project_icon(cwd: String) -> Option<ProjectIconInfo> {
             }
         }
     }
-    // 2. Detect framework/language
+    // 4. Detect framework/language
     detect_framework(root).map(|id| ProjectIconInfo {
         icon_type: "framework".to_string(),
         value: id.to_string(),
@@ -1326,5 +1452,61 @@ mod tests {
         let info = result.unwrap();
         assert_eq!(info.icon_type, "framework");
         assert_eq!(info.value, "go");
+    }
+
+    #[test]
+    fn find_favicon_svg_preferred() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("favicon.svg"), "<svg></svg>").unwrap();
+        std::fs::write(dir.path().join("favicon.ico"), &[0u8; 4]).unwrap();
+        let result = find_favicon_in(dir.path());
+        assert!(result.is_some());
+        assert!(result.unwrap().ends_with("favicon.svg"));
+    }
+
+    #[test]
+    fn find_favicon_icon_svg_nextjs() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("icon.svg"), "<svg></svg>").unwrap();
+        let result = find_favicon_in(dir.path());
+        assert!(result.is_some());
+        assert!(result.unwrap().ends_with("icon.svg"));
+    }
+
+    #[test]
+    fn extract_icon_from_html_link_tag() {
+        let dir = tempfile::tempdir().unwrap();
+        let html = r#"<!DOCTYPE html><html><head><link rel="icon" href="/brand/logo.svg"></head></html>"#;
+        std::fs::write(dir.path().join("index.html"), html).unwrap();
+        std::fs::create_dir_all(dir.path().join("public").join("brand")).unwrap();
+        std::fs::write(dir.path().join("public").join("brand").join("logo.svg"), "<svg></svg>").unwrap();
+        let result = extract_icon_from_html(dir.path(), &dir.path().join("index.html"));
+        assert!(result.is_some());
+        assert!(result.unwrap().to_string_lossy().contains("logo.svg"));
+    }
+
+    #[test]
+    fn extract_href_value_double_quotes() {
+        assert_eq!(extract_href_value(r#"<link rel="icon" href="/icon.png">"#), Some("/icon.png".to_string()));
+    }
+
+    #[test]
+    fn extract_href_value_single_quotes() {
+        assert_eq!(extract_href_value("<link rel='icon' href='/icon.svg'>"), Some("/icon.svg".to_string()));
+    }
+
+    #[test]
+    fn extract_href_value_strips_query_params() {
+        assert_eq!(extract_href_value(r#"<link href="/icon.png?v=2" rel="icon">"#), Some("/icon.png".to_string()));
+    }
+
+    #[test]
+    fn detect_project_icon_idea_icon() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join(".idea")).unwrap();
+        std::fs::write(dir.path().join(".idea").join("icon.svg"), "<svg></svg>").unwrap();
+        let result = detect_project_icon(dir.path().to_string_lossy().to_string());
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().icon_type, "favicon");
     }
 }

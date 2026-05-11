@@ -1114,3 +1114,237 @@ fn attachment_data_deserializes_without_name() {
     assert_eq!(att.mime_type, "image/jpeg");
     assert_eq!(att.name, None);
 }
+
+// ── build_resumption_preamble + sanitize_forked_messages ───────────────
+
+fn make_msg(role: &str, content: &str) -> TaskMessage {
+    TaskMessage {
+        role: role.to_string(),
+        content: content.to_string(),
+        timestamp: "2024-01-01T00:00:00Z".to_string(),
+        tool_calls: None,
+        thinking: None,
+    }
+}
+
+#[test]
+fn preamble_empty_for_no_messages() {
+    let preamble = build_resumption_preamble(&[], "Forked conversation", "intro");
+    assert!(preamble.is_empty());
+}
+
+#[test]
+fn preamble_includes_header_intro_and_transcript() {
+    let msgs = vec![
+        make_msg("user", "hello"),
+        make_msg("assistant", "hi there"),
+    ];
+    let preamble = build_resumption_preamble(&msgs, "Forked conversation", "Forked intro line.");
+    assert!(preamble.contains("## Forked conversation"));
+    assert!(preamble.contains("Forked intro line."));
+    assert!(preamble.contains("user: hello"));
+    assert!(preamble.contains("assistant: hi there"));
+    assert!(preamble.ends_with("## New message\n\n"));
+}
+
+#[test]
+fn preamble_skips_empty_and_non_user_assistant_roles() {
+    let msgs = vec![
+        make_msg("user", "real message"),
+        make_msg("system", "should be skipped"),
+        make_msg("assistant", ""),
+        make_msg("assistant", "real reply"),
+    ];
+    let preamble = build_resumption_preamble(&msgs, "Resumed conversation", "intro");
+    assert!(preamble.contains("user: real message"));
+    assert!(preamble.contains("assistant: real reply"));
+    assert!(!preamble.contains("should be skipped"));
+}
+
+#[test]
+fn preamble_empty_when_all_messages_filtered_out() {
+    // All messages are either empty content or non-user/assistant roles —
+    // the transcript body would be empty, so the whole preamble should be
+    // empty rather than emitting a header with a blank transcript block.
+    let msgs = vec![
+        make_msg("system", "system note"),
+        make_msg("user", ""),
+        make_msg("assistant", "   "),
+        make_msg("tool", "tool output"),
+    ];
+    let preamble = build_resumption_preamble(&msgs, "Resumed conversation", "intro");
+    assert!(preamble.is_empty());
+}
+
+#[test]
+fn preamble_truncates_when_byte_budget_exceeded() {
+    // One huge message followed by recent small messages — only recent should be kept.
+    let big = "x".repeat(RESUMPTION_BYTE_BUDGET + 100);
+    let msgs = vec![
+        make_msg("user", &big),
+        make_msg("assistant", "recent reply 1"),
+        make_msg("user", "recent question"),
+    ];
+    let preamble = build_resumption_preamble(&msgs, "Forked conversation", "intro");
+    assert!(preamble.contains("recent question"));
+    assert!(preamble.contains("recent reply 1"));
+    assert!(!preamble.contains(&big));
+    assert!(preamble.contains("older context omitted"));
+}
+
+#[test]
+fn preamble_truncates_when_message_count_exceeded() {
+    let msgs: Vec<TaskMessage> = (0..(RESUMPTION_MAX_MESSAGES + 5))
+        .map(|i| make_msg("user", &format!("msg-{i:03}")))
+        .collect();
+    let preamble = build_resumption_preamble(&msgs, "Resumed conversation", "intro");
+    // The earliest messages should be dropped (oldest 5 of 45).
+    assert!(!preamble.contains("msg-000"));
+    assert!(!preamble.contains("msg-004"));
+    // The boundary message should be kept.
+    assert!(preamble.contains("msg-005"));
+    // The most recent message survives.
+    assert!(preamble.contains(&format!("msg-{:03}", RESUMPTION_MAX_MESSAGES + 4)));
+    assert!(preamble.contains("older context omitted"));
+}
+
+#[test]
+fn sanitize_normalizes_in_progress_tool_calls() {
+    let mut msgs = vec![TaskMessage {
+        role: "assistant".to_string(),
+        content: "working on it".to_string(),
+        timestamp: "t".to_string(),
+        thinking: None,
+        tool_calls: Some(vec![
+            ToolCallData {
+                tool_call_id: "tc-1".to_string(),
+                title: "edit file".to_string(),
+                status: "in_progress".to_string(),
+                kind: None, locations: None, content: None, raw_input: None, raw_output: None,
+            },
+            ToolCallData {
+                tool_call_id: "tc-2".to_string(),
+                title: "read file".to_string(),
+                status: "pending".to_string(),
+                kind: None, locations: None, content: None, raw_input: None, raw_output: None,
+            },
+            ToolCallData {
+                tool_call_id: "tc-3".to_string(),
+                title: "shell".to_string(),
+                status: "completed".to_string(),
+                kind: None, locations: None, content: None, raw_input: None, raw_output: None,
+            },
+            ToolCallData {
+                tool_call_id: "tc-4".to_string(),
+                title: "run".to_string(),
+                status: "failed".to_string(),
+                kind: None, locations: None, content: None, raw_input: None, raw_output: None,
+            },
+        ]),
+    }];
+    sanitize_forked_messages(&mut msgs);
+    let calls = msgs[0].tool_calls.as_ref().unwrap();
+    assert_eq!(calls[0].status, "cancelled"); // in_progress => cancelled
+    assert_eq!(calls[1].status, "cancelled"); // pending => cancelled
+    assert_eq!(calls[2].status, "completed"); // terminal preserved
+    assert_eq!(calls[3].status, "failed");    // terminal preserved
+    // Title and id preserved.
+    assert_eq!(calls[0].title, "edit file");
+    assert_eq!(calls[0].tool_call_id, "tc-1");
+}
+
+#[test]
+fn sanitize_leaves_messages_without_tool_calls_untouched() {
+    let mut msgs = vec![make_msg("user", "hi")];
+    sanitize_forked_messages(&mut msgs);
+    assert!(msgs[0].tool_calls.is_none());
+}
+
+#[test]
+fn create_task_params_defer_spawn_defaults_false() {
+    let json = r#"{"name":"t","workspace":"/tmp","prompt":"hi"}"#;
+    let params: CreateTaskParams = serde_json::from_str(json).unwrap();
+    assert!(!params.defer_spawn);
+}
+
+#[test]
+fn create_task_params_defer_spawn_round_trips() {
+    let json = r#"{"name":"t","workspace":"/tmp","prompt":"","deferSpawn":true}"#;
+    let params: CreateTaskParams = serde_json::from_str(json).unwrap();
+    assert!(params.defer_spawn);
+}
+
+// ── resolve_initial_model ──────────────────────────────────────────────
+
+use crate::commands::settings::{AppSettings, ProjectPrefs};
+use crate::commands::acp::commands::resolve_initial_model;
+
+fn make_settings(default_model: Option<&str>, project_model: Option<&str>, workspace: &str) -> AppSettings {
+    let mut settings = AppSettings::default();
+    settings.default_model = default_model.map(|s| s.to_string());
+    if let Some(pm) = project_model {
+        let mut prefs = std::collections::HashMap::new();
+        prefs.insert(workspace.to_string(), ProjectPrefs {
+            model_id: Some(pm.to_string()),
+            ..Default::default()
+        });
+        settings.project_prefs = Some(prefs);
+    }
+    settings
+}
+
+#[test]
+fn resolve_model_explicit_wins() {
+    let settings = make_settings(Some("global-model"), Some("project-model"), "/ws");
+    let result = resolve_initial_model(Some("explicit-model".to_string()), "/ws", &settings);
+    assert_eq!(result, Some("explicit-model".to_string()));
+}
+
+#[test]
+fn resolve_model_project_pref_over_global() {
+    let settings = make_settings(Some("global-model"), Some("project-model"), "/ws");
+    let result = resolve_initial_model(None, "/ws", &settings);
+    assert_eq!(result, Some("project-model".to_string()));
+}
+
+#[test]
+fn resolve_model_global_fallback() {
+    let settings = make_settings(Some("global-model"), None, "/ws");
+    let result = resolve_initial_model(None, "/ws", &settings);
+    assert_eq!(result, Some("global-model".to_string()));
+}
+
+#[test]
+fn resolve_model_none_when_nothing_set() {
+    let settings = make_settings(None, None, "/ws");
+    let result = resolve_initial_model(None, "/ws", &settings);
+    assert_eq!(result, None);
+}
+
+#[test]
+fn resolve_model_skips_empty_explicit() {
+    let settings = make_settings(Some("global-model"), None, "/ws");
+    let result = resolve_initial_model(Some("  ".to_string()), "/ws", &settings);
+    assert_eq!(result, Some("global-model".to_string()));
+}
+
+#[test]
+fn resolve_model_skips_empty_project_pref() {
+    let mut settings = AppSettings::default();
+    settings.default_model = Some("global-model".to_string());
+    let mut prefs = std::collections::HashMap::new();
+    prefs.insert("/ws".to_string(), ProjectPrefs {
+        model_id: Some("".to_string()),
+        ..Default::default()
+    });
+    settings.project_prefs = Some(prefs);
+    let result = resolve_initial_model(None, "/ws", &settings);
+    assert_eq!(result, Some("global-model".to_string()));
+}
+
+#[test]
+fn resolve_model_different_workspace_ignores_project_pref() {
+    let settings = make_settings(Some("global-model"), Some("project-model"), "/ws");
+    let result = resolve_initial_model(None, "/other-ws", &settings);
+    assert_eq!(result, Some("global-model".to_string()));
+}

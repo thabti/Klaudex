@@ -1,3 +1,9 @@
+## 2026-05-11 11:12 GST (Dubai)
+### Port: Performance improvements and new commands (kirodex@c90011c)
+Ported upstream commit c90011c from kirodex. Adds new Rust backend commands: thread_title, branch_ai, diff_stats, git_ai, git_stack, pr_ai, process_diagnostics, and vcs_status. Adds new UI components: AnimatedHeight, CommandPalette, CommitDialog, DefaultBranchConfirmDialog, GlobalFilePreviewModal, PlanSidebar, ProviderStatusBanner, PublishRepoDialog, CompletionDivider, ThreadIdCaption, AddMcpServerDialog. Adds utility hooks: useCommitOnBlur, useCopyToClipboard, useMediaQuery. Adds lib modules: file-icons, git-toast, keybindings-toast, metrics, model-ordering, project-scripts, proposed-plan, provider-skill-presentation, resolve-mentions, resolve-model, terminal-context, thread-db, turn-diff-summary, version-skew, worktree-cleanup. Adds stores: filePreviewStore, vcsStatusStore. Updates chat components, settings, sidebar, and stores.
+
+**Modified:** 113 files across src-tauri/src/commands/, src/renderer/components/, src/renderer/hooks/, src/renderer/lib/, src/renderer/stores/, src/renderer/types/
+
 ## 2026-05-11 11:04 GST (Dubai)
 ### Port: Extend backend commands and refactor chat/file tree UI
 Ported upstream commit abc6c57 from kirodex. Adds new Rust backend modules: fuzzy matching (nucleo-matcher), syntax highlighting (syntect), markdown parsing (pulldown-cmark), streaming diff (imara-diff), structured diff parsing, thread database (SQLite via rusqlite), MCP transport layer, project file watcher, and retry utilities. Refactors chat UI with accent-colored tool call headers, cancelled status pills, redesigned tool call entries with git-compare icons, and tighter spacing. Adds file tree context menu and drag-and-drop support. Introduces frontend fuzzy search, tool-call-detail/fetch-display utilities, and analytics aggregation helpers.

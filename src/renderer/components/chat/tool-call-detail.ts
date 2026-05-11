@@ -92,13 +92,34 @@ function extractSearchPreview(
 ): string | null {
   // Show the query if available
   const query = asString(input?.query) ?? asString(input?.pattern) ?? asString(input?.search)
-  // Show result count from output
+  // Show result count from output — handle both flat and nested structures
+  let resultCount: number | null = null
   const totalFiles = asNumber(output?.totalFiles) ?? asNumber(output?.total) ?? asNumber(output?.count)
   const results = output?.results
-  const resultCount = Array.isArray(results) ? results.length : totalFiles
+  if (Array.isArray(results)) {
+    resultCount = results.length
+  } else if (totalFiles != null) {
+    resultCount = totalFiles
+  } else {
+    // Handle nested structure: { items: [{ Json: { results: [...] } }] }
+    const items = output?.items
+    if (Array.isArray(items) && items.length > 0) {
+      const first = items[0] as Record<string, unknown> | undefined
+      const json = first?.Json as Record<string, unknown> | undefined
+      const nestedResults = json?.results
+      if (Array.isArray(nestedResults)) resultCount = nestedResults.length
+      const nestedTotal = asNumber(json?.totalResults)
+      if (resultCount == null && nestedTotal != null) resultCount = nestedTotal
+    }
+  }
 
   const parts: string[] = []
-  if (query && query.length <= 40) parts.push(`"${query}"`)
+  if (query) {
+    // Show up to 80 chars for web search queries (they tend to be longer)
+    const maxLen = 80
+    if (query.length <= maxLen) parts.push(`"${query}"`)
+    else parts.push(`"${query.slice(0, maxLen - 1)}…"`)
+  }
   if (resultCount != null) {
     const suffix = output?.truncated === true ? '+' : ''
     parts.push(`${resultCount}${suffix} result${resultCount === 1 ? '' : 's'}`)

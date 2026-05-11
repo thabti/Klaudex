@@ -116,7 +116,7 @@ const tauriListen = <T>(event: string, cb: (payload: T) => void): UnsubscribeFn 
 }
 
 export const ipc = {
-  createTask: (params: { name: string; workspace: string; prompt: string; autoApprove?: boolean; modeId?: string; attachments?: IpcAttachment[]; existingId?: string; existingMessages?: Array<{ role: string; content: string; timestamp: string; thinking?: string; toolCalls?: ToolCall[] }> }): Promise<AgentTask> =>
+  createTask: (params: { name: string; workspace: string; prompt: string; autoApprove?: boolean; modeId?: string; modelId?: string; attachments?: IpcAttachment[]; existingId?: string; existingMessages?: Array<{ role: string; content: string; timestamp: string; thinking?: string; toolCalls?: ToolCall[] }>; deferSpawn?: boolean }): Promise<AgentTask> =>
     invoke('task_create', { params }),
   listTasks: (): Promise<AgentTask[]> =>
     tracedInvoke('task_list'),
@@ -238,6 +238,30 @@ export const ipc = {
     invoke('get_claude_config', { projectPath }),
   saveMcpServerConfig: (filePath: string, serverName: string, patch: { disabled?: boolean; disabledTools?: string[] }): Promise<void> =>
     invoke('save_mcp_server_config', { filePath, serverName, patch }),
+  /**
+   * Run `claude mcp add` as a subprocess.
+   *
+   * Prefer this over a raw mcp.json edit so the CLI's validation, registry-mode
+   * enforcement, and any side effects (caching, telemetry) all run.
+   *
+   * @param request.scope `"global"`, `"workspace"`, or `"agent:<name>"`
+   * @param request.command stdio binary (mutually exclusive with `url`)
+   * @param request.url    remote MCP endpoint (mutually exclusive with `command`)
+   * @param request.env    `KEY=VALUE` strings; the CLI expands `${VAR}` refs at server-launch time
+   */
+  mcpAddServer: (request: {
+    name: string
+    scope: string
+    command?: string
+    args: string[]
+    url?: string
+    env: string[]
+    force: boolean
+  }, workspace?: string, claudeBin?: string): Promise<string> =>
+    invoke('mcp_add_server', { request, workspace, claudeBin }),
+  /** Run `claude mcp remove` for the given scope. */
+  mcpRemoveServer: (request: { name: string; scope: string }, workspace?: string, claudeBin?: string): Promise<string> =>
+    invoke('mcp_remove_server', { request, workspace, claudeBin }),
   readFile: (filePath: string): Promise<string | null> =>
     tracedInvoke('read_text_file', { path: filePath }),
   /**
@@ -340,8 +364,8 @@ export const ipc = {
     tauriListen<{ taskId: string; stopReason?: string }>('turn_end', (data) => { logEvent('turn_end', data, data.taskId); cb(data) }),
   onDebugLog: (cb: (entry: DebugLogEntry) => void): UnsubscribeFn =>
     tauriListen('debug_log', cb),
-  onSessionInit: (cb: (data: { taskId: string; models: unknown; modes: unknown; configOptions: unknown }) => void): UnsubscribeFn =>
-    tauriListen<{ taskId: string; models: unknown; modes: unknown; configOptions: unknown }>('session_init', (data) => { logEvent('session_init', { taskId: data.taskId }, data.taskId); cb(data) }),
+  onSessionInit: (cb: (data: { taskId: string; sessionId?: string; models: unknown; modes: unknown; configOptions: unknown }) => void): UnsubscribeFn =>
+    tauriListen('session_init', cb),
   onMcpUpdate: (cb: (data: { serverName: string; status: string; error?: string; oauthUrl?: string }) => void): UnsubscribeFn =>
     tauriListen<{ serverName: string; status: string; error?: string; oauthUrl?: string }>('mcp_update', (data) => { logEvent('mcp_update', data); cb(data) }),
   onMcpConnecting: (cb: () => void): UnsubscribeFn =>
@@ -358,8 +382,6 @@ export const ipc = {
     tauriListen<{ taskId: string; requestId: string; fields: Array<{ name: string; label: string; type: string; required?: boolean; options?: string[] }> }>('user_input_request', (data) => { logEvent('user_input_request', { taskId: data.taskId, requestId: data.requestId }, data.taskId); cb(data) }),
   onEditorsUpdated: (cb: (bins: string[]) => void): UnsubscribeFn =>
     tauriListen('editors-updated', cb),
-  onKiroConfigChanged: (cb: (data: { projectPath: string | null }) => void): UnsubscribeFn =>
-    tauriListen('kiro-config-changed', cb),
   /**
    * Subscribe to `.claude/` config changes (agents, skills, steering, MCP).
    * Re-added for TASK-112 (CLAUDE.md memory file editor) so external edits
@@ -476,6 +498,16 @@ export const ipc = {
   mcpTransportTest: (config: { type: 'stdio'; command: string; args: string[]; env?: Record<string, string>; workingDirectory?: string } | { type: 'http'; url: string; token?: string; oauthUrl?: string; timeoutSecs?: number }): Promise<string> =>
     invoke('mcp_transport_test', { config }),
 
+  // ── Thread title generation ──────────────────────────────────────────────────
+  generateThreadTitle: (message: string, workspace: string): Promise<{ title: string }> =>
+    invoke('generate_thread_title', { message, workspace }),
+  generateBranchName: (message: string, workspace: string): Promise<{ branch: string }> =>
+    invoke('generate_branch_name', { message, workspace }),
+  renameWorktreeBranch: (cwd: string, oldBranch: string, newBranch: string): Promise<{ branch: string }> =>
+    invoke('rename_worktree_branch', { cwd, oldBranch, newBranch }),
+  generatePrContent: (cwd: string, baseBranch: string, workspace?: string): Promise<{ title: string; body: string }> =>
+    invoke('generate_pr_content', { cwd, baseBranch, workspace }),
+
   // ── Thread Database (SQLite persistence) ────────────────────────────────────
   threadDbList: (): Promise<Array<{ id: string; name: string; workspace: string; status: string; createdAt: string; updatedAt: string; parentThreadId?: string; autoApprove: boolean; metadata?: unknown }>> =>
     invoke('thread_db_list'),
@@ -493,4 +525,30 @@ export const ipc = {
     invoke('thread_db_search', { query, limit }),
   threadDbStats: (): Promise<{ totalThreads: number; totalMessages: number; threadsByWorkspace: Array<[string, number]> }> =>
     invoke('thread_db_stats'),
+  threadDbClearAll: (): Promise<void> =>
+    invoke('thread_db_clear_all'),
+
+  // ── Git: commit dialog & VCS status ────────────────────────────────────
+  gitVcsStatus: (cwd: string): Promise<{ branch: string; aheadCount: number; behindCount: number; isDirty: boolean; changedFileCount: number; hasUpstream: boolean }> =>
+    invoke('git_vcs_status', { cwd }),
+  gitListStack: (cwd: string): Promise<{ baseBranch: string; entries: Array<{ branch: string; isCurrent: boolean; commitsAhead: number; hasRemote: boolean }> }> =>
+    invoke('git_list_stack', { cwd }),
+  gitStackedPush: (cwd: string): Promise<{ branch: string; remoteUrl: string; pushed: boolean }> =>
+    invoke('git_stacked_push', { cwd }),
+  listChildProcesses: (): Promise<{ processes: Array<{ pid: number; ppid: number; cpuPercent: number; rssMb: number; elapsed: string; command: string; status: string }>; totalRssMb: number; processCount: number }> =>
+    invoke('list_child_processes'),
+  signalProcess: (pid: number, signal: string): Promise<void> =>
+    invoke('signal_process', { pid, signal }),
+  gitChangedFiles: (cwd: string): Promise<Array<{ path: string; insertions: number; deletions: number; status: string }>> =>
+    invoke('git_changed_files', { cwd }),
+  gitStageFiles: (cwd: string, filePaths: string[]): Promise<void> =>
+    invoke('git_stage_files', { cwd, filePaths }),
+  gitCommitFiles: (cwd: string, message: string, filePaths: string[]): Promise<string> =>
+    invoke('git_commit_files', { cwd, message, filePaths }),
+  gitCreateAndCheckoutBranch: (cwd: string, branch: string): Promise<{ branch: string }> =>
+    invoke('git_create_and_checkout_branch', { cwd, branch }),
+  gitAddRemote: (cwd: string, name: string, url: string): Promise<void> =>
+    invoke('git_add_remote', { cwd, name, url }),
+  gitGenerateCommitMessage: (cwd: string): Promise<{ subject: string; body: string }> =>
+    invoke('git_generate_commit_message', { cwd }),
 }

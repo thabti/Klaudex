@@ -31,12 +31,34 @@ export const AgentPanel = memo(function AgentPanel({ onDismiss }: { onDismiss: (
   const [query, setQuery] = useState('')
 
   const handleSelectAgent = useCallback((agentId: string) => {
+    // No-op if already on this agent — avoids duplicate welcome messages
+    if (agentId === currentModeId) { onDismiss(); return }
     useSettingsStore.setState({ currentModeId: agentId })
     const taskId = resolvedTaskId
     if (taskId) {
       useTaskStore.getState().setTaskMode(taskId, agentId)
       ipc.setMode(taskId, agentId).catch(() => {})
       ipc.sendMessage(taskId, `/agent ${agentId}`).catch(() => {})
+
+      // Show welcomeMessage for custom .kiro agents
+      const claudeAgent = useClaudeConfigStore.getState().config.agents.find((a) => a.name === agentId)
+      if (claudeAgent?.welcomeMessage) {
+        const { tasks, upsertTask } = useTaskStore.getState()
+        const task = tasks[taskId]
+        if (task) {
+          upsertTask({
+            ...task,
+            messages: [
+              ...task.messages,
+              {
+                role: 'system',
+                content: `🤖 **${claudeAgent.name}**: ${claudeAgent.welcomeMessage}`,
+                timestamp: new Date().toISOString(),
+              },
+            ],
+          })
+        }
+      }
     }
     onDismiss()
   }, [onDismiss, resolvedTaskId])

@@ -3,6 +3,7 @@ import type { AgentTask, ActivityEntry, SoftDeletedThread, TaskMessage, ToolCall
 import { ipc } from '@/lib/ipc'
 import { joinChunk } from '@/lib/utils'
 import * as historyStore from '@/lib/history-store'
+import * as threadDb from '@/lib/thread-db'
 import type { ArchivedThreadMeta } from '@/lib/history-store'
 import { useSettingsStore } from './settingsStore'
 import { track } from '@/lib/analytics'
@@ -69,6 +70,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   liveToolSplits: {},
   liveSubagents: {},
   queuedMessages: {},
+  pendingUserInputs: {},
   activityFeed: [],
   connected: false,
   connectionStatus: { phase: 'idle', attemptCount: 0, reconnectAttemptCount: 0, reconnectMaxAttempts: 5, hasConnected: false, connectedAt: null, disconnectedAt: null, lastError: null, lastErrorAt: null, nextRetryAt: null },
@@ -83,6 +85,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   notifiedTaskIds: [],
   taskModes: {},
   taskModels: {},
+  sessionIds: {},
   isForking: false,
   lastAddedProject: null,
   worktreeCleanupPending: null,
@@ -498,6 +501,72 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     get().persistHistory()
   },
 
+  /**
+   * Auto-archive threads that have been inactive for longer than the configured
+   * `autoArchiveDays` setting. Only archives completed/error/cancelled threads
+   * (never running or paused). Called on app startup alongside purgeExpiredSoftDeletes.
+   */
+  autoArchiveStaleThreads: () => {
+    const settings = useSettingsStore.getState().settings
+    const days = settings.autoArchiveDays
+    if (!days || days <= 0) return
+
+    const cutoffMs = days * 24 * 60 * 60 * 1000
+    const now = Date.now()
+    const { tasks } = get()
+
+    const staleIds: string[] = []
+    for (const [id, task] of Object.entries(tasks)) {
+      // Never auto-archive running, paused, or already-archived threads
+      if (task.status === 'running' || task.status === 'paused' || task.isArchived) continue
+      // Check last activity
+      const lastMsg = task.messages.length > 0 ? task.messages[task.messages.length - 1].timestamp : task.createdAt
+      const age = now - new Date(lastMsg).getTime()
+      if (age >= cutoffMs) {
+        staleIds.push(id)
+      }
+    }
+
+    if (staleIds.length === 0) return
+
+    set((state) => {
+      const tasks = { ...state.tasks }
+      const archivedMeta = { ...state.archivedMeta }
+      for (const id of staleIds) {
+        const task = tasks[id]
+        if (!task) continue
+        // Move to archivedMeta
+        const lastMsg = task.messages.length > 0 ? task.messages[task.messages.length - 1].timestamp : task.createdAt
+        archivedMeta[id] = {
+          id: task.id,
+          name: task.name,
+          workspace: task.workspace,
+          createdAt: task.createdAt,
+          lastActivityAt: lastMsg,
+          messageCount: task.messages.length,
+          ...(task.parentTaskId ? { parentTaskId: task.parentTaskId } : {}),
+          ...(task.worktreePath ? { worktreePath: task.worktreePath } : {}),
+          ...(task.originalWorkspace ? { originalWorkspace: task.originalWorkspace } : {}),
+          ...(task.projectId ? { projectId: task.projectId } : {}),
+        }
+        delete tasks[id]
+      }
+      const selectedTaskId = staleIds.includes(state.selectedTaskId ?? '') ? null : state.selectedTaskId
+      return { tasks, archivedMeta, selectedTaskId }
+    })
+
+    // Notify the backend to clean up any lingering resources for these threads.
+    // Only call deleteTask (which removes persisted backend state) — cancelTask
+    // is skipped because these threads are already in a terminal status
+    // (completed/error/cancelled) and cancelling them is a no-op at best,
+    // or could error on backends that reject cancel on non-running tasks.
+    for (const id of staleIds) {
+      void ipc.deleteTask(id).catch(() => {})
+    }
+
+    get().persistHistory()
+  },
+
   appendChunk: (taskId, chunk) =>
     set((state) => ({
       streamingChunks: {
@@ -762,8 +831,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     try {
       const task = get().tasks[taskId]
       const forked = await ipc.forkTask(taskId, task?.workspace, task?.name)
-      forked.parentTaskId = taskId
-      // Preserve worktree fields from parent so forked thread nests under the same project
+      // Backend sets parent_task_id; preserve worktree fields from parent so
+      // the forked thread nests under the same project in the sidebar.
       if (task?.worktreePath) forked.worktreePath = task.worktreePath
       if (task?.originalWorkspace) forked.originalWorkspace = task.originalWorkspace
       forked.projectId = task?.projectId ?? get().getProjectId(task?.originalWorkspace ?? forked.workspace)
@@ -940,8 +1009,24 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
             // Live task exists — merge worktree metadata the backend doesn't
             // track (without copying messages or other heavy fields).
             const live = tasks[saved.id]
+            // If the live task has fewer messages than the persisted version,
+            // the backend likely lost assistant responses on restart. Prefer
+            // the richer persisted message history in that case.
+            let savedMessages: TaskMessage[] | null = null
+            if (saved.messages.length > live.messages.length) {
+              savedMessages = saved.messages.map((m) => ({
+                role: m.role as TaskMessage['role'],
+                content: m.content,
+                timestamp: m.timestamp,
+                ...(m.thinking ? { thinking: m.thinking } : {}),
+                ...(m.toolCalls && m.toolCalls.length > 0 ? { toolCalls: m.toolCalls } : {}),
+                ...(m.toolCallSplits && m.toolCallSplits.length > 0 ? { toolCallSplits: m.toolCallSplits } : {}),
+              }))
+            }
+
             tasks[saved.id] = {
               ...live,
+              ...(savedMessages ? { messages: savedMessages } : {}),
               ...(!live.worktreePath && saved.worktreePath ? { worktreePath: saved.worktreePath } : {}),
               ...(!live.originalWorkspace && saved.originalWorkspace ? { originalWorkspace: saved.originalWorkspace } : {}),
               ...(!live.projectId && saved.projectId ? { projectId: saved.projectId } : {}),
@@ -1038,6 +1123,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           if (sp.threadOrder?.length) threadOrders[sp.workspace] = sp.threadOrder
         }
         set({ tasks, archivedMeta, projects, projectIds, projectNames, softDeleted, deletedTaskIds, threadOrders, connected: true })
+        // One-time migration: sync JSON history threads into SQLite (background, best-effort).
+        // This ensures all historical threads are available via the SQLite store going forward.
+        threadDb.migrateFromJsonHistory(historyStore.loadThreads).then((result) => {
+          if (result.migrated > 0) {
+            console.info(`[thread-db] Migrated ${result.migrated} threads from JSON to SQLite (${result.skipped} already existed, ${result.failed} failed)`)
+          }
+        }).catch(() => {})
       } catch {
         // History load failed — derive projects from live tasks, filtering worktree paths
         const projects = [...new Set(list.map((t) => t.originalWorkspace ?? t.workspace))]
@@ -1125,38 +1217,60 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const meta = state.archivedMeta[id]
     if (!meta) return false
     try {
-      const saved = await historyStore.loadThread(id)
-      if (!saved) {
-        // Stale meta: drop it so the sidebar stops showing this thread
-        set((s) => {
-          if (!s.archivedMeta[id]) return s
-          const { [id]: _drop, ...rest } = s.archivedMeta
-          return { archivedMeta: rest }
+      // Try SQLite first (source of truth for message content)
+      let task: AgentTask | null = null
+      try {
+        task = await threadDb.loadFullThread(id)
+      } catch {
+        // SQLite unavailable — fall through to JSON
+      }
+
+      // Fall back to JSON history store
+      if (!task) {
+        const saved = await historyStore.loadThread(id)
+        if (!saved) {
+          // Stale meta: drop it so the sidebar stops showing this thread
+          set((s) => {
+            if (!s.archivedMeta[id]) return s
+            const { [id]: _drop, ...rest } = s.archivedMeta
+            return { archivedMeta: rest }
+          })
+          return false
+        }
+        const messages: TaskMessage[] = saved.messages.map((m) => ({
+          role: m.role as TaskMessage['role'],
+          content: m.content,
+          timestamp: m.timestamp,
+          ...(m.thinking ? { thinking: m.thinking } : {}),
+          ...(m.toolCalls && m.toolCalls.length > 0 ? { toolCalls: m.toolCalls } : {}),
+          ...(m.toolCallSplits && m.toolCallSplits.length > 0 ? { toolCallSplits: m.toolCallSplits } : {}),
+        }))
+        task = {
+          id: saved.id,
+          name: saved.name,
+          workspace: saved.workspace,
+          status: 'completed',
+          createdAt: saved.createdAt,
+          messages,
+          isArchived: true,
+          ...(saved.parentTaskId ? { parentTaskId: saved.parentTaskId } : {}),
+          ...(saved.worktreePath ? { worktreePath: saved.worktreePath } : {}),
+          ...(saved.originalWorkspace ? { originalWorkspace: saved.originalWorkspace } : {}),
+          ...(saved.projectId ? { projectId: saved.projectId } : {}),
+        }
+        // Backfill SQLite so future loads are faster and more reliable.
+        // Save thread metadata first (required FK for messages), then messages.
+        const backfillTask = task
+        threadDb.saveThread(backfillTask).then(() =>
+          threadDb.saveAllMessages(backfillTask.id, backfillTask.messages),
+        ).catch((err) => {
+          console.warn(`[hydrateArchivedTask] SQLite backfill failed for ${id}:`, err)
         })
-        return false
       }
-      const messages: TaskMessage[] = saved.messages.map((m) => ({
-        role: m.role as TaskMessage['role'],
-        content: m.content,
-        timestamp: m.timestamp,
-        ...(m.thinking ? { thinking: m.thinking } : {}),
-      }))
-      const task: AgentTask = {
-        id: saved.id,
-        name: saved.name,
-        workspace: saved.workspace,
-        status: 'completed',
-        createdAt: saved.createdAt,
-        messages,
-        isArchived: true,
-        ...(saved.parentTaskId ? { parentTaskId: saved.parentTaskId } : {}),
-        ...(saved.worktreePath ? { worktreePath: saved.worktreePath } : {}),
-        ...(saved.originalWorkspace ? { originalWorkspace: saved.originalWorkspace } : {}),
-        ...(saved.projectId ? { projectId: saved.projectId } : {}),
-      }
+
       set((s) => {
         const { [id]: _drop, ...remainingMeta } = s.archivedMeta
-        return { tasks: { ...s.tasks, [id]: task }, archivedMeta: remainingMeta }
+        return { tasks: { ...s.tasks, [id]: task! }, archivedMeta: remainingMeta }
       })
       return true
     } catch {
@@ -1220,6 +1334,15 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     historyStore.saveSoftDeleted(Object.values(softDeleted)).catch((err) => {
       console.warn('[persistHistory] saveSoftDeleted failed:', err)
     })
+    // Also persist to SQLite for robust recovery (per-message granularity).
+    // This runs in parallel with the JSON save — SQLite is the source of truth
+    // for message content, JSON remains for project/ordering metadata.
+    // Only save thread metadata here — individual messages are saved
+    // incrementally by the turn-end and send handlers.
+    for (const task of Object.values(tasks)) {
+      if (task.messages.length === 0) continue
+      threadDb.saveThread(task).catch(() => {})
+    }
   },
 
   clearHistory: async () => {
@@ -1231,8 +1354,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         ipc.cancelTask(id).catch(() => {})
       }
     }
-    // Clear the persisted thread/project store
+    // Clear the persisted thread/project store (includes uiState)
     await historyStore.clearHistory()
+    // Clear the SQLite thread database
+    await threadDb.clearAll().catch((err) => {
+      console.warn('[clearHistory] Failed to clear SQLite thread DB:', err)
+    })
     // Reset all in-memory state
     set({
       tasks: {},
@@ -1253,10 +1380,20 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       terminalOpenTasks: new Set<string>(),
       isWorkspaceTerminalOpen: false,
       drafts: {},
+      draftAttachments: {},
+      draftPastedChunks: {},
+      draftMentionedFiles: {},
       _suppressDraftSave: null,
       notifiedTaskIds: [],
       activityFeed: [],
       threadOrders: {},
+      taskModes: {},
+      taskModels: {},
+      sessionIds: {},
+      splitViews: [],
+      pinnedThreadIds: [],
+      activeSplitId: null,
+      scrollPositions: {},
     })
     // Clear project-specific preferences but preserve core settings (onboarding, CLI path, model, etc.)
     const currentSettings = useSettingsStore.getState().settings

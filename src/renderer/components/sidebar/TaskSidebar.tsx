@@ -17,6 +17,7 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'custom', label: 'Custom' },
   { key: 'created', label: 'Created' },
   { key: 'recent', label: 'Recent' },
+  { key: 'interaction', label: 'Last interaction' },
   { key: 'oldest', label: 'Oldest' },
   { key: 'name-asc', label: 'Name A–Z' },
   { key: 'name-desc', label: 'Name Z–A' },

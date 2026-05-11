@@ -5,7 +5,7 @@ import { logStoreAction, logError } from '@/lib/debug-logger'
 
 type McpStatus = ClaudeMcpServer['status']
 
-const EMPTY_CONFIG: ClaudeConfig = { agents: [], commands: [], memoryFiles: [], mcpServers: [] }
+const EMPTY_CONFIG: ClaudeConfig = { agents: [], commands: [], skills: [], steeringRules: [], memoryFiles: [], mcpServers: [], prompts: [] }
 
 interface ClaudeConfigStore {
   /** Per-project config cache keyed by workspace path */
@@ -48,8 +48,11 @@ const patchAllConfigs = (configs: Record<string, ClaudeConfig>, serverName: stri
 const sanitizeConfig = (config: ClaudeConfig): ClaudeConfig => ({
   agents: (config.agents ?? []).filter((a) => a.filePath),
   commands: (config.commands ?? []).filter((s) => s.filePath),
+  skills: (config.skills ?? []).filter((s) => s.filePath),
+  steeringRules: (config.steeringRules ?? []).filter((r) => r.filePath),
   memoryFiles: (config.memoryFiles ?? []).filter((r) => r.filePath),
   mcpServers: config.mcpServers ?? [],
+  prompts: (config.prompts ?? []).filter((p) => p.filePath),
 })
 
 export const useClaudeConfigStore = create<ClaudeConfigStore>((set, get) => {

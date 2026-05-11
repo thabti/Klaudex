@@ -123,8 +123,7 @@ pub enum AcpCommand {
     Prompt(String, Vec<AttachmentData>),
     Cancel,
     SetMode(String),
-    RespondUserInput(String, Value),
-    ForkSession(oneshot::Sender<Result<String, String>>),
+    SetModel(String),
     Kill,
 }
 
@@ -192,15 +191,26 @@ pub struct CreateTaskParams {
     pub prompt: String,
     pub auto_approve: Option<bool>,
     pub mode_id: Option<String>,
+    /// Optional model id to apply right after the ACP session is created.
+    /// Falls back to project pref → global `defaultModel` → CLI default
+    /// when not provided.
+    pub model_id: Option<String>,
     pub attachments: Option<Vec<AttachmentData>>,
     /// When provided, the backend reuses this id and seeds the task with the
     /// supplied historical messages instead of generating a new uuid. Used by
     /// Zed-style stateless resumption: the frontend keeps the original thread
-    /// id while spawning a fresh kiro-cli connection.
+    /// id while spawning a fresh claude connection.
     pub existing_id: Option<String>,
     /// Prior messages to seed the task with (resumed threads pass their full
     /// history so it shows up in the timeline before the user's new prompt).
     pub existing_messages: Option<Vec<TaskMessage>>,
+    /// When true, register the task in state but do not spawn a claude
+    /// subprocess and do not push an empty user message. The connection is
+    /// spawned lazily on the first call to `task_send_message`. Used by the
+    /// worktree creation flow which pre-creates a thread before the user has
+    /// typed anything.
+    #[serde(default)]
+    pub defer_spawn: bool,
 }
 
 #[derive(Deserialize)]

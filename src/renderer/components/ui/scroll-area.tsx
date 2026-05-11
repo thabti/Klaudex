@@ -4,8 +4,11 @@ import { cn } from '@/lib/utils'
 
 const ScrollArea = forwardRef<
   ElementRef<typeof ScrollAreaPrimitive.Root>,
-  ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root>
->(({ className, children, ...props }, ref) => (
+  ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> & {
+    /** Enable fade edges at scroll boundaries */
+    scrollFade?: boolean
+  }
+>(({ className, children, scrollFade, ...props }, ref) => (
   <ScrollAreaPrimitive.Root
     ref={ref}
     className={cn('relative overflow-hidden', className)}
@@ -13,7 +16,10 @@ const ScrollArea = forwardRef<
     {...props}
   >
     <ScrollAreaPrimitive.Viewport
-      className="h-full w-full rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background [&>div]:!block"
+      className={cn(
+        'h-full w-full rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background [&>div]:!block',
+        scrollFade && '[mask-image:linear-gradient(to_bottom,transparent_0%,black_1.5rem,black_calc(100%-1.5rem),transparent_100%)]',
+      )}
       data-slot="scroll-area-viewport"
       style={{ overflowX: 'hidden' }}
     >

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/ipc', () => ({
   ipc: {
-    getClaudeConfig: vi.fn().mockResolvedValue({ agents: [], commands: [], memoryFiles: [], mcpServers: [] }),
+    getClaudeConfig: vi.fn().mockResolvedValue({ agents: [], commands: [], skills: [], steeringRules: [], memoryFiles: [], mcpServers: [], prompts: [] }),
     saveMcpServerConfig: vi.fn().mockResolvedValue(undefined),
     onMcpConnecting: vi.fn().mockReturnValue(() => {}),
     onMcpUpdate: vi.fn().mockReturnValue(() => {}),
@@ -14,9 +14,9 @@ import { useClaudeConfigStore, initClaudeConfigListeners } from './claudeConfigS
 import { ipc } from '@/lib/ipc'
 
 const makeMcpServers = () => [
-  { name: 'Slack', enabled: true, transport: 'stdio' as const, command: 'slack-mcp', filePath: '/p' },
-  { name: 'GitHub', enabled: true, transport: 'http' as const, url: 'https://gh.mcp', filePath: '/p2' },
-  { name: 'Disabled', enabled: false, transport: 'stdio' as const, command: 'x', filePath: '/p3' },
+  { name: 'Slack', enabled: true, transport: 'stdio' as const, command: 'slack-mcp', filePath: '/p', source: 'local' as const },
+  { name: 'GitHub', enabled: true, transport: 'http' as const, url: 'https://gh.mcp', filePath: '/p2', source: 'global' as const },
+  { name: 'Disabled', enabled: false, transport: 'stdio' as const, command: 'x', filePath: '/p3', source: 'local' as const },
 ]
 
 beforeEach(() => {
@@ -24,7 +24,7 @@ beforeEach(() => {
   useClaudeConfigStore.setState({
     configs: {},
     activeProject: null,
-    config: { agents: [], commands: [], memoryFiles: [], mcpServers: makeMcpServers() },
+    config: { agents: [], commands: [], skills: [], steeringRules: [], memoryFiles: [], mcpServers: makeMcpServers(), prompts: [] },
     loading: false,
     loaded: true,
   })
@@ -35,8 +35,8 @@ describe('claudeConfigStore', () => {
     it('loads config from IPC and caches it', async () => {
       vi.mocked(ipc.getClaudeConfig).mockResolvedValue({
         agents: [{ name: 'Agent1', description: 'desc', tools: [], source: 'local', filePath: '/a' }],
-        commands: [],
-        memoryFiles: [],
+        skills: [],
+        steeringRules: [],
         mcpServers: [],
       } as never)
       useClaudeConfigStore.setState({ loaded: false, configs: {} })
@@ -51,8 +51,11 @@ describe('claudeConfigStore', () => {
       const cachedConfig = {
         agents: [{ name: 'Cached', description: '', tools: [] as string[], source: 'local' as const, filePath: '/c' }],
         commands: [],
+        skills: [],
+        steeringRules: [],
         memoryFiles: [],
         mcpServers: [],
+        prompts: [],
       }
       useClaudeConfigStore.setState({ configs: { '/project-a': cachedConfig } })
       await useClaudeConfigStore.getState().loadConfig('/project-a')
@@ -62,8 +65,8 @@ describe('claudeConfigStore', () => {
     })
 
     it('caches separate configs per project', async () => {
-      const configA = { agents: [{ name: 'A', description: '', tools: [] as string[], source: 'local' as const, filePath: '/a' }], commands: [], memoryFiles: [], mcpServers: [] }
-      const configB = { agents: [{ name: 'B', description: '', tools: [] as string[], source: 'local' as const, filePath: '/b' }], commands: [], memoryFiles: [], mcpServers: [] }
+      const configA = { agents: [{ name: 'A', description: '', tools: [] as string[], source: 'local' as const, filePath: '/a' }], skills: [], steeringRules: [], mcpServers: [], prompts: [] }
+      const configB = { agents: [{ name: 'B', description: '', tools: [] as string[], source: 'local' as const, filePath: '/b' }], skills: [], steeringRules: [], mcpServers: [], prompts: [] }
       vi.mocked(ipc.getClaudeConfig)
         .mockResolvedValueOnce(configA as never)
         .mockResolvedValueOnce(configB as never)
@@ -83,8 +86,8 @@ describe('claudeConfigStore', () => {
           { name: 'Good', description: '', tools: [], source: 'local', filePath: '/a' },
           { name: 'Bad', description: '', tools: [], source: 'local', filePath: '' },
         ],
-        commands: [],
-        memoryFiles: [],
+        skills: [],
+        steeringRules: [],
         mcpServers: [],
       } as never)
       useClaudeConfigStore.setState({ configs: {} })
@@ -115,14 +118,14 @@ describe('claudeConfigStore', () => {
 
   describe('invalidateConfig', () => {
     it('removes cached config for a project', async () => {
-      const config = { agents: [], commands: [], memoryFiles: [], mcpServers: [] }
+      const config = { agents: [], commands: [], skills: [], steeringRules: [], memoryFiles: [], mcpServers: [], prompts: [] }
       useClaudeConfigStore.setState({ configs: { '/project': config } })
       useClaudeConfigStore.getState().invalidateConfig('/project')
       expect(useClaudeConfigStore.getState().configs['/project']).toBeUndefined()
     })
 
     it('forces reload on next loadConfig', async () => {
-      const config = { agents: [], commands: [], memoryFiles: [], mcpServers: [] }
+      const config = { agents: [], commands: [], skills: [], steeringRules: [], memoryFiles: [], mcpServers: [], prompts: [] }
       useClaudeConfigStore.setState({ configs: { '/project': config } })
       useClaudeConfigStore.getState().invalidateConfig('/project')
       await useClaudeConfigStore.getState().loadConfig('/project')
@@ -132,7 +135,7 @@ describe('claudeConfigStore', () => {
 
   describe('setMcpError', () => {
     it('patches matching server in active config and all caches', () => {
-      const config = { agents: [], commands: [], memoryFiles: [], mcpServers: makeMcpServers() }
+      const config = { agents: [], commands: [], skills: [], steeringRules: [], memoryFiles: [], mcpServers: makeMcpServers(), prompts: [] }
       useClaudeConfigStore.setState({ configs: { '/p': config }, config })
       useClaudeConfigStore.getState().setMcpError('Slack', 'OAuth failed')
       const slack = useClaudeConfigStore.getState().config.mcpServers?.find((s) => s.name === 'Slack')
@@ -178,7 +181,7 @@ describe('claudeConfigStore', () => {
     })
 
     it('onMcpConnecting sets enabled servers to connecting in all caches', () => {
-      const config = { agents: [], commands: [], memoryFiles: [], mcpServers: makeMcpServers() }
+      const config = { agents: [], commands: [], skills: [], steeringRules: [], memoryFiles: [], mcpServers: makeMcpServers(), prompts: [] }
       useClaudeConfigStore.setState({ configs: { '/p': config }, config })
       initClaudeConfigListeners()
       const cb = vi.mocked(ipc.onMcpConnecting).mock.calls[0][0]
@@ -194,7 +197,7 @@ describe('claudeConfigStore', () => {
     })
 
     it('onMcpUpdate patches specific server in all caches', () => {
-      const config = { agents: [], commands: [], memoryFiles: [], mcpServers: makeMcpServers() }
+      const config = { agents: [], commands: [], skills: [], steeringRules: [], memoryFiles: [], mcpServers: makeMcpServers(), prompts: [] }
       useClaudeConfigStore.setState({ configs: { '/p': config }, config })
       initClaudeConfigListeners()
       const cb = vi.mocked(ipc.onMcpUpdate).mock.calls[0][0]
@@ -214,7 +217,7 @@ describe('claudeConfigStore', () => {
       expect(useClaudeConfigStore.getState().loaded).toBe(true)
       expect(useClaudeConfigStore.getState().loading).toBe(false)
       // Config should remain the default empty config, not corrupted
-      expect(useClaudeConfigStore.getState().config).toEqual({ agents: [], commands: [], memoryFiles: [], mcpServers: makeMcpServers() })
+      expect(useClaudeConfigStore.getState().config).toEqual({ agents: [], commands: [], skills: [], steeringRules: [], memoryFiles: [], mcpServers: makeMcpServers(), prompts: [] })
     })
 
     it('loadConfig does not cache failed loads', async () => {
@@ -223,7 +226,7 @@ describe('claudeConfigStore', () => {
       await useClaudeConfigStore.getState().loadConfig('/broken')
       expect(useClaudeConfigStore.getState().configs['/broken']).toBeUndefined()
       // Retry should call IPC again
-      vi.mocked(ipc.getClaudeConfig).mockResolvedValue({ agents: [], commands: [], memoryFiles: [], mcpServers: [] } as never)
+      vi.mocked(ipc.getClaudeConfig).mockResolvedValue({ agents: [], commands: [], skills: [], steeringRules: [], memoryFiles: [], mcpServers: [], prompts: [] } as never)
       await useClaudeConfigStore.getState().loadConfig('/broken')
       expect(ipc.getClaudeConfig).toHaveBeenCalledTimes(2)
     })
@@ -239,20 +242,20 @@ describe('claudeConfigStore', () => {
       await useClaudeConfigStore.getState().loadConfig('/project')
       const config = useClaudeConfigStore.getState().config
       expect(config.agents).toEqual([])
-      expect(config.commands).toEqual([])
-      expect(config.memoryFiles).toEqual([])
+      expect(config.skills).toEqual([])
+      expect(config.steeringRules).toEqual([])
       expect(config.mcpServers).toEqual([])
     })
 
     it('invalidateConfig on non-existent key is a no-op', () => {
-      useClaudeConfigStore.setState({ configs: { '/a': { agents: [], commands: [], memoryFiles: [], mcpServers: [] } } })
+      useClaudeConfigStore.setState({ configs: { '/a': { agents: [], commands: [], skills: [], steeringRules: [], memoryFiles: [], mcpServers: [], prompts: [] } } })
       useClaudeConfigStore.getState().invalidateConfig('/nonexistent')
       // /a should still be there
       expect(useClaudeConfigStore.getState().configs['/a']).toBeDefined()
     })
 
     it('loadConfig with undefined projectPath uses __global__ key', async () => {
-      vi.mocked(ipc.getClaudeConfig).mockResolvedValue({ agents: [], commands: [], memoryFiles: [], mcpServers: [] } as never)
+      vi.mocked(ipc.getClaudeConfig).mockResolvedValue({ agents: [], commands: [], skills: [], steeringRules: [], memoryFiles: [], mcpServers: [], prompts: [] } as never)
       useClaudeConfigStore.setState({ configs: {} })
       await useClaudeConfigStore.getState().loadConfig(undefined)
       expect(useClaudeConfigStore.getState().configs['__global__']).toBeDefined()
@@ -270,8 +273,8 @@ describe('claudeConfigStore', () => {
     })
 
     it('switching projects updates activeProject and config atomically', async () => {
-      const configA = { agents: [{ name: 'A', description: '', tools: [] as string[], source: 'local' as const, filePath: '/a' }], commands: [], memoryFiles: [], mcpServers: [] }
-      const configB = { agents: [{ name: 'B', description: '', tools: [] as string[], source: 'local' as const, filePath: '/b' }], commands: [], memoryFiles: [], mcpServers: [] }
+      const configA = { agents: [{ name: 'A', description: '', tools: [] as string[], source: 'local' as const, filePath: '/a' }], commands: [], skills: [], steeringRules: [], memoryFiles: [], mcpServers: [], prompts: [] }
+      const configB = { agents: [{ name: 'B', description: '', tools: [] as string[], source: 'local' as const, filePath: '/b' }], commands: [], skills: [], steeringRules: [], memoryFiles: [], mcpServers: [], prompts: [] }
       useClaudeConfigStore.setState({ configs: { '/a': configA, '/b': configB } })
       await useClaudeConfigStore.getState().loadConfig('/a')
       expect(useClaudeConfigStore.getState().activeProject).toBe('/a')
