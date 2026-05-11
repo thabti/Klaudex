@@ -1,3 +1,9 @@
+## 2026-05-11 06:11 GST (Dubai)
+### Sidebar: Active project focus indicator
+Ported upstream commit 9e1c055 from kirodex. Added a visual indicator to the sidebar so the focused project is identifiable when multiple projects are open. The active project gets a 3px primary-colored left accent bar, subtle background tint, and bold project name. Active project is derived from the selected task's workspace or the pending workspace.
+
+**Modified:** src/renderer/components/sidebar/ProjectItem.tsx, src/renderer/components/sidebar/TaskSidebar.tsx
+
 ## 2026-05-11 06:03 GST (Dubai)
 
 ### Port: icon overrides, auth fallback, collapsible removal, history backup, subagent display
