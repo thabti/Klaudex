@@ -1,3 +1,9 @@
+## 2026-05-11 09:38 GST (Dubai)
+### Icons: regenerate dev icons from new dev logo
+Copied k-logo-dev.png as the dev icon, resized to 1024x1024, and generated icon.icns and icon.ico with all standard sizes.
+
+**Modified:** src-tauri/icons/icon.png, src-tauri/icons/icon.icns, src-tauri/icons/icon.ico
+
 ## 2026-05-11 09:33 GST (Dubai)
 ### Update dialog: fix z-index conflict with settings panel
 Ported upstream commit 2c29b9e. Added `overlayClassName` prop to DialogContent so UpdateAvailableDialog and RestartPromptDialog can render at z-[60] above the settings panel (z-50). Refactored UpdatesCard and AboutDialog to use the store's triggerDownload/triggerRestart instead of creating separate Update objects. Fixed useUpdateChecker to re-check when pendingUpdateRef is stale.
