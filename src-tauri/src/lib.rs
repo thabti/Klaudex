@@ -6,7 +6,7 @@ extern crate objc;
 
 mod commands;
 
-use commands::{acp, analytics, fs_ops, git, kiro_config, pty, settings};
+use commands::{acp, analytics, claude_config, claude_watcher, fs_ops, git, pty, settings};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
 use tauri::Emitter;
@@ -544,7 +544,11 @@ pub fn run() {
             pty::pty_kill,
             pty::pty_count,
             // Kiro config
-            kiro_config::get_kiro_config,
+            claude_config::get_claude_config,
+            claude_config::save_mcp_server_config,
+            // Kiro watcher
+            claude_watcher::watch_claude_path,
+            claude_watcher::unwatch_claude_path,
             // Analytics
             analytics::analytics_save,
             analytics::analytics_load,

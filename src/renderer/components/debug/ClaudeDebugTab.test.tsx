@@ -59,6 +59,7 @@ const seedDebugStore = (entries: DebugLogEntry[]): void => {
       errorsOnly: false,
       threadName: '',
       projectName: '',
+      mcpServerName: '',
     },
   })
 }

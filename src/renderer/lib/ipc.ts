@@ -234,6 +234,8 @@ export const ipc = {
     invoke('pty_count'),
   getClaudeConfig: (projectPath?: string): Promise<ClaudeConfig> =>
     invoke('get_claude_config', { projectPath }),
+  saveMcpServerConfig: (filePath: string, serverName: string, patch: { disabled?: boolean; disabledTools?: string[] }): Promise<void> =>
+    invoke('save_mcp_server_config', { filePath, serverName, patch }),
   readFile: (filePath: string): Promise<string | null> =>
     tracedInvoke('read_text_file', { path: filePath }),
   /**

@@ -27,6 +27,11 @@ const DebugPanel = lazy(() =>
     default: m.DebugPanel,
   })),
 );
+const FileTreePanel = lazy(() =>
+  import("@/components/file-tree/FileTreePanel").then((m) => ({
+    default: m.FileTreePanel,
+  })),
+);
 const AnalyticsDashboard = lazy(() =>
   import("@/components/analytics/AnalyticsDashboard").then((m) => ({
     default: m.AnalyticsDashboard,
@@ -36,6 +41,7 @@ import { useTaskStore, initTaskListeners } from "@/stores/taskStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDebugStore } from "@/stores/debugStore";
 import { useDiffStore } from "@/stores/diffStore";
+import { useFileTreeStore } from "@/stores/fileTreeStore";
 import { useClaudeConfigStore, initClaudeConfigListeners } from "@/stores/claudeConfigStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useSessionTracker } from "@/hooks/useSessionTracker";
@@ -308,10 +314,19 @@ export function App() {
   const [appVersion, setAppVersion] = useState('');
 
   // Sync diffStore.isOpen → sidePanelOpen (for openToFile)
+  // Note: sidePanelOpen intentionally excluded from deps — we only react to diffIsOpen changes
   const diffIsOpen = useDiffStore((s) => s.isOpen);
   useEffect(() => {
     if (diffIsOpen && !sidePanelOpen) setSidePanelOpen(true);
-  }, [diffIsOpen]);
+    if (diffIsOpen) useFileTreeStore.getState().setOpen(false);
+  }, [diffIsOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync fileTreeStore.isOpen → sidePanelOpen
+  // Note: sidePanelOpen intentionally excluded from deps — we only react to fileTreeIsOpen changes
+  const fileTreeIsOpen = useFileTreeStore((s) => s.isOpen);
+  useEffect(() => {
+    if (fileTreeIsOpen && !sidePanelOpen) setSidePanelOpen(true);
+  }, [fileTreeIsOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Register event listeners FIRST so we don't miss early emissions
@@ -550,13 +565,17 @@ export function App() {
 
   const toggleSidePanel = useCallback(() => {
     setSidePanelOpen((prev) => {
-      if (prev) useDiffStore.getState().setOpen(false)
+      if (prev) {
+        useDiffStore.getState().setOpen(false)
+        useFileTreeStore.getState().setOpen(false)
+      }
       return !prev
     })
   }, [])
   const closeSidePanel = useCallback(() => {
     setSidePanelOpen(false)
     useDiffStore.getState().setOpen(false)
+    useFileTreeStore.getState().setOpen(false)
   }, [])
   const toggleSidebar = useCallback(() => setIsSidebarCollapsed((v) => !v), []);
 
@@ -618,7 +637,11 @@ export function App() {
             {sidePanelOpen && !activeSplitId && (selectedTaskId || pendingWorkspace) && (
               <ErrorBoundary>
                 <Suspense>
-                  <CodePanel onClose={closeSidePanel} workspace={pendingWorkspace ?? undefined} />
+                  {fileTreeIsOpen ? (
+                    <FileTreePanel onClose={closeSidePanel} workspace={pendingWorkspace ?? undefined} />
+                  ) : (
+                    <CodePanel onClose={closeSidePanel} workspace={pendingWorkspace ?? undefined} />
+                  )}
                 </Suspense>
               </ErrorBoundary>
             )}

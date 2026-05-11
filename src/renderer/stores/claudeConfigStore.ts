@@ -20,6 +20,8 @@ interface ClaudeConfigStore {
   invalidateConfig: (projectPath: string) => void
   setMcpError: (serverName: string, error: string) => void
   updateMcpServer: (serverName: string, patch: Partial<{ status: McpStatus; error: string; oauthUrl: string }>) => void
+  toggleMcpServer: (serverName: string, disabled: boolean) => void
+  setMcpDisabledTools: (serverName: string, disabledTools: string[]) => void
 }
 
 const patchMcp = (config: ClaudeConfig, serverName: string, patch: object): ClaudeConfig => {
@@ -108,6 +110,29 @@ export const useClaudeConfigStore = create<ClaudeConfigStore>((set, get) => {
       const config = patchMcp(s.config, serverName, patch)
       return { configs, config }
     }),
+
+    toggleMcpServer: (serverName, disabled) => {
+      const server = (get().config.mcpServers ?? []).find((m) => m.name === serverName)
+      if (!server?.filePath) return
+      // Optimistic update
+      set((s) => {
+        const configs = patchAllConfigs(s.configs, serverName, { enabled: !disabled })
+        const config = patchMcp(s.config, serverName, { enabled: !disabled })
+        return { configs, config }
+      })
+      ipc.saveMcpServerConfig(server.filePath, serverName, { disabled }).catch((e) => console.warn('[mcp] toggle failed', e))
+    },
+
+    setMcpDisabledTools: (serverName, disabledTools) => {
+      const server = (get().config.mcpServers ?? []).find((m) => m.name === serverName)
+      if (!server?.filePath) return
+      set((s) => {
+        const configs = patchAllConfigs(s.configs, serverName, { disabledTools: disabledTools.length ? disabledTools : undefined })
+        const config = patchMcp(s.config, serverName, { disabledTools: disabledTools.length ? disabledTools : undefined })
+        return { configs, config }
+      })
+      ipc.saveMcpServerConfig(server.filePath, serverName, { disabledTools }).catch((e) => console.warn('[mcp] disabledTools failed', e))
+    },
   }
 })
 

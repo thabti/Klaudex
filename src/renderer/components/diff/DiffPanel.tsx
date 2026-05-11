@@ -1,11 +1,12 @@
 import { memo, useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { parsePatchFiles, type FileDiffMetadata } from '@pierre/diffs'
 import { FileDiff, Virtualizer } from '@pierre/diffs/react'
-import { IconX, IconGripHorizontal, IconColumns, IconLayoutRows, IconTextWrap, IconFileCode, IconRefresh, IconPlus, IconCheck, IconArrowBackUp } from '@tabler/icons-react'
+import { IconX, IconGripHorizontal, IconColumns, IconLayoutRows, IconTextWrap, IconRefresh, IconPlus, IconCheck, IconArrowBackUp } from '@tabler/icons-react'
 import { useDiffStore } from '@/stores/diffStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Checkbox } from '@/components/ui/checkbox'
+import { FileTypeIcon } from '@/components/file-tree/FileTypeIcon'
 import { cn } from '@/lib/utils'
 
 // ── Theme CSS overrides ──────────────────────────────────────────
@@ -302,7 +303,7 @@ export const DiffPanel = memo(function DiffPanel() {
                     onClick={() => setSelectedFileIdx(i)}
                     className="flex items-center gap-1 min-w-0 flex-1 truncate"
                   >
-                    <IconFileCode className="size-3 shrink-0 text-muted-foreground/70" />
+                    <FileTypeIcon name={file.name.split('/').pop() ?? file.name} isDir={false} className="size-3" />
                     <span className="min-w-0 flex-1 truncate text-left">{file.name.split('/').pop()}</span>
                     <span className="shrink-0 flex gap-1">
                       {file.additions > 0 && <span className="text-emerald-600 dark:text-emerald-400">+{file.additions}</span>}

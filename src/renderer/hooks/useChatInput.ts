@@ -54,8 +54,16 @@ export function useChatInput({ disabled, isRunning, isActive, taskId: taskIdProp
   const backendCommands = useSettingsStore((s) => s.availableCommands)
   const { panel, dismissPanel, execute, executeFullInput } = useSlashAction()
 
-  const attachmentsBag = useAttachments(initialAttachments, initialFolderPaths, isActive)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const attachmentsBag = useAttachments(initialAttachments, initialFolderPaths, isActive, containerRef)
   const mentionBag = useFileMention({ textareaRef, value, setValue, initialMentionedFiles })
+
+  // Sync dropped files from file tree into mentioned files
+  useEffect(() => {
+    for (const file of attachmentsBag.droppedFiles) {
+      mentionBag.addMentionedFile(file)
+    }
+  }, [attachmentsBag.droppedFiles, mentionBag.addMentionedFile])
 
   // ── Track Shift key for raw paste (Cmd+Shift+V) ────────────────
   const isShiftHeldRef = useRef(false)
@@ -464,6 +472,7 @@ export function useChatInput({ disabled, isRunning, isActive, taskId: taskIdProp
     value,
     setValue,
     textareaRef,
+    containerRef,
     canSend,
     // Slash commands
     slashIndex,

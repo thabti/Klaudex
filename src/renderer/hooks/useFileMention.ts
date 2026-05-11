@@ -57,6 +57,12 @@ export function useFileMention({ textareaRef, value, setValue, initialMentionedF
     setMentionedFiles([])
   }, [])
 
+  const addMentionedFile = useCallback((file: ProjectFile) => {
+    setMentionedFiles((prev) =>
+      prev.some((f) => f.path === file.path) ? prev : [...prev, file]
+    )
+  }, [])
+
   const dismissMention = useCallback(() => setMentionTrigger(null), [])
 
   const incrementMentionIndex = useCallback(() => setMentionIndex((i) => i + 1), [])
@@ -69,6 +75,7 @@ export function useFileMention({ textareaRef, value, setValue, initialMentionedF
     detectMentionTrigger,
     handleSelectFile,
     handleRemoveMention,
+    addMentionedFile,
     clearMentions,
     dismissMention,
     incrementMentionIndex,
