@@ -318,17 +318,22 @@ export function App() {
     let unsubSync: (() => void) | null = null
     let syncDebounce: ReturnType<typeof setTimeout> | null = null
     import('@/lib/history-store').then(({ subscribeToChanges }) => {
+      // Skip sync reloads when this window has live ACP sessions — loadTasks
+      // would overwrite running/paused tasks with archived versions from history.
+      // Only reload when all tasks are completed (no active sessions).
+      const hasLiveTasks = () => Object.values(useTaskStore.getState().tasks).some(
+        (t) => t.status === 'running' || t.status === 'paused',
+      )
       subscribeToChanges(
         () => {
-          // Only reload from other windows — if this window has focus, the change is ours
-          if (document.hasFocus()) return
+          if (hasLiveTasks()) return
           if (syncDebounce) clearTimeout(syncDebounce)
           syncDebounce = setTimeout(() => {
             useTaskStore.getState().loadTasks()
           }, 300)
         },
         () => {
-          if (document.hasFocus()) return
+          if (hasLiveTasks()) return
           if (syncDebounce) clearTimeout(syncDebounce)
           syncDebounce = setTimeout(() => {
             useTaskStore.getState().loadTasks()

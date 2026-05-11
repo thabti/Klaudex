@@ -1,3 +1,9 @@
+## 2026-05-11 07:25 GST (Dubai)
+### History: Use live task check instead of document.hasFocus for sync guard
+Ported upstream commit c3f9eda from kirodex. Replaced `document.hasFocus()` guard in the cross-window history sync with a `hasLiveTasks()` check that looks for running/paused tasks. This prevents alt-tab from triggering loadTasks and overwriting active ACP sessions with archived history.
+
+**Modified:** `src/renderer/App.tsx`
+
 ## 2026-05-11 07:23 GST (Dubai)
 ### Steering Queue: Preserve image attachments in queued messages
 Ported upstream commit 3065af5 from kirodex. Changed `queuedMessages` from `Record<string, string[]>` to `Record<string, QueuedMessage[]>` carrying text + optional attachments. Attachments flow through enqueue, steer, and auto-drain paths. QueuedMessages component shows photo icon with count tooltip. Updated thread-memory.ts to remove the now-unnecessary string→object adaptation layer.
