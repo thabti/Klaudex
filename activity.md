@@ -1,3 +1,9 @@
+## 2026-05-11 09:54 GST (Dubai)
+### Chat: Move question cards to bottom of message
+Ported upstream commit 151fea4. Moved QuestionCards rendering from above the markdown content to below it in ChatMarkdown, improving visibility of agent questions.
+
+**Modified:** `src/renderer/components/chat/ChatMarkdown.tsx`
+
 ## 2026-05-11 09:53 GST (Dubai)
 ### Notifications: Persistent sidebar badges until thread visited
 Ported upstream commit 48139b1. Added orange dot badge on ThreadItem for threads with pending notifications, clear notifiedTaskIds when user navigates to the thread via setSelectedTask, removed window-focus auto-clear so badges persist until explicitly visited.
