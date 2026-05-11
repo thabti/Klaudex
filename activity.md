@@ -1,3 +1,9 @@
+## 2026-05-11 10:51 GST (Dubai)
+### Port: Connection health monitor with exponential backoff
+Ported upstream commit 4e9901356a from kirodex. Adds ACP subprocess health monitoring with periodic IPC probes, exponential backoff with jitter for reconnection, and automatic connected/disconnected state transitions via useTaskStore.
+
+**Modified:** `src/renderer/lib/connection-health.ts`, `src/renderer/lib/connection-health.test.ts`
+
 ## 2026-05-11 10:48 GST (Dubai)
 ### Port: Normalized selectors, dual-stream sidebar pattern, oxlint
 Ported upstream commit ab8dde3f from kirodex. Adds task-store-selectors.ts with fine-grained selectors (selectTaskShell, selectTaskStatus, selectStreamingChunk, selectRunningTaskCount, etc.) that prevent sidebar re-renders during streaming. Adds oxlint as a dev dependency with a lint script for fast Rust-based linting.
