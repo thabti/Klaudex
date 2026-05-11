@@ -3,6 +3,7 @@ import { IconGitBranch, IconPencil } from '@tabler/icons-react'
 import { ipc } from '@/lib/ipc'
 import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { resolveModelId } from '@/lib/resolve-model'
 import { slugify, isValidWorktreeSlug } from '@/lib/utils'
 import type { Attachment, IpcAttachment, ProjectFile } from '@/types'
 import type { PastedChunk } from '@/hooks/useChatInput'
@@ -30,8 +31,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
   const setDraftMentionedFiles = useTaskStore((s) => s.setDraftMentionedFiles)
   const removeDraftMentionedFiles = useTaskStore((s) => s.removeDraftMentionedFiles)
 
-  const settings = useSettingsStore((s) => s.settings)
-  const projectPrefs = settings.projectPrefs?.[workspace]
+  const projectPrefs = useSettingsStore((s) => s.settings.projectPrefs?.[workspace])
   const [useWorktree, setUseWorktree] = useState(false)
   const [worktreeSlug, setWorktreeSlug] = useState('')
   const [isSlugEdited, setIsSlugEdited] = useState(false)
@@ -88,10 +88,11 @@ export function PendingChat({ workspace }: PendingChatProps) {
     removeDraftMentionedFiles(workspace)
     const cleanMsg = msg.replace(/<\/?klaudex_tangent>/g, '').trim()
     const name = cleanMsg.length > 60 ? cleanMsg.slice(0, 57) + '\u2026' : cleanMsg
-    const { settings: currentSettings, activeWorkspace, currentModeId } = useSettingsStore.getState()
+    const { settings: currentSettings, activeWorkspace, currentModeId, currentModelId } = useSettingsStore.getState()
     const prefs = activeWorkspace ? currentSettings.projectPrefs?.[activeWorkspace] : undefined
     const autoApprove = prefs?.autoApprove !== undefined ? prefs.autoApprove : currentSettings.autoApprove
-    const modeId = currentModeId && currentModeId !== 'default' ? currentModeId : undefined
+    const modeId = currentModeId && currentModeId !== 'kiro_default' ? currentModeId : undefined
+    const modelId = resolveModelId({ projectPrefs: prefs, settings: currentSettings, currentModelId })
 
     if (useWorktree && worktreeSlug && isValidWorktreeSlug(worktreeSlug)) {
       // Create worktree first, then create task in it
@@ -104,15 +105,15 @@ export function PendingChat({ workspace }: PendingChatProps) {
           void ipc.gitWorktreeRemove(workspace, wtResult.worktreePath).catch(() => {})
           throw new Error('Worktree setup failed')
         }
-        const created = await ipc.createTask({ name, workspace: wtResult.worktreePath, prompt: msg, autoApprove, modeId, attachments })
+        const created = await ipc.createTask({ name, workspace: wtResult.worktreePath, prompt: msg, autoApprove, modeId, modelId, attachments })
         upsertTask({
           ...created,
           projectId: getProjectId(workspace),
           worktreePath: wtResult.worktreePath,
           originalWorkspace: workspace,
           messages: [
-            ...created.messages,
             { role: 'system', content: `Working in worktree \`${wtResult.worktreePath}\` on branch \`${wtResult.branch}\``, timestamp: new Date().toISOString() },
+            ...created.messages,
           ],
         })
         if (currentModeId && currentModeId !== 'default') {
@@ -127,7 +128,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
       } catch (wtErr) {
         // Worktree failed — fall back to original workspace with inline error
         const errMsg = wtErr instanceof Error ? wtErr.message : String(wtErr)
-        const created = await ipc.createTask({ name, workspace, prompt: msg, autoApprove, modeId, attachments })
+        const created = await ipc.createTask({ name, workspace, prompt: msg, autoApprove, modeId, modelId, attachments })
         upsertTask({
           ...created,
           projectId: getProjectId(workspace),
@@ -148,7 +149,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
       }
     }
 
-    const created = await ipc.createTask({ name, workspace, prompt: msg, autoApprove, modeId, attachments })
+    const created = await ipc.createTask({ name, workspace, prompt: msg, autoApprove, modeId, modelId, attachments })
     upsertTask({ ...created, projectId: getProjectId(workspace) })
     if (currentModeId && currentModeId !== 'default') {
       useTaskStore.getState().setTaskMode(created.id, currentModeId)
@@ -184,7 +185,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
             <button
               type="button"
               onClick={openLogin}
-              className="rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent"
+              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Sign in to Claude
             </button>

@@ -5,6 +5,7 @@ import { fuzzyScore } from '@/lib/fuzzy-search'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { useClaudeConfigStore } from '@/stores/claudeConfigStore'
+import { usePanelResolvedTaskId } from './PanelContext'
 import { ipc } from '@/lib/ipc'
 import { PanelShell } from './PanelShell'
 
@@ -16,26 +17,51 @@ const STATUS_DOT: Record<string, { cls: string; label: string }> = {
 }
 
 const BUILT_IN_AGENTS = [
-  { id: 'default', name: 'Default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-blue-600 dark:text-blue-400' },
+  { id: 'default', name: 'Default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-brand' },
   { id: 'plan', name: 'Planner', description: 'Plan before coding', icon: IconListCheck, color: 'text-teal-600 dark:text-teal-400' },
 ] as const
 
 export const AgentPanel = memo(function AgentPanel({ onDismiss }: { onDismiss: () => void }) {
   const servers = useSettingsStore((s) => s.liveMcpServers)
-  const currentModeId = useSettingsStore((s) => s.currentModeId)
+  const resolvedTaskId = usePanelResolvedTaskId()
+  const globalModeId = useSettingsStore((s) => s.currentModeId)
+  const taskModeId = useTaskStore((s) => resolvedTaskId ? s.taskModes[resolvedTaskId] ?? null : null)
+  const currentModeId = taskModeId ?? globalModeId
   const claudeAgents = useClaudeConfigStore((s) => s.config.agents)
   const [query, setQuery] = useState('')
 
   const handleSelectAgent = useCallback((agentId: string) => {
+    // No-op if already on this agent — avoids duplicate welcome messages
+    if (agentId === currentModeId) { onDismiss(); return }
     useSettingsStore.setState({ currentModeId: agentId })
-    const taskId = useTaskStore.getState().selectedTaskId
+    const taskId = resolvedTaskId
     if (taskId) {
       useTaskStore.getState().setTaskMode(taskId, agentId)
       ipc.setMode(taskId, agentId).catch(() => {})
       ipc.sendMessage(taskId, `/agent ${agentId}`).catch(() => {})
+
+      // Show welcomeMessage for custom .kiro agents
+      const claudeAgent = useClaudeConfigStore.getState().config.agents.find((a) => a.name === agentId)
+      if (claudeAgent?.welcomeMessage) {
+        const { tasks, upsertTask } = useTaskStore.getState()
+        const task = tasks[taskId]
+        if (task) {
+          upsertTask({
+            ...task,
+            messages: [
+              ...task.messages,
+              {
+                role: 'system',
+                content: `🤖 **${claudeAgent.name}**: ${claudeAgent.welcomeMessage}`,
+                timestamp: new Date().toISOString(),
+              },
+            ],
+          })
+        }
+      }
     }
     onDismiss()
-  }, [onDismiss])
+  }, [onDismiss, resolvedTaskId])
 
   const formatName = (name: string): string => name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 

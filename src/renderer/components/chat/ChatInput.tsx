@@ -8,6 +8,7 @@ import { ContextRing } from './ContextRing'
 import { useChatInput } from '@/hooks/useChatInput'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { useModifierKeys } from '@/hooks/useModifierKeys'
 
 import type { Attachment, ProjectFile } from '@/types'
 import type { PastedChunk } from '@/hooks/useChatInput'
@@ -21,8 +22,11 @@ interface ChatInputProps {
   contextUsage?: { used: number; size: number } | null
   messageCount?: number
   isRunning?: boolean
+  isActive?: boolean
+  taskId?: string | null
   initialValue?: string
   initialAttachments?: Attachment[]
+  initialFolderPaths?: string[]
   initialPastedChunks?: PastedChunk[]
   initialMentionedFiles?: ProjectFile[]
   autoFocus?: boolean
@@ -31,6 +35,7 @@ interface ChatInputProps {
   onPause?: () => void
   onDraftChange?: (value: string) => void
   onAttachmentsChange?: (attachments: Attachment[]) => void
+  onFolderPathsChange?: (paths: string[]) => void
   onPastedChunksChange?: (chunks: PastedChunk[]) => void
   onMentionedFilesChange?: (files: ProjectFile[]) => void
   workspace?: string | null
@@ -39,21 +44,25 @@ interface ChatInputProps {
   isWorktree?: boolean
 }
 
-export const ChatInput = memo(function ChatInput({ disabled, disabledReason, contextUsage, messageCount = 0, isRunning, initialValue, initialAttachments, initialPastedChunks, initialMentionedFiles, autoFocus, hasQueuedMessages, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onPastedChunksChange, onMentionedFilesChange, workspace, isCollapsed, onToggleCollapse, isWorktree }: ChatInputProps) {
+export const ChatInput = memo(function ChatInput({ disabled, disabledReason, contextUsage, messageCount = 0, isRunning, isActive, taskId, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, autoFocus, hasQueuedMessages, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange, workspace, isCollapsed, onToggleCollapse, isWorktree }: ChatInputProps) {
   const {
-    value, setValue, textareaRef, canSend,
+    value, setValue, textareaRef, containerRef, canSend,
     slashIndex, slashQuery, commands, filteredCmds, showPicker,
     panel, dismissPanel, handleSelectCommand,
     showFilePicker, mentionTrigger, mentionIndex, mentionedFiles,
     handleSelectFile, handleRemoveMention, detectMentionTrigger, dismissMention,
     attachments, isDragOver, fileInputRef,
     handleRemoveAttachment, handlePaste, handleFilePickerClick, handleFileInputChange,
+    folderPaths, handleRemoveFolder,
     pastedChunks, handleRemoveChunk,
     handleChange, handleSend, handleKeyDown, handleSelect,
-  } = useChatInput({ disabled, isRunning, initialValue, initialAttachments, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onPastedChunksChange, onMentionedFilesChange })
+  } = useChatInput({ disabled, isRunning, isActive, taskId, workspace, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange })
 
-  const currentModeId = useSettingsStore((s) => s.currentModeId)
-  const compactionStatus = useTaskStore((s) => s.selectedTaskId ? s.tasks[s.selectedTaskId]?.compactionStatus : undefined)
+  const panelTaskModeId = useTaskStore((s) => taskId ? s.taskModes[taskId] : null)
+  const globalModeId = useSettingsStore((s) => s.currentModeId)
+  const currentModeId = panelTaskModeId ?? globalModeId
+  const compactionStatus = useTaskStore((s) => taskId ? s.tasks[taskId]?.compactionStatus : undefined)
+  const isMetaHeld = useModifierKeys()
 
   const imageAttachments = useMemo(() => attachments.filter((a) => a.type === 'image' && a.preview), [attachments])
   const nonImageAttachments = useMemo(() => attachments.filter((a) => a.type !== 'image' || !a.preview), [attachments])
@@ -100,10 +109,10 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
     }
   }, [autoFocus, textareaRef])
 
-  // Cmd+L global shortcut to focus the chat input
+  // Cmd+Enter global shortcut to focus the chat input
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault()
         textareaRef.current?.focus()
       }
@@ -140,7 +149,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
               'hover:border-muted-foreground/30',
             )}
           >
-            <span className="text-[13px] text-muted-foreground">Type a message…</span>
+            <span className="text-muted-foreground" style={{ fontSize: 'var(--chat-font-size, 15px)' }}>Type a message…</span>
             <IconChevronUp className="size-4 text-muted-foreground/80" />
           </button>
         </div>
@@ -149,10 +158,10 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
   }
 
   return (
-    <div data-testid="chat-input" className="px-4 pt-1.5 pb-4 sm:px-6 sm:pt-2 sm:pb-5">
+    <div ref={containerRef} data-testid="chat-input" className="min-w-0 px-4 pt-1.5 pb-4 sm:px-6 sm:pt-2 sm:pb-5">
       <div className="mx-auto w-full min-w-0 max-w-3xl lg:max-w-4xl xl:max-w-5xl">
         <div className={cn(
-          'relative rounded-[20px] border-2 bg-card transition-colors duration-200',
+          'relative min-w-0 rounded-[20px] border-2 bg-card transition-colors duration-200',
           borderIdle, borderFocus,
           isDragOver && 'border-primary/50',
         )}>
@@ -167,6 +176,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
             disabled={disabled}
             placeholderText={placeholderText}
             textareaRef={textareaRef}
+            hasContextRing={!!contextRingNode}
             showPicker={showPicker}
             slashQuery={slashQuery}
             commands={commands}
@@ -185,8 +195,10 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
             imageAttachments={imageAttachments}
             nonImageAttachments={nonImageAttachments}
             pastedChunks={pastedChunks}
+            folderPaths={folderPaths}
             onRemoveAttachment={handleRemoveAttachment}
             onRemoveMention={handleRemoveMention}
+            onRemoveFolder={handleRemoveFolder}
             onRemoveChunk={handleRemoveChunk}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
@@ -200,6 +212,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
             hasQueuedMessages={hasQueuedMessages}
             workspace={workspace ?? null}
             isWorktree={isWorktree}
+            isMetaHeld={isMetaHeld}
             fileInputRef={fileInputRef}
             onFilePickerClick={handleFilePickerClick}
             onFileInputChange={handleFileInputChange}

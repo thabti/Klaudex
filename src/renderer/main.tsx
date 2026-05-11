@@ -156,13 +156,17 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>,
 )
 
-// Fade out and remove splash screen after React mounts
+// React mounted — cancel the crash-fallback timer and remove both overlays
+if ((window as unknown as Record<string, unknown>).__crashTimer) {
+  clearTimeout((window as unknown as Record<string, unknown>).__crashTimer as number)
+}
+document.getElementById('crash-fallback')?.remove()
+
 const splash = document.getElementById('splash')
 if (splash) {
   splash.style.opacity = '0'
   const handleRemove = () => splash.remove()
   splash.addEventListener('transitionend', handleRemove, { once: true })
-  // If already invisible (transition already done), remove immediately
   setTimeout(handleRemove, 500)
 }
 

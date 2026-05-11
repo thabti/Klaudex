@@ -3,7 +3,7 @@ import {
   IconChevronRight, IconFolderCode, IconCircle,
   IconSearch, IconX,
   IconRobot, IconFlask, IconBook, IconRocket, IconShield, IconPalette,
-  IconGitBranch,
+  IconGitBranch, IconHome,
 } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 
@@ -105,7 +105,7 @@ export const SectionToggle = ({ icon: Icon, iconColor, label, count, errorCount,
 )
 
 export const SourceDot = ({ source }: { source: 'global' | 'local' }) =>
-  source === 'local' ? <IconFolderCode className="size-2.5 shrink-0 text-primary" aria-hidden /> : null
+  source === 'local' ? <IconFolderCode className="size-2.5 shrink-0 text-primary" aria-hidden /> : <IconHome className="size-2.5 shrink-0 text-muted-foreground/50" aria-hidden title="~/.claude" />
 
 export const InlineSearch = ({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) => {
   const ref = useRef<HTMLInputElement>(null)

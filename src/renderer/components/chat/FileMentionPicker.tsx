@@ -1,5 +1,5 @@
-import { memo, useEffect, useRef, useState, useCallback } from 'react'
-import { IconRobot, IconTool, IconCode, IconListCheck, IconX } from '@tabler/icons-react'
+import { memo, useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { IconRobot, IconBolt, IconCode, IconListCheck, IconX, IconAlignLeft } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -9,7 +9,7 @@ import type { ProjectFile } from '@/types'
 
 // ── Built-in agents for @ mention ────────────────────────────────────
 const BUILT_IN_MENTION_AGENTS = [
-  { name: 'Default', id: 'default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-blue-600 dark:text-blue-400', bgCls: 'bg-blue-500/20' },
+  { name: 'Default', id: 'default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-brand', bgCls: 'bg-brand/20' },
   { name: 'Planner', id: 'plan', description: 'Plan before coding', icon: IconListCheck, color: 'text-teal-600 dark:text-teal-400', bgCls: 'bg-teal-500/20' },
 ] as const
 
@@ -118,7 +118,7 @@ const GitChangeBadge = memo(function GitChangeBadge({
       </TooltipTrigger>
       <TooltipContent side="top" className="text-[11px]">
         {tooltipLines.map((line, i) => (
-          <span key={i} className={i > 0 ? 'block text-muted-foreground' : ''}>{line}</span>
+          <span key={`line-${i}`} className={i > 0 ? 'block text-muted-foreground' : ''}>{line}</span>
         ))}
       </TooltipContent>
     </Tooltip>
@@ -181,13 +181,15 @@ const searchFiles = (files: ProjectFile[], query: string, limit: number = 50): P
 export const FileMentionPill = memo(function FileMentionPill({ path, onRemove }: { path: string; onRemove?: () => void }) {
   const isAgent = path.startsWith('agent:')
   const isSkill = path.startsWith('skill:')
+  // Prompts don't have a prefix — they're just the name
+  const isPrompt = !isAgent && !isSkill && !path.includes('/') && !path.includes('.')
   const rawName = isAgent || isSkill ? path.split(':').slice(1).join(':') : (path.split('/').pop() ?? path)
-  const ext = (!isAgent && !isSkill && rawName.includes('.')) ? rawName.split('.').pop() ?? '' : ''
+  const ext = (!isAgent && !isSkill && !isPrompt && rawName.includes('.')) ? rawName.split('.').pop() ?? '' : ''
 
   const formatName = (name: string): string =>
     name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 
-  const displayName = isAgent ? formatName(rawName) : rawName
+  const displayName = isAgent ? formatName(rawName) : isSkill ? `skill: ${formatName(rawName)}` : isPrompt ? `@${rawName}` : rawName
 
   let icon: React.ReactNode
   let pillCls: string
@@ -197,8 +199,11 @@ export const FileMentionPill = memo(function FileMentionPill({ path, onRemove }:
     icon = <AgentIcon className={cn('size-3.5', meta.color)} />
     pillCls = `${meta.bgCls} text-foreground/90`
   } else if (isSkill) {
-    icon = <IconTool className="size-3.5 text-yellow-600 dark:text-yellow-400" />
-    pillCls = 'bg-yellow-500/15 text-yellow-300'
+    icon = <IconBolt className="size-3.5 text-yellow-600 dark:text-yellow-400" />
+    pillCls = 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400'
+  } else if (isPrompt) {
+    icon = <IconAlignLeft className="size-3.5 text-indigo-600 dark:text-indigo-400" />
+    pillCls = 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
   } else {
     icon = <FileIcon ext={ext} isDir={false} />
     pillCls = 'bg-accent/60 text-foreground/70'
@@ -244,7 +249,8 @@ export const FileMentionPicker = memo(function FileMentionPicker({
   const filesRef = useRef<ProjectFile[]>([])
   const respectGitignore = useSettingsStore((s) => s.settings.respectGitignore ?? true)
   const agents = useClaudeConfigStore((s) => s.config.agents)
-  const commands = useClaudeConfigStore((s) => s.config.commands)
+  const skills = useClaudeConfigStore((s) => s.config.skills)
+  const prompts = useClaudeConfigStore((s) => s.config.prompts)
 
   // Ensure claude config is loaded
   useEffect(() => {
@@ -269,50 +275,67 @@ export const FileMentionPicker = memo(function FileMentionPicker({
     return () => { cancelled = true }
   }, [workspace, respectGitignore])
 
-  // Build config items filtered by query — built-in agents first, then .claude agents, then skills
+  // Build kiro items filtered by query — built-in agents first, then .kiro agents, then skills, then prompts
   const q = (query ?? '').replace(/^[@./]+/, '').trim()
-  type ConfigItem = { type: 'agent' | 'skill'; name: string; description?: string; builtinIcon?: typeof IconRobot; builtinColor?: string; builtinBgCls?: string }
-  const scoredConfigItems: Array<{ item: ConfigItem; score: number }> = []
-  for (const b of BUILT_IN_MENTION_AGENTS) {
-    if (!q) {
-      scoredConfigItems.push({ item: { type: 'agent', name: b.id, description: b.description, builtinIcon: b.icon, builtinColor: b.color, builtinBgCls: b.bgCls }, score: 0 })
-    } else {
-      const nameScore = fuzzyScore(q, b.name)
-      const idScore = fuzzyScore(q, b.id)
-      const best = nameScore !== null && idScore !== null ? Math.min(nameScore, idScore) : nameScore ?? idScore
-      if (best !== null) {
-        scoredConfigItems.push({ item: { type: 'agent', name: b.id, description: b.description, builtinIcon: b.icon, builtinColor: b.color, builtinBgCls: b.bgCls }, score: best })
+  type ClaudeItem = { type: 'agent' | 'skill' | 'prompt'; name: string; description?: string; builtinIcon?: typeof IconRobot; builtinColor?: string; builtinBgCls?: string }
+
+  const claudeItems = useMemo((): ClaudeItem[] => {
+    const scored: Array<{ item: ClaudeItem; score: number }> = []
+    for (const b of BUILT_IN_MENTION_AGENTS) {
+      if (!q) {
+        scored.push({ item: { type: 'agent', name: b.id, description: b.description, builtinIcon: b.icon, builtinColor: b.color, builtinBgCls: b.bgCls }, score: 0 })
+      } else {
+        const nameScore = fuzzyScore(q, b.name)
+        const idScore = fuzzyScore(q, b.id)
+        const best = nameScore !== null && idScore !== null ? Math.min(nameScore, idScore) : nameScore ?? idScore
+        if (best !== null) {
+          scored.push({ item: { type: 'agent', name: b.id, description: b.description, builtinIcon: b.icon, builtinColor: b.color, builtinBgCls: b.bgCls }, score: best })
+        }
       }
     }
-  }
-  for (const a of agents) {
-    if (!q) {
-      scoredConfigItems.push({ item: { type: 'agent', name: a.name, description: a.description }, score: 0 })
-    } else {
-      const nameScore = fuzzyScore(q, a.name)
-      const descScore = fuzzyScore(q, a.description)
-      const best = nameScore !== null && descScore !== null ? Math.min(nameScore, descScore + 50) : nameScore ?? (descScore !== null ? descScore + 50 : null)
-      if (best !== null) {
-        scoredConfigItems.push({ item: { type: 'agent', name: a.name, description: a.description }, score: best })
+    for (const a of agents) {
+      if (!q) {
+        scored.push({ item: { type: 'agent', name: a.name, description: a.description }, score: 0 })
+      } else {
+        const nameScore = fuzzyScore(q, a.name)
+        const descScore = fuzzyScore(q, a.description)
+        const best = nameScore !== null && descScore !== null ? Math.min(nameScore, descScore + 50) : nameScore ?? (descScore !== null ? descScore + 50 : null)
+        if (best !== null) {
+          scored.push({ item: { type: 'agent', name: a.name, description: a.description }, score: best })
+        }
       }
     }
-  }
-  for (const s of commands) {
-    if (!q) {
-      scoredConfigItems.push({ item: { type: 'skill', name: s.name }, score: 0 })
-    } else {
-      const score = fuzzyScore(q, s.name)
-      if (score !== null) {
-        scoredConfigItems.push({ item: { type: 'skill', name: s.name }, score })
+    for (const s of skills) {
+      if (!q) {
+        scored.push({ item: { type: 'skill', name: s.name }, score: 0 })
+      } else {
+        const score = fuzzyScore(q, s.name)
+        if (score !== null) {
+          scored.push({ item: { type: 'skill', name: s.name }, score })
+        }
       }
     }
-  }
-  if (q) scoredConfigItems.sort((a, b) => a.score - b.score)
-  const configItems = scoredConfigItems.map((s) => s.item)
+    for (const p of prompts) {
+      // Cap content search at 500 chars to avoid O(n × content_length) on every keystroke
+      const searchableContent = p.content.slice(0, 500)
+      if (!q) {
+        scored.push({ item: { type: 'prompt', name: p.name, description: p.content.slice(0, 60).replace(/\n/g, ' ') }, score: 0 })
+      } else {
+        const nameScore = fuzzyScore(q, p.name)
+        const contentScore = fuzzyScore(q, searchableContent)
+        const best = nameScore !== null && contentScore !== null ? Math.min(nameScore, contentScore + 80) : nameScore ?? (contentScore !== null ? contentScore + 80 : null)
+        if (best !== null) {
+          scored.push({ item: { type: 'prompt', name: p.name, description: p.content.slice(0, 60).replace(/\n/g, ' ') }, score: best })
+        }
+      }
+    }
+    if (q) scored.sort((a, b) => a.score - b.score)
+    return scored.map((s) => s.item)
+  }, [q, agents, skills, prompts])
 
   // Update filtered results when query changes
   const filtered = query ? searchFiles(filesRef.current, query) : filesRef.current.slice(0, 50)
-  const totalItems = configItems.length + filtered.length
+  const totalItems = claudeItems.length + filtered.length
 
   useEffect(() => {
     const el = listRef.current?.children[activeIndex] as HTMLElement | undefined
@@ -324,18 +347,20 @@ export const FileMentionPicker = memo(function FileMentionPicker({
     const handler = (e: Event) => {
       const idx = (e as CustomEvent).detail?.index ?? 0
       const normalizedIdx = idx % totalItems
-      if (normalizedIdx < configItems.length) {
-        const item = configItems[normalizedIdx]
-        const prefix = item.type === 'agent' ? 'agent' : 'skill'
-        onSelect({ path: `${prefix}:${item.name}`, name: item.name, dir: '', isDir: false, ext: '', gitStatus: '', linesAdded: 0, linesDeleted: 0, modifiedAt: 0 })
+      if (normalizedIdx < claudeItems.length) {
+        const item = claudeItems[normalizedIdx]
+        const prefix = item.type === 'agent' ? 'agent' : item.type === 'skill' ? 'skill' : 'prompt'
+        // Prompts use their name directly (no prefix) — they resolve by name in resolveMentions
+        const path = item.type === 'prompt' ? item.name : `${prefix}:${item.name}`
+        onSelect({ path, name: item.name, dir: '', isDir: false, ext: '', gitStatus: '', linesAdded: 0, linesDeleted: 0, modifiedAt: 0 })
       } else {
-        const file = filtered[(normalizedIdx - configItems.length) % filtered.length]
+        const file = filtered[(normalizedIdx - claudeItems.length) % filtered.length]
         if (file) onSelect(file)
       }
     }
     document.addEventListener('file-mention-select', handler)
     return () => document.removeEventListener('file-mention-select', handler)
-  }, [filtered, configItems, totalItems, onSelect])
+  }, [filtered, claudeItems, totalItems, onSelect])
 
   if (loading) {
     return (
@@ -377,16 +402,18 @@ export const FileMentionPicker = memo(function FileMentionPicker({
         </button>
       </div>
       <ul ref={listRef} className="max-h-[280px] overflow-y-auto py-1">
-        {configItems.map((item, i) => {
+        {claudeItems.map((item, i) => {
           const isActive = i === activeIndex % totalItems
           const formatName = (name: string): string =>
             name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-          const ItemIcon = item.builtinIcon ?? (item.type === 'agent' ? IconRobot : IconTool)
-          const iconColor = item.builtinColor ?? (item.type === 'agent' ? 'text-violet-600 dark:text-violet-400' : 'text-yellow-600 dark:text-yellow-400')
-          const iconBg = item.builtinBgCls ?? (item.type === 'agent' ? 'bg-violet-500/20' : 'bg-yellow-500/20')
+          const ItemIcon = item.builtinIcon ?? (item.type === 'agent' ? IconRobot : item.type === 'skill' ? IconBolt : IconAlignLeft)
+          const iconColor = item.builtinColor ?? (item.type === 'agent' ? 'text-violet-600 dark:text-violet-400' : item.type === 'skill' ? 'text-yellow-600 dark:text-yellow-400' : 'text-indigo-600 dark:text-indigo-400')
+          const iconBg = item.builtinBgCls ?? (item.type === 'agent' ? 'bg-violet-500/20' : item.type === 'skill' ? 'bg-yellow-500/20' : 'bg-indigo-500/20')
           const displayName = item.builtinIcon
             ? BUILT_IN_MENTION_AGENTS.find((b) => b.id === item.name)?.name ?? item.name
             : formatName(item.name)
+          // Prompts use their name directly; agents/skills use prefix:name
+          const selectPath = item.type === 'prompt' ? item.name : `${item.type}:${item.name}`
           return (
             <li
               key={`${item.type}:${item.name}`}
@@ -394,7 +421,7 @@ export const FileMentionPicker = memo(function FileMentionPicker({
               aria-selected={isActive}
               onMouseDown={(e) => {
                 e.preventDefault()
-                onSelect({ path: `${item.type}:${item.name}`, name: item.name, dir: '', isDir: false, ext: '', gitStatus: '', linesAdded: 0, linesDeleted: 0, modifiedAt: 0 })
+                onSelect({ path: selectPath, name: item.name, dir: '', isDir: false, ext: '', gitStatus: '', linesAdded: 0, linesDeleted: 0, modifiedAt: 0 })
               }}
               className={cn(
                 'flex cursor-pointer items-center gap-2.5 px-3 py-1.5 transition-colors',
@@ -412,11 +439,11 @@ export const FileMentionPicker = memo(function FileMentionPicker({
             </li>
           )
         })}
-        {configItems.length > 0 && filtered.length > 0 && (
+        {claudeItems.length > 0 && filtered.length > 0 && (
           <li className="mx-3 my-1 border-t border-border/50" role="separator" />
         )}
         {filtered.map((file, i) => {
-          const globalIdx = configItems.length + i
+          const globalIdx = claudeItems.length + i
           const isActive = globalIdx === activeIndex % totalItems
           return (
             <li

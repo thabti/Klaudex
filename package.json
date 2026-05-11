@@ -4,7 +4,7 @@
   "author": "Sabeur Thabti",
   "private": true,
   "scripts": {
-    "dev": "cargo tauri dev",
+    "dev": "cargo tauri dev --config src-tauri/tauri.dev.conf.json",
     "dev:renderer": "vite",
     "build": "cargo tauri build",
     "build:renderer": "vite build",
@@ -12,6 +12,8 @@
     "check:ts": "tsc --noEmit",
     "check:rust": "cd src-tauri && cargo check",
     "check:web": "tsc --noEmit && vite build",
+    "check:bundle": "node scripts/check-bundle-size.mjs",
+    "lint": "oxlint --report-unused-disable-directives src/",
     "test:rust": "cd src-tauri && cargo test",
     "test:ui": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -41,6 +43,7 @@
     "@tauri-apps/plugin-updater": "^2.10.1",
     "diff": "^8.0.4",
     "ghostty-web": "^0.4.0",
+    "material-icon-theme": "5.34.0",
     "posthog-js": "^1.367.0",
     "recharts": "2.15.3",
     "remark-gfm": "^4.0.1",
@@ -58,7 +61,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tailwindcss/vite": "^4.0.0",
     "@tauri-apps/api": "^2",
-    "@tauri-apps/cli": "^2",
+    "@tauri-apps/cli": "^2.11.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -71,6 +74,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
     "jsdom": "^29.0.2",
+    "oxlint": "^1.62.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^9.0.0",
@@ -83,6 +87,6 @@
     "zustand": "^5.0.0"
   },
   "overrides": {
-    "vite": "npm:rolldown-vite@latest"
+    "vite": "npm:rolldown-vite@7.3.1"
   }
 }

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   parseQuestions,
   hasQuestionBlocks,
+  hasInteractiveQuestionBlocks,
   stripQuestionBlocks,
   findQuestionStarts,
 } from './question-parser'
@@ -36,6 +37,47 @@ describe('hasQuestionBlocks', () => {
   it('detects questions embedded in longer text', () => {
     const input = 'Some preamble.\n\n[1]: First question?\na. Yes\nb. No'
     expect(hasQuestionBlocks(input)).toBe(true)
+  })
+})
+
+// ── hasInteractiveQuestionBlocks ──────────────────────────────
+
+describe('hasInteractiveQuestionBlocks', () => {
+  it('returns true when a single block has 2+ options', () => {
+    const input = '[1]: Pick a stack?\na. React\nb. Vue'
+    expect(hasInteractiveQuestionBlocks(input)).toBe(true)
+  })
+
+  it('returns true when all blocks have 2+ options', () => {
+    const input = '[1]: Q1?\na. Yes\nb. No\n[2]: Q2?\na. Sure\nb. Nope'
+    expect(hasInteractiveQuestionBlocks(input)).toBe(true)
+  })
+
+  it('returns false for a single option-less block (info masquerading as question)', () => {
+    const input = '[1]: Heads up about the migration.'
+    expect(hasInteractiveQuestionBlocks(input)).toBe(false)
+  })
+
+  it('returns true when any block has 2+ options (mixed with option-less)', () => {
+    const input = '[1]: Q1?\na. Yes\nb. No\n[2]: Open-ended thought without options?'
+    expect(hasInteractiveQuestionBlocks(input)).toBe(true)
+  })
+
+  it('returns false for a block with only one option', () => {
+    const input = '[1]: Pick?\na. Only one'
+    expect(hasInteractiveQuestionBlocks(input)).toBe(false)
+  })
+
+  it('returns false for plain text', () => {
+    expect(hasInteractiveQuestionBlocks('No questions here.')).toBe(false)
+  })
+
+  it('returns false for empty string', () => {
+    expect(hasInteractiveQuestionBlocks('')).toBe(false)
+  })
+
+  it('returns false for URL references', () => {
+    expect(hasInteractiveQuestionBlocks('See [1]: https://example.com')).toBe(false)
   })
 })
 

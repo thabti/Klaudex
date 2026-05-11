@@ -1,16 +1,15 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { act } from 'react'
 import { useModifierKeys } from './useModifierKeys'
 
 /**
- * Tests for `useModifierKeys` (TASK-048).
+ * Tests for `useModifierKeys`.
  *
  * SUT: src/renderer/hooks/useModifierKeys.ts
- * - Listens with `capture: true` on `keydown` / `keyup`
- * - Listens on `blur` (no capture) to clear all modifier flags
- *   (prevents "stuck Cmd" after Cmd+Tab leaves the window without keyup).
- * - Removes all 3 listeners on unmount.
+ * - Returns boolean indicating whether Meta (Cmd) key is held
+ * - Uses delayed show (100ms) and instant hide to prevent flicker
+ * - Clears on window blur to avoid stuck state
  */
 
 const dispatchKey = (type: 'keydown' | 'keyup', key: string): void => {
@@ -18,95 +17,74 @@ const dispatchKey = (type: 'keydown' | 'keyup', key: string): void => {
 }
 
 describe('useModifierKeys', () => {
-  it('initial state has all four flags false', () => {
-    const { result } = renderHook(() => useModifierKeys())
-    expect(result.current).toEqual({ shift: false, cmd: false, ctrl: false, alt: false })
+  beforeEach(() => {
+    vi.useFakeTimers()
   })
 
-  it('keydown Shift sets shift=true; keyup Shift clears it', () => {
-    const { result } = renderHook(() => useModifierKeys())
-
-    act(() => { dispatchKey('keydown', 'Shift') })
-    expect(result.current.shift).toBe(true)
-    expect(result.current.cmd).toBe(false)
-
-    act(() => { dispatchKey('keyup', 'Shift') })
-    expect(result.current.shift).toBe(false)
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
-  it('keydown Meta sets cmd=true (Mac Cmd key)', () => {
+  it('initial state is false', () => {
+    const { result } = renderHook(() => useModifierKeys())
+    expect(result.current).toBe(false)
+  })
+
+  it('returns true after Meta keydown + delay', () => {
     const { result } = renderHook(() => useModifierKeys())
     act(() => { dispatchKey('keydown', 'Meta') })
-    expect(result.current.cmd).toBe(true)
-    act(() => { dispatchKey('keyup', 'Meta') })
-    expect(result.current.cmd).toBe(false)
+    // Not yet visible (delayed show)
+    expect(result.current).toBe(false)
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(result.current).toBe(true)
   })
 
-  it('alternative cmd key names (OS, Command) also flip the cmd flag', () => {
+  it('keyup Meta hides instantly', () => {
     const { result } = renderHook(() => useModifierKeys())
+    act(() => { dispatchKey('keydown', 'Meta') })
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(result.current).toBe(true)
+    act(() => { dispatchKey('keyup', 'Meta') })
+    expect(result.current).toBe(false)
+  })
 
+  it('alternative cmd key names (OS, Command) also work', () => {
+    const { result } = renderHook(() => useModifierKeys())
     act(() => { dispatchKey('keydown', 'OS') })
-    expect(result.current.cmd).toBe(true)
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(result.current).toBe(true)
     act(() => { dispatchKey('keyup', 'OS') })
-    expect(result.current.cmd).toBe(false)
+    expect(result.current).toBe(false)
 
     act(() => { dispatchKey('keydown', 'Command') })
-    expect(result.current.cmd).toBe(true)
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(result.current).toBe(true)
     act(() => { dispatchKey('keyup', 'Command') })
-    expect(result.current.cmd).toBe(false)
+    expect(result.current).toBe(false)
   })
 
-  it('keydown Control + Alt update ctrl/alt flags', () => {
+  it('quick tap (release before delay) does not show', () => {
     const { result } = renderHook(() => useModifierKeys())
-
-    act(() => { dispatchKey('keydown', 'Control') })
-    expect(result.current.ctrl).toBe(true)
-
-    act(() => { dispatchKey('keydown', 'Alt') })
-    expect(result.current.alt).toBe(true)
-
-    act(() => {
-      dispatchKey('keyup', 'Control')
-      dispatchKey('keyup', 'Alt')
-    })
-    expect(result.current.ctrl).toBe(false)
-    expect(result.current.alt).toBe(false)
+    act(() => { dispatchKey('keydown', 'Meta') })
+    act(() => { vi.advanceTimersByTime(50) })
+    act(() => { dispatchKey('keyup', 'Meta') })
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(result.current).toBe(false)
   })
 
-  it('non-modifier keys do not flip any flag', () => {
+  it('window blur clears state (prevents stuck-key bug)', () => {
     const { result } = renderHook(() => useModifierKeys())
-    act(() => {
-      dispatchKey('keydown', 'a')
-      dispatchKey('keydown', 'Enter')
-      dispatchKey('keydown', 'Escape')
-    })
-    expect(result.current).toEqual({ shift: false, cmd: false, ctrl: false, alt: false })
+    act(() => { dispatchKey('keydown', 'Meta') })
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(result.current).toBe(true)
+    act(() => { window.dispatchEvent(new Event('blur')) })
+    expect(result.current).toBe(false)
   })
 
-  it('window blur clears all flags (prevents stuck-key bug)', () => {
-    const { result } = renderHook(() => useModifierKeys())
-
-    // Hold Shift + Cmd
-    act(() => {
-      dispatchKey('keydown', 'Shift')
-      dispatchKey('keydown', 'Meta')
-    })
-    expect(result.current.shift).toBe(true)
-    expect(result.current.cmd).toBe(true)
-
-    // Window loses focus (e.g. Cmd+Tab) — keyup may never fire.
-    act(() => {
-      window.dispatchEvent(new Event('blur'))
-    })
-
-    expect(result.current).toEqual({ shift: false, cmd: false, ctrl: false, alt: false })
-  })
-
-  it('removes all three window listeners on unmount', () => {
+  it('removes all window listeners on unmount', () => {
     const removeSpy = vi.spyOn(window, 'removeEventListener')
     const { unmount } = renderHook(() => useModifierKeys())
     unmount()
-
     const removedTypes = removeSpy.mock.calls.map((c) => c[0])
     expect(removedTypes).toContain('keydown')
     expect(removedTypes).toContain('keyup')

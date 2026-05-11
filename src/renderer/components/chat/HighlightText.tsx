@@ -21,7 +21,7 @@ export const HighlightText = memo(function HighlightText({ text }: { readonly te
     <>
       {parts.map((part, i) =>
         part.toLowerCase() === trimmed.toLowerCase() ? (
-          <mark key={i} className="rounded-sm bg-yellow-300/80 px-0.5 text-foreground dark:bg-yellow-400/40">
+          <mark key={`hl-${i}-${part.slice(0, 8)}`} className="rounded-sm bg-yellow-300/80 px-0.5 text-foreground dark:bg-yellow-400/40">
             {part}
           </mark>
         ) : (
@@ -40,7 +40,7 @@ export const HighlightText = memo(function HighlightText({ text }: { readonly te
 export const highlightNode = (node: ReactNode, query: string): ReactNode => {
   if (!query.trim()) return node
   if (typeof node === 'string') return <HighlightText text={node} />
-  if (Array.isArray(node)) return node.map((child, i) => <HighlightWrapper key={i}>{highlightNode(child, query)}</HighlightWrapper>)
+  if (Array.isArray(node)) return node.map((child, i) => <HighlightWrapper key={`hlw-${i}`}>{highlightNode(child, query)}</HighlightWrapper>)
   return node
 }
 

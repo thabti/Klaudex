@@ -18,7 +18,8 @@ const COMMAND_DESCRIPTIONS: Record<string, string> = {
   context: 'Manage context files or view token usage',
   data: 'Open the analytics dashboard with usage stats and charts',
   feedback: 'Submit feedback, request features, or report issues',
-  help: 'Get help with Claude CLI features and commands',
+  fork: 'Fork current thread into a new conversation branch',
+  help: 'Get help with Kiro CLI features and commands',
   knowledge: 'Add, search, or manage your knowledge base',
   model: 'Switch the active AI model',
   plan: 'Toggle plan mode on or off',
@@ -82,6 +83,11 @@ const COMMAND_ICONS: Record<string, () => React.ReactNode> = {
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   ),
+  fork: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="18" r="3" /><circle cx="6" cy="6" r="3" /><circle cx="18" cy="6" r="3" /><path d="M12 15V9" /><path d="M6 9v3a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V9" />
+    </svg>
+  ),
   help: () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><circle cx="12" cy="17" r=".5" fill="currentColor" />
@@ -119,7 +125,9 @@ const COMMAND_ICONS: Record<string, () => React.ReactNode> = {
   ),
   tangent: () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+      <path d="M15.02 19.52c-2.341 .736 -5 .606 -7.32 -.52l-4.7 1l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c1.649 1.407 2.575 3.253 2.742 5.152" />
+      <path d="M19 22v.01" />
+      <path d="M19 19a2.003 2.003 0 0 0 .914 -3.782a1.98 1.98 0 0 0 -2.414 .483" />
     </svg>
   ),
   tools: () => (

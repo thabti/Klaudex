@@ -133,7 +133,7 @@ interface AgentCardProps {
 const AgentCard = memo(function AgentCard({ agent, isDimmed }: AgentCardProps) {
   return (
     <div
-      data-testid={`acp-agent-${agent.name || i}`}
+      data-testid={`acp-agent-${agent.name || 'unknown'}`}
       className={`flex items-start gap-2 px-1.5 py-1 transition-opacity duration-300 ${isDimmed ? 'opacity-50' : ''}`}
     >
       <div className="mt-0.5 shrink-0">

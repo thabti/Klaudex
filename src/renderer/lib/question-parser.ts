@@ -123,6 +123,23 @@ export function hasQuestionBlocks(text: string): boolean {
   return findQuestionStarts(text).length > 0
 }
 
+/**
+ * Stricter check used to decide whether to render the interactive QuestionCards UI.
+ *
+ * The agent is instructed to use the `[N]:` format only for genuine multi-choice
+ * decisions, but it sometimes emits informational `[N]:` lines or option-less
+ * open-ended prompts. Rendering those as cards confuses users (no buttons to
+ * click, "view-only" pressure to answer). We require at least one parsed block
+ * to have 2+ options before showing the card UI; blocks without options are
+ * rendered as plain markdown within the card layout.
+ */
+export function hasInteractiveQuestionBlocks(text: string): boolean {
+  if (!hasQuestionBlocks(text)) return false
+  const blocks = parseQuestions(text)
+  if (blocks.length === 0) return false
+  return blocks.some((b) => b.options.length >= 2)
+}
+
 export function stripQuestionBlocks(text: string): string {
   const starts = findQuestionStarts(text)
   if (starts.length === 0) return text

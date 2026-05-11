@@ -1,53 +1,113 @@
-import { memo, useCallback } from 'react'
+import { memo, useState, useRef, useEffect, useCallback } from 'react'
+import { IconChevronDown, IconCode, IconListCheck } from '@tabler/icons-react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { usePanelResolvedTaskId } from './PanelContext'
 import { ipc } from '@/lib/ipc'
 import { cn } from '@/lib/utils'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
-const PlanIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <rect x="3" y="3" width="18" height="18" rx="2" />
-    <path d="M8 7h8" /><path d="M8 12h8" /><path d="M8 17h4" />
-  </svg>
-)
+const MODE_CODE = 'default' as const
+const MODE_PLAN = 'plan' as const
+
+interface ModeEntry {
+  readonly id: string
+  readonly label: string
+  readonly icon: typeof IconCode
+}
+
+const MODES: readonly ModeEntry[] = [
+  { id: MODE_CODE, label: 'Code', icon: IconCode },
+  { id: MODE_PLAN, label: 'Plan', icon: IconListCheck },
+] as const
 
 export const PlanToggle = memo(function PlanToggle() {
-  const currentModeId = useSettingsStore((s) => s.currentModeId)
-  const isPlan = currentModeId === 'plan'
+  const resolvedTaskId = usePanelResolvedTaskId()
+  const globalModeId = useSettingsStore((s) => s.currentModeId)
+  const taskModeId = useTaskStore((s) => resolvedTaskId ? s.taskModes[resolvedTaskId] ?? null : null)
+  const currentModeId = taskModeId ?? globalModeId
+  const [isOpen, setIsOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
 
-  const handleToggle = useCallback(() => {
-    const nextMode = isPlan ? 'default' : 'plan'
-    useSettingsStore.setState({ currentModeId: nextMode })
-    const taskId = useTaskStore.getState().selectedTaskId
-    if (taskId) {
-      useTaskStore.getState().setTaskMode(taskId, nextMode)
-      ipc.setMode(taskId, nextMode).catch(() => {})
-      ipc.sendMessage(taskId, `/agent ${nextMode}`).catch(() => {})
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setIsOpen(false)
     }
-  }, [isPlan])
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
+  const handleSelect = useCallback((modeId: string) => {
+    if (modeId === currentModeId) {
+      setIsOpen(false)
+      return
+    }
+    useSettingsStore.setState({ currentModeId: modeId })
+    const taskId = resolvedTaskId
+    if (taskId) {
+      useTaskStore.getState().setTaskMode(taskId, modeId)
+      ipc.setMode(taskId, modeId).catch(() => {})
+      ipc.sendMessage(taskId, `/agent ${modeId}`).catch(() => {})
+    }
+    setIsOpen(false)
+  }, [currentModeId, resolvedTaskId])
+
+  const isPlan = currentModeId === MODE_PLAN
+  const current = MODES.find((m) => m.id === currentModeId) ?? MODES[0]
+  const CurrentIcon = current.icon
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={handleToggle}
-          data-testid="plan-toggle"
-          className={cn(
-            'flex items-center gap-1 rounded-lg px-1.5 py-1 text-[14px] font-medium transition-colors',
-            isPlan
-              ? 'text-teal-600 dark:text-teal-400 hover:text-teal-500 dark:hover:text-teal-300'
-              : 'text-muted-foreground/80 hover:text-muted-foreground',
-          )}
+    <div ref={ref} data-testid="plan-toggle" className="relative min-w-0">
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        aria-label={`Current mode: ${current.label}`}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        className={cn(
+          'flex items-center gap-1 rounded-lg px-1.5 py-1 text-[12px] font-medium transition-colors',
+          isPlan
+            ? 'text-teal-600 dark:text-teal-400 hover:text-teal-500 dark:hover:text-teal-300'
+            : 'text-muted-foreground hover:text-foreground',
+        )}
+      >
+        <CurrentIcon className="size-3.5" aria-hidden />
+        <span className="hidden @[480px]/toolbar:inline">{current.label}</span>
+        <IconChevronDown className="hidden size-3 shrink-0 opacity-50 @[480px]/toolbar:block" aria-hidden />
+      </button>
+
+      {isOpen && (
+        <div
+          role="listbox"
+          aria-label="Select mode"
+          className="absolute bottom-full left-0 z-[200] mb-2 min-w-[140px] rounded-xl border border-border bg-popover py-1.5 shadow-xl"
         >
-          <PlanIcon />
-          <span>{isPlan ? 'Plan' : 'Plan'}</span>
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="text-[11px]">
-        {isPlan ? 'Plan mode on \u2014 click to disable' : 'Enable plan mode'}
-      </TooltipContent>
-    </Tooltip>
+          {MODES.map((m) => {
+            const isActive = m.id === currentModeId
+            const Icon = m.icon
+            return (
+              <button
+                key={m.id}
+                type="button"
+                role="option"
+                aria-selected={isActive}
+                onMouseDown={(e) => {
+                  e.stopPropagation()
+                  handleSelect(m.id)
+                }}
+                className={cn(
+                  'flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors hover:bg-accent',
+                  isActive ? 'font-medium text-foreground' : 'text-muted-foreground',
+                  m.id === MODE_PLAN && isActive && 'text-teal-600 dark:text-teal-400',
+                )}
+              >
+                <Icon className="size-3.5 shrink-0" aria-hidden />
+                {m.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 })

@@ -1,4 +1,4 @@
-import { IconFileCode } from '@tabler/icons-react'
+import { FileTypeIcon } from '@/components/file-tree/FileTypeIcon'
 import { cn } from '@/lib/utils'
 import type { FileStats } from './diff-viewer-utils'
 
@@ -25,7 +25,7 @@ export const DiffFileSidebar = ({ fileStats, selectedFileIdx, sidebarWidth, onSe
       </button>
       {fileStats.map((file, i) => (
         <button
-          key={i}
+          key={file.name ?? `file-${i}`}
           type="button"
           onClick={() => onSelectFile(i)}
           className={cn(
@@ -33,7 +33,7 @@ export const DiffFileSidebar = ({ fileStats, selectedFileIdx, sidebarWidth, onSe
             selectedFileIdx === i && 'bg-accent/30 text-foreground',
           )}
         >
-          <IconFileCode className="size-3 shrink-0 text-muted-foreground/70" />
+          <FileTypeIcon name={file.name.split('/').pop() ?? file.name} isDir={false} className="size-3" />
           <span className="min-w-0 flex-1 truncate">{file.name.split('/').pop()}</span>
           <span className="shrink-0 flex gap-1">
             {file.additions > 0 && <span className="text-emerald-600 dark:text-emerald-400">+{file.additions}</span>}

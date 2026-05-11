@@ -46,7 +46,7 @@ export const applyTheme = (mode: ThemeMode): void => {
     root.classList.add('dark')
     document.body.style.backgroundColor = '#0a0a0a'
   } else {
-    document.body.style.backgroundColor = '#ffffff'
+    document.body.style.backgroundColor = '#fdfcfb'
   }
 
   requestAnimationFrame(() => {

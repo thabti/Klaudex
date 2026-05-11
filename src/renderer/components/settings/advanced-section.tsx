@@ -1,11 +1,16 @@
-import { useState, useEffect } from 'react'
+import { memo, useState, useEffect, useCallback } from 'react'
 import { IconTrash, IconRefresh, IconChartBar } from '@tabler/icons-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useAnalyticsStore } from '@/stores/analyticsStore'
 import { Switch } from '@/components/ui/switch'
 import type { AppSettings } from '@/types'
-import { SectionHeader, SectionLabel, SettingsCard, SettingRow, Divider, ConfirmDialog } from './settings-shared'
+import { SectionHeader, SettingsCard, SettingRow, SettingsGrid, Divider, ConfirmDialog } from './settings-shared'
+
+const BTW_MIN_CHARS = 100
+const BTW_MAX_CHARS = 10000
+const BTW_DEFAULT_CHARS = 1220
 
 const formatBytes = (bytes: number): string => {
   if (bytes === 0) return '0 B'
@@ -20,7 +25,7 @@ interface AdvancedSectionProps {
   onClose: () => void
 }
 
-export const AdvancedSection = ({ draft, updateDraft, onClose }: AdvancedSectionProps) => {
+export const AdvancedSection = memo(function AdvancedSection({ draft, updateDraft, onClose }: AdvancedSectionProps) {
   const [analyticsSize, setAnalyticsSize] = useState<number>(0)
   const refreshDbSize = useAnalyticsStore((s) => s.refreshDbSize)
   const clearAnalytics = useAnalyticsStore((s) => s.clearData)
@@ -31,43 +36,72 @@ export const AdvancedSection = ({ draft, updateDraft, onClose }: AdvancedSection
   useEffect(() => { refreshDbSize() }, [refreshDbSize])
   useEffect(() => { setAnalyticsSize(dbSize) }, [dbSize])
 
-  const handleClearHistory = () => {
-    useTaskStore.getState().clearHistory()
+  const handleClearHistory = useCallback(async () => {
+    await useTaskStore.getState().clearHistory()
     onClose()
-  }
+  }, [onClose])
 
-  const handleClearAnalytics = async () => {
+  const handleClearAnalytics = useCallback(async () => {
     await clearAnalytics()
     refreshDbSize()
-  }
+  }, [clearAnalytics, refreshDbSize])
+
+  const handleAnalyticsToggle = useCallback((checked: boolean) => {
+    updateDraft({ analyticsEnabled: checked })
+  }, [updateDraft])
+
+  const handleAiCommitToggle = useCallback((checked: boolean) => {
+    updateDraft({ aiCommitMessages: checked })
+  }, [updateDraft])
+
+  const handleCoAuthorToggle = useCallback((checked: boolean) => {
+    updateDraft({ coAuthor: checked })
+  }, [updateDraft])
+
+  const handleReportToggle = useCallback((checked: boolean) => {
+    updateDraft({ coAuthorJsonReport: checked })
+  }, [updateDraft])
+
+  const handleBtwCharsChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    updateDraft({ btwMaxChars: Math.max(BTW_MIN_CHARS, Math.min(BTW_MAX_CHARS, Number(e.target.value) || BTW_DEFAULT_CHARS)) })
+  }, [updateDraft])
+
+  const handleReplayOnboarding = useCallback(async () => {
+    const store = useSettingsStore.getState()
+    await store.saveSettings({ ...store.settings, hasOnboardedV2: false })
+    onClose()
+  }, [onClose])
 
   return (
     <>
       <SectionHeader section="advanced" />
 
-      <div>
-        <SectionLabel title="Privacy" />
+      <SettingsGrid label="Privacy" description="Anonymous usage data">
         <SettingsCard>
-          <SettingRow
-            label="Share anonymous usage data"
-            description="Feature usage and app version only. No prompts, code, file paths, branch names, or commit messages are ever sent."
-          >
+          <SettingRow label="Share anonymous usage data" description="Feature usage and app version only. No code or file paths.">
             <Switch
               checked={draft.analyticsEnabled ?? true}
-              onCheckedChange={(checked) => updateDraft({ analyticsEnabled: checked })}
+              onCheckedChange={handleAnalyticsToggle}
               aria-label="Toggle anonymous analytics"
             />
           </SettingRow>
         </SettingsCard>
-      </div>
+      </SettingsGrid>
 
-      <div>
-        <SectionLabel title="Git" />
+      <SettingsGrid label="Git" description="Commit trailers and reports">
         <SettingsCard>
+          <SettingRow label="AI commit messages" description="Show a sparkle button to draft a commit message from the diff">
+            <Switch
+              checked={draft.aiCommitMessages ?? true}
+              onCheckedChange={handleAiCommitToggle}
+              aria-label="Toggle AI commit messages"
+            />
+          </SettingRow>
+          <Divider />
           <SettingRow label="Co-authored-by Klaudex" description="Append trailer to every commit">
             <Switch
               checked={draft.coAuthor ?? true}
-              onCheckedChange={(checked) => updateDraft({ coAuthor: checked })}
+              onCheckedChange={handleCoAuthorToggle}
               aria-label="Toggle co-author trailer"
             />
           </SettingRow>
@@ -75,77 +109,84 @@ export const AdvancedSection = ({ draft, updateDraft, onClose }: AdvancedSection
           <SettingRow label="Task completion report" description="Summary card when a task finishes">
             <Switch
               checked={draft.coAuthorJsonReport ?? true}
-              onCheckedChange={(checked) => updateDraft({ coAuthorJsonReport: checked })}
+              onCheckedChange={handleReportToggle}
               aria-label="Toggle task completion report"
             />
           </SettingRow>
         </SettingsCard>
-      </div>
+      </SettingsGrid>
 
-      <div>
-        <SectionLabel title="Side questions (/btw)" />
+      <SettingsGrid label="Side questions" description="/btw character limit">
         <SettingsCard>
-          <SettingRow label="Max question length" description="Character limit for /btw and /tangent questions">
+          <SettingRow label="Max question length" description="Character limit for /btw questions">
             <input
               type="number"
-              min={100}
-              max={10000}
+              min={BTW_MIN_CHARS}
+              max={BTW_MAX_CHARS}
               step={100}
-              value={draft.btwMaxChars ?? 1220}
-              onChange={(e) => updateDraft({ btwMaxChars: Math.max(100, Math.min(10000, Number(e.target.value) || 1220)) })}
-              className="w-20 rounded-lg border border-input bg-transparent px-2 py-1 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
+              value={draft.btwMaxChars ?? BTW_DEFAULT_CHARS}
+              onChange={handleBtwCharsChange}
+              className="w-20 rounded-md border border-input bg-transparent px-2 py-0.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
               aria-label="Max btw question characters"
             />
           </SettingRow>
         </SettingsCard>
-      </div>
+      </SettingsGrid>
 
-      <div>
-        <SectionLabel title="Data" />
+      <SettingsGrid label="Data" description="Clear history and analytics">
         <SettingsCard>
-          <SettingRow label="Conversation history" description="Clear all threads without resetting settings or onboarding">
-            <button
-              type="button"
-              onClick={() => setIsConfirmHistoryOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
-              aria-label="Clear chat history"
-            >
-              <IconTrash className="size-3" />
-              Clear history
-            </button>
+          <SettingRow label="Conversation history" description="Clear all threads without resetting settings">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmHistoryOpen(true)}
+                  aria-label="Clear chat history"
+                  className="flex items-center gap-1.5 rounded-md border border-destructive/30 px-2.5 py-1 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive/10"
+                >
+                  <IconTrash className="size-3" />
+                  Clear
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Permanently delete all threads</TooltipContent>
+            </Tooltip>
           </SettingRow>
           <Divider />
-          <SettingRow
-            label="Analytics data"
-            description={`Local usage stats stored on disk (${formatBytes(analyticsSize)})`}
-          >
-            <button
-              type="button"
-              onClick={() => setIsConfirmAnalyticsOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
-              aria-label="Clear analytics data"
-            >
-              <IconChartBar className="size-3" />
-              Clear analytics
-            </button>
+          <SettingRow label="Analytics data" description={`Local stats on disk (${formatBytes(analyticsSize)})`}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmAnalyticsOpen(true)}
+                  aria-label="Clear analytics data"
+                  className="flex items-center gap-1.5 rounded-md border border-destructive/30 px-2.5 py-1 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive/10"
+                >
+                  <IconChartBar className="size-3" />
+                  Clear
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Delete local usage statistics</TooltipContent>
+            </Tooltip>
           </SettingRow>
           <Divider />
           <SettingRow label="Replay onboarding" description="Run the setup wizard again">
-            <button
-              type="button"
-              onClick={async () => {
-                const store = useSettingsStore.getState()
-                await store.saveSettings({ ...store.settings, hasOnboardedV2: false })
-                onClose()
-              }}
-              className="flex items-center gap-1.5 rounded-lg border border-input px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
-            >
-              <IconRefresh className="size-3" />
-              Replay
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={handleReplayOnboarding}
+                  aria-label="Replay onboarding wizard"
+                  className="flex items-center gap-1.5 rounded-md border border-input px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <IconRefresh className="size-3" />
+                  Replay
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Run setup wizard again</TooltipContent>
+            </Tooltip>
           </SettingRow>
         </SettingsCard>
-      </div>
+      </SettingsGrid>
 
       <ConfirmDialog
         open={isConfirmHistoryOpen}
@@ -155,7 +196,6 @@ export const AdvancedSection = ({ draft, updateDraft, onClose }: AdvancedSection
         confirmLabel="Clear history"
         onConfirm={handleClearHistory}
       />
-
       <ConfirmDialog
         open={isConfirmAnalyticsOpen}
         onOpenChange={setIsConfirmAnalyticsOpen}
@@ -166,4 +206,4 @@ export const AdvancedSection = ({ draft, updateDraft, onClose }: AdvancedSection
       />
     </>
   )
-}
+})

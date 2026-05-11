@@ -10,7 +10,7 @@ import { AutoApproveToggle } from './AutoApproveToggle'
 
 /** Pill-shaped group wrapper for toolbar items */
 const ToolbarGroup = ({ children, className }: { children: React.ReactNode; className?: string }) => (
-  <div className={cn('flex items-center gap-0.5 rounded-lg bg-muted/50 px-0.5 py-0.5', className)}>
+  <div className={cn('flex min-w-0 items-center gap-0.5 rounded-lg bg-muted/50 px-0.5 py-0.5', className)}>
     {children}
   </div>
 )
@@ -29,6 +29,7 @@ interface ChatToolbarProps {
   hasQueuedMessages?: boolean
   workspace: string | null
   isWorktree?: boolean
+  isMetaHeld?: boolean
   fileInputRef: React.RefObject<HTMLInputElement | null>
   onFilePickerClick: () => void
   onFileInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void
@@ -43,6 +44,7 @@ export const ChatToolbar = memo(function ChatToolbar({
   hasQueuedMessages,
   workspace,
   isWorktree,
+  isMetaHeld,
   fileInputRef,
   onFilePickerClick,
   onFileInputChange,
@@ -52,9 +54,9 @@ export const ChatToolbar = memo(function ChatToolbar({
   const buttonBg = isPlanMode ? 'bg-teal-500/90 hover:bg-teal-500' : 'bg-primary/90 hover:bg-primary'
 
   return (
-    <div className="relative z-10 flex items-center justify-between gap-2 px-3 pb-3 sm:px-4">
+    <div className="relative z-10 flex min-w-0 items-center justify-between gap-2 overflow-visible px-3 pb-3 sm:px-4 @container/toolbar">
       {/* Left: attach + AI controls (mode + model) */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -62,14 +64,14 @@ export const ChatToolbar = memo(function ChatToolbar({
               onClick={onFilePickerClick}
               aria-label="Attach files"
               data-testid="attach-files-button"
-              className="flex size-8 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-muted/60 hover:text-muted-foreground/70"
+              className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-muted/60 hover:text-muted-foreground/70"
             >
-              <IconPaperclip className="size-4" />
+              <IconPaperclip className="size-3.5" />
             </button>
           </TooltipTrigger>
           <TooltipContent side="top" className="text-[11px]">Attach files or images</TooltipContent>
         </Tooltip>
-        <ToolbarGroup>
+        <ToolbarGroup className="min-w-0">
           <PlanToggle />
           <Dot />
           <ModelPicker />
@@ -82,9 +84,7 @@ export const ChatToolbar = memo(function ChatToolbar({
 
       {/* Right: git + context + send/pause */}
       <div className="flex shrink-0 items-center gap-1.5">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <BranchSelector workspace={workspace ?? null} isWorktree={isWorktree} />
-        </div>
+        <BranchSelector workspace={workspace ?? null} isWorktree={isWorktree} />
         <input
           ref={fileInputRef}
           type="file"
@@ -94,8 +94,10 @@ export const ChatToolbar = memo(function ChatToolbar({
           tabIndex={-1}
           aria-hidden
         />
-        {/* Focus hint */}
-        <kbd className="hidden text-[10px] text-muted-foreground sm:inline">{MOD_KEY}L</kbd>
+        {/* Send hint — visible only when Cmd is held */}
+        {isMetaHeld && (
+          <kbd className="rounded-sm bg-muted px-1 font-mono text-[10px] text-muted-foreground">{MOD_KEY}⏎</kbd>
+        )}
         {isRunning ? (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -116,7 +118,7 @@ export const ChatToolbar = memo(function ChatToolbar({
               </button>
             </TooltipTrigger>
             <TooltipContent side="top" className="text-[11px]">
-              Pause agent <kbd className="ml-1 rounded bg-muted px-1 py-0.5 text-[10px]">Esc</kbd>
+              Pause agent <kbd className="ml-1 rounded-sm bg-background/15 px-1 text-[10px]">Esc</kbd>
             </TooltipContent>
           </Tooltip>
         ) : (
@@ -146,7 +148,7 @@ export const ChatToolbar = memo(function ChatToolbar({
               </button>
             </TooltipTrigger>
             <TooltipContent side="top" className="text-[11px]">
-              Send message <kbd className="ml-1 rounded bg-muted px-1 py-0.5 text-[10px]">⏎</kbd>
+              Send message <kbd className="ml-1 rounded-sm bg-background/15 px-1 text-[10px]">⏎</kbd>
             </TooltipContent>
           </Tooltip>
         )}

@@ -1,8 +1,9 @@
-import { useState } from 'react'
 import { IconTrash, IconRestore } from '@tabler/icons-react'
 import { useTaskStore } from '@/stores/taskStore'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { useProjectIcon } from '@/hooks/useProjectIcon'
+import { ProjectIcon } from '@/components/sidebar/ProjectIcon'
 import type { SoftDeletedThread } from '@/types'
 
 const HOUR_MS = 60 * 60 * 1000
@@ -18,12 +19,44 @@ const formatTimeRemaining = (iso: string): string => {
   return `${hrs}h left`
 }
 
+interface ProjectGroupHeaderProps {
+  readonly workspace: string
+  readonly name: string
+  readonly onDeleteAll: () => void
+  readonly count: number
+}
+
+const ProjectGroupHeader = ({ workspace, name, onDeleteAll, count }: ProjectGroupHeaderProps) => {
+  const icon = useProjectIcon(workspace)
+  return (
+    <div className="mb-2 flex items-center gap-1.5">
+      <div className="flex flex-1 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+        {icon ? <ProjectIcon icon={icon} /> : <span className="size-1.5 rounded-full bg-muted-foreground/30" />}
+        {name}
+        <span className="text-muted-foreground/50">({count})</span>
+      </div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={`Delete all threads from ${name}`}
+            onClick={onDeleteAll}
+            className="flex size-5 items-center justify-center rounded text-muted-foreground/50 hover:bg-destructive/15 hover:text-destructive transition-colors"
+          >
+            <IconTrash className="size-3" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Delete all</TooltipContent>
+      </Tooltip>
+    </div>
+  )
+}
+
 export const DeletedThreadsRestore = () => {
   const softDeleted = useTaskStore((s) => s.softDeleted)
   const projectNames = useTaskStore((s) => s.projectNames)
   const restoreTask = useTaskStore((s) => s.restoreTask)
   const permanentlyDeleteTask = useTaskStore((s) => s.permanentlyDeleteTask)
-  const [confirmId, setConfirmId] = useState<string | null>(null)
   const entries = Object.entries(softDeleted)
 
   if (entries.length === 0) {
@@ -56,67 +89,47 @@ export const DeletedThreadsRestore = () => {
       <div className="divide-y divide-border/20">
         {[...grouped.entries()].map(([ws, items]) => (
           <div key={ws} className="px-5 py-3">
-            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              <span className="size-1.5 rounded-full bg-muted-foreground/30" />
-              {projectNames[ws] ?? ws.split('/').pop() ?? ws}
-            </p>
+            <ProjectGroupHeader
+              workspace={ws}
+              name={projectNames[ws] ?? ws.split('/').pop() ?? ws}
+              count={items.length}
+              onDeleteAll={() => items.forEach(([id]) => permanentlyDeleteTask(id))}
+            />
             <div className="flex flex-col gap-1.5">
               {items.map(([id, { task, deletedAt }]) => (
                 <div key={id} className="group flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-muted/20">
-                  {confirmId === id ? (
-                    <>
-                      <p className="flex-1 text-[12px] text-muted-foreground">Delete permanently?</p>
-                      <button
-                        type="button"
-                        onClick={() => { permanentlyDeleteTask(id); setConfirmId(null) }}
-                        className="rounded-md bg-destructive/90 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-destructive transition-colors"
-                      >
-                        Delete
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmId(null)}
-                        className="rounded-md border border-border px-2.5 py-1 text-[11px] text-foreground hover:bg-accent transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[12.5px] text-foreground/90">{task.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{formatTimeRemaining(deletedAt)}</p>
-                      </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              aria-label={`Restore ${task.name}`}
-                              onClick={() => restoreTask(id)}
-                              className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-primary/15 hover:text-primary transition-colors"
-                            >
-                              <IconRestore className="size-3.5" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">Restore</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              aria-label={`Permanently delete ${task.name}`}
-                              onClick={() => setConfirmId(id)}
-                              className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive transition-colors"
-                            >
-                              <IconTrash className="size-3.5" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">Delete permanently</TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </>
-                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12.5px] text-foreground/90">{task.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{formatTimeRemaining(deletedAt)}</p>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={`Restore ${task.name}`}
+                          onClick={() => restoreTask(id)}
+                          className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-primary/15 hover:text-primary transition-colors"
+                        >
+                          <IconRestore className="size-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Restore</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={`Permanently delete ${task.name}`}
+                          onClick={() => permanentlyDeleteTask(id)}
+                          className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive transition-colors"
+                        >
+                          <IconTrash className="size-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Delete permanently</TooltipContent>
+                    </Tooltip>
+                  </div>
                 </div>
               ))}
             </div>

@@ -6,6 +6,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { handleExternalLinkClick, handleExternalLinkKeyDown } from '@/lib/open-external'
+import { ipc } from '@/lib/ipc'
 import type { AppSettings } from '@/types'
 import { applyTheme, persistTheme } from '@/lib/theme'
 import { AboutDialog } from './AboutDialog'
@@ -15,6 +16,7 @@ import { GeneralSection } from './general-section'
 import { AppearanceSection } from './appearance-section'
 import { KeymapSection } from './keymap-section'
 import { AdvancedSection } from './advanced-section'
+import { MemorySection } from './memory-section'
 import { ArchivesSection } from './archives-section'
 import { PermissionsSection } from './permissions-section'
 import { HooksSection } from './hooks-section'
@@ -64,6 +66,7 @@ const defaultSettings: AppSettings = {
   claudeBin: 'claude',
   agentProfiles: [],
   fontSize: 14,
+  chatFontSize: 14,
   sidebarPosition: 'left',
   analyticsEnabled: true,
 }
@@ -112,6 +115,13 @@ export const SettingsPanel = () => {
     persistTheme(mode)
     applyTheme(mode)
     saveSettings(draft)
+    // Apply or reset dock icon
+    if (draft.customAppIcon) {
+      const base64 = draft.customAppIcon.replace(/^data:[^;]+;base64,/, '')
+      ipc.setDockIcon(base64).catch(() => {})
+    } else {
+      ipc.resetDockIcon().catch(() => {})
+    }
     setOpen(false)
   }, [draft, saveSettings, setOpen])
 
@@ -161,21 +171,21 @@ export const SettingsPanel = () => {
 
       <div className="relative z-10 flex w-full">
         {/* Sidebar */}
-        <nav data-testid="settings-nav" className="flex w-56 shrink-0 flex-col border-r border-border/60 px-3 pt-16 pb-4">
-          <div className="mb-5 px-3">
-            <h2 className="text-lg font-semibold text-foreground">Settings</h2>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Configure Klaudex</p>
+        <nav data-testid="settings-nav" className="flex w-56 shrink-0 flex-col border-r border-border bg-sidebar px-2 pt-12 pb-3">
+          <div className="mb-4 px-2">
+            <h2 className="text-[15px] font-semibold text-foreground">Settings</h2>
+            <p className="mt-0.5 text-[12px] text-muted-foreground">Configure Klaudex</p>
           </div>
 
           {/* Search */}
-          <div className="relative mb-4 px-3">
-            <IconSearch className="pointer-events-none absolute left-5.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60" />
+          <div className="relative mb-3 px-2">
+            <IconSearch className="pointer-events-none absolute left-4.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60" />
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search settings…"
               aria-label="Search settings"
-              className="flex h-9 w-full rounded-lg border border-input bg-background/50 pl-9 pr-3 text-[12px] placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex h-7 w-full rounded-lg border border-input bg-background/50 pl-8 pr-3 text-[12px] placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
 
@@ -188,9 +198,9 @@ export const SettingsPanel = () => {
                   <button
                     key={`${item.section}-${item.label}`}
                     onClick={() => handleSearchResultClick(item.section)}
-                    className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent/50"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-accent hover:text-foreground"
                   >
-                    {navItem && <navItem.icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/60" />}
+                    {navItem && <navItem.icon className="size-3.5 shrink-0 text-muted-foreground/60" />}
                     <div className="min-w-0">
                       <p className="text-[12px] font-medium text-foreground">{item.label}</p>
                       <p className="truncate text-[10px] text-muted-foreground">{item.description}</p>
@@ -203,8 +213,8 @@ export const SettingsPanel = () => {
             /* Grouped nav */
             <div className="flex flex-1 flex-col gap-0.5 overflow-y-auto" role="tablist" aria-label="Settings sections">
               {navGroups.map(({ group, items }, groupIdx) => (
-                <div key={group} className={cn(groupIdx > 0 && 'mt-3')}>
-                  <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+                <div key={group} className={cn(groupIdx > 0 && 'mt-2.5')}>
+                  <p className="mb-1 px-2 text-[12px] font-medium uppercase tracking-wider text-muted-foreground">
                     {NAV_GROUP_LABELS[group]}
                   </p>
                   {items.map((item) => (
@@ -214,17 +224,14 @@ export const SettingsPanel = () => {
                       aria-selected={section === item.id}
                       onClick={() => setSection(item.id)}
                       className={cn(
-                        'relative flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition-all',
+                        'flex w-full h-8 items-center gap-2 rounded-lg px-2 text-left transition-colors',
                         section === item.id
-                          ? 'bg-primary/10 text-foreground shadow-sm'
-                          : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                          ? 'bg-accent/85 dark:bg-accent/55 text-foreground font-medium'
+                          : 'text-muted-foreground hover:bg-accent hover:text-foreground',
                       )}
                     >
-                      {section === item.id && (
-                        <div className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-primary" />
-                      )}
-                      <item.icon className={cn('size-4 shrink-0', section === item.id ? 'text-primary' : 'opacity-60')} />
-                      <span className="text-[13px] font-medium leading-tight">{item.label}</span>
+                      <item.icon className={cn('size-4 shrink-0', section === item.id ? 'text-foreground' : 'opacity-60')} />
+                      <span className="text-[14px] leading-tight">{item.label}</span>
                     </button>
                   ))}
                 </div>
@@ -232,15 +239,15 @@ export const SettingsPanel = () => {
             </div>
           )}
 
-          <div className="mt-auto px-3 pt-4 border-t border-border/70 space-y-2">
+          <div className="mt-auto px-2 pt-3 border-t border-border space-y-1">
             <button
               onClick={handleClose}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="flex w-full h-8 items-center gap-2 rounded-lg px-2 text-[14px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <IconArrowLeft className="size-4" />
               Back
             </button>
-            <div className="flex items-center justify-between px-3 py-1">
+            <div className="flex items-center justify-between px-2 py-1">
               <button type="button" onClick={() => setIsAboutOpen(true)} className="text-left transition-colors hover:text-foreground">
                 <p className="text-[10px] text-muted-foreground">Klaudex {appVersion ? `v${appVersion}` : ''}</p>
               </button>
@@ -295,13 +302,13 @@ export const SettingsPanel = () => {
                     <IconX className="size-4" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">Close <kbd className="ml-1 text-[10px] opacity-50">Esc</kbd></TooltipContent>
+                <TooltipContent side="bottom">Close <kbd className="ml-1 rounded-sm bg-background/15 px-1 text-[10px]">Esc</kbd></TooltipContent>
               </Tooltip>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto px-8 py-6">
-            <div className="mx-auto max-w-2xl space-y-6">
+            <div className="mx-auto max-w-4xl space-y-5">
               {searchResults !== null ? (
                 searchResults.length === 0 ? (
                   <div className="flex flex-col items-center gap-2 py-16 text-center">
@@ -339,6 +346,7 @@ export const SettingsPanel = () => {
                   {section === 'keymap' && <KeymapSection />}
                   {section === 'advanced' && <AdvancedSection draft={draft} updateDraft={updateDraft} onClose={handleClose} />}
                   {section === 'hooks' && <HooksSection />}
+                  {section === 'memory' && <MemorySection draft={draft} updateDraft={updateDraft} />}
                   {section === 'archives' && <ArchivesSection />}
                 </>
               )}

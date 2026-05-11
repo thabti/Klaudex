@@ -1,14 +1,15 @@
-import { useState, useCallback } from 'react'
+import { memo, useState, useCallback } from 'react'
 import {
   IconCheck, IconAlertCircle, IconChevronDown, IconLoader2,
   IconSearch, IconRefresh,
 } from '@tabler/icons-react'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Switch } from '@/components/ui/switch'
 import { ipc } from '@/lib/ipc'
 import { cn } from '@/lib/utils'
 import type { AppSettings } from '@/types'
-import { SectionHeader, SectionLabel, SettingsCard, SettingRow, Divider } from './settings-shared'
+import { SectionHeader, SettingsCard, SettingRow, SettingsGrid, Divider } from './settings-shared'
 import { UpdatesCard } from './updates-card'
 
 interface GeneralSectionProps {
@@ -16,20 +17,21 @@ interface GeneralSectionProps {
   updateDraft: (patch: Partial<AppSettings>) => void
 }
 
-export const GeneralSection = ({ draft, updateDraft }: GeneralSectionProps) => {
-  const { availableModels, currentModelId, modelsLoading, modelsError, fetchModels, activeWorkspace } = useSettingsStore()
+export const GeneralSection = memo(function GeneralSection({ draft, updateDraft }: GeneralSectionProps) {
+  const { availableModels: rawModels, currentModelId, modelsLoading, modelsError, fetchModels, activeWorkspace } = useSettingsStore()
+  const availableModels = Array.isArray(rawModels) ? rawModels : []
   const [cliStatus, setCliStatus] = useState<'idle' | 'ok' | 'fail'>('idle')
   const [isDetecting, setIsDetecting] = useState(false)
 
-  const testCli = useCallback(async () => {
+  const handleTestCli = useCallback(async () => {
     setCliStatus('idle')
     try { await ipc.listTasks(); setCliStatus('ok') } catch { setCliStatus('fail') }
   }, [])
 
-  const browseCli = async () => {
+  const handleBrowseCli = useCallback(async () => {
     const path = await ipc.pickFolder()
     if (path) updateDraft({ claudeBin: path })
-  }
+  }, [updateDraft])
 
   const handleAutoDetect = useCallback(async () => {
     setIsDetecting(true)
@@ -39,6 +41,34 @@ export const GeneralSection = ({ draft, updateDraft }: GeneralSectionProps) => {
     } finally { setIsDetecting(false) }
   }, [updateDraft])
 
+  const handleCliPathChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    updateDraft({ claudeBin: e.target.value })
+  }, [updateDraft])
+
+  const handleModelChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    updateDraft({ defaultModel: e.target.value || null })
+  }, [updateDraft])
+
+  const handleRefreshModels = useCallback(() => {
+    fetchModels(draft.claudeBin)
+  }, [fetchModels, draft.claudeBin])
+
+  const handleAutoApproveChange = useCallback((checked: boolean) => {
+    updateDraft({ autoApprove: checked })
+  }, [updateDraft])
+
+  const handleRespectGitignoreChange = useCallback((checked: boolean) => {
+    updateDraft({ respectGitignore: checked })
+  }, [updateDraft])
+
+  const handleNotificationsChange = useCallback((checked: boolean) => {
+    updateDraft({ notifications: checked })
+  }, [updateDraft])
+
+  const handleSoundChange = useCallback((checked: boolean) => {
+    updateDraft({ soundNotifications: checked })
+  }, [updateDraft])
+
   const updateProjectPref = useCallback((key: string, value: boolean) => {
     if (!activeWorkspace) return
     const prefs = draft.projectPrefs ?? {}
@@ -46,57 +76,92 @@ export const GeneralSection = ({ draft, updateDraft }: GeneralSectionProps) => {
     updateDraft({ projectPrefs: { ...prefs, [activeWorkspace]: { ...existing, [key]: value } } })
   }, [activeWorkspace, draft.projectPrefs, updateDraft])
 
+  const handleWorktreeChange = useCallback((checked: boolean) => {
+    updateProjectPref('worktreeEnabled', checked)
+  }, [updateProjectPref])
+
+  const handleSandboxChange = useCallback((checked: boolean) => {
+    updateProjectPref('tightSandbox', checked)
+  }, [updateProjectPref])
+
   return (
     <>
       <SectionHeader section="general" />
 
-      {/* Connection */}
-      <div>
-        <SectionLabel title="Connection" />
+      <SettingsGrid label="Connection" description="Path to the Claude CLI binary">
         <SettingsCard>
           <div className="py-1">
-            <label className="mb-1.5 block text-[12px] font-medium text-foreground/70">Claude CLI path</label>
             <div className="flex gap-2">
               <input
                 value={draft.claudeBin}
                 data-testid="settings-cli-path-input"
-                onChange={(e) => updateDraft({ claudeBin: e.target.value })}
-                placeholder="claude"
-                className="flex h-8 w-full flex-1 rounded-lg border border-input bg-background/50 px-3 font-mono text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                onChange={handleCliPathChange}
+                placeholder="Claude CLI"
+                aria-label="Path to Claude CLI binary"
+                className="flex h-7 w-full flex-1 rounded-md border border-input bg-background/50 px-2.5 font-mono text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
-              <button onClick={browseCli} className="shrink-0 rounded-lg border border-input px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent">Browse</button>
-              <button
-                onClick={handleAutoDetect}
-                disabled={isDetecting}
-                className="flex shrink-0 items-center gap-1 rounded-lg border border-input px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
-              >
-                {isDetecting ? <IconLoader2 className="size-3 animate-spin" /> : <IconSearch className="size-3" />}
-                Detect
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleBrowseCli}
+                    aria-label="Browse for Claude CLI binary"
+                    className="shrink-0 rounded-md border border-input px-2 py-1 text-[11px] font-medium transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    Browse
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Browse filesystem</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleAutoDetect}
+                    disabled={isDetecting}
+                    aria-label="Auto-detect Claude CLI path"
+                    className="flex shrink-0 items-center gap-1 rounded-md border border-input px-2 py-1 text-[11px] font-medium transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    {isDetecting ? <IconLoader2 className="size-3 animate-spin" /> : <IconSearch className="size-3" />}
+                    Detect
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Auto-detect from PATH</TooltipContent>
+              </Tooltip>
             </div>
-            <div className="mt-2 flex items-center gap-2">
-              <button onClick={testCli} className="rounded-lg border border-input px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent">Test connection</button>
-              {cliStatus === 'ok' && <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400"><IconCheck className="size-3" /> Connected</span>}
-              {cliStatus === 'fail' && <span className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400"><IconAlertCircle className="size-3" /> Failed</span>}
+            <div className="mt-1.5 flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleTestCli}
+                    aria-label="Test CLI connection"
+                    className="rounded-md border border-input px-2 py-0.5 text-[11px] font-medium transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    Test
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Test connection to Claude CLI</TooltipContent>
+              </Tooltip>
+              {cliStatus === 'ok' && <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400"><IconCheck className="size-3" /> Connected</span>}
+              {cliStatus === 'fail' && <span className="flex items-center gap-1 text-[11px] text-red-600 dark:text-red-400"><IconAlertCircle className="size-3" /> Failed</span>}
             </div>
           </div>
         </SettingsCard>
-      </div>
+      </SettingsGrid>
 
-      {/* Model */}
-      <div>
-        <SectionLabel title="Model" />
+      <SettingsGrid label="Model" description="Default AI model for new threads">
         <SettingsCard>
           <div className="py-1">
-            <label className="mb-1.5 block text-[12px] font-medium text-foreground/70">Default model</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <select
                   value={draft.defaultModel ?? currentModelId ?? ''}
-                  onChange={(e) => updateDraft({ defaultModel: e.target.value || null })}
+                  onChange={handleModelChange}
                   disabled={modelsLoading || availableModels.length === 0}
+                  aria-label="Select default AI model"
                   className={cn(
-                    'flex h-8 w-full appearance-none rounded-lg border border-input bg-background/50 px-3 pr-8 text-sm',
+                    'flex h-7 w-full appearance-none rounded-md border border-input bg-background/50 px-2.5 pr-7 text-xs',
                     'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
@@ -105,79 +170,80 @@ export const GeneralSection = ({ draft, updateDraft }: GeneralSectionProps) => {
                   {modelsLoading && <option value="">Loading…</option>}
                   {availableModels.map((m) => <option key={m.modelId} value={m.modelId}>{m.name}</option>)}
                 </select>
-                <IconChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
+                <IconChevronDown className="pointer-events-none absolute right-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground/70" />
               </div>
-              <button
-                onClick={() => fetchModels(draft.claudeBin)}
-                disabled={modelsLoading}
-                className="flex shrink-0 items-center gap-1 rounded-lg border border-input px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
-              >
-                {modelsLoading ? <><IconLoader2 className="size-3 animate-spin" /> Loading…</> : <><IconRefresh className="size-3" /> Refresh</>}
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleRefreshModels}
+                    disabled={modelsLoading}
+                    aria-label="Refresh available models"
+                    className="flex shrink-0 items-center gap-1 rounded-md border border-input px-2 py-1 text-[11px] font-medium transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    {modelsLoading ? <IconLoader2 className="size-3 animate-spin" /> : <IconRefresh className="size-3" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Refresh model list</TooltipContent>
+              </Tooltip>
             </div>
-            {modelsError && <span className="mt-1.5 flex items-center gap-1 text-xs text-red-600 dark:text-red-400"><IconAlertCircle className="size-3" /> {modelsError}</span>}
+            {modelsError && <span className="mt-1 flex items-center gap-1 text-[11px] text-red-600 dark:text-red-400"><IconAlertCircle className="size-3" /> {modelsError}</span>}
           </div>
         </SettingsCard>
-      </div>
+      </SettingsGrid>
 
-      {/* Workspace — merged Permissions + Worktrees + Sandbox */}
-      <div>
-        <SectionLabel title="Workspace" />
+      <SettingsGrid label="Workspace" description="Permissions, worktrees, and sandbox">
         <SettingsCard>
           <SettingRow label="Auto-approve" description="Skip permission prompts for tool calls">
-            <Switch checked={draft.autoApprove ?? false} onCheckedChange={(checked) => updateDraft({ autoApprove: checked })} aria-label="Toggle auto-approve permissions" />
+            <Switch checked={draft.autoApprove ?? false} onCheckedChange={handleAutoApproveChange} aria-label="Toggle auto-approve permissions" />
           </SettingRow>
           <Divider />
           <SettingRow label="Respect .gitignore" description="Hide gitignored files from @ mentions">
-            <Switch checked={draft.respectGitignore ?? true} onCheckedChange={(checked) => updateDraft({ respectGitignore: checked })} aria-label="Toggle respect gitignore" />
+            <Switch checked={draft.respectGitignore ?? true} onCheckedChange={handleRespectGitignoreChange} aria-label="Toggle respect gitignore" />
           </SettingRow>
           <Divider />
-          <SettingRow label="Use worktrees" description="Isolate each thread in its own git worktree under .claude/worktrees/">
+          <SettingRow label="Use worktrees" description="Isolate threads in .kiro/worktrees/">
             <Switch
               checked={draft.projectPrefs?.[activeWorkspace ?? '']?.worktreeEnabled ?? false}
-              onCheckedChange={(checked) => updateProjectPref('worktreeEnabled', checked)}
+              onCheckedChange={handleWorktreeChange}
               disabled={!activeWorkspace}
               aria-label="Toggle worktrees for new threads"
             />
           </SettingRow>
           <Divider />
-          <SettingRow label="Tight sandbox" description="Restrict the agent to the project directory">
+          <SettingRow label="Tight sandbox" description="Restrict agent to project directory">
             <Switch
               checked={draft.projectPrefs?.[activeWorkspace ?? '']?.tightSandbox ?? true}
-              onCheckedChange={(checked) => updateProjectPref('tightSandbox', checked)}
+              onCheckedChange={handleSandboxChange}
               disabled={!activeWorkspace}
               aria-label="Toggle tight sandbox"
             />
           </SettingRow>
         </SettingsCard>
-      </div>
+      </SettingsGrid>
 
-      {/* Notifications */}
-      <div>
-        <SectionLabel title="Notifications" />
+      <SettingsGrid label="Notifications" description="Background alerts and sounds">
         <SettingsCard>
-          <SettingRow label="Desktop notifications" description="Notify when the agent finishes, errors, or needs approval in the background">
-            <Switch checked={draft.notifications ?? true} onCheckedChange={(checked) => updateDraft({ notifications: checked })} aria-label="Toggle desktop notifications" />
+          <SettingRow label="Desktop notifications" description="Notify when agent finishes or needs approval">
+            <Switch checked={draft.notifications ?? true} onCheckedChange={handleNotificationsChange} aria-label="Toggle desktop notifications" />
           </SettingRow>
           <Divider />
-          <SettingRow label="Notification sound" description="Play a chime when a notification is sent">
+          <SettingRow label="Notification sound" description="Play a chime on notification">
             <Switch
               checked={draft.soundNotifications ?? true}
-              onCheckedChange={(checked) => updateDraft({ soundNotifications: checked })}
+              onCheckedChange={handleSoundChange}
               disabled={!(draft.notifications ?? true)}
               aria-label="Toggle notification sound"
             />
           </SettingRow>
         </SettingsCard>
-      </div>
+      </SettingsGrid>
 
-      {/* Updates */}
-      <div>
-        <SectionLabel title="Updates" />
+      <SettingsGrid label="Updates" description="Check for new versions">
         <SettingsCard>
           <UpdatesCard />
         </SettingsCard>
-      </div>
+      </SettingsGrid>
     </>
   )
-}
+})

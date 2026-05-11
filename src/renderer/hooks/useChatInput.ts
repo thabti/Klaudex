@@ -1,10 +1,12 @@
 import { useState, useRef, useMemo, useCallback, useEffect, type KeyboardEvent, type ChangeEvent, type ClipboardEvent } from 'react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { useClaudeConfigStore } from '@/stores/claudeConfigStore'
 import { useSlashAction } from '@/hooks/useSlashAction'
 import { useAttachments } from '@/hooks/useAttachments'
 import { useFileMention } from '@/hooks/useFileMention'
 import { buildMessageWithInlineImages, extractIpcAttachments } from '@/components/chat/attachment-utils'
+import { resolveMentions, buildFolderTree } from '@/lib/resolve-mentions'
 import type { Attachment, IpcAttachment, ProjectFile } from '@/types'
 
 export interface PastedChunk {
@@ -31,27 +33,40 @@ function makePlaceholder(id: number, lines: number, chars: number): string {
 interface UseChatInputOptions {
   disabled?: boolean
   isRunning?: boolean
+  isActive?: boolean
+  taskId?: string | null
+  workspace?: string | null
   initialValue?: string
   initialAttachments?: Attachment[]
+  initialFolderPaths?: string[]
   initialPastedChunks?: PastedChunk[]
   initialMentionedFiles?: ProjectFile[]
   onSendMessage: (message: string, attachments?: IpcAttachment[]) => void
   onPause?: () => void
   onDraftChange?: (value: string) => void
   onAttachmentsChange?: (attachments: Attachment[]) => void
+  onFolderPathsChange?: (paths: string[]) => void
   onPastedChunksChange?: (chunks: PastedChunk[]) => void
   onMentionedFilesChange?: (files: ProjectFile[]) => void
 }
 
-export function useChatInput({ disabled, isRunning, initialValue, initialAttachments, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onPastedChunksChange, onMentionedFilesChange }: UseChatInputOptions) {
+export function useChatInput({ disabled, isRunning, isActive, taskId: taskIdProp, workspace, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange }: UseChatInputOptions) {
   const [value, setValue] = useState(initialValue ?? '')
   const [slashIndex, setSlashIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const backendCommands = useSettingsStore((s) => s.availableCommands)
   const { panel, dismissPanel, execute, executeFullInput } = useSlashAction()
 
-  const attachmentsBag = useAttachments(initialAttachments)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const attachmentsBag = useAttachments(initialAttachments, initialFolderPaths, isActive, containerRef)
   const mentionBag = useFileMention({ textareaRef, value, setValue, initialMentionedFiles })
+
+  // Sync dropped files from file tree into mentioned files
+  useEffect(() => {
+    for (const file of attachmentsBag.droppedFiles) {
+      mentionBag.addMentionedFile(file)
+    }
+  }, [attachmentsBag.droppedFiles, mentionBag.addMentionedFile])
 
   // ── Track Shift key for raw paste (Cmd+Shift+V) ────────────────
   const isShiftHeldRef = useRef(false)
@@ -177,6 +192,13 @@ export function useChatInput({ disabled, isRunning, initialValue, initialAttachm
     onAttachmentsChangeRef.current?.(attachmentsBag.attachments)
   }, [attachmentsBag.attachments])
 
+  const onFolderPathsChangeRef = useRef(onFolderPathsChange)
+  onFolderPathsChangeRef.current = onFolderPathsChange
+
+  useEffect(() => {
+    onFolderPathsChangeRef.current?.(attachmentsBag.folderPaths)
+  }, [attachmentsBag.folderPaths])
+
   useEffect(() => {
     onPastedChunksChangeRef.current?.(pastedChunks)
   }, [pastedChunks])
@@ -291,25 +313,64 @@ export function useChatInput({ disabled, isRunning, initialValue, initialAttachm
       }
       message = `<klaudex_tangent>${question.replace(/<\/?klaudex_tangent>/gi, '')}</klaudex_tangent>`
     }
-    if (mentionBag.mentionedFiles.length > 0) {
-      const missingRefs = mentionBag.mentionedFiles.filter((f) => !message.includes(`@${f.path}`))
-      if (missingRefs.length > 0) {
-        message = missingRefs.map((f) => `@${f.path}`).join(' ') + ' ' + message
+
+    // Resolve @file/@folder mentions inline before sending
+    const prompts = useClaudeConfigStore.getState().config.prompts
+    const resolvedWorkspace = workspace ?? null
+
+    // Build the final message asynchronously, then send
+    const buildAndSend = async () => {
+      // 1. Expand @mentions (files, folders, prompts)
+      let resolved = message
+      if (resolved.includes('@')) {
+        resolved = await resolveMentions(resolved, { workspace: resolvedWorkspace, prompts })
       }
+
+      // 2. Append any remaining @path mentions that weren't already inlined
+      //    (e.g. agent: and skill: prefixes that resolveMentions skips)
+      if (mentionBag.mentionedFiles.length > 0) {
+        const agentSkillRefs = mentionBag.mentionedFiles
+          .filter((f) => f.path.startsWith('agent:') || f.path.startsWith('skill:'))
+          .filter((f) => !resolved.includes(`@${f.path}`))
+        if (agentSkillRefs.length > 0) {
+          resolved = agentSkillRefs.map((f) => `@${f.path}`).join(' ') + ' ' + resolved
+        }
+      }
+
+      // 3. Expand folder attachments to directory trees
+      if (attachmentsBag.folderPaths.length > 0 && resolvedWorkspace) {
+        const treeParts = await Promise.all(
+          attachmentsBag.folderPaths.map((p) => buildFolderTree(resolvedWorkspace, p).catch(() => `[Folder: ${p}]`))
+        )
+        resolved = treeParts.join('\n\n') + '\n\n' + resolved
+      } else if (attachmentsBag.folderPaths.length > 0) {
+        // No workspace — fall back to plain reference
+        const folderRefs = attachmentsBag.folderPaths.map((p) => `[Folder: ${p}]`).join(' ')
+        resolved = folderRefs + ' ' + resolved
+      }
+
+      // 4. Inline image attachments
+      if (hasAttachments) {
+        resolved = buildMessageWithInlineImages(resolved, attachmentsBag.attachments)
+      }
+
+      const ipcAttachments = hasAttachments ? extractIpcAttachments(attachmentsBag.attachments) : undefined
+      onSendMessage(resolved, ipcAttachments)
     }
-    if (hasAttachments) {
-      message = buildMessageWithInlineImages(message, attachmentsBag.attachments)
-    }
-    const ipcAttachments = hasAttachments ? extractIpcAttachments(attachmentsBag.attachments) : undefined
+
+    // Clear input immediately for snappy UX, then resolve and send
     setValue('')
     setSlashIndex(0)
     setPastedChunks([])
     mentionBag.clearMentions()
     attachmentsBag.clearAttachments()
-    onSendMessage(message, ipcAttachments)
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     textareaRef.current?.focus()
-  }, [value, disabled, onSendMessage, dismissPanel, mentionBag, attachmentsBag, expandChunks, executeFullInput])
+
+    void buildAndSend().catch((err) => {
+      console.error('[useChatInput] buildAndSend failed:', err)
+    })
+  }, [value, disabled, onSendMessage, dismissPanel, mentionBag, attachmentsBag, expandChunks, executeFullInput, workspace])
 
   const handleSelectCommand = useCallback((cmd: { name: string }) => {
     const name = cmd.name.replace(/^\/+/, '')
@@ -372,7 +433,8 @@ export function useChatInput({ disabled, isRunning, initialValue, initialAttachm
     // ArrowDown while browsing history → cycle forward, back to draft
     if (!showPicker && !showFilePicker && !panel) {
       const s = useTaskStore.getState()
-      const task = s.selectedTaskId ? s.tasks[s.selectedTaskId] : null
+      const resolvedId = taskIdProp ?? s.selectedTaskId
+      const task = resolvedId ? s.tasks[resolvedId] : null
       const msgs = task ? task.messages.filter((m) => m.role === 'user').map((m) => m.content) : []
       if (msgs.length > 0) {
         const el = textareaRef.current
@@ -435,7 +497,7 @@ export function useChatInput({ disabled, isRunning, initialValue, initialAttachm
     prevAttachmentCountRef.current = images.length
   }, [attachmentsBag.attachments]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const canSend = !disabled && (value.trim().length > 0 || attachmentsBag.attachments.length > 0)
+  const canSend = !disabled && (value.trim().length > 0 || attachmentsBag.attachments.length > 0 || attachmentsBag.folderPaths.length > 0)
 
   // Combined paste: intercept large text first, then fall through to image handler
   const handlePaste = useCallback((e: ClipboardEvent) => {
@@ -448,6 +510,7 @@ export function useChatInput({ disabled, isRunning, initialValue, initialAttachm
     value,
     setValue,
     textareaRef,
+    containerRef,
     canSend,
     // Slash commands
     slashIndex,
@@ -478,6 +541,9 @@ export function useChatInput({ disabled, isRunning, initialValue, initialAttachm
     handleFileInputChange: attachmentsBag.handleFileInputChange,
     clearAttachments: attachmentsBag.clearAttachments,
     handlePaste,
+    // Folder paths
+    folderPaths: attachmentsBag.folderPaths,
+    handleRemoveFolder: attachmentsBag.handleRemoveFolder,
     // Pasted chunks
     pastedChunks,
     handleRemoveChunk,

@@ -1,0 +1,15 @@
+{
+  "productName": "Klaudex Dev",
+  "identifier": "com.klaudex.dev",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Klaudex Dev"
+      }
+    ]
+  },
+  "bundle": {
+    "icon": ["icons/dev/icon.png", "icons/dev/icon.icns", "icons/dev/icon.ico"]
+  }
+}

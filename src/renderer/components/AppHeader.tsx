@@ -1,4 +1,4 @@
-import { memo, useCallback } from "react"
+import { memo, useCallback, useEffect, useState } from "react"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import {
   IconShieldCheck,
@@ -13,7 +13,6 @@ import { WindowsControls } from "@/components/unified-title-bar/WindowsControls"
 import { HeaderBreadcrumb } from "@/components/header-breadcrumb"
 import { HeaderToolbar } from "@/components/header-toolbar"
 import { HeaderGhostToolbar } from "@/components/header-ghost-toolbar"
-import { HeaderUserMenu } from "@/components/header-user-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { AppSettings } from "@/types"
@@ -67,7 +66,7 @@ const MODE_DISPLAY: Record<
   allowListed: {
     Icon: IconList,
     label: "Listed",
-    chipClassName: "text-blue-400 bg-blue-500/10 hover:bg-blue-500/20",
+    chipClassName: "text-brand bg-brand/10 hover:bg-brand/20",
     tooltip: "Auto-approve allow-listed tools — click to cycle (Listed → Bypass → Ask)",
   },
   bypass: {
@@ -242,6 +241,18 @@ const AppHeaderInner = memo(function AppHeaderInner({
   onToggleSidebar,
   sidebarPosition = "left",
 }: AppHeaderProps) {
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  useEffect(() => {
+    if (!IS_MAC) return
+    getCurrentWindow().isFullscreen().then(setIsFullscreen).catch(() => {})
+    let unlisten: (() => void) | undefined
+    getCurrentWindow().onResized(() => {
+      getCurrentWindow().isFullscreen().then(setIsFullscreen).catch(() => {})
+    }).then((fn) => { unlisten = fn })
+    return () => { unlisten?.() }
+  }, [])
+
   const taskWorkspace = useTaskStore((s) => {
     const id = s.selectedTaskId
     return id ? s.tasks[id]?.workspace : null
@@ -250,49 +261,40 @@ const AppHeaderInner = memo(function AppHeaderInner({
   const workspace = taskWorkspace ?? pendingWorkspace
 
   return (
-    <>
-      <header
-        data-testid="app-header"
-        data-tauri-drag-region
-        onMouseDown={handleHeaderMouseDown}
-        className={cn(
-          "flex h-[38px] shrink-0 items-center gap-3 border-b border-border bg-background p-0 pt-1 select-none [-webkit-user-select:none]",
-          IS_MAC ? "pl-[74px] pr-2" : "pl-2 pr-[138px]",
-        )}
-      >
-        {/* Breadcrumb left */}
-        <HeaderBreadcrumb
-          isSidebarCollapsed={isSidebarCollapsed}
-          onToggleSidebar={onToggleSidebar}
-          sidebarPosition={sidebarPosition}
-          isMac={IS_MAC}
+    <header
+      data-testid="app-header"
+      data-tauri-drag-region
+      onMouseDown={handleHeaderMouseDown}
+      className={cn(
+        "flex h-[38px] shrink-0 items-center gap-3 border-b border-border bg-background p-0 pt-1 select-none [-webkit-user-select:none]",
+        IS_MAC ? (isFullscreen ? "pl-2 pr-2" : isSidebarCollapsed ? "pl-[74px] pr-2" : "pl-2 pr-2") : "pl-2 pr-[138px]",
+      )}
+    >
+      {/* Breadcrumb left */}
+      <HeaderBreadcrumb
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebar={onToggleSidebar}
+        sidebarPosition={sidebarPosition}
+        isMac={IS_MAC}
+      />
+
+      {/* Actions right */}
+      {!workspace && <HeaderGhostToolbar />}
+      {workspace && (
+        <HeaderToolbar
+          workspace={workspace}
+          sidePanelOpen={sidePanelOpen}
+          onToggleSidePanel={onToggleSidePanel}
         />
+      )}
 
-        {/* Actions right */}
-        {!workspace && <HeaderGhostToolbar />}
-        {workspace && (
-          <HeaderToolbar
-            workspace={workspace}
-            sidePanelOpen={sidePanelOpen}
-            onToggleSidePanel={onToggleSidePanel}
-          />
-        )}
-
-        {/* Permission mode chip */}
-        <PermissionModeChip />
-
-        {/* User menu */}
-        <HeaderUserMenu />
-
-        {/* Window controls for Windows/Linux */}
-        {!IS_MAC && (
-          <div className="fixed top-0 right-0 z-50">
-            <WindowsControls />
-          </div>
-        )}
-      </header>
-      <BypassBanner />
-    </>
+      {/* Window controls for Windows/Linux */}
+      {!IS_MAC && (
+        <div className="fixed top-0 right-0 z-50">
+          <WindowsControls />
+        </div>
+      )}
+    </header>
   )
 })
 

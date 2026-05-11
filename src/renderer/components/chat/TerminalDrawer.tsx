@@ -11,6 +11,7 @@ import type { Terminal, FitAddon } from 'ghostty-web'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ipc } from '@/lib/ipc'
 import { useResizeHandle } from '@/hooks/useResizeHandle'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -20,10 +21,18 @@ const MIN_DRAWER_HEIGHT = 180
 const MAX_DRAWER_HEIGHT = 600
 const DEFAULT_DRAWER_HEIGHT = 280
 const MAX_TERMINALS_PER_GROUP = 4
-const SCROLLBACK_LINES = 5_000
+const DEFAULT_SCROLLBACK_LINES = 2_000
+const MIN_SCROLLBACK_LINES = 200
+const MAX_SCROLLBACK_LINES = 20_000
+const IDLE_CHECK_INTERVAL_MS = 60_000
 const TERMINAL_FONT_FAMILY =
   '"SF Mono", SFMono-Regular, ui-monospace, Menlo, Consolas, monospace'
 const TERMINAL_FONT_SIZE = 12.5
+
+const clampScrollback = (raw: number | undefined): number => {
+  if (!raw || !Number.isFinite(raw)) return DEFAULT_SCROLLBACK_LINES
+  return Math.max(MIN_SCROLLBACK_LINES, Math.min(MAX_SCROLLBACK_LINES, Math.floor(raw)))
+}
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -43,6 +52,8 @@ interface TermInstance {
   rafId: number | null
   writeQueue: string[]
   hasActivity: boolean
+  /** Wall-clock timestamp of the most recent PTY data or focus event. */
+  lastActivityAt: number
 }
 
 /* ------------------------------------------------------------------ */
@@ -160,6 +171,12 @@ export const TerminalDrawer = memo(function TerminalDrawer({
   const instanceMap = useRef<Map<string, TermInstance>>(new Map())
   instancesRef.current = instances
 
+  const scrollbackLines = useSettingsStore((s) => clampScrollback(s.settings.terminalScrollback))
+  const idleCloseMins = useSettingsStore((s) => {
+    const v = s.settings.terminalAutoCloseIdleMins
+    return typeof v === 'number' && v > 0 ? Math.floor(v) : null
+  })
+
   /* ---- Spawn a new terminal ---- */
   const spawnTerminal = useCallback(
     async (groupId: string): Promise<TermInstance> => {
@@ -173,7 +190,7 @@ export const TerminalDrawer = memo(function TerminalDrawer({
         fontFamily: TERMINAL_FONT_FAMILY,
         fontSize: TERMINAL_FONT_SIZE,
         cursorBlink: true,
-        scrollback: SCROLLBACK_LINES,
+        scrollback: scrollbackLines,
         theme: buildTerminalTheme(),
       })
       const fit = new FitAddon()
@@ -190,6 +207,7 @@ export const TerminalDrawer = memo(function TerminalDrawer({
         rafId: null,
         writeQueue: [],
         hasActivity: false,
+        lastActivityAt: Date.now(),
       }
       instanceMap.current.set(id, instance)
       setInstances((prev) => [...prev, instance])
@@ -205,7 +223,7 @@ export const TerminalDrawer = memo(function TerminalDrawer({
       }
       return instance
     },
-    [cwd],
+    [cwd, scrollbackLines],
   )
 
   /* ---- Initial terminal ---- */
@@ -252,6 +270,7 @@ export const TerminalDrawer = memo(function TerminalDrawer({
     const unsub = ipc.onPtyData(({ id, data }) => {
       const inst = instanceMap.current.get(id)
       if (!inst) return
+      inst.lastActivityAt = Date.now()
       if (id !== activeId && !inst.hasActivity) {
         inst.hasActivity = true
         activityDirty = true
@@ -365,6 +384,27 @@ export const TerminalDrawer = memo(function TerminalDrawer({
     void spawnTerminal(`g${nextId()}`)
   }, [spawnTerminal])
 
+  /* ---- Idle background-tab auto-close ---- */
+  useEffect(() => {
+    if (idleCloseMins === null) return
+    const idleMs = idleCloseMins * 60_000
+    const tick = () => {
+      const now = Date.now()
+      const all = instancesRef.current
+      // Never close the last terminal in the drawer; users would lose the
+      // open shell entirely. Only sweep tabs that aren't the active one and
+      // aren't the only member of their group (so split panes stay paired).
+      if (all.length <= 1) return
+      const stale = all.filter((inst) =>
+        inst.id !== activeId &&
+        now - inst.lastActivityAt >= idleMs,
+      )
+      for (const inst of stale) handleClose(inst.id)
+    }
+    const id = window.setInterval(tick, IDLE_CHECK_INTERVAL_MS)
+    return () => window.clearInterval(id)
+  }, [idleCloseMins, activeId, handleClose])
+
   const handleSplit = useCallback(() => {
     const active = instancesRef.current.find((i) => i.id === activeId)
     const groupId = active?.groupId ?? `g${nextId()}`
@@ -387,6 +427,7 @@ export const TerminalDrawer = memo(function TerminalDrawer({
     const inst = instancesRef.current.find((i) => i.id === tabId)
     if (inst) {
       inst.hasActivity = false
+      inst.lastActivityAt = Date.now()
       setInstances((prev) => [...prev])
       // Refit after the tab becomes visible
       requestAnimationFrame(() => {

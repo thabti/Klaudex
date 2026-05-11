@@ -107,7 +107,7 @@ jobs:
         with:
           # Use the git tag directly — tauri-action creates the release at this tag
           tagName: ${{ github.ref_name }}
-          releaseName: 'Kirodex ${{ github.ref_name }}'
+          releaseName: 'Klaudex ${{ github.ref_name }}'
           releaseBody: |
             ${{ needs.release-notes.outputs.notes }}
 
@@ -123,11 +123,11 @@ jobs:
 
             **Homebrew:**
             ```bash
-            brew install --cask thabti/tap/kirodex        # first install
-            brew update && brew reinstall kirodex       # upgrade
+            brew install --cask thabti/tap/klaudex        # first install
+            brew update && brew reinstall klaudex       # upgrade
             ```
 
-            > Requires [kiro-cli](https://kiro.dev)
+            > Requires [Claude CLI](https://claude.com/code)
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
@@ -149,7 +149,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          DMG="Kirodex_${VERSION}_aarch64.dmg"
+          DMG="Klaudex_${VERSION}_aarch64.dmg"
           for i in $(seq 1 12); do
             echo "Attempt $i: downloading ${DMG}..."
             if gh release download "${GITHUB_REF_NAME}" \
@@ -179,9 +179,9 @@ jobs:
           mkdir -p Casks
           sed -e "s|{{VERSION}}|${VERSION}|g" \
               -e "s|{{SHA256_ARM}}|${SHA256}|g" \
-              "${{ github.workspace }}/.github/homebrew/Casks/kirodex.rb.template" > Casks/kirodex.rb
+              "${{ github.workspace }}/.github/homebrew/Casks/klaudex.rb.template" > Casks/klaudex.rb
 
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          git add Casks/kirodex.rb
-          git diff --cached --quiet || (git commit -m "Update kirodex to ${VERSION}" && git push)
+          git add Casks/klaudex.rb
+          git diff --cached --quiet || (git commit -m "Update klaudex to ${VERSION}" && git push)

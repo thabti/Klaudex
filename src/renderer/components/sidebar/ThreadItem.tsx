@@ -1,12 +1,15 @@
 import { memo, useState, useRef, useEffect, useCallback } from 'react'
-import { IconPencil, IconTrash, IconArchive, IconGitBranch } from '@tabler/icons-react'
+import { IconPencil, IconTrash, IconHistory, IconGitBranch, IconLayoutColumns, IconArrowsSplit, IconPin, IconPinnedOff, IconArrowUp, IconArrowDown, IconCopy } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useTaskStore } from '@/stores/taskStore'
+import { SplitThreadPicker } from '@/components/chat/SplitThreadPicker'
 import { cn } from '@/lib/utils'
 import type { SidebarTask } from '@/hooks/useSidebarTasks'
 
 const STATUS_DOT: Record<string, { color: string; pulse?: boolean }> = {
   running: { color: 'bg-emerald-400', pulse: true },
   pending_permission: { color: 'bg-amber-400' },
+  pending_question: { color: 'bg-blue-400' },
   error: { color: 'bg-red-400' },
   cancelled: { color: 'bg-red-400/50' },
 }
@@ -24,19 +27,24 @@ function relativeTime(iso: string): string {
 interface ThreadItemProps {
   task: SidebarTask
   isActive: boolean
+  jumpLabel?: string | null
+  canMoveUp?: boolean
+  canMoveDown?: boolean
   onSelect: () => void
   onDelete: () => void
   onRename: (name: string) => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
 }
 
-export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, onDelete, onRename }: ThreadItemProps) {
+export const ThreadItem = memo(function ThreadItem({ task, jumpLabel, canMoveUp, canMoveDown, onSelect, onDelete, onRename, onMoveUp, onMoveDown }: ThreadItemProps) {
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(task.name)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const ctxRef = useRef<HTMLDivElement>(null)
-  const dot = STATUS_DOT[task.status]
+  const dot = STATUS_DOT[task.hasPendingQuestion ? 'pending_question' : task.status]
 
   useEffect(() => {
     if (editing) inputRef.current?.select()
@@ -89,6 +97,45 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
     setCtxMenu(null)
   }, [])
 
+  const [splitPicker, setSplitPicker] = useState<{ x: number; y: number } | null>(null)
+
+  const isInSplit = useTaskStore((s) => s.splitViews.some((sv) => sv.left === task.id || sv.right === task.id))
+  const isPinned = useTaskStore((s) => s.pinnedThreadIds.includes(task.id))
+  const isNotified = useTaskStore((s) => s.notifiedTaskIds.includes(task.id))
+
+  const handleNewSplitView = useCallback(() => {
+    setCtxMenu(null)
+    setSplitPicker(ctxMenu ? { x: ctxMenu.x, y: ctxMenu.y } : { x: 200, y: 200 })
+  }, [ctxMenu])
+
+  const handleUnsplit = useCallback(() => {
+    setCtxMenu(null)
+    const state = useTaskStore.getState()
+    const sv = state.splitViews.find((v) => v.left === task.id || v.right === task.id)
+    if (sv) state.removeSplitView(sv.id)
+  }, [task.id])
+
+  const handleTogglePin = useCallback(() => {
+    setCtxMenu(null)
+    const state = useTaskStore.getState()
+    if (state.pinnedThreadIds.includes(task.id)) {
+      state.unpinThread(task.id)
+    } else {
+      state.pinThread(task.id)
+    }
+  }, [task.id])
+
+  const handleCopyThreadId = useCallback(() => {
+    void navigator.clipboard.writeText(task.id)
+    setCtxMenu(null)
+  }, [task.id])
+
+  const handleCopySessionId = useCallback(() => {
+    const sessionId = useTaskStore.getState().sessionIds[task.id]
+    if (sessionId) void navigator.clipboard.writeText(sessionId)
+    setCtxMenu(null)
+  }, [task.id])
+
   return (
     <li className="group/thread relative min-w-0">
       <div
@@ -101,9 +148,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
         className={cn(
           'flex min-w-0 h-8 w-full cursor-pointer items-center gap-1.5 overflow-hidden rounded-lg px-2 pr-1 text-[13px] select-none',
           'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring transition-colors',
-          isActive
-            ? 'bg-accent/85 dark:bg-accent/55 text-foreground font-medium hover:bg-accent dark:hover:bg-accent/70'
-            : 'text-foreground/80 hover:bg-accent hover:text-foreground',
+          'text-foreground/80 hover:bg-accent hover:text-foreground',
         )}
       >
         {task.isDraft ? (
@@ -112,7 +157,14 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
           <span className={cn('size-1.5 shrink-0 rounded-full', dot.color, dot.pulse && 'animate-pulse')} />
         ) : null}
         {task.isArchived && (
-          <IconArchive className="size-3 shrink-0 text-muted-foreground/70" aria-label="View-only thread" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex shrink-0">
+                <IconHistory className="size-3 text-muted-foreground/70" aria-label="Resumed from history" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="right">From history — agent reconnects on next send</TooltipContent>
+          </Tooltip>
         )}
         {task.worktreePath && !task.isArchived && (
           <Tooltip>
@@ -121,6 +173,12 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
             </TooltipTrigger>
             <TooltipContent side="top">Worktree</TooltipContent>
           </Tooltip>
+        )}
+        {isInSplit && (
+          <IconLayoutColumns className="size-3 shrink-0 text-primary/60" aria-label="In split view" />
+        )}
+        {isPinned && !isInSplit && (
+          <IconPin className="size-3 shrink-0 text-amber-500/70" aria-label="Pinned" />
         )}
         {editing ? (
           <input
@@ -140,35 +198,42 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
             <TooltipContent side="top" align="start">{task.name}</TooltipContent>
           </Tooltip>
         )}
-        {task.isDraft ? (
+        {jumpLabel ? (
+          <kbd className="pointer-events-none shrink-0 rounded-sm bg-muted px-1 font-mono text-[10px] font-medium text-muted-foreground select-none">
+            {jumpLabel}
+          </kbd>
+        ) : task.isDraft ? (
           <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground group-hover/thread:hidden" aria-hidden="true">
             Draft
           </span>
         ) : (
-          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground group-hover/thread:hidden">
-            {relativeTime(task.lastActivityAt)}
-          </span>
+          <>
+            {isNotified && (
+              <span
+                className="size-1.5 shrink-0 rounded-full bg-orange-400 group-hover/thread:hidden"
+                aria-label="New activity"
+              />
+            )}
+            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground group-hover/thread:hidden">
+              {relativeTime(task.lastActivityAt)}
+            </span>
+          </>
         )}
-      </div>
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden w-14 items-center justify-end rounded-r-lg pr-1 group-hover/thread:flex"
-        style={{ background: isActive
-          ? 'linear-gradient(to right, transparent 0%, hsl(var(--accent) / 0.85) 35%)'
-          : 'linear-gradient(to right, transparent 0%, hsl(var(--accent)) 35%)'
-        }}
-      >
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label="Delete thread"
-              onClick={(e) => { e.stopPropagation(); onDelete() }}
-              className="pointer-events-auto flex size-5 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
-            >
-              <IconTrash className="size-3" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top">Delete thread</TooltipContent>
-        </Tooltip>
+        {!editing && !jumpLabel && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="Delete thread"
+                onClick={(e) => { e.stopPropagation(); onDelete() }}
+                className="hidden size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover/thread:flex hover:bg-destructive/15 hover:text-destructive"
+              >
+                <IconTrash className="size-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Delete thread</TooltipContent>
+          </Tooltip>
+        )}
       </div>
 
       {ctxMenu && (
@@ -208,7 +273,71 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
                   >
                     <IconPencil className="size-3.5" /> Rename
                   </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                    onClick={handleTogglePin}
+                  >
+                    {isPinned ? <IconPinnedOff className="size-3.5" /> : <IconPin className="size-3.5" />}
+                    {isPinned ? 'Unpin' : 'Pin thread'}
+                  </button>
                   <div className="my-1 border-t border-border/50" />
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                    onClick={handleCopyThreadId}
+                  >
+                    <IconCopy className="size-3.5" /> Copy Thread ID
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                    onClick={handleCopySessionId}
+                  >
+                    <IconCopy className="size-3.5" /> Copy Session ID
+                  </button>
+                  <div className="my-1 border-t border-border/50" />
+                  {isInSplit ? (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                      onClick={handleUnsplit}
+                    >
+                      <IconArrowsSplit className="size-3.5" /> Unsplit
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                      onClick={handleNewSplitView}
+                    >
+                      <IconLayoutColumns className="size-3.5" /> Side by side
+                    </button>
+                  )}
+                  <div className="my-1 border-t border-border/50" />
+                  {(canMoveUp || canMoveDown) && (
+                    <>
+                      {canMoveUp && (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                          onClick={() => { onMoveUp?.(); setCtxMenu(null) }}
+                        >
+                          <IconArrowUp className="size-3.5" /> Move Up
+                        </button>
+                      )}
+                      {canMoveDown && (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                          onClick={() => { onMoveDown?.(); setCtxMenu(null) }}
+                        >
+                          <IconArrowDown className="size-3.5" /> Move Down
+                        </button>
+                      )}
+                      <div className="my-1 border-t border-border/50" />
+                    </>
+                  )}
                 </>
               )}
               <button
@@ -221,6 +350,13 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, onSelect, o
             </>
           )}
         </div>
+      )}
+      {splitPicker && (
+        <SplitThreadPicker
+          anchorTaskId={task.id}
+          position={splitPicker}
+          onClose={() => setSplitPicker(null)}
+        />
       )}
     </li>
   )

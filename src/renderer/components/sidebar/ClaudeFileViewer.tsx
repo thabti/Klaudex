@@ -1,12 +1,10 @@
 import { useEffect, useState, memo } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import { IconX, IconExternalLink } from '@tabler/icons-react'
 import { ipc } from '@/lib/ipc'
 import { getPreferredEditor } from '@/components/OpenInEditorGroup'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { handleExternalLinkClick, handleExternalLinkKeyDown } from '@/lib/open-external'
+import MarkdownViewer from '@/components/MarkdownViewer'
 
 interface ClaudeFileViewerProps {
   filePath: string
@@ -84,29 +82,7 @@ export const ClaudeFileViewer = memo(function ClaudeFileViewer({ filePath, title
             </pre>
           )}
           {!loading && content !== null && !isJson && (
-            <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none
-              [&_h1]:text-base [&_h1]:font-bold [&_h1]:mb-3 [&_h1]:mt-0
-              [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mb-2 [&_h2]:mt-4
-              [&_h3]:text-xs [&_h3]:font-semibold [&_h3]:mb-1.5 [&_h3]:mt-3
-              [&_p]:text-xs [&_p]:leading-relaxed [&_p]:text-foreground/80
-              [&_li]:text-xs [&_li]:leading-relaxed [&_li]:text-foreground/80
-              [&_code]:text-[11px] [&_code]:bg-muted/50 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded
-              [&_pre]:bg-muted/30 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-auto
-              [&_pre_code]:bg-transparent [&_pre_code]:p-0
-              [&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground
-              [&_hr]:border-border/50 [&_a]:text-primary [&_a]:no-underline [&_a:hover]:underline
-              [&_table]:text-xs [&_th]:font-semibold [&_th]:text-left [&_th]:pb-1
-              [&_td]:py-0.5 [&_tr]:border-b [&_tr]:border-border/60
-            ">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  a({ node, ...props }) {
-                    return <a {...props} onClick={handleExternalLinkClick} onKeyDown={handleExternalLinkKeyDown} tabIndex={0} role="link" />
-                  },
-                }}
-              >{content}</ReactMarkdown>
-            </div>
+            <MarkdownViewer content={content} fontSize={13} />
           )}
         </div>
       </div>

@@ -42,11 +42,19 @@ pub(crate) fn friendly_prompt_error(raw: &str) -> String {
     if lower.contains("modelerrorexception") || lower.contains("model error") || lower.contains("internalservererror") || lower.contains("serviceexception") {
         return format!("{raw}\n\nTip: The model service returned an internal error. This is usually temporary — wait a moment and try again.");
     }
+    if lower.contains("dispatch failure") || lower.contains("dispatch_failure") {
+        return format!("{raw}\n\nTip: The connection to the model service was interrupted (network issue or timeout). Check your internet connection and try again.");
+    }
+    if lower.contains("response stream") || lower.contains("response_stream") {
+        return format!("{raw}\n\nTip: The response stream was interrupted. This is usually a transient network issue — try again in a moment.");
+    }
     raw.to_string()
 }
 
 /// Extract absolute file paths from user message text.
 /// Matches tokens that start with `/` and look like file paths.
+/// Rejects overly broad paths (fewer than 2 segments) to prevent
+/// granting the agent access to the entire filesystem.
 pub(crate) fn extract_paths_from_message(text: &str) -> Vec<String> {
     let mut paths = Vec::new();
     for token in text.split_whitespace() {

@@ -16,7 +16,6 @@
  */
 import type { AgentTask, TaskMessage, ToolCall, Attachment } from '@/types'
 import type { TaskStore } from '@/stores/task-store-types'
-import { useTaskStore } from '@/stores/taskStore'
 
 const BYTES_PER_CHAR = 2
 
@@ -54,6 +53,9 @@ const sizeOfToolCall = (tc: ToolCall): number => {
       n += sizeOfString(item.oldText)
       n += sizeOfString(item.newText)
       n += sizeOfString(item.terminalId)
+      // linesAdded / linesRemoved are u32s — 8 bytes each at most.
+      if (item.linesAdded !== undefined) n += 8
+      if (item.linesRemoved !== undefined) n += 8
     }
   }
   n += sizeOfValue(tc.rawInput)
@@ -186,33 +188,8 @@ export const measureThread = (
   }
 }
 
-/** Optional snapshot shape for debug-like stores (debugStore, jsDebugStore). */
 interface DebugLikeStore {
   readonly entries: readonly unknown[]
-}
-
-/**
- * Klaudex's TaskStore does not yet carry `archivedMeta`, `draftAttachments`, or
- * `draftPastedChunks` fields (Kirodex parity follow-up). Read them defensively
- * via index access so this file compiles and behaves sanely until the store
- * surface catches up. When the fields do not exist the estimator simply
- * reports zero for those categories.
- */
-type StoreSnapshot = TaskStore & {
-  archivedMeta?: Record<string, {
-    id?: string
-    name?: string
-    workspace?: string
-    createdAt?: string
-    lastActivityAt?: string
-    parentTaskId?: string
-    worktreePath?: string
-    originalWorkspace?: string
-    projectId?: string
-  }>
-  draftAttachments?: Record<string, readonly Attachment[]>
-  draftPastedChunks?: Record<string, readonly unknown[]>
-  queuedMessages: Record<string, readonly import('@/stores/task-store-types').QueuedMessage[]>
 }
 
 /**
@@ -225,46 +202,41 @@ export const measureMemory = (
   debugStore?: DebugLikeStore,
   jsDebugStore?: DebugLikeStore,
 ): MemoryReport => {
-  const snap = store as StoreSnapshot
   const threads: ThreadMemoryBreakdown[] = []
-  for (const task of Object.values(snap.tasks)) {
-    const queuedAdapted = snap.queuedMessages[task.id] ?? []
+  for (const task of Object.values(store.tasks)) {
     threads.push(measureThread(
       task,
-      snap.streamingChunks[task.id],
-      snap.thinkingChunks[task.id],
-      snap.liveToolCalls[task.id],
-      queuedAdapted,
+      store.streamingChunks[task.id],
+      store.thinkingChunks[task.id],
+      store.liveToolCalls[task.id],
+      store.queuedMessages[task.id],
     ))
   }
   threads.sort((a, b) => b.total - a.total)
   const threadsTotal = threads.reduce((sum, t) => sum + t.total, 0)
 
   let softDeleted = 0
-  for (const entry of Object.values(snap.softDeleted)) {
+  for (const entry of Object.values(store.softDeleted)) {
     for (const msg of entry.task.messages) softDeleted += sizeOfMessage(msg)
     softDeleted += sizeOfString(entry.deletedAt)
   }
 
   let archivedMeta = 0
-  const archivedMetaMap = snap.archivedMeta ?? {}
-  for (const m of Object.values(archivedMetaMap)) {
+  for (const m of Object.values(store.archivedMeta)) {
     archivedMeta += sizeOfString(m.id) + sizeOfString(m.name) +
       sizeOfString(m.workspace) + sizeOfString(m.createdAt) +
       sizeOfString(m.lastActivityAt) + 8 +
       sizeOfString(m.parentTaskId) + sizeOfString(m.worktreePath) +
       sizeOfString(m.originalWorkspace) + sizeOfString(m.projectId)
   }
-  const archivedMetaCount = Object.keys(archivedMetaMap).length
+  const archivedMetaCount = Object.keys(store.archivedMeta).length
 
   let drafts = 0
-  for (const text of Object.values(snap.drafts)) drafts += sizeOfString(text)
-  const draftAttachments = snap.draftAttachments ?? {}
-  for (const list of Object.values(draftAttachments)) {
+  for (const text of Object.values(store.drafts)) drafts += sizeOfString(text)
+  for (const list of Object.values(store.draftAttachments)) {
     for (const att of list) drafts += sizeOfAttachment(att)
   }
-  const draftPastedChunks = snap.draftPastedChunks ?? {}
-  for (const list of Object.values(draftPastedChunks)) {
+  for (const list of Object.values(store.draftPastedChunks)) {
     for (const chunk of list) drafts += sizeOfValue(chunk)
   }
 
@@ -279,7 +251,7 @@ export const measureMemory = (
     threads,
     threadsTotal,
     softDeleted,
-    softDeletedCount: Object.keys(snap.softDeleted).length,
+    softDeletedCount: Object.keys(store.softDeleted).length,
     archivedMeta,
     archivedMetaCount,
     drafts,
@@ -296,60 +268,4 @@ export const formatBytes = (bytes: number): string => {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
-}
-
-/**
- * Estimate the bytes held in the renderer for a single thread (including its
- * live-turn streaming buffers and any queued user input). Returns 0 for
- * unknown task IDs so callers can render a row without a guard.
- */
-export const estimateThreadMemory = (taskId: string): number => {
-  if (!taskId) return 0
-  const state = useTaskStore.getState() as StoreSnapshot
-  const task = state.tasks[taskId] ?? state.softDeleted[taskId]?.task
-  if (!task) return 0
-  const queuedAdapted = state.queuedMessages[taskId] ?? []
-  const breakdown = measureThread(
-    task,
-    state.streamingChunks[taskId],
-    state.thinkingChunks[taskId],
-    state.liveToolCalls[taskId],
-    queuedAdapted,
-  )
-  return Math.max(0, breakdown.total)
-}
-
-/**
- * Reclaim memory held by a thread by clearing its finalized messages and any
- * live-turn buffers. The task record itself is preserved so the sidebar entry
- * and metadata (name, workspace, status) stay intact — only the heavy content
- * is dropped. No-op for unknown task IDs. This intentionally bypasses
- * `upsertTask` because that setter refuses to shrink `messages` (it preserves
- * prev messages when the incoming array is shorter).
- */
-export const reclaimThread = (taskId: string): void => {
-  if (!taskId) return
-  useTaskStore.setState((state) => {
-    const task = state.tasks[taskId]
-    if (!task) return state
-    const alreadyEmpty = task.messages.length === 0
-      && !state.streamingChunks[taskId]
-      && !state.thinkingChunks[taskId]
-      && (state.liveToolCalls[taskId]?.length ?? 0) === 0
-    if (alreadyEmpty) return state
-    return {
-      tasks: {
-        ...state.tasks,
-        [taskId]: {
-          ...task,
-          messages: [],
-          liveToolCalls: undefined,
-          liveThinking: undefined,
-        },
-      },
-      streamingChunks: { ...state.streamingChunks, [taskId]: '' },
-      thinkingChunks: { ...state.thinkingChunks, [taskId]: '' },
-      liveToolCalls: { ...state.liveToolCalls, [taskId]: [] },
-    }
-  })
 }

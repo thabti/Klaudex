@@ -1,12 +1,18 @@
 import { useEffect, useCallback, useState, useRef, lazy, Suspense } from "react";
-import { Toaster, toast } from "sonner";
+import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { applyTheme, listenSystemTheme, persistTheme } from "@/lib/theme";
+import { preloadHighlighterIdle } from "@/lib/chatHighlighter";
+import { startConnectionHealthMonitor } from "@/lib/connection-health";
+import { getReceiptBus } from "@/lib/typed-receipts";
 import { AppHeader } from "@/components/AppHeader";
 import { TaskSidebar } from "@/components/sidebar/TaskSidebar";
 const ChatPanel = lazy(() =>
   import("@/components/chat/ChatPanel").then((m) => ({ default: m.ChatPanel })),
+);
+const SplitChatLayout = lazy(() =>
+  import("@/components/chat/SplitChatLayout").then((m) => ({ default: m.SplitChatLayout })),
 );
 import { PendingChat } from "@/components/chat/PendingChat";
 import { NewProjectSheet } from "@/components/task/NewProjectSheet";
@@ -24,6 +30,11 @@ const DebugPanel = lazy(() =>
     default: m.DebugPanel,
   })),
 );
+const FileTreePanel = lazy(() =>
+  import("@/components/file-tree/FileTreePanel").then((m) => ({
+    default: m.FileTreePanel,
+  })),
+);
 const AnalyticsDashboard = lazy(() =>
   import("@/components/analytics/AnalyticsDashboard").then((m) => ({
     default: m.AnalyticsDashboard,
@@ -33,13 +44,20 @@ import { useTaskStore, initTaskListeners } from "@/stores/taskStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDebugStore } from "@/stores/debugStore";
 import { useDiffStore } from "@/stores/diffStore";
+import { useFileTreeStore } from "@/stores/fileTreeStore";
 import { useClaudeConfigStore, initClaudeConfigListeners } from "@/stores/claudeConfigStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { useUpdateChecker } from "@/hooks/useUpdateChecker";
 import { useSessionTracker } from "@/hooks/useSessionTracker";
+import { useZoomLimit } from "@/hooks/useZoomLimit";
+import { UpdateAvailableDialog } from "@/components/UpdateAvailableDialog";
+import { WhatsNewDialog } from "@/components/WhatsNewDialog";
+import { CHANGELOG, isNewerVersion } from "@/lib/changelog";
+import type { ChangelogEntry } from "@/lib/changelog";
+import { useUpdateStore } from "@/stores/updateStore";
 import { startAutoFlush, stopAutoFlush } from "@/lib/analytics-collector";
-import { RestartPromptDialog } from "@/components/sidebar/RestartPromptDialog";
 import { WorktreeCleanupDialog } from "@/components/sidebar/WorktreeCleanupDialog";
+import { CloneRepoDialog } from "@/components/CloneRepoDialog";
+import { GlobalFilePreviewModal } from "@/components/GlobalFilePreviewModal";
 import { getVersion } from "@tauri-apps/api/app";
 import {
   initAnalytics,
@@ -50,7 +68,17 @@ import {
 } from "@/lib/analytics";
 import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
-import { IconStack2, IconPlus, IconFolderOpen } from "@tabler/icons-react";
+import {
+  IconStack2,
+  IconPlus,
+  IconFolderOpen,
+  IconLayoutColumns,
+  IconArrowsShuffle,
+  IconGitBranch,
+  IconTerminal2,
+  IconMessageChatbot,
+  IconGitCompare,
+} from "@tabler/icons-react";
 const Onboarding = lazy(() =>
   import("@/components/Onboarding").then((m) => ({ default: m.Onboarding })),
 );
@@ -74,13 +102,58 @@ function LoginBanner() {
       <button
         type="button"
         onClick={openLogin}
-        className="shrink-0 rounded-lg bg-amber-500/20 px-3 py-1.5 text-[12px] font-medium text-amber-700 dark:text-amber-200 transition-colors hover:bg-amber-500/30"
+        className="shrink-0 rounded-lg bg-amber-500/20 px-4 py-2 text-[13px] font-medium text-amber-700 dark:text-amber-200 transition-colors hover:bg-amber-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
       >
         Sign in
       </button>
     </div>
   );
 }
+
+const SHOWCASE_FEATURES = [
+  {
+    icon: IconLayoutColumns,
+    label: "Split view",
+    description: "Two threads side by side",
+    color: "text-brand",
+    bgColor: "bg-brand/10",
+  },
+  {
+    icon: IconArrowsShuffle,
+    label: "Spin threads",
+    description: "Fork and branch conversations",
+    color: "text-violet-400",
+    bgColor: "bg-violet-500/10",
+  },
+  {
+    icon: IconGitBranch,
+    label: "Git worktrees",
+    description: "Isolate each thread in its own branch",
+    color: "text-emerald-400",
+    bgColor: "bg-emerald-500/10",
+  },
+  {
+    icon: IconGitCompare,
+    label: "Inline diffs",
+    description: "Syntax-highlighted code changes",
+    color: "text-amber-400",
+    bgColor: "bg-amber-500/10",
+  },
+  {
+    icon: IconTerminal2,
+    label: "Built-in terminal",
+    description: "Run commands without leaving the app",
+    color: "text-pink-400",
+    bgColor: "bg-pink-500/10",
+  },
+  {
+    icon: IconMessageChatbot,
+    label: "Slash commands",
+    description: "/plan, /fork, /btw, /worktree and more",
+    color: "text-cyan-400",
+    bgColor: "bg-cyan-500/10",
+  },
+] as const;
 
 function EmptyState() {
   const projects = useTaskStore((s) => s.projects);
@@ -95,14 +168,14 @@ function EmptyState() {
   }, [projects]);
 
   return (
-    <div data-testid="empty-state" className="flex min-h-0 flex-1 flex-col items-center justify-center px-6">
-      <div className="flex flex-col items-center gap-5 -mt-12 max-w-sm">
+    <div data-testid="empty-state" className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 overflow-y-auto">
+      <div className="flex flex-col items-center gap-5 -mt-4 max-w-lg w-full">
         <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10">
           <IconStack2 size={28} stroke={1.5} className="text-primary" />
         </div>
         <div className="text-center">
           <h2 className="text-lg font-semibold text-foreground">
-            {hasProjects ? "Start a new thread" : "Open a project to get started"}
+            {hasProjects ? "Start a new thread" : "Open a folder to get started"}
           </h2>
           <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
             {hasProjects
@@ -114,89 +187,71 @@ function EmptyState() {
         <button
           type="button"
           onClick={handleNew}
-          className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           {hasProjects ? (
             <>
               <IconPlus size={15} stroke={2} />
-              New Thread
+              New thread
             </>
           ) : (
             <>
               <IconFolderOpen size={15} stroke={1.5} />
-              Import Project
+              Open folder
             </>
           )}
         </button>
         {!hasProjects && (
           <p className="text-[11px] text-muted-foreground">
-            Or press <kbd className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px]">⌘O</kbd> to open a folder
+            Or press <kbd className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[10px]">⌘O</kbd> to open a folder
           </p>
         )}
+
+        {/* Features showcase */}
+        <div className="mt-4 w-full" role="region" aria-label="Features overview">
+          <p className="mb-3 text-center text-[11px] font-medium uppercase tracking-widest text-muted-foreground/60">
+            What you can do
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {SHOWCASE_FEATURES.map((feature) => (
+              <div
+                key={feature.label}
+                className="group flex items-start gap-3 rounded-xl border border-border/50 bg-card/50 px-3.5 py-3 transition-colors hover:border-border hover:bg-card"
+              >
+                <div className={cn("mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg", feature.bgColor)}>
+                  <feature.icon size={16} stroke={1.5} className={cn(feature.color, "transition-transform group-hover:scale-110")} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12.5px] font-medium text-foreground/90">{feature.label}</p>
+                  <p className="text-[11px] leading-snug text-muted-foreground">{feature.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
-}
-
-function UpdateNotifier() {
-  const { status, updateInfo, progress, dismissedVersion, downloadAndInstall, restart, dismissVersion } = useUpdateChecker();
-  const toastIdRef = useRef<string | number | null>(null);
-
-  useEffect(() => {
-    if (status === 'available' && updateInfo) {
-      if (dismissedVersion === updateInfo.version) return;
-      toastIdRef.current = toast(`Klaudex v${updateInfo.version} available`, {
-        description: 'A new version is ready to install.',
-        duration: Infinity,
-        action: {
-          label: 'Update now',
-          onClick: () => downloadAndInstall(),
-        },
-        onDismiss: () => dismissVersion(updateInfo.version),
-      });
-    }
-
-    if (status === 'downloading') {
-      const pct = progress?.total
-        ? Math.round((progress.downloaded / progress.total) * 100)
-        : null;
-      const desc = pct !== null ? `Downloading... ${pct}%` : 'Downloading...';
-      if (toastIdRef.current) {
-        toast.loading(desc, { id: toastIdRef.current, duration: Infinity });
-      } else {
-        toastIdRef.current = toast.loading(desc, { duration: Infinity });
-      }
-    }
-
-    if (status === 'ready') {
-      if (toastIdRef.current) {
-        toast.success('Update installed', {
-          id: toastIdRef.current,
-          description: 'Restart to finish updating.',
-          duration: Infinity,
-          action: {
-            label: 'Restart',
-            onClick: () => restart(),
-          },
-        });
-      }
-    }
-
-    if (status === 'error') {
-      if (toastIdRef.current) {
-        toast.dismiss(toastIdRef.current);
-        toastIdRef.current = null;
-      }
-    }
-  }, [status, progress?.downloaded]);
-
-  return null;
 }
 
 /** Navigate to a task from a clicked notification, then remove it from the queue. */
 const navigateToNotifiedTask = (taskId: string): void => {
   const store = useTaskStore.getState()
   if (!store.tasks[taskId]) return
+  // If the task is already visible in the active split, just focus that panel
+  if (store.activeSplitId) {
+    const sv = store.splitViews.find((v) => v.id === store.activeSplitId)
+    if (sv && (sv.left === taskId || sv.right === taskId)) {
+      const panel = sv.left === taskId ? 'left' as const : 'right' as const
+      store.setFocusedPanel(panel)
+      useTaskStore.setState((s) => ({
+        selectedTaskId: taskId,
+        notifiedTaskIds: s.notifiedTaskIds.filter((id) => id !== taskId),
+      }))
+      store.setView('chat')
+      return
+    }
+  }
   store.setSelectedTask(taskId)
   store.setView('chat')
   useTaskStore.setState((s) => ({
@@ -205,11 +260,12 @@ const navigateToNotifiedTask = (taskId: string): void => {
 }
 
 export function App() {
-  const { view, selectedTaskId, pendingWorkspace } = useTaskStore(
+  const { view, selectedTaskId, pendingWorkspace, activeSplitId } = useTaskStore(
     useShallow((s) => ({
       view: s.view,
       selectedTaskId: s.selectedTaskId,
       pendingWorkspace: s.pendingWorkspace,
+      activeSplitId: s.activeSplitId,
     })),
   );
   const debugOpen = useDebugStore((s) => s.isOpen);
@@ -218,16 +274,30 @@ export function App() {
   const analyticsEnabled = useSettingsStore((s) => s.settings.analyticsEnabled ?? true);
   const analyticsAnonId = useSettingsStore((s) => s.settings.analyticsAnonId ?? null);
   const fontSize = useSettingsStore((s) => s.settings.fontSize);
+  const chatFontSize = useSettingsStore((s) => s.settings.chatFontSize);
   const theme = useSettingsStore((s) => s.settings.theme ?? 'dark');
   const sidebarPosition = useSettingsStore((s) => s.settings.sidebarPosition ?? 'left');
   const isRightSidebar = sidebarPosition === 'right';
+  const isUpdateDialogActive = useUpdateStore((s) => s.status !== 'idle');
   useKeyboardShortcuts();
   useSessionTracker();
+  useZoomLimit();
 
-  // Apply font size from settings to the document root
+  // Apply font size from settings to the document root.
+  // This sets the html element's font-size which cascades through all rem-based
+  // sizing in the app. The CSS variable is kept for components that need it directly.
   useEffect(() => {
-    document.documentElement.style.setProperty('--app-font-size', `${fontSize ?? 13}px`);
+    const size = fontSize ?? 13;
+    document.documentElement.style.setProperty('--app-font-size', `${size}px`);
+    document.documentElement.style.fontSize = `${size}px`;
   }, [fontSize]);
+
+  // Apply chat font size as a CSS var. Falls back to UI font size so users on
+  // existing settings (no chatFontSize key) keep current behavior.
+  useEffect(() => {
+    const resolved = chatFontSize ?? fontSize ?? 15;
+    document.documentElement.style.setProperty('--chat-font-size', `${resolved}px`);
+  }, [chatFontSize, fontSize]);
 
   // Apply theme and listen for OS preference changes (for 'system' mode)
   useEffect(() => {
@@ -236,6 +306,12 @@ export function App() {
     if (theme !== 'system') return
     return listenSystemTheme(() => applyTheme('system'))
   }, [theme]);
+
+  // Warm the chat code-block highlighter in the background so the first
+  // fenced code block doesn't pay the full Shiki cold-start cost. The
+  // returned cleanup cancels the idle callback if App unmounts before it
+  // runs (effectively never, but kept for correctness).
+  useEffect(() => preloadHighlighterIdle(), []);
 
   // Sync active workspace → apply per-project model/autoApprove prefs
   useEffect(() => {
@@ -255,12 +331,24 @@ export function App() {
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(240);
+  const [isCloneDialogOpen, setIsCloneDialogOpen] = useState(false);
+  const [whatsNewEntry, setWhatsNewEntry] = useState<ChangelogEntry | null>(null);
+  const [appVersion, setAppVersion] = useState('');
 
   // Sync diffStore.isOpen → sidePanelOpen (for openToFile)
+  // Note: sidePanelOpen intentionally excluded from deps — we only react to diffIsOpen changes
   const diffIsOpen = useDiffStore((s) => s.isOpen);
   useEffect(() => {
     if (diffIsOpen && !sidePanelOpen) setSidePanelOpen(true);
-  }, [diffIsOpen]);
+    if (diffIsOpen) useFileTreeStore.getState().setOpen(false);
+  }, [diffIsOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync fileTreeStore.isOpen → sidePanelOpen
+  // Note: sidePanelOpen intentionally excluded from deps — we only react to fileTreeIsOpen changes
+  const fileTreeIsOpen = useFileTreeStore((s) => s.isOpen);
+  useEffect(() => {
+    if (fileTreeIsOpen && !sidePanelOpen) setSidePanelOpen(true);
+  }, [fileTreeIsOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Register event listeners FIRST so we don't miss early emissions
@@ -268,9 +356,79 @@ export function App() {
     const cleanupClaude = initClaudeConfigListeners();
     useTaskStore.getState().loadTasks().then(() => {
       useTaskStore.getState().purgeExpiredSoftDeletes();
+      useTaskStore.getState().autoArchiveStaleThreads();
+      // Initialize VCS status for all known projects
+      import('@/stores/vcsStatusStore').then(({ initVcsStatus }) => {
+        const projects = useTaskStore.getState().projects
+        initVcsStatus(projects)
+      }).catch((e) => {
+        if (import.meta.env.DEV) console.warn('[App] vcsStatusStore init failed:', e)
+      })
+      // Restore persisted UI state (selected thread, view, panels)
+      import('@/lib/history-store').then(({ loadUiState }) => {
+        loadUiState().then((ui) => {
+          if (!ui) return
+          const state = useTaskStore.getState()
+          const tasks = state.tasks
+          const archivedMeta = state.archivedMeta
+          if (ui.selectedTaskId && (tasks[ui.selectedTaskId] || archivedMeta[ui.selectedTaskId])) {
+            state.setSelectedTask(ui.selectedTaskId)
+            const validViews = ['chat', 'dashboard', 'analytics'] as const
+            if (validViews.includes(ui.view as typeof validViews[number])) {
+              state.setView(ui.view as typeof validViews[number])
+            }
+          }
+          setSidePanelOpen(ui.sidePanelOpen ?? false)
+          setIsSidebarCollapsed(ui.sidebarCollapsed ?? false)
+          // Restore split views
+          if (ui.splitViews && ui.splitViews.length > 0) {
+            const validSplits = ui.splitViews.filter((sv) => tasks[sv.left] && tasks[sv.right])
+            if (validSplits.length > 0) {
+              useTaskStore.setState({ splitViews: validSplits })
+              if (ui.activeSplitId && validSplits.some((sv) => sv.id === ui.activeSplitId)) {
+                useTaskStore.getState().setActiveSplit(ui.activeSplitId)
+              }
+            }
+          }
+          // Restore pinned threads
+          if (ui.pinnedThreadIds && ui.pinnedThreadIds.length > 0) {
+            const validPins = ui.pinnedThreadIds.filter((id) => tasks[id])
+            if (validPins.length > 0) {
+              useTaskStore.setState({ pinnedThreadIds: validPins })
+            }
+          }
+          // Restore per-thread model and mode selections so picks survive
+          // restart. Filter to known task ids to avoid leaking entries from
+          // deleted threads.
+          if (ui.taskModels) {
+            const validModels: Record<string, string> = {}
+            for (const [tid, mid] of Object.entries(ui.taskModels)) {
+              if (tasks[tid]) validModels[tid] = mid
+            }
+            if (Object.keys(validModels).length > 0) {
+              useTaskStore.setState({ taskModels: validModels })
+            }
+          }
+          if (ui.taskModes) {
+            const validModes: Record<string, string> = {}
+            for (const [tid, m] of Object.entries(ui.taskModes)) {
+              if (tasks[tid]) validModes[tid] = m
+            }
+            if (Object.keys(validModes).length > 0) {
+              useTaskStore.setState({ taskModes: validModes })
+            }
+          }
+        }).catch(() => {})
+      })
     });
     useSettingsStore.getState().loadSettings().then(() => {
       useSettingsStore.getState().checkAuth();
+      // Apply custom dock icon if set
+      const { customAppIcon } = useSettingsStore.getState().settings;
+      if (customAppIcon) {
+        const base64 = customAppIcon.replace(/^data:[^;]+;base64,/, '');
+        ipc.setDockIcon(base64).catch(() => {});
+      }
     });
     // Pre-warm ACP to get models/modes before user creates a thread
     ipc.probeCapabilities().catch(() => {});
@@ -289,28 +447,45 @@ export function App() {
         if (tid) navigateToNotifiedTask(tid);
       }).catch(() => {});
     }).catch(() => {});
-    // Fallback: navigate on window focus if notifications were pending
-    const handleWindowFocus = () => {
-      const ids = useTaskStore.getState().notifiedTaskIds
-      if (ids.length > 0) navigateToNotifiedTask(ids[ids.length - 1])
-    };
+    // No-op on window focus — notifiedTaskIds persist until the user
+    // navigates to the thread (via sidebar click or native notification).
+    const handleWindowFocus = () => {};
     window.addEventListener("focus", handleWindowFocus);
+    // Begin probing the claude subprocess so we can show "reconnecting…"
+    // banners and clear stale latency entries on disconnect.
+    const cleanupHealth = startConnectionHealthMonitor();
+    // When a `diff.ready` receipt is published (after `turn_end`), refresh
+    // the diff panel if it's open. This replaces the old pattern of polling
+    // `gitDiffStats` from the panel itself.
+    const unsubDiffReceipt = getReceiptBus().subscribe('diff.ready', (receipt) => {
+      const diffStore = useDiffStore.getState()
+      if (diffStore.isOpen) {
+        void diffStore.fetchDiff(receipt.taskId)
+      }
+    });
     startAutoFlush();
     // Listen for native menu events
     let unlistenFlushBeforeQuit: (() => void) | null = null
     let unlistenNewThread: (() => void) | null = null
     let unlistenNewProject: (() => void) | null = null
+    let unlistenRecentProject: (() => void) | null = null
+    let unlistenCloneFromGithub: (() => void) | null = null
     import('@tauri-apps/api/event').then(({ listen }) => {
       // Rust emits this right before app.exit(0) — flush all state to disk
       listen('app://flush-before-quit', () => {
         useTaskStore.getState().persistHistory()
         import('@/lib/history-store').then((hs) => {
-          const { selectedTaskId, view } = useTaskStore.getState()
+          const { selectedTaskId, view, splitViews, activeSplitId, pinnedThreadIds, taskModels, taskModes } = useTaskStore.getState()
           hs.saveUiState({
             selectedTaskId,
             view,
             sidePanelOpen,
             sidebarCollapsed: isSidebarCollapsed,
+            splitViews,
+            activeSplitId,
+            pinnedThreadIds,
+            taskModels,
+            taskModes,
           }).catch(() => {})
           hs.flush().then(() => {
             // Ack the flush so Rust can proceed with shutdown
@@ -342,6 +517,16 @@ export function App() {
       listen('menu-new-project', () => {
         useTaskStore.getState().setNewProjectOpen(true)
       }).then((fn) => { unlistenNewProject = fn })
+      listen<string>('menu-open-recent-project', (event) => {
+        const path = event.payload
+        if (!path) return
+        const state = useTaskStore.getState()
+        state.addProject(path)
+        state.setPendingWorkspace(path)
+      }).then((fn) => { unlistenRecentProject = fn })
+      listen('menu-clone-from-github', () => {
+        setIsCloneDialogOpen(true)
+      }).then((fn) => { unlistenCloneFromGithub = fn })
     })
     // Cross-window state sync — reload when another window persists changes
     let unsubSync: (() => void) | null = null
@@ -368,9 +553,13 @@ export function App() {
       stopAutoFlush();
       cleanupTask();
       cleanupClaude();
-      if (unlistenFlushBeforeQuit) unlistenFlushBeforeQuit()
+      cleanupHealth();
+      unsubDiffReceipt();
       if (unlistenNewThread) unlistenNewThread()
       if (unlistenNewProject) unlistenNewProject()
+      if (unlistenRecentProject) unlistenRecentProject()
+      if (unlistenFlushBeforeQuit) unlistenFlushBeforeQuit()
+      if (unlistenCloneFromGithub) unlistenCloneFromGithub()
       if (unsubSync) unsubSync()
       if (syncDebounce) clearTimeout(syncDebounce)
     };
@@ -404,6 +593,32 @@ export function App() {
     });
   }, [settingsLoaded, analyticsEnabled, analyticsAnonId]);
 
+  // Show "What's New" dialog once after a version upgrade.
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    getVersion().then((currentVersion) => {
+      setAppVersion(currentVersion);
+      const { settings, saveSettings } = useSettingsStore.getState();
+      const lastSeen = settings.lastSeenChangelogVersion;
+      // Fresh install — seed the version silently, don't show dialog
+      if (!lastSeen) {
+        saveSettings({ ...settings, lastSeenChangelogVersion: currentVersion }).catch(() => {});
+        return;
+      }
+      // Only show if current version is strictly newer than last seen
+      if (!isNewerVersion(currentVersion, lastSeen)) return;
+      // Find a matching entry, or fall back to the newest entry newer than lastSeen
+      const entry = CHANGELOG.find((e) => e.version === currentVersion)
+        ?? CHANGELOG.find((e) => isNewerVersion(e.version, lastSeen));
+      if (entry) {
+        setWhatsNewEntry(entry);
+      } else {
+        // No entry found — still update lastSeen so we don't re-check every launch
+        saveSettings({ ...settings, lastSeenChangelogVersion: currentVersion }).catch(() => {});
+      }
+    }).catch(() => {});
+  }, [settingsLoaded]);
+
   // ⌘B keyboard shortcut to toggle sidebar
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -418,15 +633,27 @@ export function App() {
 
   const toggleSidePanel = useCallback(() => {
     setSidePanelOpen((prev) => {
-      if (prev) useDiffStore.getState().setOpen(false)
+      if (prev) {
+        useDiffStore.getState().setOpen(false)
+        useFileTreeStore.getState().setOpen(false)
+      }
       return !prev
     })
   }, [])
   const closeSidePanel = useCallback(() => {
     setSidePanelOpen(false)
     useDiffStore.getState().setOpen(false)
+    useFileTreeStore.getState().setOpen(false)
   }, [])
   const toggleSidebar = useCallback(() => setIsSidebarCollapsed((v) => !v), []);
+
+  const handleWhatsNewDismiss = useCallback(() => {
+    setWhatsNewEntry(null);
+    getVersion().then((v) => {
+      const { settings, saveSettings } = useSettingsStore.getState();
+      saveSettings({ ...settings, lastSeenChangelogVersion: v }).catch(() => {});
+    }).catch(() => {});
+  }, []);
 
   if (settingsLoaded && !hasOnboardedV2)
     return (
@@ -437,29 +664,38 @@ export function App() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div data-testid="app-container" className="flex h-full flex-col bg-background text-foreground">
-        {/* Top-level breadcrumb header */}
+      <div data-testid="app-container" className="flex h-full bg-background text-foreground">
+        {/* Sidebar — full height, bleeds into top */}
         <ErrorBoundary>
-          <AppHeader
-            sidePanelOpen={sidePanelOpen}
-            onToggleSidePanel={toggleSidePanel}
-            isSidebarCollapsed={isSidebarCollapsed}
-            onToggleSidebar={toggleSidebar}
-            sidebarPosition={sidebarPosition}
-          />
+          {!isSidebarCollapsed && <TaskSidebar width={sidebarWidth} onResize={setSidebarWidth} position={sidebarPosition} onCollapse={toggleSidebar} />}
         </ErrorBoundary>
 
-        {/* Main area: sidebar + content + side panel */}
-        <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Right column: header + content */}
+        <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", isRightSidebar && "order-first")}>
+          {/* Top-level breadcrumb header */}
           <ErrorBoundary>
-            {!isSidebarCollapsed && <TaskSidebar width={sidebarWidth} onResize={setSidebarWidth} position={sidebarPosition} />}
+            <AppHeader
+              sidePanelOpen={sidePanelOpen}
+              onToggleSidePanel={toggleSidePanel}
+              isSidebarCollapsed={isSidebarCollapsed}
+              onToggleSidebar={toggleSidebar}
+              sidebarPosition={sidebarPosition}
+            />
           </ErrorBoundary>
-          <main data-testid="main-content" className={cn('flex min-h-0 min-w-0 flex-1 overflow-hidden', isRightSidebar && 'order-first')}>
+
+          {/* Main area: content + side panel */}
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <main data-testid="main-content" className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
             <ErrorBoundary>
-              <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl" style={{ fontSize: 'var(--app-font-size, 14px)' }}>
+              <div
+                className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl"
+                style={{ fontSize: 'var(--app-font-size, 13px)' }}
+              >
                 <Suspense>
                   {view === 'analytics' ? (
                     <AnalyticsDashboard />
+                  ) : selectedTaskId && activeSplitId ? (
+                    <SplitChatLayout />
                   ) : selectedTaskId ? (
                     <ChatPanel />
                   ) : pendingWorkspace ? (
@@ -470,24 +706,29 @@ export function App() {
                 </Suspense>
               </div>
             </ErrorBoundary>
-            {sidePanelOpen && (selectedTaskId || pendingWorkspace) && (
+            {sidePanelOpen && !activeSplitId && (selectedTaskId || pendingWorkspace) && (
               <ErrorBoundary>
                 <Suspense>
-                  <CodePanel onClose={closeSidePanel} workspace={pendingWorkspace ?? undefined} />
+                  {fileTreeIsOpen ? (
+                    <FileTreePanel onClose={closeSidePanel} workspace={pendingWorkspace ?? undefined} />
+                  ) : (
+                    <CodePanel onClose={closeSidePanel} workspace={pendingWorkspace ?? undefined} />
+                  )}
                 </Suspense>
               </ErrorBoundary>
             )}
           </main>
-        </div>
+          </div>
 
-        {/* Bottom debug panel */}
-        {debugOpen && (
-          <ErrorBoundary>
-            <Suspense>
-              <DebugPanel />
-            </Suspense>
-          </ErrorBoundary>
-        )}
+          {/* Bottom debug panel */}
+          {debugOpen && (
+            <ErrorBoundary>
+              <Suspense>
+                <DebugPanel />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+        </div>
       </div>
       <ErrorBoundary>
         <NewProjectSheet />
@@ -499,12 +740,26 @@ export function App() {
       </ErrorBoundary>
       <Toaster
         position="bottom-right"
-        toastOptions={{ duration: 8000 }}
-        theme="system"
+        toastOptions={{
+          duration: 8000,
+          classNames: {
+            toast: 'sonner-toast',
+            title: 'sonner-title',
+            description: 'sonner-description',
+            actionButton: 'sonner-action',
+          },
+        }}
+        theme="dark"
       />
-      <UpdateNotifier />
-      <RestartPromptDialog />
+      <UpdateAvailableDialog />
       <WorktreeCleanupDialog />
+      <CloneRepoDialog open={isCloneDialogOpen} onOpenChange={setIsCloneDialogOpen} />
+      <ErrorBoundary>
+        <GlobalFilePreviewModal />
+      </ErrorBoundary>
+      {whatsNewEntry && !isUpdateDialogActive && (
+        <WhatsNewDialog open={!!whatsNewEntry} entry={whatsNewEntry} currentVersion={appVersion} onDismiss={handleWhatsNewDismiss} />
+      )}
     </TooltipProvider>
   );
 }

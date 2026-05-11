@@ -8,7 +8,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useClaudeConfigStore } from "@/stores/claudeConfigStore";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { useSettingsStore, selectChatFontSize } from "@/stores/settingsStore";
+import { useTaskStore } from "@/stores/taskStore";
+import { usePanelResolvedTaskId } from "./PanelContext";
 import ChatMarkdown from "./ChatMarkdown";
 import { ToolCallDisplay } from "./ToolCallDisplay";
 import { ThinkingDisplay } from "./ThinkingDisplay";
@@ -45,7 +47,10 @@ function McpErrorLines() {
 }
 
 function GeneratingIndicator() {
-  const isPlan = useSettingsStore((s) => s.currentModeId) === 'plan'
+  const resolvedTaskId = usePanelResolvedTaskId()
+  const globalModeId = useSettingsStore((s) => s.currentModeId)
+  const taskModeId = useTaskStore((s) => resolvedTaskId ? s.taskModes[resolvedTaskId] ?? null : null)
+  const isPlan = (taskModeId ?? globalModeId) === 'kiro_planner'
   const [idx, setIdx] = useState(() =>
     Math.floor(Math.random() * LOADING_WORDS.length),
   );
@@ -94,7 +99,7 @@ export const MessageItem = memo(function MessageItem({
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const chatFontSize = useSettingsStore((s) => s.settings.fontSize ?? 14);
+  const chatFontSize = useSettingsStore(selectChatFontSize);
 
   const handleCopy = useCallback(() => {
     void navigator.clipboard.writeText(message.content).then(() => {

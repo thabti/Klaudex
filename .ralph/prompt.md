@@ -31,6 +31,9 @@ PROTECTED PATHS — never modify these (revert to HEAD if cherry-pick touches th
 - website/**
 - index.html title/branding lines (functional changes OK)
 - activity.md (klaudex's log, do not overwrite — append your own entry at end)
+- src-tauri/icons/** (klaudex's bundle icons — never overwrite, never regenerate)
+- screenshots/** (klaudex's marketing screenshots)
+- public/** (klaudex's static assets)
 
 NAME REWRITE — anywhere the cherry-picked content introduces these literals
 in non-protected files, rewrite before staging:
