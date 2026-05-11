@@ -1,3 +1,9 @@
+## 2026-05-11 09:52 GST (Dubai)
+### Chat: Remove unused CleaningReviewCard component
+Ported upstream commit 4d177c5. Deleted the unused `CleaningReviewCard` component which was never imported anywhere in the codebase.
+
+**Modified:** `src/renderer/components/chat/CleaningReviewCard.tsx` (deleted)
+
 ## 2026-05-11 09:51 GST (Dubai)
 ### App: Fix unwanted thread switching on window focus
 Ported upstream commit c3f9f54. Removed the window focus handler that auto-navigated to the last notified task whenever the app regained focus, which caused unexpected thread switching across projects. The handler now clears the notification badge array without switching threads.
