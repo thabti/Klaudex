@@ -9,7 +9,7 @@ import { useChatInput } from '@/hooks/useChatInput'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
 
-import type { Attachment } from '@/types'
+import type { Attachment, ProjectFile } from '@/types'
 import type { PastedChunk } from '@/hooks/useChatInput'
 
 // Re-export for backwards compatibility (used by tests)
@@ -24,6 +24,7 @@ interface ChatInputProps {
   initialValue?: string
   initialAttachments?: Attachment[]
   initialPastedChunks?: PastedChunk[]
+  initialMentionedFiles?: ProjectFile[]
   autoFocus?: boolean
   hasQueuedMessages?: boolean
   onSendMessage: (message: string) => void
@@ -31,13 +32,14 @@ interface ChatInputProps {
   onDraftChange?: (value: string) => void
   onAttachmentsChange?: (attachments: Attachment[]) => void
   onPastedChunksChange?: (chunks: PastedChunk[]) => void
+  onMentionedFilesChange?: (files: ProjectFile[]) => void
   workspace?: string | null
   isCollapsed?: boolean
   onToggleCollapse?: () => void
   isWorktree?: boolean
 }
 
-export const ChatInput = memo(function ChatInput({ disabled, disabledReason, contextUsage, messageCount = 0, isRunning, initialValue, initialAttachments, initialPastedChunks, autoFocus, hasQueuedMessages, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onPastedChunksChange, workspace, isCollapsed, onToggleCollapse, isWorktree }: ChatInputProps) {
+export const ChatInput = memo(function ChatInput({ disabled, disabledReason, contextUsage, messageCount = 0, isRunning, initialValue, initialAttachments, initialPastedChunks, initialMentionedFiles, autoFocus, hasQueuedMessages, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onPastedChunksChange, onMentionedFilesChange, workspace, isCollapsed, onToggleCollapse, isWorktree }: ChatInputProps) {
   const {
     value, setValue, textareaRef, canSend,
     slashIndex, slashQuery, commands, filteredCmds, showPicker,
@@ -48,7 +50,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
     handleRemoveAttachment, handlePaste, handleFilePickerClick, handleFileInputChange,
     pastedChunks, handleRemoveChunk,
     handleChange, handleSend, handleKeyDown, handleSelect,
-  } = useChatInput({ disabled, isRunning, initialValue, initialAttachments, initialPastedChunks, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onPastedChunksChange })
+  } = useChatInput({ disabled, isRunning, initialValue, initialAttachments, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onPastedChunksChange, onMentionedFilesChange })
 
   const currentModeId = useSettingsStore((s) => s.currentModeId)
   const compactionStatus = useTaskStore((s) => s.selectedTaskId ? s.tasks[s.selectedTaskId]?.compactionStatus : undefined)

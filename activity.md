@@ -1,3 +1,9 @@
+## 2026-05-11 06:32 GST (Dubai)
+### Chat: Retain file/agent/skill mentions in draft threads on switch
+Ported upstream commit 7ec8fc17 from kirodex. Added `draftMentionedFiles` state to the task store so file/agent/skill mention pills persist when switching between draft threads. Threaded the `initialMentionedFiles` prop through ChatInput, useChatInput, and useFileMention hooks. PendingChat now saves and restores mentions alongside drafts and attachments.
+
+**Modified:** `src/renderer/components/chat/ChatInput.tsx`, `src/renderer/components/chat/PendingChat.tsx`, `src/renderer/hooks/useChatInput.ts`, `src/renderer/hooks/useFileMention.ts`, `src/renderer/stores/task-store-types.ts`, `src/renderer/stores/taskStore.ts`
+
 ## 2026-05-11 06:29 GST (Dubai)
 ### Multi-window: Add multi-window support and native File menu commands
 Ported upstream commit 90db6f0e from kirodex. Built custom native menu in Rust with New Window (⇧⌘N), New Thread (⌘N), New Project (⌘O) in File submenu. New windows share projects/threads via tauri-plugin-store with cross-window sync using LazyStore.onKeyChange and 300ms debounce. Secondary windows close without quit confirmation; only the last window triggers shutdown dialog. Removed conflicting Cmd+N/Cmd+O JS handlers since native menu accelerators handle them.

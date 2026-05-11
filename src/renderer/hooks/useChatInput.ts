@@ -5,7 +5,7 @@ import { useSlashAction } from '@/hooks/useSlashAction'
 import { useAttachments } from '@/hooks/useAttachments'
 import { useFileMention } from '@/hooks/useFileMention'
 import { buildMessageWithInlineImages, extractIpcAttachments } from '@/components/chat/attachment-utils'
-import type { Attachment, IpcAttachment } from '@/types'
+import type { Attachment, IpcAttachment, ProjectFile } from '@/types'
 
 export interface PastedChunk {
   id: number
@@ -34,14 +34,16 @@ interface UseChatInputOptions {
   initialValue?: string
   initialAttachments?: Attachment[]
   initialPastedChunks?: PastedChunk[]
+  initialMentionedFiles?: ProjectFile[]
   onSendMessage: (message: string, attachments?: IpcAttachment[]) => void
   onPause?: () => void
   onDraftChange?: (value: string) => void
   onAttachmentsChange?: (attachments: Attachment[]) => void
   onPastedChunksChange?: (chunks: PastedChunk[]) => void
+  onMentionedFilesChange?: (files: ProjectFile[]) => void
 }
 
-export function useChatInput({ disabled, isRunning, initialValue, initialAttachments, initialPastedChunks, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onPastedChunksChange }: UseChatInputOptions) {
+export function useChatInput({ disabled, isRunning, initialValue, initialAttachments, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onPastedChunksChange, onMentionedFilesChange }: UseChatInputOptions) {
   const [value, setValue] = useState(initialValue ?? '')
   const [slashIndex, setSlashIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -49,7 +51,7 @@ export function useChatInput({ disabled, isRunning, initialValue, initialAttachm
   const { panel, dismissPanel, execute, executeFullInput } = useSlashAction()
 
   const attachmentsBag = useAttachments(initialAttachments)
-  const mentionBag = useFileMention({ textareaRef, value, setValue })
+  const mentionBag = useFileMention({ textareaRef, value, setValue, initialMentionedFiles })
 
   // ── Track Shift key for raw paste (Cmd+Shift+V) ────────────────
   const isShiftHeldRef = useRef(false)
@@ -178,6 +180,13 @@ export function useChatInput({ disabled, isRunning, initialValue, initialAttachm
   useEffect(() => {
     onPastedChunksChangeRef.current?.(pastedChunks)
   }, [pastedChunks])
+
+  const onMentionedFilesChangeRef = useRef(onMentionedFilesChange)
+  onMentionedFilesChangeRef.current = onMentionedFilesChange
+
+  useEffect(() => {
+    onMentionedFilesChangeRef.current?.(mentionBag.mentionedFiles)
+  }, [mentionBag.mentionedFiles])
 
   // ── Message history cycling (ArrowUp/Down) ─────────────────────
   // -1 = composing new message, 0 = most recent, 1 = second most recent, etc.

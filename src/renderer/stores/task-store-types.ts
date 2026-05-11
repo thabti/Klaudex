@@ -1,4 +1,4 @@
-import type { AgentTask, ActivityEntry, ToolCall, PlanStep, SoftDeletedThread, CompactionStatus, SubagentInfo, Attachment } from '@/types'
+import type { AgentTask, ActivityEntry, ToolCall, PlanStep, SoftDeletedThread, CompactionStatus, Attachment, ProjectFile } from '@/types'
 import type { PastedChunk } from '@/hooks/useChatInput'
 
 export interface BtwCheckpoint {
@@ -43,6 +43,8 @@ export interface TaskStore {
   draftAttachments: Record<string, Attachment[]>
   /** Per-workspace draft pasted chunks (in-memory only) */
   draftPastedChunks: Record<string, PastedChunk[]>
+  /** Per-workspace draft file/agent/skill mentions (in-memory only) */
+  draftMentionedFiles: Record<string, ProjectFile[]>
   /** One-shot guard: workspace whose next setDraft call should be suppressed */
   _suppressDraftSave: string | null
   /** Task IDs from desktop notifications pending click-to-navigate */
@@ -95,6 +97,8 @@ export interface TaskStore {
   setDraftPastedChunks: (workspace: string, chunks: PastedChunk[]) => void
   removeDraftAttachments: (workspace: string) => void
   removeDraftPastedChunks: (workspace: string) => void
+  setDraftMentionedFiles: (workspace: string, files: ProjectFile[]) => void
+  removeDraftMentionedFiles: (workspace: string) => void
   toggleTerminal: (taskId: string) => void
   toggleWorkspaceTerminal: () => void
   setTaskMode: (taskId: string, modeId: string) => void

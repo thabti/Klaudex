@@ -4,7 +4,7 @@ import { ipc } from '@/lib/ipc'
 import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { slugify, isValidWorktreeSlug } from '@/lib/utils'
-import type { Attachment, IpcAttachment } from '@/types'
+import type { Attachment, IpcAttachment, ProjectFile } from '@/types'
 import type { PastedChunk } from '@/hooks/useChatInput'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ChatInput } from './ChatInput'
@@ -26,6 +26,9 @@ export function PendingChat({ workspace }: PendingChatProps) {
   const setDraftPastedChunks = useTaskStore((s) => s.setDraftPastedChunks)
   const removeDraftAttachments = useTaskStore((s) => s.removeDraftAttachments)
   const removeDraftPastedChunks = useTaskStore((s) => s.removeDraftPastedChunks)
+  const draftMentionedFiles = useTaskStore((s) => s.draftMentionedFiles[workspace])
+  const setDraftMentionedFiles = useTaskStore((s) => s.setDraftMentionedFiles)
+  const removeDraftMentionedFiles = useTaskStore((s) => s.removeDraftMentionedFiles)
 
   const settings = useSettingsStore((s) => s.settings)
   const projectPrefs = settings.projectPrefs?.[workspace]
@@ -50,6 +53,10 @@ export function PendingChat({ workspace }: PendingChatProps) {
   const handlePastedChunksChange = useCallback((chunks: PastedChunk[]) => {
     setDraftPastedChunks(workspace, chunks)
   }, [workspace, setDraftPastedChunks])
+
+  const handleMentionedFilesChange = useCallback((files: ProjectFile[]) => {
+    setDraftMentionedFiles(workspace, files)
+  }, [workspace, setDraftMentionedFiles])
 
   const handleSlugChange = useCallback((val: string) => {
     setWorktreeSlug(val)
@@ -78,6 +85,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
     removeDraft(workspace)
     removeDraftAttachments(workspace)
     removeDraftPastedChunks(workspace)
+    removeDraftMentionedFiles(workspace)
     const cleanMsg = msg.replace(/<\/?klaudex_tangent>/g, '').trim()
     const name = cleanMsg.length > 60 ? cleanMsg.slice(0, 57) + '\u2026' : cleanMsg
     const { settings: currentSettings, activeWorkspace, currentModeId } = useSettingsStore.getState()
@@ -151,7 +159,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
       const question = msg.replace(/<\/?klaudex_tangent>/g, '').trim()
       useTaskStore.getState().enterBtwMode(created.id, question)
     }
-  }, [workspace, upsertTask, removeDraft, removeDraftAttachments, removeDraftPastedChunks, useWorktree, worktreeSlug, getProjectId])
+  }, [workspace, upsertTask, removeDraft, removeDraftAttachments, removeDraftPastedChunks, removeDraftMentionedFiles, useWorktree, worktreeSlug, getProjectId])
 
   const claudeAuth = useSettingsStore((s) => s.claudeAuth)
   const claudeAuthChecked = useSettingsStore((s) => s.claudeAuthChecked)
@@ -238,7 +246,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
           </div>
         </div>
       )}
-      <ChatInput autoFocus disabled={isLoggedOut} initialValue={draft} initialAttachments={draftAttachments} initialPastedChunks={draftPastedChunks} onDraftChange={handleDraftChange} onAttachmentsChange={handleAttachmentsChange} onPastedChunksChange={handlePastedChunksChange} onSendMessage={handleSend} workspace={workspace} isWorktree={useWorktree} />
+      <ChatInput autoFocus disabled={isLoggedOut} initialValue={draft} initialAttachments={draftAttachments} initialPastedChunks={draftPastedChunks} initialMentionedFiles={draftMentionedFiles} onDraftChange={handleDraftChange} onAttachmentsChange={handleAttachmentsChange} onPastedChunksChange={handlePastedChunksChange} onMentionedFilesChange={handleMentionedFilesChange} onSendMessage={handleSend} workspace={workspace} isWorktree={useWorktree} />
     </div>
   )
 }

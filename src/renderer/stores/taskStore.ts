@@ -38,6 +38,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   drafts: {},
   draftAttachments: {},
   draftPastedChunks: {},
+  draftMentionedFiles: {},
   _suppressDraftSave: null,
   notifiedTaskIds: [],
   taskModes: {},
@@ -702,6 +703,22 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     if (get().draftPastedChunks[workspace] === undefined) return
     const { [workspace]: _, ...rest } = get().draftPastedChunks
     set({ draftPastedChunks: rest })
+  },
+
+  setDraftMentionedFiles: (workspace, files) => {
+    if (files.length === 0) {
+      const { [workspace]: _, ...rest } = get().draftMentionedFiles
+      if (_ === undefined) return
+      set({ draftMentionedFiles: rest })
+    } else {
+      set((s) => ({ draftMentionedFiles: { ...s.draftMentionedFiles, [workspace]: files } }))
+    }
+  },
+
+  removeDraftMentionedFiles: (workspace) => {
+    if (get().draftMentionedFiles[workspace] === undefined) return
+    const { [workspace]: _, ...rest } = get().draftMentionedFiles
+    set({ draftMentionedFiles: rest })
   },
 
   toggleTerminal: (taskId) => set((s) => {

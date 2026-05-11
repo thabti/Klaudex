@@ -5,12 +5,13 @@ interface UseFileMentionOptions {
   textareaRef: RefObject<HTMLTextAreaElement | null>
   value: string
   setValue: (v: string | ((prev: string) => string)) => void
+  initialMentionedFiles?: ProjectFile[]
 }
 
-export function useFileMention({ textareaRef, value, setValue }: UseFileMentionOptions) {
+export function useFileMention({ textareaRef, value, setValue, initialMentionedFiles }: UseFileMentionOptions) {
   const [mentionTrigger, setMentionTrigger] = useState<{ start: number; query: string } | null>(null)
   const [mentionIndex, setMentionIndex] = useState(0)
-  const [mentionedFiles, setMentionedFiles] = useState<ProjectFile[]>([])
+  const [mentionedFiles, setMentionedFiles] = useState<ProjectFile[]>(initialMentionedFiles ?? [])
 
   const detectMentionTrigger = useCallback((text: string, cursorPos: number) => {
     let i = cursorPos - 1
