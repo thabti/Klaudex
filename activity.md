@@ -1,3 +1,9 @@
+## 2026-05-11 08:22 GST (Dubai)
+### Header: detect fullscreen mode and adjust traffic light padding
+Ported upstream fix that adds fullscreen state detection via onResized + isFullscreen() in AppHeader. When macOS enters fullscreen (traffic lights hidden), left padding drops from 74px to 8px so header content uses full width.
+
+**Modified:** `src/renderer/components/AppHeader.tsx`
+
 ## 2026-05-11 08:20 GST (Dubai)
 ### Chat: fix ToolCallDisplay layout for nested TaskList/Subagent cards
 Ported upstream fix that wraps TaskListDisplay and SubagentDisplay in a container div with proper padding so they don't overlap the parent ToolCallDisplay border when collapsed. Added border-t separator when tool list is collapsed. Removed my-1 ml-1 from child components since the parent wrapper now handles spacing.
