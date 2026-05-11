@@ -1,3 +1,9 @@
+## 2026-05-11 07:44 GST (Dubai)
+### Release: Reduce bundle targets from "all" to specific list (port from kirodex@aabb3ce)
+Ported upstream change to `src-tauri/tauri.conf.json` that replaces `"targets": "all"` with an explicit list `["app", "dmg", "deb", "appimage", "nsis"]`, dropping MSI and RPM bundle targets. Protected paths (README, .github/**, activity.md) were reverted.
+
+**Modified:** src-tauri/tauri.conf.json
+
 ## 2026-05-11 07:42 GST (Dubai)
 ### Recovery: Crash recovery UI and corrupted store detection (port from kirodex@df477a6)
 Ported upstream commit that adds crash recovery features: history-store validates on first access and auto-resets if corrupted, ErrorBoundary shows a recovery screen with Reload and Reset buttons, index.html shows a pre-React fallback after 10s if the JS bundle fails, and a new `reset_app_data` Rust command deletes all files in app_data_dir.
