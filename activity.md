@@ -1,3 +1,9 @@
+## 2026-05-11 07:42 GST (Dubai)
+### Recovery: Crash recovery UI and corrupted store detection (port from kirodex@df477a6)
+Ported upstream commit that adds crash recovery features: history-store validates on first access and auto-resets if corrupted, ErrorBoundary shows a recovery screen with Reload and Reset buttons, index.html shows a pre-React fallback after 10s if the JS bundle fails, and a new `reset_app_data` Rust command deletes all files in app_data_dir.
+
+**Modified:** index.html, src-tauri/src/lib.rs, src/renderer/lib/history-store.ts, src/renderer/main.tsx
+
 ## 2026-05-11 07:41 GST (Dubai)
 ### Sidebar: Auto-focus newly added project (port from kirodex@fd0e3f0)
 Ported upstream commit that adds `lastAddedProject` state to taskStore and an `autoFocus` prop to `ProjectItem`. When a project is added, its sidebar button receives focus automatically, then the flag is cleared.

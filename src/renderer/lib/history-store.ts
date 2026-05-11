@@ -56,6 +56,19 @@ const getStore = async (): Promise<LazyStore> => {
   if (!_store) {
     const { LazyStore } = await import('@tauri-apps/plugin-store')
     _store = new LazyStore(HISTORY_FILE, { autoSave: 500, defaults: {} })
+    // Validate the store is readable — if corrupted, reset it
+    try {
+      await _store.get<unknown>('threads')
+    } catch (err) {
+      console.warn('[history-store] Store corrupted, resetting:', err)
+      try {
+        await _store.clear()
+        await _store.save()
+      } catch {
+        // If clear also fails, recreate the store instance
+        _store = new LazyStore(HISTORY_FILE, { autoSave: 500, defaults: {} })
+      }
+    }
   }
   return _store
 }
