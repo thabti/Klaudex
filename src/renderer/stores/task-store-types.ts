@@ -1,6 +1,8 @@
-import type { AgentTask, ActivityEntry, ToolCall, PlanStep, SoftDeletedThread, CompactionStatus, Attachment, ProjectFile, IpcAttachment } from '@/types'
+import type { AgentTask, ActivityEntry, ToolCall, ToolCallSplit, PlanStep, SoftDeletedThread, CompactionStatus, Attachment, ProjectFile, IpcAttachment, SubagentInfo } from '@/types'
 import type { PastedChunk } from '@/hooks/useChatInput'
 import type { ArchivedThreadMeta } from '@/lib/history-store'
+import type { LocalDispatchSnapshot } from '@/lib/dispatch-snapshot'
+import type { ConnectionStatus } from '@/lib/connection-state'
 
 export interface QueuedMessage {
   readonly text: string
@@ -38,12 +40,23 @@ export interface TaskStore {
   thinkingChunks: Record<string, string>
   /** Live tool calls for the current turn (by taskId) */
   liveToolCalls: Record<string, ToolCall[]>
-  /** Live subagent state from ACP extension notifications (by taskId) */
+  /**
+   * Anchors recorded during streaming for inline tool-call rendering.
+   * Each entry records the streaming-text length at the moment the
+   * corresponding tool call was first seen. Sorted ascending by `at`.
+   * Cleared at turn end alongside {@link liveToolCalls}.
+   */
+  liveToolSplits: Record<string, ToolCallSplit[]>
+  /** Live subagent info per task */
   liveSubagents: Record<string, SubagentInfo[]>
   /** Queued messages per task — typed while agent is running, sent on turn end */
   queuedMessages: Record<string, QueuedMessage[]>
   activityFeed: ActivityEntry[]
   connected: boolean
+  /** Rich connection status for UI indicators (phase, retry count, timestamps) */
+  connectionStatus: ConnectionStatus
+  /** Local dispatch snapshots per task — tracks optimistic UI state */
+  dispatchSnapshots: Record<string, LocalDispatchSnapshot>
   terminalOpenTasks: Set<string>
   /** Workspace-level terminal open state (for PendingChat when no task is selected) */
   isWorkspaceTerminalOpen: boolean
@@ -137,6 +150,12 @@ export interface TaskStore {
    *  rendered. No-op if already hydrated. Returns true on success. */
   hydrateArchivedTask: (id: string) => Promise<boolean>
   setConnected: (v: boolean) => void
+  /** Update the rich connection status */
+  setConnectionStatus: (status: ConnectionStatus) => void
+  /** Set a dispatch snapshot for optimistic UI tracking */
+  setDispatchSnapshot: (taskId: string, snapshot: LocalDispatchSnapshot | null) => void
+  /** Atomically move a dispatch snapshot from one task id to another. */
+  rekeyDispatchSnapshot: (fromTaskId: string, toTaskId: string) => void
   persistHistory: () => void
   clearHistory: () => Promise<void>
   resolveWorktreeCleanup: (remove: boolean) => void

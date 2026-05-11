@@ -262,6 +262,34 @@ input[type="search"] {
     overflow-x: auto;
 }
 
+/* ── Shiki code blocks (chat) ──────────────────────────────────────── */
+/* The chrome (language label + copy button) is provided by .chat-markdown-codeblock;
+   .chat-markdown-shiki wraps the highlighter output and aligns its <pre> with
+   the surrounding container so internal padding/scrolling matches.
+   Font size inherits from the chat-markdown container so the user's
+   "Chat font size" setting also scales code blocks. */
+.chat-markdown-shiki > pre.shiki {
+    margin: 0;
+    padding: 0.875rem 1rem;
+    background: transparent !important;
+    overflow-x: auto;
+    font-size: inherit;
+    line-height: 1.6;
+}
+
+.chat-markdown-shiki code {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    font-size: inherit;
+    color: inherit;
+}
+
+.chat-markdown-shiki .line {
+    display: block;
+    min-height: 1em;
+}
+
 /* Remove outer margins so the first / last block sits flush */
 .chat-markdown > :first-child {
     margin-top: 0;

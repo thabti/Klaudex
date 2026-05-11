@@ -9,6 +9,7 @@ import { useDiffStore } from '@/stores/diffStore'
 import { useTaskStore } from './taskStore'
 import type { TaskStore } from './task-store-types'
 import { record } from '@/lib/analytics-collector'
+import { getReceiptBus, createTurnQuiescedReceipt, createDiffReadyReceipt } from '@/lib/typed-receipts'
 
 /** Get the project basename from a workspace path (privacy: no full paths). */
 const projectName = (workspace: string): string => {
@@ -16,9 +17,26 @@ const projectName = (workspace: string): string => {
   return parts[parts.length - 1] || workspace
 }
 
-/** Pure state reducer for turn_end — exported for testing. */
+// ── Throttled periodic backup ────────────────────────────────────
+
+const BACKUP_THROTTLE_MS = 5 * 60 * 1000 // 5 minutes
+let lastBackupTime = 0
+
+/** Best-effort backup, throttled to once per 5 minutes */
+const throttledBackup = (): void => {
+  const now = Date.now()
+  if (now - lastBackupTime < BACKUP_THROTTLE_MS) return
+  lastBackupTime = now
+  import('@/lib/history-store').then((hs) =>
+    hs.createBackup(useSettingsStore.getState().settings),
+  ).catch(() => {})
+}
+
+/**
+ * Pure state reducer for turn_end — exported for testing.
+ */
 export const applyTurnEnd = (
-  s: Pick<TaskStore, 'tasks' | 'streamingChunks' | 'thinkingChunks' | 'liveToolCalls' | 'liveSubagents'>,
+  s: Pick<TaskStore, 'tasks' | 'streamingChunks' | 'thinkingChunks' | 'liveToolCalls' | 'liveToolSplits'>,
   taskId: string,
   stopReason?: string,
   refusalRetry?: boolean,
@@ -26,6 +44,7 @@ export const applyTurnEnd = (
   const chunk = s.streamingChunks[taskId] ?? ''
   const thinking = s.thinkingChunks[taskId] ?? ''
   const liveTools = s.liveToolCalls[taskId] ?? []
+  const liveSplits = s.liveToolSplits[taskId] ?? []
   const task = s.tasks[taskId]
   if (!task) return {}
   // If the task is already running again (e.g. steering started a new turn
@@ -35,6 +54,20 @@ export const applyTurnEnd = (
   const finalizedTools = liveTools.map((tc) =>
     tc.status === 'completed' || tc.status === 'failed' ? tc : { ...tc, status: fallbackStatus },
   )
+  // Filter splits to those that reference one of the finalized tool calls
+  // and sort by offset, breaking ties by the tool call's `createdAt` so the
+  // persisted order matches the order the agent emitted batched tools in.
+  // `.filter` returns a fresh array, so we can sort in place.
+  const toolIds = new Set(finalizedTools.map((tc) => tc.toolCallId))
+  const toolCreatedAt = new Map(finalizedTools.map((tc) => [tc.toolCallId, tc.createdAt ?? '']))
+  const finalizedSplits = liveSplits
+    .filter((split) => toolIds.has(split.toolCallId))
+    .sort((a, b) => {
+      if (a.at !== b.at) return a.at - b.at
+      const aAt = toolCreatedAt.get(a.toolCallId) ?? ''
+      const bAt = toolCreatedAt.get(b.toolCallId) ?? ''
+      return aAt.localeCompare(bAt)
+    })
   const newMessages = [...task.messages]
   if (chunk || finalizedTools.length > 0) {
     newMessages.push({
@@ -43,6 +76,7 @@ export const applyTurnEnd = (
       timestamp: new Date().toISOString(),
       ...(thinking ? { thinking } : {}),
       ...(finalizedTools.length > 0 ? { toolCalls: finalizedTools } : {}),
+      ...(finalizedSplits.length > 0 ? { toolCallSplits: finalizedSplits } : {}),
     })
   }
   if (stopReason === 'refusal') {
@@ -67,7 +101,11 @@ export const applyTurnEnd = (
     : 'completed'
   const updatedTask: AgentTask = {
     ...task,
-    status: finalStatus,
+    // Both refusal and normal end leave the task `paused` so the user can
+    // send a new message. We surface the refusal as a system message in
+    // `newMessages` rather than via a sticky 'error' status (which would
+    // feel like the task is unrecoverable).
+    status: 'paused',
     messages: newMessages,
     pendingPermission: undefined,
   }
@@ -76,7 +114,7 @@ export const applyTurnEnd = (
     streamingChunks: { ...s.streamingChunks, [taskId]: '' },
     thinkingChunks: { ...s.thinkingChunks, [taskId]: '' },
     liveToolCalls: { ...s.liveToolCalls, [taskId]: [] },
-    liveSubagents: { ...s.liveSubagents, [taskId]: [] },
+    liveToolSplits: { ...s.liveToolSplits, [taskId]: [] },
   }
 }
 
@@ -157,11 +195,39 @@ export function initTaskListeners(): () => void {
     if (!thinkRaf) thinkRaf = requestAnimationFrame(flushThinking)
   })
 
+  /**
+   * Synchronously commit any pending streaming text so callers that read
+   * `streamingChunks[taskId].length` immediately afterwards see the
+   * up-to-date value. Used by `onToolCall` so the offset recorded for
+   * inline tool-call rendering matches the text the agent had already
+   * emitted at that point.
+   *
+   * The flush is global (commits every buffered task) because the
+   * underlying `flushChunks` is — committing extra clean text is harmless
+   * and avoids keeping two near-identical flush paths in sync. We do *not*
+   * early-return when `chunkBuf[taskId]` is empty: if another task has
+   * pending chunks, skipping the flush would leave stale data in the
+   * buffer until the next rAF tick.
+   */
+  const flushPendingChunks = (): void => {
+    if (chunkRaf === null) return
+    cancelAnimationFrame(chunkRaf)
+    chunkRaf = null
+    flushChunks()
+  }
+
   const unsub4 = ipc.onToolCall(({ taskId, toolCall }) => {
+    flushPendingChunks()
     useTaskStore.getState().upsertToolCall(taskId, toolCall)
   })
 
   const unsub5 = ipc.onToolCallUpdate(({ taskId, toolCall }) => {
+    // Only the first sighting of a tool call records a split offset. For
+    // updates to a known tool, the existing split is preserved verbatim
+    // and skipping the synchronous flush avoids a setState per token-tick.
+    const liveTools = useTaskStore.getState().liveToolCalls[taskId]
+    const isKnown = liveTools?.some((tc) => tc.toolCallId === toolCall.toolCallId) === true
+    if (!isKnown) flushPendingChunks()
     useTaskStore.getState().upsertToolCall(taskId, toolCall)
     if (
       toolCall.status === 'completed' &&
@@ -268,6 +334,19 @@ export function initTaskListeners(): () => void {
     // Use a single setState to avoid stale reads between getState() calls
     useTaskStore.setState((s) => applyTurnEnd(s, taskId, stopReason))
 
+    // Clear dispatch snapshot — turn is complete
+    useTaskStore.getState().setDispatchSnapshot(taskId, null)
+
+    // Emit turn quiesced receipt
+    {
+      const t = useTaskStore.getState().tasks[taskId]
+      if (t) {
+        const lastMsg = t.messages[t.messages.length - 1]
+        const toolCallCount = lastMsg?.toolCalls?.length ?? 0
+        getReceiptBus().publish(createTurnQuiescedReceipt(taskId, t.messages.length, toolCallCount))
+      }
+    }
+
     // Analytics: record assistant output word count and diff stats
     {
       const t = useTaskStore.getState().tasks[taskId]
@@ -285,6 +364,8 @@ export function initTaskListeners(): () => void {
         ipc.gitDiffStats(ws).then((stats) => {
           if (stats.additions > 0 || stats.deletions > 0) {
             record('diff_stats', { project: proj, thread: taskId, value: stats.additions, value2: stats.deletions })
+            // Emit typed receipt for diff readiness
+            getReceiptBus().publish(createDiffReadyReceipt(taskId, stats))
           }
         }).catch(() => {})
         const model = useSettingsStore.getState().currentModelId
@@ -413,11 +494,15 @@ export function initTaskListeners(): () => void {
         content: `\u26a0\ufe0f ${message}`,
         timestamp: new Date().toISOString(),
       }
+      // Drop the dispatch snapshot — the turn is dead.
+      const { [taskId]: _drop, ...remainingSnapshots } = s.dispatchSnapshots
       return {
         tasks: { ...s.tasks, [taskId]: { ...task, messages: [...task.messages, errorMsg], status: 'error' } },
         streamingChunks: { ...s.streamingChunks, [taskId]: '' },
         thinkingChunks: { ...s.thinkingChunks, [taskId]: '' },
         liveToolCalls: { ...s.liveToolCalls, [taskId]: [] },
+        liveToolSplits: { ...s.liveToolSplits, [taskId]: [] },
+        dispatchSnapshots: remainingSnapshots,
       }
     })
     // Notify on errors while backgrounded

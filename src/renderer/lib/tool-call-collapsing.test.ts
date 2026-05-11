@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { collapseToolCalls, deriveCollapseKey, getGroupCount } from './tool-call-collapsing'
+import { collapseToolCalls, deriveCollapseKey, getGroupCount, expandGroup } from './tool-call-collapsing'
 import type { ToolCall } from '@/types'
 
 const makeToolCall = (overrides: Partial<ToolCall> = {}): ToolCall => ({
@@ -105,6 +105,21 @@ describe('getGroupCount', () => {
     const calls = [makeToolCall(), makeToolCall(), makeToolCall()]
     const group = { representative: calls[2], calls, key: 'k' }
     expect(getGroupCount(group)).toBe(3)
+  })
+})
+
+describe('expandGroup', () => {
+  it('returns all calls in the group', () => {
+    const calls = [makeToolCall(), makeToolCall(), makeToolCall()]
+    const group = { representative: calls[2], calls, key: 'k' }
+    expect(expandGroup(group)).toBe(calls)
+    expect(expandGroup(group).length).toBe(3)
+  })
+
+  it('returns single-item array for non-collapsed group', () => {
+    const tc = makeToolCall()
+    const group = { representative: tc, calls: [tc], key: 'k' }
+    expect(expandGroup(group)).toEqual([tc])
   })
 })
 

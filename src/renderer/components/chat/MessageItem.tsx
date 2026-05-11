@@ -8,7 +8,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useClaudeConfigStore } from "@/stores/claudeConfigStore";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { useSettingsStore, selectChatFontSize } from "@/stores/settingsStore";
 import { useTaskStore } from "@/stores/taskStore";
 import { usePanelResolvedTaskId } from "./PanelContext";
 import ChatMarkdown from "./ChatMarkdown";
@@ -99,7 +99,7 @@ export const MessageItem = memo(function MessageItem({
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const chatFontSize = useSettingsStore((s) => s.settings.fontSize ?? 14);
+  const chatFontSize = useSettingsStore(selectChatFontSize);
 
   const handleCopy = useCallback(() => {
     void navigator.clipboard.writeText(message.content).then(() => {

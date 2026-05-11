@@ -85,6 +85,8 @@ export function plansEqual(
 
 /**
  * Compare two tool call objects.
+ * Uses reference equality for `content` because content arrays are replaced
+ * atomically by the IPC layer — the same array instance means unchanged data.
  */
 export function toolCallsEqual(a: ToolCall, b: ToolCall): boolean {
   return (

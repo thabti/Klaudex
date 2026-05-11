@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AgentTask, ActivityEntry, SoftDeletedThread, TaskMessage } from '@/types'
+import type { AgentTask, ActivityEntry, SoftDeletedThread, TaskMessage, ToolCall } from '@/types'
 import { ipc } from '@/lib/ipc'
 import { joinChunk } from '@/lib/utils'
 import * as historyStore from '@/lib/history-store'
@@ -66,10 +66,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   streamingChunks: {},
   thinkingChunks: {},
   liveToolCalls: {},
+  liveToolSplits: {},
   liveSubagents: {},
   queuedMessages: {},
   activityFeed: [],
   connected: false,
+  connectionStatus: { phase: 'idle', attemptCount: 0, reconnectAttemptCount: 0, reconnectMaxAttempts: 5, hasConnected: false, connectedAt: null, disconnectedAt: null, lastError: null, lastErrorAt: null, nextRetryAt: null },
+  dispatchSnapshots: {},
   terminalOpenTasks: new Set<string>(),
   isWorkspaceTerminalOpen: false,
   drafts: {},
@@ -360,7 +363,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       streamingChunks: { ...s.streamingChunks, [id]: '' },
       thinkingChunks: { ...s.thinkingChunks, [id]: '' },
       liveToolCalls: { ...s.liveToolCalls, [id]: [] },
-      liveSubagents: { ...s.liveSubagents, [id]: [] },
+      liveToolSplits: { ...s.liveToolSplits, [id]: [] },
     }))
     void ipc.deleteTask(id)
     get().persistHistory()
@@ -402,9 +405,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const { [id]: _c, ...chunks } = state.streamingChunks
       const { [id]: _t, ...thinking } = state.thinkingChunks
       const { [id]: _tc, ...tools } = state.liveToolCalls
-      const { [id]: _sa, ...subagents } = state.liveSubagents
+      const { [id]: _ts, ...splits } = state.liveToolSplits
       const { [id]: _m, ...modes } = state.taskModes
       const { [id]: _mdl, ...models } = state.taskModels
+      const { [id]: _ds, ...remainingSnapshots } = state.dispatchSnapshots
       const deletedTaskIds = new Set(state.deletedTaskIds)
       deletedTaskIds.add(id)
       const softDeleted = {
@@ -416,9 +420,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         streamingChunks: chunks,
         thinkingChunks: thinking,
         liveToolCalls: tools,
-        liveSubagents: subagents,
+        liveToolSplits: splits,
         taskModes: modes,
         taskModels: models,
+        dispatchSnapshots: remainingSnapshots,
         deletedTaskIds,
         softDeleted,
         selectedTaskId: state.selectedTaskId === id ? null : state.selectedTaskId,
@@ -521,11 +526,29 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       ) {
         return state
       }
-      const updated = idx >= 0
-        ? existing.map((tc, i) => (i === idx ? toolCall : tc))
-        : [...existing, toolCall]
+      // Stamp createdAt on first appearance so we can order tool calls
+      // relative to text segments when rendering inline.
+      const isNew = idx < 0
+      const stamped: ToolCall = isNew && !toolCall.createdAt
+        ? { ...toolCall, createdAt: new Date().toISOString() }
+        : toolCall
+      const updated = isNew
+        ? [...existing, stamped]
+        : existing.map((tc, i) => (i === idx ? { ...stamped, createdAt: tc.createdAt ?? stamped.createdAt } : tc))
+      // Record the streaming-text offset at which this tool call appeared.
+      // Only recorded once per toolCallId, on first sight.
+      let nextSplits = state.liveToolSplits
+      if (isNew) {
+        const at = state.streamingChunks[taskId]?.length ?? 0
+        const existingSplits = state.liveToolSplits[taskId] ?? []
+        nextSplits = {
+          ...state.liveToolSplits,
+          [taskId]: [...existingSplits, { at, toolCallId: toolCall.toolCallId }],
+        }
+      }
       return {
         liveToolCalls: { ...state.liveToolCalls, [taskId]: updated },
+        liveToolSplits: nextSplits,
       }
     }),
 
@@ -612,13 +635,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const hasChunks = !!state.streamingChunks[taskId]
       const hasThinking = !!state.thinkingChunks[taskId]
       const hasTools = state.liveToolCalls[taskId]?.length > 0
-      const hasSubagents = state.liveSubagents[taskId]?.length > 0
-      if (!hasChunks && !hasThinking && !hasTools && !hasSubagents) return state
+      const hasSplits = (state.liveToolSplits[taskId]?.length ?? 0) > 0
+      if (!hasChunks && !hasThinking && !hasTools && !hasSplits) return state
       return {
         streamingChunks: { ...state.streamingChunks, [taskId]: '' },
         thinkingChunks: { ...state.thinkingChunks, [taskId]: '' },
         liveToolCalls: { ...state.liveToolCalls, [taskId]: [] },
-        liveSubagents: { ...state.liveSubagents, [taskId]: [] },
+        liveToolSplits: { ...state.liveToolSplits, [taskId]: [] },
       }
     }),
 
@@ -1123,6 +1146,45 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set({ connected: v })
   },
 
+  setConnectionStatus: (status) => {
+    set({ connectionStatus: status })
+  },
+
+  setDispatchSnapshot: (taskId, snapshot) => {
+    set((s) => {
+      if (snapshot) {
+        return { dispatchSnapshots: { ...s.dispatchSnapshots, [taskId]: snapshot } }
+      }
+      // Bail out early if the taskId isn't in the map — avoids creating a
+      // fresh object identity (and the spurious re-render that follows) for
+      // every clear() call on an already-empty key.
+      if (!(taskId in s.dispatchSnapshots)) return s
+      const { [taskId]: _drop, ...rest } = s.dispatchSnapshots
+      return { dispatchSnapshots: rest }
+    })
+  },
+
+  rekeyDispatchSnapshot: (fromTaskId, toTaskId) => {
+    // Atomically move the snapshot from `fromTaskId` to `toTaskId`. Used
+    // after `ipc.createTask` returns a backend-assigned id so the snapshot
+    // we recorded against the draft id follows the task. We do this in a
+    // single setState so a concurrent `turn_end` listener can't observe a
+    // half-applied state where the snapshot is missing from both keys.
+    set((s) => {
+      if (!(fromTaskId in s.dispatchSnapshots)) return s
+      const { [fromTaskId]: snapshot, ...rest } = s.dispatchSnapshots
+      // If `toTaskId` already has a snapshot (e.g. turn_end fired for the
+      // new id while we were re-keying), keep the newer one — the old draft
+      // snapshot is stale by definition.
+      if (toTaskId in rest) {
+        return { dispatchSnapshots: rest }
+      }
+      return {
+        dispatchSnapshots: { ...rest, [toTaskId]: { ...snapshot, taskId: toTaskId } },
+      }
+    })
+  },
+
   persistHistory: () => {
     const { tasks, projectNames, projectIds, softDeleted, projects, threadOrders, archivedMeta } = get()
     // Tell saveThreads which on-disk archived ids to preserve verbatim.
@@ -1162,7 +1224,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       streamingChunks: {},
       thinkingChunks: {},
       liveToolCalls: {},
-      liveSubagents: {},
+      liveToolSplits: {},
+      dispatchSnapshots: {},
       queuedMessages: {},
       terminalOpenTasks: new Set<string>(),
       isWorkspaceTerminalOpen: false,
@@ -1195,7 +1258,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         streamingChunks: { ...s.streamingChunks, [taskId]: '' },
         thinkingChunks: { ...s.thinkingChunks, [taskId]: '' },
         liveToolCalls: { ...s.liveToolCalls, [taskId]: [] },
-        liveSubagents: { ...s.liveSubagents, [taskId]: [] },
+        liveToolSplits: { ...s.liveToolSplits, [taskId]: [] },
       }))
       void ipc.deleteTask(taskId)
     } else {
@@ -1206,9 +1269,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         const { [taskId]: _c, ...chunks } = state.streamingChunks
         const { [taskId]: _t, ...thinking } = state.thinkingChunks
         const { [taskId]: _tc, ...tools } = state.liveToolCalls
-        const { [taskId]: _sa, ...subagents } = state.liveSubagents
+        const { [taskId]: _ts, ...splits } = state.liveToolSplits
         const { [taskId]: _m, ...modes } = state.taskModes
         const { [taskId]: _mdl, ...models } = state.taskModels
+        const { [taskId]: _ds, ...remainingSnapshots } = state.dispatchSnapshots
         const deletedTaskIds = new Set(state.deletedTaskIds)
         deletedTaskIds.add(taskId)
         const softDeleted = {
@@ -1220,9 +1284,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           streamingChunks: chunks,
           thinkingChunks: thinking,
           liveToolCalls: tools,
-          liveSubagents: subagents,
+          liveToolSplits: splits,
           taskModes: modes,
           taskModels: models,
+          dispatchSnapshots: remainingSnapshots,
           deletedTaskIds,
           softDeleted,
           selectedTaskId: state.selectedTaskId === taskId ? null : state.selectedTaskId,

@@ -8,13 +8,21 @@
  * Pattern inspired by T3 Code's *.logic.ts convention.
  */
 
-import type { AgentTask, TaskMessage, ToolCall, IpcAttachment } from '@/types'
+import type { AgentTask, TaskMessage, ToolCall, ToolCallSplit } from '@/types'
 import type { QueuedMessage } from '@/stores/task-store-types'
+import {
+  type LocalDispatchSnapshot,
+  type DispatchPhase,
+  createDispatchSnapshot,
+  deriveDispatchPhase,
+  getDispatchPhaseLabel,
+} from '@/lib/dispatch-snapshot'
 
 // ── Constants ─────────────────────────────────────────────────────
 
 export const EMPTY_MESSAGES: TaskMessage[] = []
 export const EMPTY_TOOL_CALLS: ToolCall[] = []
+export const EMPTY_TOOL_SPLITS: ToolCallSplit[] = []
 export const EMPTY_OPTIONS: Array<{ optionId: string; name: string; kind: string }> = []
 export const EMPTY_QUEUE: QueuedMessage[] = []
 
@@ -22,8 +30,14 @@ export const EMPTY_QUEUE: QueuedMessage[] = []
 
 /**
  * Determine whether the chat input should be disabled and why.
+ *
+ * Only reads `status` and `isArchived`, so callers can pass a narrow slice
+ * instead of the full task — that lets `ChatPanel` subscribe to those two
+ * fields individually and avoid re-rendering on every other task mutation.
  */
-export function deriveInputState(task: AgentTask | null | undefined): {
+export function deriveInputState(
+  task: Pick<AgentTask, 'status' | 'isArchived'> | null | undefined,
+): {
   disabled: boolean
   disabledReason: string | undefined
 } {
@@ -139,3 +153,37 @@ export function needsNewConnection(task: AgentTask): boolean {
 export function extractProjectName(task: AgentTask): string {
   return (task.originalWorkspace ?? task.workspace).replace(/\\/g, '/').split('/').pop() ?? ''
 }
+
+// ── Dispatch snapshot helpers ─────────────────────────────────────
+
+/**
+ * Create a dispatch snapshot for optimistic UI tracking.
+ * Call this when the user sends a message.
+ */
+export function captureDispatchSnapshot(
+  task: AgentTask,
+  streamingChunk: string,
+): LocalDispatchSnapshot {
+  return createDispatchSnapshot(task, streamingChunk)
+}
+
+/**
+ * Derive the current dispatch phase for UI display.
+ */
+export function getDispatchPhase(
+  snapshot: LocalDispatchSnapshot | null,
+  task: AgentTask | null | undefined,
+  streamingChunk: string,
+): DispatchPhase {
+  return deriveDispatchPhase(snapshot, task, streamingChunk)
+}
+
+/**
+ * Get a human-readable label for the dispatch phase (or null if idle/streaming).
+ */
+export function getDispatchLabel(phase: DispatchPhase): string | null {
+  return getDispatchPhaseLabel(phase)
+}
+
+// Re-export for convenience
+export type { LocalDispatchSnapshot, DispatchPhase }

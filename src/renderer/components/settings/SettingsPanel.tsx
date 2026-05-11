@@ -66,6 +66,7 @@ const defaultSettings: AppSettings = {
   claudeBin: 'claude',
   agentProfiles: [],
   fontSize: 14,
+  chatFontSize: 14,
   sidebarPosition: 'left',
   analyticsEnabled: true,
 }

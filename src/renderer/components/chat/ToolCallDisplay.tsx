@@ -13,9 +13,16 @@ const MAX_VISIBLE_DEFAULT = 6
 
 interface ToolCallDisplayProps {
   toolCalls: ToolCall[]
+  /**
+   * When true, the calls are rendered in their inline-with-prose context
+   * (one or two tool entries between paragraphs). The aggregate header and
+   * truncation chrome are dropped because they make a single tool call feel
+   * like a heavyweight section break.
+   */
+  inline?: boolean
 }
 
-export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls }: ToolCallDisplayProps) {
+export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls, inline = false }: ToolCallDisplayProps) {
   const [expanded, setExpanded] = useState(true)
   const [showAll, setShowAll] = useState(false)
 
@@ -38,11 +45,37 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls }: Tool
     return { completedCount: completed, runningCount: running, failedCount: failed }
   }, [toolCalls])
 
-  const visibleCalls = showAll ? toolCalls : toolCalls.slice(0, MAX_VISIBLE_DEFAULT)
-  const hasMore = toolCalls.length > MAX_VISIBLE_DEFAULT
-
   const hasTaskList = useMemo(() => toolCalls.some(isTaskListToolCall), [toolCalls])
   const hasSubagent = useMemo(() => toolCalls.some(isSubagentToolCall), [toolCalls])
+
+  // Inline layout: render each tool entry directly, no aggregate header.
+  // Specialized renderings (subagents) still appear when present.
+  // Task-list tool calls are intentionally NOT rendered as a card here —
+  // the StickyTaskList component above the chat input owns that card so
+  // multi-step task updates (create → add → complete) don't spawn a new
+  // card per inline tool group.
+  if (inline) {
+    // Skip task-list tool entries entirely in inline mode — the sticky
+    // task list above the chat input is the canonical view. If a group
+    // contains only task-list calls, render nothing.
+    const visibleInline = toolCalls.filter((tc) => !isTaskListToolCall(tc))
+    if (visibleInline.length === 0 && !hasSubagent) return null
+    return (
+      <div data-testid="tool-call-display" data-inline="true" className="space-y-1">
+        {visibleInline.map((tc) => (
+          <ToolCallEntry key={tc.toolCallId} toolCall={tc} />
+        ))}
+        {hasSubagent && (
+          <div className="pt-1">
+            <SubagentDisplay allToolCalls={toolCalls} />
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const visibleCalls = showAll ? toolCalls : toolCalls.slice(0, MAX_VISIBLE_DEFAULT)
+  const hasMore = toolCalls.length > MAX_VISIBLE_DEFAULT
 
   return (
     <>

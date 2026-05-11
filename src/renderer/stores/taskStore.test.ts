@@ -59,7 +59,7 @@ const makeTask = (overrides?: Partial<AgentTask>): AgentTask => ({
 beforeEach(() => {
   useTaskStore.setState({
     tasks: {}, projects: [], projectIds: {}, deletedTaskIds: new Set(), softDeleted: {}, selectedTaskId: null,
-    streamingChunks: {}, thinkingChunks: {}, liveToolCalls: {}, liveSubagents: {},
+    streamingChunks: {}, thinkingChunks: {}, liveToolCalls: {}, liveToolSplits: {},
     queuedMessages: {}, activityFeed: [], connected: false,
     terminalOpenTasks: new Set(), pendingWorkspace: null,
     view: 'dashboard', isNewProjectOpen: false, isSettingsOpen: false, projectNames: {},
@@ -179,11 +179,13 @@ describe('streaming', () => {
       streamingChunks: { t1: 'text' },
       thinkingChunks: { t1: 'think' },
       liveToolCalls: { t1: [{ toolCallId: 'tc1', title: 'test', status: 'completed' }] },
+      liveToolSplits: { t1: [{ at: 4, toolCallId: 'tc1' }] },
     })
     useTaskStore.getState().clearTurn('t1')
     expect(useTaskStore.getState().streamingChunks['t1']).toBe('')
     expect(useTaskStore.getState().thinkingChunks['t1']).toBe('')
     expect(useTaskStore.getState().liveToolCalls['t1']).toEqual([])
+    expect(useTaskStore.getState().liveToolSplits['t1']).toEqual([])
   })
 })
 
@@ -191,6 +193,28 @@ describe('upsertToolCall', () => {
   it('adds new tool call', () => {
     useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'pending' })
     expect(useTaskStore.getState().liveToolCalls['t1']).toHaveLength(1)
+  })
+
+  it('records a split anchor at the current streaming offset on first sight', () => {
+    useTaskStore.setState({ streamingChunks: { t1: 'hello world' } })
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'pending' })
+    expect(useTaskStore.getState().liveToolSplits['t1']).toEqual([{ at: 11, toolCallId: 'tc1' }])
+  })
+
+  it('does not record a duplicate split when the same tool is updated', () => {
+    useTaskStore.setState({ streamingChunks: { t1: 'hello' } })
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'pending' })
+    useTaskStore.setState({ streamingChunks: { t1: 'hello world' } })
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'completed' })
+    expect(useTaskStore.getState().liveToolSplits['t1']).toEqual([{ at: 5, toolCallId: 'tc1' }])
+  })
+
+  it('stamps createdAt on first sight and preserves it across updates', () => {
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'pending' })
+    const created = useTaskStore.getState().liveToolCalls['t1'][0].createdAt
+    expect(created).toBeDefined()
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'completed' })
+    expect(useTaskStore.getState().liveToolCalls['t1'][0].createdAt).toBe(created)
   })
 
   it('updates existing by toolCallId', () => {
@@ -545,7 +569,7 @@ describe('applyTurnEnd', () => {
     streamingChunks: {} as Record<string, string>,
     thinkingChunks: {} as Record<string, string>,
     liveToolCalls: {} as Record<string, import('@/types').ToolCall[]>,
-    liveSubagents: {} as Record<string, import('@/types').SubagentInfo[]>,
+    liveToolSplits: {} as Record<string, import('@/types').ToolCallSplit[]>,
     ...overrides,
   })
 
@@ -1761,7 +1785,7 @@ describe('multi-turn message preservation', () => {
       streamingChunks: { t1: 'second answer' } as Record<string, string>,
       thinkingChunks: {} as Record<string, string>,
       liveToolCalls: {} as Record<string, import('@/types').ToolCall[]>,
-      liveSubagents: {} as Record<string, import('@/types').SubagentInfo[]>,
+      liveToolSplits: {} as Record<string, import('@/types').ToolCallSplit[]>,
     }
     const result = applyTurnEnd(state, 't1', 'end_turn')
     const messages = result.tasks?.['t1'].messages ?? []
@@ -2352,5 +2376,38 @@ describe('split view focus isolation', () => {
     useTaskStore.getState().createSplitView('left-1', 'right-1')
     expect(useTaskStore.getState().tasks['left-1'].workspace).toBe('/project-a')
     expect(useTaskStore.getState().tasks['right-1'].workspace).toBe('/project-b')
+  })
+})
+
+describe('rekeyDispatchSnapshot', () => {
+  it('atomically moves the snapshot to the new task id and rewrites taskId', () => {
+    useTaskStore.getState().setDispatchSnapshot('draft-1', {
+      startedAt: 1, taskStatus: 'paused', messageCount: 0, wasStreaming: false, taskId: 'draft-1',
+    })
+    useTaskStore.getState().rekeyDispatchSnapshot('draft-1', 'real-1')
+    const snapshots = useTaskStore.getState().dispatchSnapshots
+    expect(snapshots['draft-1']).toBeUndefined()
+    expect(snapshots['real-1']?.taskId).toBe('real-1')
+  })
+
+  it('drops the source snapshot when the destination already has one (turn_end raced ahead)', () => {
+    // Simulates `turn_end` firing for the new id while we were re-keying:
+    // the newer destination snapshot wins, the stale draft is discarded.
+    useTaskStore.getState().setDispatchSnapshot('draft-1', {
+      startedAt: 1, taskStatus: 'paused', messageCount: 0, wasStreaming: false, taskId: 'draft-1',
+    })
+    useTaskStore.getState().setDispatchSnapshot('real-1', {
+      startedAt: 2, taskStatus: 'running', messageCount: 1, wasStreaming: true, taskId: 'real-1',
+    })
+    useTaskStore.getState().rekeyDispatchSnapshot('draft-1', 'real-1')
+    const snapshots = useTaskStore.getState().dispatchSnapshots
+    expect(snapshots['draft-1']).toBeUndefined()
+    expect(snapshots['real-1']?.startedAt).toBe(2) // newer snapshot survived
+  })
+
+  it('is a no-op when the source has no snapshot', () => {
+    const before = useTaskStore.getState().dispatchSnapshots
+    useTaskStore.getState().rekeyDispatchSnapshot('missing', 'real-1')
+    expect(useTaskStore.getState().dispatchSnapshots).toBe(before)
   })
 })

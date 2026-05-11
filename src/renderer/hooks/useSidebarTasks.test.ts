@@ -27,6 +27,7 @@ beforeEach(() => {
     streamingChunks: {},
     thinkingChunks: {},
     liveToolCalls: {},
+    liveToolSplits: {},
     queuedMessages: {},
     activityFeed: [],
     connected: false,

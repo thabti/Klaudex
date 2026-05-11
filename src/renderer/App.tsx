@@ -3,6 +3,9 @@ import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { applyTheme, listenSystemTheme, persistTheme } from "@/lib/theme";
+import { preloadHighlighterIdle } from "@/lib/chatHighlighter";
+import { startConnectionHealthMonitor } from "@/lib/connection-health";
+import { getReceiptBus } from "@/lib/typed-receipts";
 import { AppHeader } from "@/components/AppHeader";
 import { TaskSidebar } from "@/components/sidebar/TaskSidebar";
 const ChatPanel = lazy(() =>
@@ -270,6 +273,7 @@ export function App() {
   const analyticsEnabled = useSettingsStore((s) => s.settings.analyticsEnabled ?? true);
   const analyticsAnonId = useSettingsStore((s) => s.settings.analyticsAnonId ?? null);
   const fontSize = useSettingsStore((s) => s.settings.fontSize);
+  const chatFontSize = useSettingsStore((s) => s.settings.chatFontSize);
   const theme = useSettingsStore((s) => s.settings.theme ?? 'dark');
   const sidebarPosition = useSettingsStore((s) => s.settings.sidebarPosition ?? 'left');
   const isRightSidebar = sidebarPosition === 'right';
@@ -283,6 +287,13 @@ export function App() {
     document.documentElement.style.setProperty('--app-font-size', `${fontSize ?? 13}px`);
   }, [fontSize]);
 
+  // Apply chat font size as a CSS var. Falls back to UI font size so users on
+  // existing settings (no chatFontSize key) keep current behavior.
+  useEffect(() => {
+    const resolved = chatFontSize ?? fontSize ?? 14;
+    document.documentElement.style.setProperty('--chat-font-size', `${resolved}px`);
+  }, [chatFontSize, fontSize]);
+
   // Apply theme and listen for OS preference changes (for 'system' mode)
   useEffect(() => {
     applyTheme(theme);
@@ -290,6 +301,12 @@ export function App() {
     if (theme !== 'system') return
     return listenSystemTheme(() => applyTheme('system'))
   }, [theme]);
+
+  // Warm the chat code-block highlighter in the background so the first
+  // fenced code block doesn't pay the full Shiki cold-start cost. The
+  // returned cleanup cancels the idle callback if App unmounts before it
+  // runs (effectively never, but kept for correctness).
+  useEffect(() => preloadHighlighterIdle(), []);
 
   // Sync active workspace → apply per-project model/autoApprove prefs
   useEffect(() => {
@@ -398,6 +415,18 @@ export function App() {
     // navigates to the thread (via sidebar click or native notification).
     const handleWindowFocus = () => {};
     window.addEventListener("focus", handleWindowFocus);
+    // Begin probing the kiro-cli subprocess so we can show "reconnecting…"
+    // banners and clear stale latency entries on disconnect.
+    const cleanupHealth = startConnectionHealthMonitor();
+    // When a `diff.ready` receipt is published (after `turn_end`), refresh
+    // the diff panel if it's open. This replaces the old pattern of polling
+    // `gitDiffStats` from the panel itself.
+    const unsubDiffReceipt = getReceiptBus().subscribe('diff.ready', (receipt) => {
+      const diffStore = useDiffStore.getState()
+      if (diffStore.isOpen) {
+        void diffStore.fetchDiff(receipt.taskId)
+      }
+    });
     startAutoFlush();
     // Listen for native menu events
     let unlistenFlushBeforeQuit: (() => void) | null = null
@@ -486,7 +515,8 @@ export function App() {
       stopAutoFlush();
       cleanupTask();
       cleanupClaude();
-      if (unlistenFlushBeforeQuit) unlistenFlushBeforeQuit()
+      cleanupHealth();
+      unsubDiffReceipt();
       if (unlistenNewThread) unlistenNewThread()
       if (unlistenNewProject) unlistenNewProject()
       if (unlistenRecentProject) unlistenRecentProject()
