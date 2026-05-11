@@ -130,7 +130,7 @@ function EmptyState() {
         </button>
         {!hasProjects && (
           <p className="text-[11px] text-muted-foreground">
-            Or press <kbd className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px]">⌘O</kbd> to open a folder
+            Or press <kbd className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[10px]">⌘O</kbd> to open a folder
           </p>
         )}
       </div>

@@ -1,3 +1,9 @@
+## 2026-05-11 08:18 GST (Dubai)
+### Chat: consistent kbd styling across chat components
+Ported consistent kbd element styling from kirodex. Standardized to rounded-sm bg-muted pattern across BtwOverlay, ChatToolbar, EmptyThreadSplash, QuestionCards, and App.tsx EmptyState.
+
+**Modified:** `src/renderer/App.tsx`, `src/renderer/components/chat/BtwOverlay.tsx`, `src/renderer/components/chat/ChatToolbar.tsx`, `src/renderer/components/chat/EmptyThreadSplash.tsx`, `src/renderer/components/chat/QuestionCards.tsx`
+
 ## 2026-05-11 08:17 GST (Dubai)
 ### ModelPicker: add error state with shake animation and retry button
 Ported error state handling for ModelPicker and ModelPickerPanel. Shows shake animation on error, destructive-colored Retry button after 10s timeout or on modelsError, calling probeCapabilities on retry.

@@ -234,10 +234,10 @@ export const QuestionCards = memo(function QuestionCards({
 
                 <div className="flex flex-1 items-baseline gap-2">
                   <kbd className={cn(
-                    "shrink-0 rounded border px-1.5 py-0.5 font-mono text-[11px] font-semibold transition-all",
+                    "shrink-0 rounded-sm px-1.5 py-0.5 font-mono text-[11px] font-semibold transition-all",
                     isSelected
-                      ? "border-primary/30 bg-primary/15 text-primary"
-                      : "border-border/50 bg-muted/50 text-muted-foreground group-hover:text-muted-foreground",
+                      ? "bg-primary/15 text-primary"
+                      : "bg-muted/50 text-muted-foreground group-hover:text-muted-foreground",
                   )}>
                     {opt.letter}
                   </kbd>
@@ -279,7 +279,7 @@ export const QuestionCards = memo(function QuestionCards({
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
           >
             Dismiss
-            <kbd className="rounded border border-border/40 bg-muted/40 px-1 py-0.5 text-[10px] font-medium">
+            <kbd className="rounded-sm bg-muted/40 px-1 py-0.5 text-[10px] font-medium">
               esc
             </kbd>
           </button>

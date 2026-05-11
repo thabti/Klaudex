@@ -95,7 +95,7 @@ export const ChatToolbar = memo(function ChatToolbar({
           aria-hidden
         />
         {/* Focus hint */}
-        <kbd className="hidden text-[10px] text-muted-foreground sm:inline">{MOD_KEY}L</kbd>
+        <kbd className="hidden rounded-sm bg-muted px-1 font-mono text-[10px] text-muted-foreground sm:inline">{MOD_KEY}L</kbd>
         {isRunning ? (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -116,7 +116,7 @@ export const ChatToolbar = memo(function ChatToolbar({
               </button>
             </TooltipTrigger>
             <TooltipContent side="top" className="text-[11px]">
-              Pause agent <kbd className="ml-1 rounded bg-muted px-1 py-0.5 text-[10px]">Esc</kbd>
+              Pause agent <kbd className="ml-1 rounded-sm bg-background/15 px-1 text-[10px]">Esc</kbd>
             </TooltipContent>
           </Tooltip>
         ) : (
@@ -146,7 +146,7 @@ export const ChatToolbar = memo(function ChatToolbar({
               </button>
             </TooltipTrigger>
             <TooltipContent side="top" className="text-[11px]">
-              Send message <kbd className="ml-1 rounded bg-muted px-1 py-0.5 text-[10px]">⏎</kbd>
+              Send message <kbd className="ml-1 rounded-sm bg-background/15 px-1 text-[10px]">⏎</kbd>
             </TooltipContent>
           </Tooltip>
         )}

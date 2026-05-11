@@ -120,7 +120,7 @@ export const BtwOverlay = memo(function BtwOverlay() {
         {/* Footer hint */}
         <div className="shrink-0 border-t border-border/30 px-4 py-1.5">
           <span className="text-[11px] text-muted-foreground/60">
-            Press <kbd className="rounded border border-border/50 px-1 py-0.5 text-[10px] font-mono">Esc</kbd> to dismiss
+            Press <kbd className="rounded-sm bg-muted px-1 py-0.5 text-[10px] font-mono">Esc</kbd> to dismiss
           </span>
         </div>
       </div>

@@ -103,7 +103,7 @@ export const EmptyThreadSplash = memo(function EmptyThreadSplash() {
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        Type <kbd className="rounded bg-muted/40 px-1 py-0.5 font-mono text-[10px]">/</kbd> or <kbd className="rounded bg-muted/40 px-1 py-0.5 font-mono text-[10px]">@</kbd> in the input to get started
+        Type <kbd className="rounded-sm bg-muted px-1 py-0.5 font-mono text-[10px]">/</kbd> or <kbd className="rounded-sm bg-muted px-1 py-0.5 font-mono text-[10px]">@</kbd> in the input to get started
       </p>
     </div>
   )
