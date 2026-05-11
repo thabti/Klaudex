@@ -1,3 +1,9 @@
+## 2026-05-11 07:14 GST (Dubai)
+### History Store: Separate dev and prod store files
+Ported upstream commit 240b96e from kirodex. Dev builds now use `history-dev.json` and `history-dev.backup.json` via `import.meta.env.DEV`, so running `bun run dev` no longer shares or overwrites the production app's history data.
+
+**Modified:** `src/renderer/lib/history-store.ts`
+
 ## 2026-05-11 06:48 GST (Dubai)
 ### Chat: Render completion card for all valid reports, not just file changes
 Ported upstream commit c2430dd from kirodex. `shouldRenderReportCard` now checks for any valid status + non-empty summary instead of requiring `filesChanged` to have items. No-file reports (e.g. answering a question) now render their summary card.

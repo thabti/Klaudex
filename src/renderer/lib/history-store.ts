@@ -37,12 +37,15 @@ interface SavedProject {
 
 // ── Store singleton ──────────────────────────────────────────────
 
+const HISTORY_FILE = import.meta.env.DEV ? 'history-dev.json' : 'history.json'
+const BACKUP_FILE = import.meta.env.DEV ? 'history-dev.backup.json' : 'history.backup.json'
+
 let _store: LazyStore | null = null
 
 const getStore = async (): Promise<LazyStore> => {
   if (!_store) {
     const { LazyStore } = await import('@tauri-apps/plugin-store')
-    _store = new LazyStore('history.json', { autoSave: 500, defaults: {} })
+    _store = new LazyStore(HISTORY_FILE, { autoSave: 500, defaults: {} })
   }
   return _store
 }
@@ -150,7 +153,7 @@ let _backupStore: LazyStore | null = null
 const getBackupStore = async (): Promise<LazyStore> => {
   if (!_backupStore) {
     const { LazyStore } = await import('@tauri-apps/plugin-store')
-    _backupStore = new LazyStore('history.backup.json', { autoSave: false, defaults: {} })
+    _backupStore = new LazyStore(BACKUP_FILE, { autoSave: false, defaults: {} })
   }
   return _backupStore
 }
