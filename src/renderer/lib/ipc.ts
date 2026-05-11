@@ -142,6 +142,8 @@ export const ipc = {
     tracedInvoke('task_set_auto_approve', { taskId, autoApprove }),
   pickFolder: (): Promise<string | null> =>
     tracedInvoke('pick_folder'),
+  pickImage: (): Promise<string | null> =>
+    invoke('pick_image'),
   detectClaudeCli: (): Promise<string | null> =>
     tracedInvoke('detect_claude_cli'),
   listModels: (claudeBin?: string): Promise<{ availableModels: Array<{ modelId: string; name: string; description?: string | null }>; currentModelId: string | null }> =>
@@ -152,6 +154,10 @@ export const ipc = {
     tracedInvoke('get_settings'),
   saveSettings: (settings: AppSettings): Promise<void> =>
     tracedInvoke('save_settings', { settings }),
+  setDockIcon: (iconBase64: string): Promise<void> =>
+    invoke('set_dock_icon', { iconBase64 }),
+  resetDockIcon: (): Promise<void> =>
+    invoke('reset_dock_icon'),
   gitDetect: (path: string): Promise<boolean> =>
     tracedInvoke('git_detect', { path }),
   gitListBranches: (cwd: string): Promise<{
@@ -395,17 +401,6 @@ export const ipc = {
     tracedInvoke('set_dock_icon_visible', { visible }),
   requestRelaunch: (): Promise<void> =>
     tracedInvoke('request_relaunch'),
-
-  // ---------------------------------------------------------------------
-  // File ops (additional)
-  //
-  // NOTE: `pick_image` is not currently registered in the Rust
-  // `invoke_handler!`. Wrapper stays here for type-stability of any UI
-  // code that calls it; at runtime the call rejects until the backend
-  // command lands.
-  // ---------------------------------------------------------------------
-  pickImage: (): Promise<string | null> =>
-    tracedInvoke('pick_image'),
 
   // ---------------------------------------------------------------------
   // PTY (additional)

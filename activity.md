@@ -1,3 +1,9 @@
+## 2026-05-11 08:28 GST (Dubai)
+### Settings: add custom app icon and compact two-column layout
+Ported upstream commit adding a custom app icon feature (upload PNG/JPG/WebP to replace dock/About icon) with `set_dock_icon` and `reset_dock_icon` Rust commands, `pick_image` IPC, and a redesigned two-column `SettingsGrid` layout across all settings pages.
+
+**Modified:** `src-tauri/src/commands/fs_ops.rs`, `src-tauri/src/commands/settings.rs`, `src-tauri/src/lib.rs`, `src/renderer/components/settings/AboutDialog.tsx`, `src/renderer/components/settings/SettingsPanel.tsx`, `src/renderer/components/settings/account-section.tsx`, `src/renderer/components/settings/advanced-section.tsx`, `src/renderer/components/settings/appearance-section.tsx`, `src/renderer/components/settings/archives-section.tsx`, `src/renderer/components/settings/general-section.tsx`, `src/renderer/components/settings/keymap-section.tsx`, `src/renderer/components/settings/settings-shared.tsx`, `src/renderer/lib/ipc.ts`, `src/renderer/stores/settingsStore.ts`, `src/renderer/types/index.ts`
+
 ## 2026-05-11 08:25 GST (Dubai)
 ### Tests: fix 3 timeline tests to match current deriveTimeline behavior
 Ported upstream commit updating test expectations for working row placement. The working row now always emits when isRunning is true (placed before live tool calls) with a hasStreamingContent flag instead of being suppressed when streaming text is active.

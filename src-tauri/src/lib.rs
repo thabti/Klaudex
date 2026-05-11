@@ -440,6 +440,8 @@ pub fn run() {
             settings::recent_projects_clear,
             settings::rebuild_menu,
             settings::set_dock_icon_visible,
+            settings::set_dock_icon,
+            settings::reset_dock_icon,
             settings::request_relaunch,
             // File ops
             fs_ops::detect_claude_cli,
@@ -447,6 +449,7 @@ pub fn run() {
             fs_ops::read_file_base64,
             fs_ops::is_directory,
             fs_ops::pick_folder,
+            fs_ops::pick_image,
             fs_ops::open_in_editor,
             fs_ops::open_url,
             fs_ops::detect_editors,
