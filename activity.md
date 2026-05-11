@@ -1,3 +1,9 @@
+## 2026-05-11 08:35 GST (Dubai)
+### UpdateNotifier: deduplicate toast and style Sonner toasts
+Ported upstream fix replacing the `toastIdRef` pattern with a stable `UPDATE_TOAST_ID` constant so Sonner deduplicates by ID. Added dark-themed CSS overrides for Sonner toasts and switched Toaster theme to dark.
+
+**Modified:** `src/renderer/App.tsx`, `src/tailwind.css`
+
 ## 2026-05-11 08:28 GST (Dubai)
 ### Settings: add custom app icon and compact two-column layout
 Ported upstream commit adding a custom app icon feature (upload PNG/JPG/WebP to replace dock/About icon) with `set_dock_icon` and `reset_dock_icon` Rust commands, `pick_image` IPC, and a redesigned two-column `SettingsGrid` layout across all settings pages.

@@ -500,6 +500,43 @@ input[type="search"] {
 }
 
 
+/* ── Sonner toast overrides ─────────────────────────────────────── */
+.sonner-toast {
+    background-color: #1a1a1a !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+    color: #f0f0f0 !important;
+    padding: 14px 16px !important;
+}
+
+.sonner-title {
+    font-weight: 500 !important;
+    font-size: 13px !important;
+    color: #f0f0f0 !important;
+}
+
+.sonner-description {
+    font-size: 12px !important;
+    color: #9a9a9a !important;
+}
+
+.sonner-action {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    padding: 6px 14px !important;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.sonner-action:hover {
+    background-color: #2563eb !important;
+}
+
 /* Floating panel background — hardcoded to bypass Tailwind v4 CSS variable
    resolution issues in Tauri's WebKit webview where bg-card / bg-popover
    can render as transparent in light mode. */

@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useRef, lazy, Suspense } from "react";
+import { useEffect, useCallback, useState, lazy, Suspense } from "react";
 import { Toaster, toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -138,14 +138,16 @@ function EmptyState() {
   );
 }
 
+const UPDATE_TOAST_ID = 'klaudex-update-toast' as const;
+
 function UpdateNotifier() {
   const { status, updateInfo, progress, dismissedVersion, downloadAndInstall, restart, dismissVersion } = useUpdateChecker();
-  const toastIdRef = useRef<string | number | null>(null);
 
   useEffect(() => {
     if (status === 'available' && updateInfo) {
       if (dismissedVersion === updateInfo.version) return;
-      toastIdRef.current = toast(`Klaudex v${updateInfo.version} available`, {
+      toast(`Klaudex v${updateInfo.version} available`, {
+        id: UPDATE_TOAST_ID,
         description: 'A new version is ready to install.',
         duration: Infinity,
         action: {
@@ -161,32 +163,23 @@ function UpdateNotifier() {
         ? Math.round((progress.downloaded / progress.total) * 100)
         : null;
       const desc = pct !== null ? `Downloading... ${pct}%` : 'Downloading...';
-      if (toastIdRef.current) {
-        toast.loading(desc, { id: toastIdRef.current, duration: Infinity });
-      } else {
-        toastIdRef.current = toast.loading(desc, { duration: Infinity });
-      }
+      toast.loading(desc, { id: UPDATE_TOAST_ID, duration: Infinity });
     }
 
     if (status === 'ready') {
-      if (toastIdRef.current) {
-        toast.success('Update installed', {
-          id: toastIdRef.current,
-          description: 'Restart to finish updating.',
-          duration: Infinity,
-          action: {
-            label: 'Restart',
-            onClick: () => restart(),
-          },
-        });
-      }
+      toast.success('Update installed', {
+        id: UPDATE_TOAST_ID,
+        description: 'Restart to finish updating.',
+        duration: Infinity,
+        action: {
+          label: 'Restart',
+          onClick: () => restart(),
+        },
+      });
     }
 
     if (status === 'error') {
-      if (toastIdRef.current) {
-        toast.dismiss(toastIdRef.current);
-        toastIdRef.current = null;
-      }
+      toast.dismiss(UPDATE_TOAST_ID);
     }
   }, [status, progress?.downloaded]);
 
@@ -271,6 +264,12 @@ export function App() {
     });
     useSettingsStore.getState().loadSettings().then(() => {
       useSettingsStore.getState().checkAuth();
+      // Apply custom dock icon if set
+      const { customAppIcon } = useSettingsStore.getState().settings;
+      if (customAppIcon) {
+        const base64 = customAppIcon.replace(/^data:[^;]+;base64,/, '');
+        ipc.setDockIcon(base64).catch(() => {});
+      }
     });
     // Pre-warm ACP to get models/modes before user creates a thread
     ipc.probeCapabilities().catch(() => {});
@@ -499,8 +498,16 @@ export function App() {
       </ErrorBoundary>
       <Toaster
         position="bottom-right"
-        toastOptions={{ duration: 8000 }}
-        theme="system"
+        toastOptions={{
+          duration: 8000,
+          classNames: {
+            toast: 'sonner-toast',
+            title: 'sonner-title',
+            description: 'sonner-description',
+            actionButton: 'sonner-action',
+          },
+        }}
+        theme="dark"
       />
       <UpdateNotifier />
       <RestartPromptDialog />
