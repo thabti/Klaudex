@@ -1,3 +1,9 @@
+## 2026-05-11 08:07 GST (Dubai)
+### Chat: replace wrench icon with zap for skills and show "skill: Name" in pills
+Cherry-picked e46fa890 from kirodex. Replaced IconTool (wrench) with IconBolt (zap) for skills in the @ mention picker, skill mention pills, and inline skill mentions in chat messages. Updated FileMentionPill to display "skill: Formatted Name" for skill pills.
+
+**Modified:** `src/renderer/components/chat/FileMentionPicker.tsx`, `src/renderer/components/chat/UserMessageRow.tsx`
+
 ## 2026-05-11 08:05 GST (Dubai)
 ### Icons: resize squircle to Apple HIG 824×824 standard
 Cherry-picked c9fe5b50 from kirodex. Resized dev/prod icon artwork to 824×824 hard-edge squircle (matching IINA, Ghostty, Rectangle, Maccy, Zed, MonitorControl). Regenerated .icns and .ico.
