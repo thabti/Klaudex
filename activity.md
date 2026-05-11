@@ -1,3 +1,9 @@
+## 2026-05-11 07:34 GST (Dubai)
+### Settings: Overhaul settings panel UI/UX (port from kirodex@9f6a0f8)
+Ported upstream settings panel overhaul. Added grouped sidebar nav labels (ACCOUNT, SETTINGS, DATA) with ARIA roles. Added dirty state indicator (amber dot) on Save button. Added ConfirmDialog for destructive actions. Merged Permissions + Worktrees + Sandbox into single Workspace card. Fixed SettingsCard default padding (py-3), removed negative margin hack from SettingRow. Expanded font size range to 12-22 with editable number input. Consistent search input styling.
+
+**Modified:** src/renderer/components/settings/SettingsPanel.tsx, settings-shared.tsx, general-section.tsx, appearance-section.tsx, advanced-section.tsx, keymap-section.tsx
+
 ## 2026-05-11 07:31 GST (Dubai)
 ### Persistence: Add missing persistHistory calls, ack-based quit flush, warn on failures
 Ported upstream commit f68dcd85 from kirodex. Added `persistHistory()` to `createDraftThread`, `updateCompactionStatus`, `reorderProject`. Replaced silent `.catch(() => {})` with `console.warn`. Added `_selfWriteCount` guard to history-store to skip same-window `onKeyChange` reloads. Replaced sleep-based quit flush in `lib.rs` with ack-based mpsc channel + 2s timeout. Updated `App.tsx` to check `isSelfWriting()` in cross-window sync and emit `flush-ack`. `clearHistory` now preserves core settings.
