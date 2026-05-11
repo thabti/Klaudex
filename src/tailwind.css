@@ -4,6 +4,7 @@
 
 @theme inline {
     --animate-skeleton: skeleton 2s -1s infinite linear;
+    --color-brand: var(--brand);
     --color-warning-foreground: var(--warning-foreground);
     --color-warning: var(--warning);
     --color-pink-foreground: var(--pink-foreground);
@@ -73,45 +74,49 @@
     animation-duration: 0s !important;
 }
 
-/* Light theme — white surfaces with Claude Code's signature terracotta
-   accent (#D97757). Hex values only: oklch() can fail in Tauri's WebKit
-   per the project learnings. */
+/* Light theme — warm stone surfaces with Claude Code's signature terracotta
+   accent (#D97757). All hex values: color-mix() with transparent and oklch()
+   can fail in Tauri's WebKit. Warm undertone creates brand cohesion with the
+   terracotta primary. All text passes WCAG AA 4.5:1 on their surfaces. */
 :root {
     color-scheme: light;
     --radius: 0.625rem;
-    --background: #ffffff;
-    --foreground: #1a1a1a;
-    --card: #fafafa;
-    --card-foreground: #1a1a1a;
+    --brand: #DC5603;
+    --background: #fdfcfb;
+    --foreground: #1c1917;
+    --card: #f8f6f4;
+    --card-foreground: #1c1917;
     --popover: #ffffff;
-    --popover-foreground: #1a1a1a;
+    --popover-foreground: #1c1917;
     --primary: #D97757;
     --primary-foreground: #ffffff;
-    --secondary: color-mix(in srgb, black 5%, transparent);
-    --secondary-foreground: #1a1a1a;
-    --muted: color-mix(in srgb, black 4%, transparent);
-    --muted-foreground: #636363;
-    --accent: #B95F3D;
-    --sidebar: #f7f7f8;
-    --accent-foreground: #ffffff;
-    --destructive: #ef4444;
-    --border: #e5e5e5;
-    --input: color-mix(in srgb, black 10%, transparent);
+    --secondary: #f0ece8;
+    --secondary-foreground: #1c1917;
+    --muted: #f5f2ef;
+    --muted-foreground: #6b6560;
+    --accent: #f0ece8;
+    --sidebar: #f2eeeb;
+    --accent-foreground: #1c1917;
+    --destructive: #dc2626;
+    --border: #ddd6cf;
+    --input: #e8e2dc;
     --ring: #D97757;
-    --destructive-foreground: #b91c1c;
-    --info: #3b82f6;
-    --info-foreground: #1d4ed8;
-    --success: #10b981;
-    --success-foreground: #047857;
-    --warning: #f59e0b;
-    --warning-foreground: #b45309;
-    --pink: #ec4899;
+    --destructive-foreground: #991b1b;
+    --info: #2563eb;
+    --info-foreground: #1e40af;
+    --success: #15803d;
+    --success-foreground: #065f46;
+    --warning: #c2410c;
+    --warning-foreground: #92400e;
+    --pink: #be185d;
     --pink-foreground: #ffffff;
 }
 
-/* Dark theme — Klaudex's default. Dark surfaces + Claude orange accents. */
+/* Dark theme — Klaudex's default. Dark surfaces + Claude orange accents.
+   Solid hex values used instead of color-mix() for WebKit compatibility. */
 .dark {
     color-scheme: dark;
+    --brand: #F07A2F;
     --background: #0D0D0D;
     --foreground: #f0f0f0;
     --card: #141414;
@@ -120,16 +125,16 @@
     --popover-foreground: #f0f0f0;
     --primary: #D97757;
     --primary-foreground: #ffffff;
-    --secondary: color-mix(in srgb, white 6%, transparent);
+    --secondary: #1c1c1c;
     --secondary-foreground: #f0f0f0;
-    --muted: color-mix(in srgb, white 6%, transparent);
+    --muted: #1c1c1c;
     --muted-foreground: #9a9a9a;
-    --accent: #B95F3D;
+    --accent: #1e1e1e;
     --sidebar: #272627;
-    --accent-foreground: #ffffff;
+    --accent-foreground: #f0f0f0;
     --destructive: #f87171;
-    --border: color-mix(in srgb, white 2%, transparent);
-    --input: color-mix(in srgb, white 12%, transparent);
+    --border: #121212;
+    --input: #2a2a2a;
     --ring: #D97757;
     --destructive-foreground: #fca5a5;
     --info: #60a5fa;
@@ -560,8 +565,8 @@ input[type="search"] {
    resolution issues in Tauri's WebKit webview where bg-card / bg-popover
    can render as transparent in light mode. */
 .floating-panel {
-    background-color: #fafafa !important;
-    color: #1a1a1a !important;
+    background-color: #f8f6f4 !important;
+    color: #1c1917 !important;
 }
 
 .dark .floating-panel,
@@ -701,7 +706,7 @@ input[type="search"] {
     background: var(--muted);
 }
 .md-viewer tr:nth-child(even) td {
-    background: color-mix(in srgb, var(--muted) 30%, transparent);
+    background: var(--muted);
 }
 
 /* ── Horizontal rule ── */
