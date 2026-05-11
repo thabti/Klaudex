@@ -54,8 +54,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   threadOrders: {},
 
   setSelectedTask: (id) => {
-    const { selectedTaskId: currentId, activeSplitId, splitViews, focusedPanel } = get()
+    const { selectedTaskId: currentId, activeSplitId, splitViews, focusedPanel, notifiedTaskIds } = get()
     if (currentId === id && !activeSplitId) return
+    // Clear the notification badge when the user navigates to this thread
+    if (id && notifiedTaskIds.includes(id)) {
+      set({ notifiedTaskIds: notifiedTaskIds.filter((nid) => nid !== id) })
+    }
     // If the target task is part of the active split, focus that panel instead of closing the split
     if (activeSplitId && id) {
       const sv = splitViews.find((v) => v.id === activeSplitId)

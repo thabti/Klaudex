@@ -379,14 +379,9 @@ export function App() {
         if (tid) navigateToNotifiedTask(tid);
       }).catch(() => {});
     }).catch(() => {});
-    // Clear stale notification badges on window focus (no auto-navigation —
-    // the user should only switch threads by clicking a native notification)
-    const handleWindowFocus = () => {
-      const ids = useTaskStore.getState().notifiedTaskIds
-      if (ids.length > 0) {
-        useTaskStore.setState({ notifiedTaskIds: [] })
-      }
-    };
+    // No-op on window focus — notifiedTaskIds persist until the user
+    // navigates to the thread (via sidebar click or native notification).
+    const handleWindowFocus = () => {};
     window.addEventListener("focus", handleWindowFocus);
     startAutoFlush();
     // Listen for native menu events

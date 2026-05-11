@@ -1,3 +1,9 @@
+## 2026-05-11 09:53 GST (Dubai)
+### Notifications: Persistent sidebar badges until thread visited
+Ported upstream commit 48139b1. Added orange dot badge on ThreadItem for threads with pending notifications, clear notifiedTaskIds when user navigates to the thread via setSelectedTask, removed window-focus auto-clear so badges persist until explicitly visited.
+
+**Modified:** `src/renderer/App.tsx`, `src/renderer/components/sidebar/ThreadItem.tsx`, `src/renderer/stores/taskStore.ts`
+
 ## 2026-05-11 09:52 GST (Dubai)
 ### Chat: Remove unused CleaningReviewCard component
 Ported upstream commit 4d177c5. Deleted the unused `CleaningReviewCard` component which was never imported anywhere in the codebase.

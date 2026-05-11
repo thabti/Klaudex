@@ -101,6 +101,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
 
   const isInSplit = useTaskStore((s) => s.splitViews.some((sv) => sv.left === task.id || sv.right === task.id))
   const isPinned = useTaskStore((s) => s.pinnedThreadIds.includes(task.id))
+  const isNotified = useTaskStore((s) => s.notifiedTaskIds.includes(task.id))
 
   const handleNewSplitView = useCallback(() => {
     setCtxMenu(null)
@@ -190,9 +191,17 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
             Draft
           </span>
         ) : (
-          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground group-hover/thread:hidden">
-            {relativeTime(task.lastActivityAt)}
-          </span>
+          <>
+            {isNotified && (
+              <span
+                className="size-1.5 shrink-0 rounded-full bg-orange-400 group-hover/thread:hidden"
+                aria-label="New activity"
+              />
+            )}
+            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground group-hover/thread:hidden">
+              {relativeTime(task.lastActivityAt)}
+            </span>
+          </>
         )}
       </div>
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden w-14 items-center justify-end rounded-r-lg pr-1 group-hover/thread:flex"
