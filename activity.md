@@ -1,3 +1,10 @@
+## 2026-05-11 06:47 GST (Dubai)
+### Sidebar: Add Copy Path to project context menu
+Ported upstream commit c92ca7f from kirodex. Adds a "Copy Path" button to the project right-click context menu, placed after "Open in Finder". Uses `navigator.clipboard.writeText(cwd)` to copy the project path.
+
+**Modified:**
+- src/renderer/components/sidebar/ProjectItem.tsx
+
 ## 2026-05-11 06:38 GST (Dubai)
 ### Updater: Bypass quit confirmation dialog on relaunch
 Ported upstream commit 8ee1659 from kirodex. Added a `RelaunchFlag` (AtomicBool) to managed Tauri state with a `set_relaunch_flag` command. `prepareForRelaunch()` now sets this flag before calling `relaunch()`. The `CloseRequested` handler checks the flag and skips the confirmation dialog when a relaunch is in progress.

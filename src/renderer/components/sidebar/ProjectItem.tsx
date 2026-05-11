@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useEffect } from 'react'
-import { IconChevronRight, IconChevronDown, IconEdit, IconTrash, IconArchive, IconMessagePlus, IconFolderOpen, IconPalette, IconMessage } from '@tabler/icons-react'
+import { IconChevronRight, IconChevronDown, IconEdit, IconTrash, IconArchive, IconMessagePlus, IconFolderOpen, IconPalette, IconMessage, IconCopy } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
@@ -133,6 +133,10 @@ export const ProjectItem = memo(function ProjectItem({
           <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
             onClick={() => { ipc.openUrl(cwd); setCtxMenu(null) }}>
             <IconFolderOpen className="size-3.5" /> Open in Finder
+          </button>
+          <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+            onClick={() => { void navigator.clipboard.writeText(cwd); setCtxMenu(null) }}>
+            <IconCopy className="size-3.5" /> Copy Path
           </button>
           <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
             aria-label="Change project icon"
