@@ -1,3 +1,9 @@
+## 2026-05-11 08:05 GST (Dubai)
+### Icons: resize squircle to Apple HIG 824×824 standard
+Cherry-picked c9fe5b50 from kirodex. Resized dev/prod icon artwork to 824×824 hard-edge squircle (matching IINA, Ghostty, Rectangle, Maccy, Zed, MonitorControl). Regenerated .icns and .ico.
+
+**Modified:** `src-tauri/icons/dev/icon.icns`, `src-tauri/icons/dev/icon.ico`, `src-tauri/icons/dev/icon.png`, `src-tauri/icons/prod/icon.icns`, `src-tauri/icons/prod/icon.ico`, `src-tauri/icons/prod/icon.png`
+
 ## 2026-05-11 08:03 GST (Dubai)
 ### Icons: match dev and prod icon sizing and spacing
 Cherry-picked b727cc13 from kirodex. Replaced edge-to-edge icon.png files with properly-padded source versions that have macOS-style transparent padding. Regenerated .icns and .ico for both dev and prod variants. Removed orphaned root-level icon files.
