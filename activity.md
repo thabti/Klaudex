@@ -1,3 +1,9 @@
+## 2026-05-11 08:24 GST (Dubai)
+### UI: consistent kbd styling in header breadcrumb and settings
+Ported upstream commit for consistent kbd element styling. HeaderBreadcrumb and SettingsPanel tooltips now use `bg-background/15` instead of `bg-muted`. KeymapSection replaces bordered kbd with plain mono text for shortcut display.
+
+**Modified:** `src/renderer/components/header-breadcrumb.tsx`, `src/renderer/components/settings/SettingsPanel.tsx`, `src/renderer/components/settings/keymap-section.tsx`
+
 ## 2026-05-11 08:22 GST (Dubai)
 ### Header: detect fullscreen mode and adjust traffic light padding
 Ported upstream fix that adds fullscreen state detection via onResized + isFullscreen() in AppHeader. When macOS enters fullscreen (traffic lights hidden), left padding drops from 74px to 8px so header content uses full width.
