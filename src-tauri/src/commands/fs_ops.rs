@@ -699,7 +699,7 @@ pub struct ClaudeAuthStatus {
 pub fn claude_whoami(claude_bin: Option<String>) -> Result<ClaudeAuthStatus, AppError> {
     let bin = claude_bin.unwrap_or_else(|| "claude".to_string());
     log::info!("[auth] claude_whoami called with bin: {}", bin);
-    let output = std::process::Command::new(&bin)
+    let output = match std::process::Command::new(&bin)
         .args(["auth", "status"])
         .env(
             "PATH",
@@ -709,10 +709,29 @@ pub fn claude_whoami(claude_bin: Option<String>) -> Result<ClaudeAuthStatus, App
             ),
         )
         .output()
-        .map_err(|e| {
-            log::error!("[auth] Failed to spawn {}: {}", bin, e);
-            AppError::Other(format!("Failed to run {}: {}", bin, e))
-        })?;
+    {
+        Ok(o) => o,
+        Err(e) => {
+            log::warn!("[auth] Failed to spawn '{}': {} — trying detect_claude_cli fallback", bin, e);
+            let resolved = detect_claude_cli()
+                .ok_or_else(|| AppError::Other(format!("claude not found (tried '{}' and known paths)", bin)))?;
+            log::info!("[auth] Fallback resolved to: {}", resolved);
+            std::process::Command::new(&resolved)
+                .args(["auth", "status"])
+                .env(
+                    "PATH",
+                    format!(
+                        "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}",
+                        std::env::var("PATH").unwrap_or_default()
+                    ),
+                )
+                .output()
+                .map_err(|e2| {
+                    log::error!("[auth] Fallback also failed: {}", e2);
+                    AppError::Other(format!("Failed to run {}: {}", resolved, e2))
+                })?
+        }
+    };
     log::info!("[auth] auth status exit code: {}", output.status);
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

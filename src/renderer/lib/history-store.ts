@@ -5,7 +5,7 @@
  * Lazy-loaded: no disk I/O until first access.
  */
 import type { LazyStore } from '@tauri-apps/plugin-store'
-import type { AgentTask, TaskMessage, SoftDeletedThread } from '@/types'
+import type { AgentTask, TaskMessage, SoftDeletedThread, AppSettings } from '@/types'
 
 // ── Persisted types ──────────────────────────────────────────────
 
@@ -134,6 +134,61 @@ export async function clearHistory(): Promise<void> {
   await store.delete('projects')
   await store.delete('softDeleted')
   await store.save()
+}
+
+// ── Flush & Backup ───────────────────────────────────────────────
+
+/** Force an immediate write of pending changes to disk */
+export async function flush(): Promise<void> {
+  const store = await getStore()
+  await store.save()
+}
+
+/** Backup store singleton (separate file from primary) */
+let _backupStore: LazyStore | null = null
+
+const getBackupStore = async (): Promise<LazyStore> => {
+  if (!_backupStore) {
+    const { LazyStore } = await import('@tauri-apps/plugin-store')
+    _backupStore = new LazyStore('history.backup.json', { autoSave: false, defaults: {} })
+  }
+  return _backupStore
+}
+
+export interface BackupData {
+  threads: SavedThread[]
+  projects: SavedProject[]
+  softDeleted: SoftDeletedThread[]
+  settings?: AppSettings
+}
+
+/** Create a backup of all persisted state */
+export async function createBackup(settings?: AppSettings): Promise<void> {
+  const primary = await getStore()
+  const threads = (await primary.get<SavedThread[]>('threads')) ?? []
+  const projects = (await primary.get<SavedProject[]>('projects')) ?? []
+  const softDeleted = (await primary.get<SoftDeletedThread[]>('softDeleted')) ?? []
+  const backup = await getBackupStore()
+  await backup.set('threads', threads)
+  await backup.set('projects', projects)
+  await backup.set('softDeleted', softDeleted)
+  if (settings) await backup.set('settings', settings)
+  await backup.save()
+}
+
+/** Load backup data (returns empty arrays if no backup exists) */
+export async function loadBackup(): Promise<BackupData> {
+  try {
+    const backup = await getBackupStore()
+    return {
+      threads: (await backup.get<SavedThread[]>('threads')) ?? [],
+      projects: (await backup.get<SavedProject[]>('projects')) ?? [],
+      softDeleted: (await backup.get<SoftDeletedThread[]>('softDeleted')) ?? [],
+      settings: (await backup.get<AppSettings>('settings')) ?? undefined,
+    }
+  } catch {
+    return { threads: [], projects: [], softDeleted: [] }
+  }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────

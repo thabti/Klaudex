@@ -1,3 +1,11 @@
+## 2026-05-11 06:03 GST (Dubai)
+
+### Port: icon overrides, auth fallback, collapsible removal, history backup, subagent display
+
+Ported upstream commit 2b6d71b from kirodex. Removed CollapsibleContent from chat messages, added icon_override field to ProjectPrefs, added claude_whoami fallback to detect_claude_cli, added history-store backup/restore with settings persistence, improved SubagentDisplay with better status indicators, added relaunch utility, and added backup-related tests.
+
+**Modified:** src-tauri/src/commands/fs_ops.rs, src-tauri/src/commands/settings.rs, src/renderer/components/chat/AssistantTextRow.tsx, src/renderer/components/chat/CollapsibleContent.tsx (deleted), src/renderer/components/chat/SubagentDisplay.tsx, src/renderer/components/chat/UserMessageRow.tsx, src/renderer/components/settings/AboutDialog.tsx, src/renderer/components/settings/updates-card.tsx, src/renderer/hooks/useUpdateChecker.ts, src/renderer/lib/history-store.test.ts, src/renderer/lib/history-store.ts, src/renderer/lib/relaunch.ts (new), src/renderer/main.tsx, src/renderer/stores/settingsStore.test.ts, src/renderer/stores/settingsStore.ts, src/renderer/stores/taskStore.test.ts, src/renderer/stores/taskStore.ts
+
 ## 2026-05-11 GST (Dubai)
 
 ### Tooling: kiro-cli ralph cherry-pick loop

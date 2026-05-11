@@ -87,10 +87,23 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   loadSettings: async () => {
     try {
       const settings = await ipc.getSettings()
-      logStoreAction('settingsStore', 'loadSettings', { loaded: true })
-      set({ settings: { ...defaultSettings, ...settings }, isLoaded: true })
-    } catch (err) {
-      logError('settingsStore.loadSettings', err)
+      const merged = { ...defaultSettings, ...settings }
+      // If settings look like defaults (user was onboarded but confy lost data),
+      // restore from backup to recover projectPrefs, iconOverrides, etc.
+      if (!merged.hasOnboardedV2) {
+        try {
+          const { loadBackup } = await import('@/lib/history-store')
+          const backup = await loadBackup()
+          if (backup.settings?.hasOnboardedV2) {
+            const restored = { ...merged, ...backup.settings }
+            set({ settings: restored, isLoaded: true })
+            ipc.saveSettings(restored).catch(() => {})
+            return
+          }
+        } catch { /* backup load is best-effort */ }
+      }
+      set({ settings: merged, isLoaded: true })
+    } catch {
       set({ isLoaded: true })
     }
   },

@@ -19,6 +19,7 @@ vi.mock('@/lib/history-store', () => ({
   loadThreads: vi.fn().mockResolvedValue([]),
   loadProjects: vi.fn().mockResolvedValue([]),
   loadSoftDeleted: vi.fn().mockResolvedValue([]),
+  loadBackup: vi.fn().mockResolvedValue({ threads: [], projects: [], softDeleted: [] }),
   saveThreads: vi.fn().mockResolvedValue(undefined),
   saveSoftDeleted: vi.fn().mockResolvedValue(undefined),
   toArchivedTasks: vi.fn().mockReturnValue([]),
@@ -738,6 +739,70 @@ describe('loadTasks', () => {
     await useTaskStore.getState().loadTasks()
     expect(useTaskStore.getState().projects).toContain('/project')
     expect(useTaskStore.getState().projects).not.toContain('/project/.klaudex/worktrees/feat')
+  })
+
+  it('restores missing threads from backup', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const { loadThreads, loadProjects, toArchivedTasks, loadBackup } = await import('@/lib/history-store')
+    vi.mocked(ipc.listTasks).mockResolvedValueOnce([])
+    vi.mocked(loadThreads).mockResolvedValueOnce([])
+    vi.mocked(loadProjects).mockResolvedValueOnce([])
+    vi.mocked(toArchivedTasks).mockReturnValueOnce([])
+    const backupTask = makeTask({ id: 'backup-1', name: 'Restored Thread', workspace: '/ws', isArchived: true,
+      worktreePath: '/ws/.kiro/worktrees/feat', originalWorkspace: '/ws', parentTaskId: 'parent-1', projectId: '/ws' })
+    vi.mocked(loadBackup).mockResolvedValueOnce({
+      threads: [{ id: 'backup-1', name: 'Restored Thread', workspace: '/ws', createdAt: '', messages: [] }],
+      projects: [{ workspace: '/ws', displayName: 'My Project', projectId: 'uuid-1', threadIds: ['backup-1'] }],
+      softDeleted: [],
+    })
+    // toArchivedTasks is called twice: once for primary (empty), once for backup
+    vi.mocked(toArchivedTasks).mockReturnValueOnce([backupTask])
+    await useTaskStore.getState().loadTasks()
+    expect(useTaskStore.getState().tasks['backup-1']).toBeDefined()
+    expect(useTaskStore.getState().tasks['backup-1'].name).toBe('Restored Thread')
+    expect(useTaskStore.getState().tasks['backup-1'].worktreePath).toBe('/ws/.kiro/worktrees/feat')
+    expect(useTaskStore.getState().projectNames['/ws']).toBe('My Project')
+  })
+
+  it('does not overwrite primary threads with backup', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const { loadThreads, loadProjects, toArchivedTasks, loadBackup } = await import('@/lib/history-store')
+    const primaryTask = makeTask({ id: 'shared', name: 'Primary Name', workspace: '/ws' })
+    vi.mocked(ipc.listTasks).mockResolvedValueOnce([primaryTask])
+    vi.mocked(loadThreads).mockResolvedValueOnce([])
+    vi.mocked(loadProjects).mockResolvedValueOnce([])
+    vi.mocked(toArchivedTasks).mockReturnValueOnce([])
+    const backupTask = makeTask({ id: 'shared', name: 'Backup Name', workspace: '/ws', isArchived: true })
+    vi.mocked(loadBackup).mockResolvedValueOnce({
+      threads: [{ id: 'shared', name: 'Backup Name', workspace: '/ws', createdAt: '', messages: [] }],
+      projects: [], softDeleted: [],
+    })
+    vi.mocked(toArchivedTasks).mockReturnValueOnce([backupTask])
+    await useTaskStore.getState().loadTasks()
+    expect(useTaskStore.getState().tasks['shared'].name).toBe('Primary Name')
+  })
+
+  it('does not restore soft-deleted threads from backup as active', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const { loadThreads, loadProjects, loadSoftDeleted, toArchivedTasks, loadBackup } = await import('@/lib/history-store')
+    vi.mocked(ipc.listTasks).mockResolvedValueOnce([])
+    vi.mocked(loadThreads).mockResolvedValueOnce([])
+    vi.mocked(loadProjects).mockResolvedValueOnce([])
+    vi.mocked(loadSoftDeleted).mockResolvedValueOnce([{
+      task: makeTask({ id: 'del-1', workspace: '/ws' }),
+      deletedAt: '2026-01-01',
+    }])
+    vi.mocked(toArchivedTasks).mockReturnValueOnce([])
+    const backupTask = makeTask({ id: 'del-1', name: 'Should Stay Deleted', workspace: '/ws', isArchived: true })
+    vi.mocked(loadBackup).mockResolvedValueOnce({
+      threads: [{ id: 'del-1', name: 'Should Stay Deleted', workspace: '/ws', createdAt: '', messages: [] }],
+      projects: [], softDeleted: [],
+    })
+    vi.mocked(toArchivedTasks).mockReturnValueOnce([backupTask])
+    await useTaskStore.getState().loadTasks()
+    // Should remain in softDeleted, not in active tasks
+    expect(useTaskStore.getState().tasks['del-1']).toBeUndefined()
+    expect(useTaskStore.getState().softDeleted['del-1']).toBeDefined()
   })
 })
 

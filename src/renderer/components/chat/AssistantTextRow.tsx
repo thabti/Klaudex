@@ -1,6 +1,5 @@
 import { memo, useMemo } from 'react'
 import ChatMarkdown from './ChatMarkdown'
-import { CollapsibleContent } from './CollapsibleContent'
 import { ThinkingDisplay } from './ThinkingDisplay'
 import { isPlanHandoff, PlanHandoffCard } from './PlanHandoffCard'
 import { TaskCompletionCard, parseReport, stripReport, shouldRenderReportCard } from './TaskCompletionCard'
@@ -23,9 +22,7 @@ export const AssistantTextRow = memo(function AssistantTextRow({ row }: { row: A
         row.isStreaming ? (
           <ChatMarkdown text={displayContent} isStreaming />
         ) : (
-          <CollapsibleContent>
-            <ChatMarkdown text={displayContent} questionsAnswered={row.questionsAnswered} />
-          </CollapsibleContent>
+          <ChatMarkdown text={displayContent} questionsAnswered={row.questionsAnswered} />
         )
       ) : null}
       {showReportCard && <TaskCompletionCard report={report} />}

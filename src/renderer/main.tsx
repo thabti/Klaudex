@@ -79,6 +79,11 @@ window.addEventListener('keydown', (e) => {
 import { installJsInterceptors } from './lib/jsInterceptors'
 installJsInterceptors()
 
+// Safety net: persist thread history before the window closes (best-effort, synchronous)
+window.addEventListener('beforeunload', () => {
+  try { import('./stores/taskStore').then((m) => m.useTaskStore.getState().persistHistory()) } catch { /* ignore */ }
+})
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>

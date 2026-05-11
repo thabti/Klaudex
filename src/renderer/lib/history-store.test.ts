@@ -16,7 +16,7 @@ vi.mock('@tauri-apps/plugin-store', () => ({
   },
 }))
 
-import { loadThreads, loadProjects, saveThreads, toArchivedTasks, clearHistory, loadSoftDeleted, saveSoftDeleted } from './history-store'
+import { loadThreads, loadProjects, saveThreads, toArchivedTasks, clearHistory, loadSoftDeleted, saveSoftDeleted, flush, createBackup, loadBackup } from './history-store'
 import type { AgentTask, SoftDeletedThread } from '@/types'
 
 beforeEach(() => {
@@ -316,5 +316,74 @@ describe('projectId persistence', () => {
     }]
     const actual = toArchivedTasks(saved)
     expect(actual[0]).not.toHaveProperty('projectId')
+  })
+})
+
+describe('flush', () => {
+  it('forces an immediate save to disk', async () => {
+    await flush()
+    expect(mockSave).toHaveBeenCalledOnce()
+  })
+})
+
+describe('createBackup', () => {
+  it('copies threads, projects, softDeleted to backup store', async () => {
+    const threads = [{ id: 't1', name: 'Thread', workspace: '/ws', createdAt: '', messages: [] }]
+    const projects = [{ workspace: '/ws', threadIds: ['t1'] }]
+    const softDeleted = [{ task: { id: 't2', name: 'Del', workspace: '/ws', status: 'completed', createdAt: '', messages: [] }, deletedAt: '2026-01-01' }]
+    mockGet.mockImplementation((key: string) => {
+      if (key === 'threads') return Promise.resolve(threads)
+      if (key === 'projects') return Promise.resolve(projects)
+      if (key === 'softDeleted') return Promise.resolve(softDeleted)
+      return Promise.resolve(null)
+    })
+    await createBackup()
+    expect(mockSet).toHaveBeenCalledWith('threads', threads)
+    expect(mockSet).toHaveBeenCalledWith('projects', projects)
+    expect(mockSet).toHaveBeenCalledWith('softDeleted', softDeleted)
+    expect(mockSave).toHaveBeenCalled()
+  })
+
+  it('includes settings snapshot when provided', async () => {
+    mockGet.mockResolvedValue([])
+    const settings = { claudeBin: 'claude', agentProfiles: [], fontSize: 16 }
+    await createBackup(settings as never)
+    expect(mockSet).toHaveBeenCalledWith('settings', settings)
+  })
+
+  it('preserves worktree fields in backup', async () => {
+    const threads = [{
+      id: 't1', name: 'WT', workspace: '/ws/.kiro/worktrees/feat', createdAt: '',
+      messages: [{ role: 'user', content: 'hi', timestamp: '' }],
+      worktreePath: '/ws/.kiro/worktrees/feat',
+      originalWorkspace: '/ws',
+      parentTaskId: 'parent-1',
+      projectId: '/ws',
+    }]
+    mockGet.mockImplementation((key: string) => key === 'threads' ? Promise.resolve(threads) : Promise.resolve([]))
+    await createBackup()
+    const savedThreads = mockSet.mock.calls.find((c: unknown[]) => c[0] === 'threads')?.[1]
+    expect(savedThreads[0].worktreePath).toBe('/ws/.kiro/worktrees/feat')
+    expect(savedThreads[0].originalWorkspace).toBe('/ws')
+    expect(savedThreads[0].parentTaskId).toBe('parent-1')
+    expect(savedThreads[0].projectId).toBe('/ws')
+  })
+})
+
+describe('loadBackup', () => {
+  it('returns backup data', async () => {
+    const threads = [{ id: 't1', name: 'Thread', workspace: '/ws', createdAt: '', messages: [] }]
+    mockGet.mockImplementation((key: string) => key === 'threads' ? Promise.resolve(threads) : Promise.resolve([]))
+    const backup = await loadBackup()
+    expect(backup.threads).toEqual(threads)
+  })
+
+  it('returns empty arrays when no backup exists', async () => {
+    mockGet.mockResolvedValue(null)
+    const backup = await loadBackup()
+    expect(backup.threads).toEqual([])
+    expect(backup.projects).toEqual([])
+    expect(backup.softDeleted).toEqual([])
+    expect(backup.settings).toBeUndefined()
   })
 })

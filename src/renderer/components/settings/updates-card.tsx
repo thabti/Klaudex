@@ -55,6 +55,8 @@ export const UpdatesCard = () => {
   }
 
   const handleRestart = async () => {
+    const { prepareForRelaunch } = await import('@/lib/relaunch')
+    await prepareForRelaunch()
     const { relaunch } = await import('@tauri-apps/plugin-process')
     await relaunch()
   }
