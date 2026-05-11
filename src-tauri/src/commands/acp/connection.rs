@@ -5,12 +5,8 @@ use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{mpsc, oneshot};
 
-use agent_client_protocol as acp;
-use acp::Agent as _; // Brings initialize, new_session, prompt, cancel, set_session_mode, set_session_model into scope
-use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
-
-use super::client::KlaudexClient;
-use super::sandbox::{extract_paths_from_message, friendly_prompt_error};
+use super::claude_types::*;
+use super::sandbox::{extract_paths_from_message};
 use super::types::{
     AcpCommand, AcpState, AttachmentData, ConnectionHandle, PendingPermission, PermissionOption,
     PermissionReply,
@@ -80,22 +76,6 @@ pub(crate) fn build_content_blocks(
 
 // ── Spawn a Claude CLI connection on a dedicated thread ──────────────
 
-/// Configuration for spawning a new ACP connection. Groups the many
-/// parameters that `spawn_connection` previously accepted positionally,
-/// making call sites easier to read and extend.
-#[allow(dead_code)]
-pub(crate) struct ConnectionConfig {
-    pub task_id: String,
-    pub workspace: String,
-    pub claude_bin: String,
-    pub auto_approve: bool,
-    pub app: tauri::AppHandle,
-    pub initial_mode_id: Option<String>,
-    pub initial_model_id: Option<String>,
-    pub tight_sandbox: bool,
-    pub pending_preamble: Option<String>,
-}
-
 pub(crate) fn spawn_connection(
     task_id: String,
     workspace: String,
@@ -103,33 +83,12 @@ pub(crate) fn spawn_connection(
     auto_approve: bool,
     app: tauri::AppHandle,
     initial_mode_id: Option<String>,
-    initial_model_id: Option<String>,
+    model: Option<String>,
     tight_sandbox: bool,
     resume_session_id: Option<String>,
     // TASK-113: Optional Claude output style name; appended as `--output-style <name>`
     // when spawning the `claude` subprocess. `None` means no flag is appended.
     output_style: Option<String>,
-) -> Result<ConnectionHandle, String> {
-    spawn_connection_with_preamble(
-        task_id, workspace, claude_bin, auto_approve, app,
-        initial_mode_id, initial_model_id, tight_sandbox, None,
-    )
-}
-
-/// Spawn a connection and stash a one-shot preamble that will be prepended to
-/// the very first `Prompt` command this connection receives. Used by
-/// `task_fork` so the freshly spawned `claude` subprocess inherits the
-/// parent thread's transcript when the user sends their next message.
-pub(crate) fn spawn_connection_with_preamble(
-    task_id: String,
-    workspace: String,
-    claude_bin: String,
-    auto_approve: bool,
-    app: tauri::AppHandle,
-    initial_mode_id: Option<String>,
-    initial_model_id: Option<String>,
-    tight_sandbox: bool,
-    pending_preamble: Option<String>,
 ) -> Result<ConnectionHandle, String> {
     let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<AcpCommand>();
     let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
@@ -178,9 +137,6 @@ pub(crate) fn spawn_connection_with_preamble(
     // Spawn the connection on a dedicated OS thread.
     let app3 = app.clone();
     let tid3 = task_id.clone();
-    // Extra clones for the panic path — the closure moves app3/tid3 in.
-    let app3_panic = app3.clone();
-    let tid3_panic = tid3.clone();
     let alive_for_panic = alive.clone();
     let auto_approve_for_thread = auto_approve_flag.clone();
     std::thread::spawn(move || {
@@ -192,42 +148,23 @@ pub(crate) fn spawn_connection_with_preamble(
 
             let local = tokio::task::LocalSet::new();
             local.block_on(&rt, async move {
-                let result = run_acp_connection(
-                    tid3.clone(), workspace, claude_bin, auto_approve_for_client,
-                    app3.clone(), perm_tx, &mut cmd_rx, initial_mode_id,
-                    initial_model_id, tight_sandbox, pending_preamble,
-                ).await;
+                let result = run_claude_connection(
+                    tid3.clone(),
+                    workspace,
+                    claude_bin,
+                    auto_approve_for_thread,
+                    app3.clone(),
+                    perm_tx,
+                    &mut cmd_rx,
+                    initial_mode_id,
+                    model,
+                    tight_sandbox,
+                    resume_session_id,
+                    output_style,
+                )
+                .await;
 
                 alive_clone.store(false, std::sync::atomic::Ordering::SeqCst);
-
-                // If the connection died while the task was still running, the
-                // frontend never receives a `turn_end` event and the spinner gets
-                // stuck forever. Emit a synthetic `turn_end` with stopReason
-                // "connection_lost" so the frontend can clear the working row.
-                use tauri::Manager;
-                if let Some(managed_state) = app3.try_state::<AcpState>() {
-                    let task_was_running = {
-                        let tasks = managed_state.tasks.lock();
-                        tasks.get(&tid3)
-                            .map(|t| t.status == "running" || t.status == "pending_permission")
-                            .unwrap_or(false)
-                    };
-                    if task_was_running {
-                        {
-                            let mut tasks = managed_state.tasks.lock();
-                            if let Some(task) = tasks.get_mut(&tid3) {
-                                task.status = "paused".to_string();
-                                task.pending_permission = None;
-                            }
-                        }
-                        use tauri::Emitter;
-                        let _ = app3.emit("turn_end", serde_json::json!({
-                            "taskId": tid3,
-                            "stopReason": "connection_lost"
-                        }));
-                        log::warn!("[ACP] Connection for task {} died while running — emitted synthetic turn_end", tid3);
-                    }
-                }
 
                 if let Err(e) = result {
                     use tauri::Emitter;
@@ -244,31 +181,6 @@ pub(crate) fn spawn_connection_with_preamble(
         if result.is_err() {
             log::error!("[Claude] Connection thread panicked");
             alive_for_panic.store(false, std::sync::atomic::Ordering::SeqCst);
-            // Panic path: also emit synthetic turn_end so the spinner clears
-            use tauri::Manager;
-            if let Some(managed_state) = app3_panic.try_state::<AcpState>() {
-                let task_was_running = {
-                    let tasks = managed_state.tasks.lock();
-                    tasks.get(&tid3_panic)
-                        .map(|t| t.status == "running" || t.status == "pending_permission")
-                        .unwrap_or(false)
-                };
-                if task_was_running {
-                    {
-                        let mut tasks = managed_state.tasks.lock();
-                        if let Some(task) = tasks.get_mut(&tid3_panic) {
-                            task.status = "paused".to_string();
-                            task.pending_permission = None;
-                        }
-                    }
-                    use tauri::Emitter;
-                    let _ = app3_panic.emit("turn_end", serde_json::json!({
-                        "taskId": &tid3_panic,
-                        "stopReason": "connection_lost"
-                    }));
-                    log::warn!("[ACP] Connection thread panicked for task {} — emitted synthetic turn_end", tid3_panic);
-                }
-            }
         }
     });
 
@@ -334,7 +246,7 @@ fn handle_claude_message(
         ClaudeMessage::StreamEvent(se) => match &se.event {
             StreamEvent::ContentBlockStart {
                 content_block,
-                index,
+                index: _,
             } => match content_block {
                 ContentBlock::Text { .. } => {}
                 ContentBlock::Thinking { .. } => {}
@@ -671,9 +583,11 @@ pub(crate) async fn run_claude_connection(
     )>,
     cmd_rx: &mut mpsc::UnboundedReceiver<AcpCommand>,
     initial_mode_id: Option<String>,
-    initial_model_id: Option<String>,
-    tight_sandbox: bool,
-    mut pending_preamble: Option<String>,
+    model: Option<String>,
+    _tight_sandbox: bool,
+    resume_session_id: Option<String>,
+    // TASK-113: Optional output style; appended as `--output-style <name>` when spawning claude.
+    output_style: Option<String>,
 ) -> Result<(), String> {
     let allowed_paths = Arc::new(parking_lot::Mutex::new(BTreeSet::new()));
 
@@ -878,97 +792,8 @@ pub(crate) async fn run_claude_connection(
         }
     });
 
-    let outgoing = stdin.compat_write();
-    let incoming = stdout.compat();
-
-    let allowed_paths = Arc::new(parking_lot::Mutex::new(BTreeSet::new()));
-
-    let client = KlaudexClient {
-        task_id: task_id.clone(),
-        workspace: workspace.clone(),
-        app: app.clone(),
-        auto_approve,
-        perm_tx,
-        allowed_paths: allowed_paths.clone(),
-        tight_sandbox,
-    };
-
-    let (conn, io_future) = acp::ClientSideConnection::new(
-        client, outgoing, incoming,
-        |fut| { tokio::task::spawn_local(fut); },
-    );
-
-    // Run IO in background
-    tokio::task::spawn_local(async move {
-        if let Err(e) = io_future.await {
-            log::error!("[ACP] IO error for task: {e}");
-        }
-    });
-
-    // Initialize
-    let init_req = acp::InitializeRequest::new(acp::ProtocolVersion::V1)
-        .client_info(acp::Implementation::new("klaudex", "0.1.0").title("Klaudex"));
-    conn.initialize(init_req).await.map_err(|e| format!("Initialize failed: {e}"))?;
-
-    // Create session
-    let session = conn.new_session(
-        acp::NewSessionRequest::new(std::path::PathBuf::from(&workspace))
-    ).await.map_err(|e| format!("New session failed: {e}"))?;
-
-    let session_id = session.session_id.clone();
-
-    // Emit session-init with models/modes/configOptions
-    {
-        let session_val = serde_json::to_value(&session).unwrap_or_default();
-        let model_count = session_val.get("models")
-            .and_then(|m| m.get("availableModels"))
-            .and_then(|a| a.as_array())
-            .map(|a| a.len())
-            .unwrap_or(0);
-        let current_model = session_val.get("models")
-            .and_then(|m| m.get("currentModelId"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("none");
-        let mode_count = session_val.get("modes")
-            .and_then(|m| m.get("availableModes"))
-            .and_then(|a| a.as_array())
-            .map(|a| a.len())
-            .unwrap_or(0);
-        log::info!("[ACP] session_init for task={}: {} models (current={}), {} modes",
-            task_id, model_count, current_model, mode_count);
-        use tauri::Emitter;
-        let _ = app.emit("session_init", serde_json::json!({
-            "taskId": task_id,
-            "sessionId": session_id,
-            "models": session_val.get("models"),
-            "modes": session_val.get("modes"),
-            "configOptions": session_val.get("configOptions"),
-        }));
-        let _ = app.emit("mcp_connecting", Value::Null);
-    }
-
-    // Apply initial mode if provided (e.g. user switched to /plan before first message)
-    if let Some(mode_id) = initial_mode_id {
-        let _ = conn.set_session_mode(
-            acp::SetSessionModeRequest::new(session_id.clone(), mode_id)
-        ).await;
-    }
-
-    // Apply initial model if provided. This is the bridge between klaudex's
-    // per-project / global model preference and the freshly spawned claude
-    // subprocess — without it the picker is purely cosmetic and the agent
-    // keeps using whatever it booted with.
-    if let Some(model_id) = initial_model_id {
-        if let Err(e) = conn.set_session_model(
-            acp::SetSessionModelRequest::new(session_id.clone(), model_id.clone())
-        ).await {
-            log::warn!("[ACP] set_session_model({model_id}) failed for task={task_id}: {e}");
-        }
-    }
-
-    // Process commands from the main thread.
-    // Uses tokio::select! during prompt so Cancel/Kill are handled immediately
-    // instead of queuing behind the blocking prompt future.
+    // Read ndjson from stdout and process messages
+    let mut stdout_reader = BufReader::new(stdout);
     let mut killed = false;
     let mut line_buf = String::new();
 
@@ -1044,15 +869,7 @@ pub(crate) async fn run_claude_connection(
     while let Some(cmd) = cmd_rx.recv().await {
         match cmd {
             AcpCommand::Prompt(text, attachments) => {
-                // On the very first prompt of a forked or resumed connection,
-                // prepend the parent thread's transcript so the freshly spawned
-                // claude subprocess has the necessary context. Consumed once.
-                let text = if let Some(preamble) = pending_preamble.take() {
-                    format!("{preamble}{text}")
-                } else {
-                    text
-                };
-                // Extract absolute paths from user message to allow through the sandbox
+                // Extract paths for sandbox
                 let external_paths = extract_paths_from_message(&text);
                 if !external_paths.is_empty() {
                     let mut allowed = allowed_paths.lock();
@@ -1144,48 +961,24 @@ pub(crate) async fn run_claude_connection(
                         }
                     }
                 }
-                // Process any commands that arrived during the prompt
-                for deferred_cmd in deferred {
-                    match deferred_cmd {
-                        AcpCommand::SetMode(mode_id) => {
-                            let _ = conn.set_session_mode(
-                                acp::SetSessionModeRequest::new(session_id.clone(), mode_id)
-                            ).await;
-                        }
-                        AcpCommand::SetModel(model_id) => {
-                            if let Err(e) = conn.set_session_model(
-                                acp::SetSessionModelRequest::new(session_id.clone(), model_id.clone())
-                            ).await {
-                                log::warn!("[ACP] deferred set_session_model({model_id}) failed: {e}");
-                            }
-                        }
-                        AcpCommand::Cancel => {
-                            let _ = conn.cancel(acp::CancelNotification::new(session_id.clone())).await;
-                        }
-                        AcpCommand::Prompt(..) => {} // discard stale prompts during active prompt
-                        AcpCommand::Kill => { killed = true; }
-                    }
+                if killed {
+                    break;
                 }
             }
             AcpCommand::Cancel => {
-                let _ = conn.cancel(acp::CancelNotification::new(session_id.clone())).await;
-            }
-            AcpCommand::SetMode(mode_id) => {
-                let _ = conn.set_session_mode(
-                    acp::SetSessionModeRequest::new(session_id.clone(), mode_id)
-                ).await;
-            }
-            AcpCommand::SetModel(model_id) => {
-                if let Err(e) = conn.set_session_model(
-                    acp::SetSessionModelRequest::new(session_id.clone(), model_id.clone())
-                ).await {
-                    log::warn!("[ACP] set_session_model({model_id}) failed: {e}");
-                }
+                let _ = child.kill().await;
+                break;
             }
             AcpCommand::Kill => break,
             AcpCommand::SetMode(_mode_id) => {
                 // Mode changes not directly supported in Claude CLI mid-session
                 log::debug!("[Claude] SetMode ignored (not supported mid-session)");
+            }
+            AcpCommand::SetModel(_model_id) => {
+                // Model changes mid-session are not supported by the Claude CLI
+                // direct-mode subprocess; the renderer's next message will spawn
+                // a fresh connection with the new model id baked into argv.
+                log::debug!("[Claude] SetModel ignored (not supported mid-session)");
             }
             AcpCommand::ForkSession(reply_tx) => {
                 let _ = reply_tx.send(Err("Fork not supported in direct Claude mode".to_string()));

@@ -1,6 +1,7 @@
 pub mod claude_types;
 mod commands;
 mod connection;
+#[allow(dead_code)]
 mod sandbox;
 pub mod types;
 
@@ -14,17 +15,14 @@ pub use types::*;
 // Re-export connection helpers for testing
 pub(crate) use connection::{strip_image_tags, build_content_blocks};
 
-// Re-export sandbox functions for crate-internal use
+// Re-export sandbox functions for crate-internal use and tests
+#[allow(dead_code)]
 pub(crate) use sandbox::{
     extract_paths_from_json, extract_paths_from_json_inner, extract_paths_from_message,
     friendly_prompt_error, is_path_allowed, is_path_strictly_allowed, is_within_workspace,
 };
 
 use std::time::{SystemTime, UNIX_EPOCH};
-
-fn now_millis() -> u128 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis()
-}
 
 fn now_rfc3339() -> String {
     // Produce a UTC timestamp like 2024-01-15T12:30:45Z

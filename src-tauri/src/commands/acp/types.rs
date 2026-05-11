@@ -124,6 +124,14 @@ pub enum AcpCommand {
     Cancel,
     SetMode(String),
     SetModel(String),
+    /// Response payload for a Claude CLI control_request (e.g. user-input
+    /// permission prompt). The first field is the request id; the second is the
+    /// JSON value to write back over stdin so the subprocess can resume.
+    RespondUserInput(String, Value),
+    /// Fork the live session and return the new id over the oneshot. The
+    /// connection thread is responsible for invoking the ACP fork RPC and
+    /// reporting the result.
+    ForkSession(oneshot::Sender<Result<String, String>>),
     Kill,
 }
 
@@ -199,7 +207,7 @@ pub struct CreateTaskParams {
     /// When provided, the backend reuses this id and seeds the task with the
     /// supplied historical messages instead of generating a new uuid. Used for
     /// stateless resumption: the frontend keeps the original thread
-    /// id while spawning a fresh kiro-cli connection.
+    /// id while spawning a fresh Claude CLI connection.
     pub existing_id: Option<String>,
     /// Prior messages to seed the task with (resumed threads pass their full
     /// history so it shows up in the timeline before the user's new prompt).

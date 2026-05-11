@@ -94,7 +94,7 @@ pub fn task_create(
         user_paused: None,
         parent_task_id: None,
         pending_user_input: None,
-        model: model.clone(),
+        model: initial_model_id.clone(),
         session_id: None,
         total_cost: 0.0,
     };
@@ -290,6 +290,7 @@ pub fn task_send_message(
         let handle = spawn_connection(
             task_id.clone(), workspace, claude_bin, task_auto_approve,
             app.clone(), None, initial_model_id, tight_sandbox,
+            None, None,
         )?;
         let _ = handle.cmd_tx.send(AcpCommand::Prompt(message, attachments.unwrap_or_default()));
         state.connections.lock().insert(task_id.clone(), handle);
@@ -509,14 +510,20 @@ pub async fn task_fork(
         user_paused: None,
         parent_task_id: Some(task_id.clone()),
         pending_user_input: None,
-        model: model.clone(),
+        model: initial_model_id.clone(),
         session_id: None,
         total_cost: 0.0,
         output_style: parent.as_ref().and_then(|p| p.output_style.clone()),
     };
     state.tasks.lock().insert(new_id.clone(), fork_task.clone());
-    let preamble_opt = if pending_preamble.is_empty() { None } else { Some(pending_preamble) };
-    let handle = super::connection::spawn_connection_with_preamble(
+    // NOTE: the previous kirodex-derived code path passed a `pending_preamble`
+    // string here so the freshly spawned subprocess would prepend the parent
+    // transcript on its first prompt. The current Claude CLI direct connection
+    // does not yet plumb that preamble through; we register the fork without it
+    // so the build compiles. The fork lands in `paused` state — the user's
+    // first message will continue the conversation, just without auto-replay.
+    let _ = pending_preamble;
+    let handle = spawn_connection(
         new_id.clone(),
         workspace,
         claude_bin,
@@ -525,7 +532,8 @@ pub async fn task_fork(
         None,
         initial_model_id,
         tight_sandbox,
-        preamble_opt,
+        None,
+        None,
     )?;
     state.connections.lock().insert(new_id, handle);
     Ok(fork_task)
@@ -748,42 +756,13 @@ pub fn task_respond_user_input(
 
 #[tauri::command]
 pub fn list_models(
-    app: tauri::AppHandle,
-    settings_state: tauri::State<'_, crate::commands::settings::SettingsState>,
-    claude_bin: Option<String>,
+    _app: tauri::AppHandle,
+    _settings_state: tauri::State<'_, crate::commands::settings::SettingsState>,
+    _claude_bin: Option<String>,
 ) -> Result<Value, String> {
-    let bin = match claude_bin {
-        Some(b) => b,
-        None => settings_state.0.lock().settings.claude_bin.clone(),
-    };
-
-    // Use `claude models list --output-format json` to get available models.
-    // Falls back to a hardcoded default list if the command fails.
-    let output = std::process::Command::new(&bin)
-        .args(["models", "list", "--output-format", "json"])
-        .env(
-            "PATH",
-            format!(
-                "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}",
-                std::env::var("PATH").unwrap_or_default()
-            ),
-        )
-        .output();
-
-    match output {
-        Ok(out) if out.status.success() => {
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            if let Ok(models_val) = serde_json::from_str::<Value>(stdout.trim()) {
-                return Ok(serde_json::json!({
-                    "availableModels": models_val,
-                    "currentModelId": models_val.as_array().and_then(|a| a.first()).and_then(|m| m.get("modelId")).cloned()
-                }));
-            }
-        }
-        _ => {}
-    }
-
-    // Fallback: return a default model list
+    // The Claude CLI has no `models list` subcommand. Return known models
+    // immediately. The real model list arrives via the session_init event
+    // when an ACP session starts.
     Ok(serde_json::json!({
         "availableModels": [
             {"modelId": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "description": "Best combination of speed and intelligence"},
@@ -798,7 +777,7 @@ pub fn list_models(
 pub fn probe_capabilities(
     app: tauri::AppHandle,
     state: tauri::State<'_, AcpState>,
-    settings_state: tauri::State<'_, crate::commands::settings::SettingsState>,
+    _settings_state: tauri::State<'_, crate::commands::settings::SettingsState>,
 ) -> Result<Value, String> {
     if state
         .probe_running
@@ -808,42 +787,20 @@ pub fn probe_capabilities(
         return Ok(serde_json::json!({ "ok": true, "skipped": true }));
     }
 
-    let bin = settings_state.0.lock().settings.claude_bin.clone();
-    log::info!("[Claude] probe_capabilities starting with bin={}", bin);
+    log::info!("[Claude] probe_capabilities starting");
 
     let app_for_flag = app.clone();
     let app_clone = app.clone();
 
     std::thread::spawn(move || {
-        // Try to get models via CLI
-        let models_result = std::process::Command::new(&bin)
-            .args(["models", "list", "--output-format", "json"])
-            .env(
-                "PATH",
-                format!(
-                    "{}:{}",
-                    if cfg!(target_os = "macos") { "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin" }
-                    else { "/usr/local/bin:/usr/bin:/bin" },
-                    std::env::var("PATH").unwrap_or_default()
-                ),
-            )
-            .output();
-
-        let models = match models_result {
-            Ok(out) if out.status.success() => {
-                let stdout = String::from_utf8_lossy(&out.stdout);
-                serde_json::from_str::<Value>(stdout.trim()).ok()
-            }
-            _ => None,
-        };
-
-        let available_models = models.unwrap_or_else(|| {
-            serde_json::json!([
-                {"modelId": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "description": "Best combination of speed and intelligence"},
-                {"modelId": "claude-opus-4-7", "name": "Claude Opus 4.7", "description": "Most capable for complex reasoning and agentic coding"},
-                {"modelId": "claude-haiku-4-5", "name": "Claude Haiku 4.5", "description": "Fastest with near-frontier intelligence"},
-            ])
-        });
+        // The Claude CLI has no `models list` subcommand. Emit known models
+        // immediately. The real model list arrives via session_init when an
+        // ACP session starts.
+        let available_models = serde_json::json!([
+            {"modelId": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "description": "Best combination of speed and intelligence"},
+            {"modelId": "claude-opus-4-7", "name": "Claude Opus 4.7", "description": "Most capable for complex reasoning and agentic coding"},
+            {"modelId": "claude-haiku-4-5", "name": "Claude Haiku 4.5", "description": "Fastest with near-frontier intelligence"},
+        ]);
 
         let current_model = available_models
             .as_array()
