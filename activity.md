@@ -1,3 +1,9 @@
+## 2026-05-11 09:51 GST (Dubai)
+### App: Fix unwanted thread switching on window focus
+Ported upstream commit c3f9f54. Removed the window focus handler that auto-navigated to the last notified task whenever the app regained focus, which caused unexpected thread switching across projects. The handler now clears the notification badge array without switching threads.
+
+**Modified:** `src/renderer/App.tsx`
+
 ## 2026-05-11 09:47 GST (Dubai)
 ### App: wire zoom limit, What's New, and Clone dialogs into App
 Ported upstream commit be07c2d. Integrates useZoomLimit hook, WhatsNewDialog, and CloneRepoDialog into the root App component. Adds a features showcase grid to the empty state and updates split view tooltip copy. Created changelog.ts re-export module for the What's New version-checking logic.

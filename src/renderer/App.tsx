@@ -379,10 +379,13 @@ export function App() {
         if (tid) navigateToNotifiedTask(tid);
       }).catch(() => {});
     }).catch(() => {});
-    // Fallback: navigate on window focus if notifications were pending
+    // Clear stale notification badges on window focus (no auto-navigation —
+    // the user should only switch threads by clicking a native notification)
     const handleWindowFocus = () => {
       const ids = useTaskStore.getState().notifiedTaskIds
-      if (ids.length > 0) navigateToNotifiedTask(ids[ids.length - 1])
+      if (ids.length > 0) {
+        useTaskStore.setState({ notifiedTaskIds: [] })
+      }
     };
     window.addEventListener("focus", handleWindowFocus);
     startAutoFlush();
