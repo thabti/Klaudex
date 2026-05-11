@@ -1,3 +1,9 @@
+## 2026-05-11 07:53 GST (Dubai)
+### Port: fix crash fallback with close button and timer cleanup
+Cherry-picked e4c7abb6 from kirodex. Added a close button to the crash-fallback overlay, stored the 10s crash timer on `window.__crashTimer` for cleanup, and added logic in main.tsx to cancel the timer and remove the fallback element once React mounts successfully.
+
+**Modified:** index.html, src/renderer/main.tsx
+
 ## 2026-05-11 07:52 GST (Dubai)
 ### Port: fix overflow-hidden clipping question card options
 Cherry-picked 206c6531 from kirodex. Removed `overflow-x-auto overflow-y-hidden` from the inner message wrapper in MessageList since it created a scroll container that clipped QuestionCard options and footers.

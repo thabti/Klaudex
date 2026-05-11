@@ -67,6 +67,12 @@
             color: #e0e0e0;
             background: #0D0D0D;
         ">
+            <button id="crash-close" aria-label="Close" style="
+                position: absolute; top: 16px; right: 16px;
+                width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+                border-radius: 8px; border: 1px solid #333; background: transparent;
+                color: #888; font-size: 18px; cursor: pointer; line-height: 1;
+            ">✕</button>
             <div style="font-size: 32px">⚠️</div>
             <h2 style="font-size: 16px; font-weight: 600; margin: 0">Klaudex failed to load</h2>
             <p style="font-size: 13px; color: #888; max-width: 360px; margin: 0; line-height: 1.5">
@@ -82,17 +88,22 @@
         <script type="module" src="/src/renderer/main.tsx"></script>
         <script>
             // If React hasn't mounted within 10s, show the crash fallback
-            setTimeout(function() {
+            window.__crashTimer = setTimeout(function() {
                 var root = document.getElementById('root');
                 if (root && root.childElementCount === 0) {
                     var splash = document.getElementById('splash');
                     if (splash) splash.style.display = 'none';
-                    document.getElementById('crash-fallback').style.display = 'flex';
+                    var fb = document.getElementById('crash-fallback');
+                    if (fb) fb.style.display = 'flex';
                 }
             }, 10000);
             document.addEventListener('click', function(e) {
                 if (e.target && e.target.id === 'crash-reload') {
                     window.location.reload();
+                }
+                if (e.target && e.target.id === 'crash-close') {
+                    var fb = document.getElementById('crash-fallback');
+                    if (fb) fb.style.display = 'none';
                 }
             });
         </script>
