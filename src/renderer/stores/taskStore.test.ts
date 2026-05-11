@@ -264,18 +264,16 @@ describe('projects', () => {
     expect(useTaskStore.getState().projectIds['/ws']).toBe(pid)
   })
 
-  it('addProject updates projectId on restored soft-deleted tasks', () => {
+  it('addProject does not restore soft-deleted threads', () => {
     useTaskStore.getState().addProject('/ws')
     const oldPid = useTaskStore.getState().projectIds['/ws']
     useTaskStore.getState().upsertTask(makeTask({ id: 't1', workspace: '/ws', projectId: oldPid }))
     useTaskStore.getState().removeProject('/ws')
     expect(useTaskStore.getState().softDeleted['t1']).toBeDefined()
-    // Re-add the same project — should restore the task with the NEW projectId
+    // Re-add the same project — soft-deleted threads stay deleted
     useTaskStore.getState().addProject('/ws')
-    const newPid = useTaskStore.getState().projectIds['/ws']
-    expect(newPid).not.toBe(oldPid)
-    expect(useTaskStore.getState().tasks['t1']).toBeDefined()
-    expect(useTaskStore.getState().tasks['t1'].projectId).toBe(newPid)
+    expect(useTaskStore.getState().softDeleted['t1']).toBeDefined()
+    expect(useTaskStore.getState().tasks['t1']).toBeUndefined()
   })
 
   it('addProject rejects worktree paths', () => {

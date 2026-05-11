@@ -1,3 +1,9 @@
+## 2026-05-11 10:05 GST (Dubai)
+### Port: Fix updater relaunch hang, MessageList scroll dedup, memory-section redesign
+Ported upstream commit 1b34c79. Skips redundant flush-before-quit/ack cycle when RelaunchFlag is set (fixes restart button hang). Also includes MessageList scroll retry dedup with generation-based cancellation, memory-section visual redesign with stat cards and category rows, SidebarFooter memory spike indicator, and taskStore addProject cleanup (no longer restores soft-deleted threads).
+
+**Modified:** src-tauri/src/lib.rs, src/renderer/components/chat/MessageList.tsx, src/renderer/components/settings/memory-section.tsx, src/renderer/components/sidebar/SidebarFooter.tsx, src/renderer/stores/taskStore.ts, src/renderer/stores/taskStore.test.ts
+
 ## 2026-05-11 10:01 GST (Dubai)
 ### Port: Fix BtwOverlay AgentTask fixtures missing required fields
 Ported upstream commit 5e39a64. Added missing `name` and `createdAt` fields to every inline AgentTask fixture in `BtwOverlay.test.tsx` so tsc passes.

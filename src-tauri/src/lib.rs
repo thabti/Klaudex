@@ -411,14 +411,10 @@ pub fn run() {
                     // and let the close proceed so `relaunch()` can restart the app.
                     if let Some(flag) = app.try_state::<RelaunchFlag>() {
                         if flag.0.load(Ordering::Acquire) {
-                            let _ = app.emit("app://flush-before-quit", ());
-                            // Wait for the frontend to ack the flush, with a 2s timeout
-                            let (tx, rx) = std::sync::mpsc::channel::<()>();
-                            let app_clone = app.clone();
-                            let _listener_id = app_clone.listen("app://flush-ack", move |_| {
-                                let _ = tx.send(());
-                            });
-                            let _ = rx.recv_timeout(std::time::Duration::from_secs(2));
+                            // The frontend already flushed state in prepareForRelaunch()
+                            // before calling relaunch(). Skip the flush-before-quit/ack
+                            // cycle — the webview is being torn down and can't respond.
+                            log::info!("Relaunch flag set — skipping flush, shutting down immediately");
                             shutdown_app(&app);
                             return;
                         }
