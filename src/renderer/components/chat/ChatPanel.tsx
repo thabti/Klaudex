@@ -17,7 +17,7 @@ import { SearchQueryContext } from './HighlightText'
 import { BtwOverlay } from './BtwOverlay'
 import { PanelProvider } from './PanelContext'
 import { StickyTaskList } from './StickyTaskList'
-import { ThreadIdCaption } from './ThreadIdCaption'
+
 import { useMessageSearch } from '@/hooks/useMessageSearch'
 import { ipc } from '@/lib/ipc'
 import { resolveModelId } from '@/lib/resolve-model'
@@ -355,7 +355,7 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
             searchMatchIds={search.isOpen ? search.matchIds : undefined}
             activeMatchId={search.isOpen ? search.activeMatchId : undefined}
             onTimelineRows={handleTimelineRows}
-            headerContent={resolvedTaskId ? <ThreadIdCaption taskId={resolvedTaskId} /> : undefined}
+            headerContent={undefined}
           />
         </SearchQueryContext.Provider>
 

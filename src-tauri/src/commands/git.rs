@@ -307,10 +307,18 @@ pub fn task_diff(state: tauri::State<'_, AcpState>, task_id: String) -> Result<S
     let staged = repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut diff_opts))?;
     staged.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
         let origin = line.origin();
-        if matches!(origin, '+' | '-' | ' ') {
-            output.push(origin);
+        match origin {
+            'H' | 'F' => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            '+' | '-' | ' ' => {
+                output.push(origin);
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            _ => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
         }
-        output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
         true
     })?;
 
@@ -318,10 +326,18 @@ pub fn task_diff(state: tauri::State<'_, AcpState>, task_id: String) -> Result<S
     let unstaged = repo.diff_index_to_workdir(None, Some(&mut diff_opts))?;
     unstaged.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
         let origin = line.origin();
-        if matches!(origin, '+' | '-' | ' ') {
-            output.push(origin);
+        match origin {
+            'H' | 'F' => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            '+' | '-' | ' ' => {
+                output.push(origin);
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            _ => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
         }
-        output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
         true
     })?;
 
@@ -338,19 +354,35 @@ pub fn git_diff(cwd: String) -> Result<String, AppError> {
     let staged = repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut diff_opts))?;
     staged.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
         let origin = line.origin();
-        if matches!(origin, '+' | '-' | ' ') {
-            output.push(origin);
+        match origin {
+            'H' | 'F' => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            '+' | '-' | ' ' => {
+                output.push(origin);
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            _ => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
         }
-        output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
         true
     })?;
     let unstaged = repo.diff_index_to_workdir(None, Some(&mut diff_opts))?;
     unstaged.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
         let origin = line.origin();
-        if matches!(origin, '+' | '-' | ' ') {
-            output.push(origin);
+        match origin {
+            'H' | 'F' => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            '+' | '-' | ' ' => {
+                output.push(origin);
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            _ => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
         }
-        output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
         true
     })?;
     Ok(output)

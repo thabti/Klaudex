@@ -1,3 +1,9 @@
+## 2026-05-11 12:00 GST (Dubai)
+### Port: Improve chat UX and fix git diff output (kirodex@ef16bdf)
+Cherry-picked upstream fix: git diff functions now include file/hunk headers (F/H origins) so @pierre/diffs can parse correctly. Hid ThreadIdCaption from chat panel, added Copy Thread ID and Copy Session ID to sidebar context menu. TaskListDisplay defaults to collapsed with 600px max-height. WorkingRow gets middle-dot separator, tabular-nums, and zero-padded seconds.
+
+**Modified:** src-tauri/src/commands/git.rs, src-tauri/src/commands/git_history.rs, src/renderer/components/chat/ChatPanel.tsx, src/renderer/components/chat/TaskListDisplay.tsx, src/renderer/components/chat/WorkingRow.tsx, src/renderer/components/sidebar/ThreadItem.tsx
+
 ## 2026-05-11 11:57 GST (Dubai)
 ### Port: Make commands module public and add generate_for_smoke (kirodex@db3fee8)
 Cherry-picked upstream build fix: made the `commands` module public in lib.rs and added `generate_for_smoke()` entry point in git_ai.rs so the git_ai_smoke example binary can access the commit generation logic. Adapted `run_kiro_oneshot` → `run_claude_oneshot` for klaudex.

@@ -236,10 +236,18 @@ pub fn git_commit_diff(cwd: String, oid: String) -> Result<String, AppError> {
     let mut patch = String::new();
     diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
         let origin = line.origin();
-        if matches!(origin, '+' | '-' | ' ') {
-            patch.push(origin);
+        match origin {
+            'H' | 'F' => {
+                patch.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            '+' | '-' | ' ' => {
+                patch.push(origin);
+                patch.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            _ => {
+                patch.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
         }
-        patch.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
         true
     })?;
 
