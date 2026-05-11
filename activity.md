@@ -1,3 +1,9 @@
+## 2026-05-11 09:18 GST (Dubai)
+### SplitPanelHeader: add always-visible close button on right panel
+Ported upstream commit 7e6a1c6. Added a `side` prop to `SplitPanelHeader`. The right panel now shows an always-visible `IconX` close button, while the left panel keeps the hover-only `IconTrash`. Updated `SplitChatLayout` to pass `side='left'` and `side='right'` to each header.
+
+**Modified:** `src/renderer/components/chat/SplitPanelHeader.tsx`, `src/renderer/components/chat/SplitChatLayout.tsx`
+
 ## 2026-05-11 09:20 GST (Dubai)
 ### Split view: pin threads, focus isolation, scroll fix, steer dedup
 Ported upstream commit 808b382. Added pin thread feature (right-click context menu, persistence, auto-cleanup on delete). Fixed split view focus isolation for drag overlay, question cards, history cycling, slash commands, mentions, and terminal. Rewrote MessageList scroll to default to bottom on thread switch with pendingScrollRef. Fixed steer duplicate message by reordering removeQueuedMessage before pauseTask. Header terminal button now uses focusedTaskId. Added sidebar divider between pinned/split sections and project list. Includes 16 new unit tests.
