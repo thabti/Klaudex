@@ -1,3 +1,9 @@
+## 2026-05-11 09:26 GST (Dubai)
+### Analytics: port slash command mode tracking and estimated token cost
+Ported upstream commit ce93c25. SlashCommandChart now shows stacked horizontal bars by mode (command vs plan) using recharts. TokensChart gains estimated cost display based on most-used model pricing with a 75/25 input/output heuristic. The `record('slash_cmd')` call in useSlashAction now appends the current mode to the detail field.
+
+**Modified:** `src/renderer/components/analytics/AnalyticsDashboard.tsx`, `src/renderer/components/analytics/SlashCommandChart.tsx`, `src/renderer/components/analytics/TokensChart.tsx`, `src/renderer/hooks/useSlashAction.ts`, `src/renderer/lib/analytics-aggregators.ts`
+
 ## 2026-05-11 09:21 GST (Dubai)
 ### Chat: port BtwOverlay component tests
 Ported upstream commit 3400c0e. Added test file covering rendering states (null checkpoint, question text, thinking, assistant response), permission banner display and interaction, dismiss via button/Escape/backdrop click, and tool name formatting. Adapted kiroStore mock to claudeConfigStore and added required `name`/`createdAt` fields to task fixtures.
