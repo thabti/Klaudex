@@ -1,3 +1,9 @@
+## 2026-05-11 12:25 GST (Dubai)
+### Port: Restyle settings nav sidebar (kirodex@209b122)
+Cherry-picked upstream style commit. Applies bg-sidebar background, replaces primary/10 active state with accent/85, removes left-edge indicator bar, reduces font sizes and padding for compact appearance.
+
+**Modified:** src/renderer/components/settings/SettingsPanel.tsx
+
 ## 2026-05-11 12:24 GST (Dubai)
 ### Port: Wrap SettingRow and SettingsCard in memo (kirodex@6cb5c85)
 Cherry-picked upstream perf commit. Wrapped SettingRow and SettingsCard components in React.memo to prevent unnecessary re-renders when parent sections update unrelated state.
