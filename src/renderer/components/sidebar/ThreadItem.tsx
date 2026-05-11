@@ -37,7 +37,7 @@ interface ThreadItemProps {
   onMoveDown?: () => void
 }
 
-export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, canMoveUp, canMoveDown, onSelect, onDelete, onRename, onMoveUp, onMoveDown }: ThreadItemProps) {
+export const ThreadItem = memo(function ThreadItem({ task, jumpLabel, canMoveUp, canMoveDown, onSelect, onDelete, onRename, onMoveUp, onMoveDown }: ThreadItemProps) {
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(task.name)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
@@ -148,9 +148,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
         className={cn(
           'flex min-w-0 h-8 w-full cursor-pointer items-center gap-1.5 overflow-hidden rounded-lg px-2 pr-1 text-[13px] select-none',
           'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring transition-colors',
-          isActive
-            ? 'bg-accent/85 dark:bg-accent/55 text-foreground font-medium hover:bg-accent dark:hover:bg-accent/70'
-            : 'text-foreground/80 hover:bg-accent hover:text-foreground',
+          'text-foreground/80 hover:bg-accent hover:text-foreground',
         )}
       >
         {task.isDraft ? (
@@ -313,7 +311,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
                       className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
                       onClick={handleNewSplitView}
                     >
-                      <IconLayoutColumns className="size-3.5" /> New split view
+                      <IconLayoutColumns className="size-3.5" /> Side by side
                     </button>
                   )}
                   <div className="my-1 border-t border-border/50" />

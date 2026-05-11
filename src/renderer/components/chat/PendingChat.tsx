@@ -31,8 +31,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
   const setDraftMentionedFiles = useTaskStore((s) => s.setDraftMentionedFiles)
   const removeDraftMentionedFiles = useTaskStore((s) => s.removeDraftMentionedFiles)
 
-  const settings = useSettingsStore((s) => s.settings)
-  const projectPrefs = settings.projectPrefs?.[workspace]
+  const projectPrefs = useSettingsStore((s) => s.settings.projectPrefs?.[workspace])
   const [useWorktree, setUseWorktree] = useState(false)
   const [worktreeSlug, setWorktreeSlug] = useState('')
   const [isSlugEdited, setIsSlugEdited] = useState(false)
@@ -186,7 +185,7 @@ export function PendingChat({ workspace }: PendingChatProps) {
             <button
               type="button"
               onClick={openLogin}
-              className="rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent"
+              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Sign in to Claude
             </button>

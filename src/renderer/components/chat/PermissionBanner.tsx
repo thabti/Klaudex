@@ -55,19 +55,21 @@ export const PermissionBanner = memo(function PermissionBanner({
           <span className="text-muted-foreground"> wants to use </span>
           <span className="font-medium">{displayName}</span>
         </p>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1" role="group" aria-label="Permission actions">
           {sorted.map((opt) => {
             const Icon = KIND_ICONS[opt.kind]
             return (
               <button
                 key={opt.optionId}
+                type="button"
                 onClick={() => onSelect(opt.optionId)}
+                aria-label={`${opt.name} ${displayName}`}
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors',
+                  'inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background',
                   KIND_STYLES[opt.kind] ?? 'text-muted-foreground hover:bg-accent',
                 )}
               >
-                {Icon && <Icon className="size-3" />}
+                {Icon && <Icon className="size-3" aria-hidden />}
                 {opt.name}
               </button>
             )
@@ -75,16 +77,20 @@ export const PermissionBanner = memo(function PermissionBanner({
           {sorted.length === 0 && (
             <>
               <button
+                type="button"
                 onClick={() => onSelect('__allow__')}
-                className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2.5 py-1.5 text-[12px] font-medium text-emerald-600 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400"
+                aria-label={`Allow ${displayName}`}
+                className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2.5 py-1.5 text-[12px] font-medium text-emerald-600 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
               >
-                <IconCheck className="size-3" /> Allow
+                <IconCheck className="size-3" aria-hidden /> Allow
               </button>
               <button
+                type="button"
                 onClick={() => onSelect('__deny__')}
-                className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                aria-label={`Deny ${displayName}`}
+                className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
               >
-                <IconX className="size-3" /> Deny
+                <IconX className="size-3" aria-hidden /> Deny
               </button>
             </>
           )}

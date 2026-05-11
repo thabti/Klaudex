@@ -351,7 +351,7 @@ export function CommitDialog({ open, onOpenChange, workspace }: CommitDialogProp
                   type="button"
                   onClick={() => void handleGenerate()}
                   disabled={isGenerating || isCommitting}
-                  className="flex items-center gap-1 rounded-md border border-input bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+                  className="flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                 >
                   {isGenerating
                     ? <IconLoader2 className="size-3 animate-spin" />
@@ -411,7 +411,7 @@ export function CommitDialog({ open, onOpenChange, workspace }: CommitDialogProp
             onClick={handleCommitOnNewBranch}
             className="whitespace-nowrap"
           >
-            {showNewBranchInput ? 'Confirm new branch' : 'Commit on new refName'}
+            {showNewBranchInput ? 'Confirm new branch' : 'Commit on new branch'}
           </Button>
           <Button
             variant="outline"

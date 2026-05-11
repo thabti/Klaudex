@@ -156,8 +156,10 @@ export function GitActionsGroup({ workspace }: { workspace: string }) {
           <GitMenuItem icon={IconCloudUpload} label="Publish" loading={false} disabled={busy}
             onClick={handleOpenPublish} />
           <button type="button" onClick={() => void handleOpenGitHub()}
+            aria-label="Open repository on GitHub (opens in browser)"
             className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors">
             <GitHubIcon /> GitHub
+            <svg aria-hidden className="ml-auto size-3 text-muted-foreground" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h7v7" /><path d="M13 3L3 13" /></svg>
           </button>
         </div>
       )}

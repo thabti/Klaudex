@@ -18,7 +18,8 @@ interface GeneralSectionProps {
 }
 
 export const GeneralSection = memo(function GeneralSection({ draft, updateDraft }: GeneralSectionProps) {
-  const { availableModels, currentModelId, modelsLoading, modelsError, fetchModels, activeWorkspace } = useSettingsStore()
+  const { availableModels: rawModels, currentModelId, modelsLoading, modelsError, fetchModels, activeWorkspace } = useSettingsStore()
+  const availableModels = Array.isArray(rawModels) ? rawModels : []
   const [cliStatus, setCliStatus] = useState<'idle' | 'ok' | 'fail'>('idle')
   const [isDetecting, setIsDetecting] = useState(false)
 
@@ -87,7 +88,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, updateDraft 
     <>
       <SectionHeader section="general" />
 
-      <SettingsGrid label="Connection" description="Path to the kiro-cli binary">
+      <SettingsGrid label="Connection" description="Path to the Claude CLI binary">
         <SettingsCard>
           <div className="py-1">
             <div className="flex gap-2">
@@ -95,8 +96,8 @@ export const GeneralSection = memo(function GeneralSection({ draft, updateDraft 
                 value={draft.claudeBin}
                 data-testid="settings-cli-path-input"
                 onChange={handleCliPathChange}
-                placeholder="kiro-cli"
-                aria-label="Path to kiro-cli binary"
+                placeholder="Claude CLI"
+                aria-label="Path to Claude CLI binary"
                 className="flex h-7 w-full flex-1 rounded-md border border-input bg-background/50 px-2.5 font-mono text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
               <Tooltip>
@@ -104,7 +105,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, updateDraft 
                   <button
                     type="button"
                     onClick={handleBrowseCli}
-                    aria-label="Browse for kiro-cli binary"
+                    aria-label="Browse for Claude CLI binary"
                     className="shrink-0 rounded-md border border-input px-2 py-1 text-[11px] font-medium transition-colors hover:bg-accent hover:text-foreground"
                   >
                     Browse
@@ -118,7 +119,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, updateDraft 
                     type="button"
                     onClick={handleAutoDetect}
                     disabled={isDetecting}
-                    aria-label="Auto-detect kiro-cli path"
+                    aria-label="Auto-detect Claude CLI path"
                     className="flex shrink-0 items-center gap-1 rounded-md border border-input px-2 py-1 text-[11px] font-medium transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
                   >
                     {isDetecting ? <IconLoader2 className="size-3 animate-spin" /> : <IconSearch className="size-3" />}
@@ -140,7 +141,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, updateDraft 
                     Test
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="top">Test connection to kiro-cli</TooltipContent>
+                <TooltipContent side="top">Test connection to Claude CLI</TooltipContent>
               </Tooltip>
               {cliStatus === 'ok' && <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400"><IconCheck className="size-3" /> Connected</span>}
               {cliStatus === 'fail' && <span className="flex items-center gap-1 text-[11px] text-red-600 dark:text-red-400"><IconAlertCircle className="size-3" /> Failed</span>}
