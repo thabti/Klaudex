@@ -69,7 +69,12 @@ pub fn pty_create(
         return Err(AppError::Other(format!("PTY cwd is not a directory: {cwd}")));
     }
     if let Ok(canonical) = cwd_path.canonicalize() {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+        #[cfg(not(target_os = "windows"))]
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/nonexistent".to_string());
+        #[cfg(target_os = "windows")]
+        let home = std::env::var("USERPROFILE")
+            .or_else(|_| std::env::var("HOME"))
+            .unwrap_or_else(|_| "C:\\nonexistent".to_string());
         let home_path = std::path::Path::new(&home);
         let allowed = canonical.starts_with(home_path)
             || canonical.starts_with("/tmp")
@@ -80,6 +85,10 @@ pub fn pty_create(
             || canonical.starts_with("/opt")
             || canonical.starts_with("/srv")
             || canonical.starts_with("/var/www");
+        #[cfg(target_os = "windows")]
+        let allowed = allowed
+            || canonical.starts_with("C:\\Users")
+            || canonical.starts_with("D:\\");
         if !allowed {
             return Err(AppError::Other(format!("PTY cwd must be under home directory or a known project location: {cwd}")));
         }

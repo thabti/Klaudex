@@ -1,3 +1,9 @@
+## 2026-05-11 11:56 GST (Dubai)
+### Port: Prevent PTY cwd bypass via unset HOME on Windows (kirodex@397d4f5)
+Cherry-picked upstream security fix: On Windows, use USERPROFILE with HOME fallback for PTY cwd validation. Default to a nonexistent path instead of "/" when env vars are unset, preventing the validation from accepting any path. Added Windows-specific allowed paths (C:\Users, D:\).
+
+**Modified:** src-tauri/src/commands/pty.rs
+
 ## 2026-05-11 11:52 GST (Dubai)
 ### Port: Path traversal, SSRF, AppleScript injection, and NSOpenPanel crash fixes (kirodex@4cf12cc)
 Cherry-picked upstream security commit: (S1) Added `validate_path_containment()` to all project_watcher file ops preventing `../` traversal. (S2) Replaced AppleScript string interpolation in `open_terminal_at` with env-var pattern (`KLAUDEX_CD_PATH`). (S3) Added URL validation to HttpTransport rejecting private IPs and requiring HTTPS for remote servers. (S4) Added dirty-check guard to `checkpoint_revert` refusing hard reset with uncommitted changes unless `force=true`. Fixed NSOpenPanel NULL panic with `catch_unwind` and `NSApplicationActivationPolicyRegular`. Fixed duplicate React keys in sidebar by deduplicating projects array.
