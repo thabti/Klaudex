@@ -1,3 +1,9 @@
+## 2026-05-11 08:58 GST (Dubai)
+### Sidebar: replace drag-to-reorder with Move Up/Down context menu
+Ported upstream commit d31906e. Removed all pointer-based drag code from TaskSidebar and ProjectItem. Added Move Up/Down options to project context menu with boundary guards. Thread jump labels (1-9) shown when Cmd is held. Keyboard shortcut hints in SidebarFooter. Fixed useSidebarTasks to preserve store order for custom sort.
+
+**Modified:** `src/renderer/components/sidebar/ProjectItem.tsx`, `src/renderer/components/sidebar/SidebarFooter.tsx`, `src/renderer/components/sidebar/TaskSidebar.tsx`, `src/renderer/hooks/useSidebarTasks.ts`
+
 ## 2026-05-11 08:57 GST (Dubai)
 ### Split-screen: add toolbar toggle, thread picker, and context menu split options
 Ported upstream commit aeb1ff8 adding SplitToggleButton to header toolbar with active/inactive states and thread picker popup. Added 'New split view' and 'Unsplit' options to ThreadItem right-click context menu. Shows split indicator icon on threads in split view. Added jumpLabel prop to ThreadItem.
