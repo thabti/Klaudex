@@ -1,3 +1,9 @@
+## 2026-05-11 08:08 GST (Dubai)
+### Chat: replace /btw lightning bolt with message-circle-question icon
+Cherry-picked 652cd769 from kirodex. Replaced the lightning bolt SVG icon with a message-circle-question SVG (speech bubble with question mark) for /btw and /tangent slash commands in BtwOverlay, EmptyThreadSplash, and SlashCommandPicker. Differentiates side-question features from skills which now use the zap/bolt icon.
+
+**Modified:** `src/renderer/components/chat/BtwOverlay.tsx`, `src/renderer/components/chat/EmptyThreadSplash.tsx`, `src/renderer/components/chat/SlashCommandPicker.tsx`
+
 ## 2026-05-11 08:07 GST (Dubai)
 ### Chat: replace wrench icon with zap for skills and show "skill: Name" in pills
 Cherry-picked e46fa890 from kirodex. Replaced IconTool (wrench) with IconBolt (zap) for skills in the @ mention picker, skill mention pills, and inline skill mentions in chat messages. Updated FileMentionPill to display "skill: Formatted Name" for skill pills.
