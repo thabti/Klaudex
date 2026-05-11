@@ -1,3 +1,9 @@
+## 2026-05-11 08:57 GST (Dubai)
+### Split-screen: add toolbar toggle, thread picker, and context menu split options
+Ported upstream commit aeb1ff8 adding SplitToggleButton to header toolbar with active/inactive states and thread picker popup. Added 'New split view' and 'Unsplit' options to ThreadItem right-click context menu. Shows split indicator icon on threads in split view. Added jumpLabel prop to ThreadItem.
+
+**Modified:** `src/renderer/components/chat/SplitThreadPicker.tsx`, `src/renderer/components/header-toolbar.tsx`, `src/renderer/components/sidebar/ThreadItem.tsx`
+
 ## 2026-05-11 08:53 GST (Dubai)
 ### Split-screen: add split-screen core with store state, ChatPanel refactor, and layout components
 Ported upstream commit b5f3f50 adding split-screen functionality. Added splitTaskId, splitRatio, focusedPanel, and lastSplitPair to task store with persistence in history-store. Refactored ChatPanel to accept optional taskId prop. Created SplitChatLayout, SplitDivider, and SplitPanelHeader components. Wired split routing in App.tsx.

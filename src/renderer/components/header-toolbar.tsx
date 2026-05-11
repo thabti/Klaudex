@@ -1,7 +1,9 @@
-import { useEffect, useState, memo } from "react"
+import { useCallback, useEffect, useState, memo, useRef } from "react"
 import {
   IconGitCompare,
   IconTerminal2,
+  IconGitBranch,
+  IconLayoutColumns,
 } from "@tabler/icons-react"
 import { useTaskStore } from "@/stores/taskStore"
 import {
@@ -12,9 +14,66 @@ import {
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { OpenInEditorGroup } from "@/components/OpenInEditorGroup"
 import { GitActionsGroup } from "@/components/GitActionsGroup"
+import { SplitThreadPicker } from "@/components/chat/SplitThreadPicker"
 import { ipc } from "@/lib/ipc"
 import { cn } from "@/lib/utils"
 import type { TaskStatus } from "@/types"
+
+/** Toggle button for split-screen mode. Opens a thread picker or closes split. */
+const SplitToggleButton = memo(function SplitToggleButton() {
+  const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
+  const splitTaskId = useTaskStore((s) => s.splitTaskId)
+  const isSplit = splitTaskId !== null
+  const [pickerPos, setPickerPos] = useState<{ x: number; y: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  const handleClick = useCallback(() => {
+    if (isSplit) {
+      useTaskStore.getState().closeSplit()
+      return
+    }
+    if (!btnRef.current) return
+    const rect = btnRef.current.getBoundingClientRect()
+    setPickerPos({ x: rect.right - 280, y: rect.bottom + 6 })
+  }, [isSplit])
+
+  if (!selectedTaskId) return null
+
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            ref={btnRef}
+            type="button"
+            data-testid="toggle-split-button"
+            aria-label="Toggle split view"
+            aria-pressed={isSplit}
+            onClick={handleClick}
+            className={cn(
+              "inline-flex h-6 items-center gap-1 rounded-md px-2 text-xs transition-all duration-150",
+              isSplit
+                ? "bg-primary text-white border border-primary/80 hover:bg-primary/90"
+                : "bg-gradient-to-r from-violet-500/10 to-blue-500/10 text-violet-400 border border-violet-500/20 hover:from-violet-500/20 hover:to-blue-500/20 hover:text-violet-300",
+            )}
+          >
+            <IconLayoutColumns className="size-3.5" aria-hidden />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          {isSplit ? "Close split view" : "Split view · compare two threads"}
+        </TooltipContent>
+      </Tooltip>
+      {pickerPos && selectedTaskId && (
+        <SplitThreadPicker
+          anchorTaskId={selectedTaskId}
+          position={pickerPos}
+          onClose={() => setPickerPos(null)}
+        />
+      )}
+    </>
+  )
+})
 
 interface HeaderToolbarProps {
   workspace: string
@@ -139,6 +198,8 @@ export const HeaderToolbar = memo(function HeaderToolbar({
           <TooltipContent side="bottom">Terminal</TooltipContent>
         </Tooltip>
       )}
+
+      <SplitToggleButton />
 
     </div>
   )
