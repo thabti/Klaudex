@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useEffect, useCallback } from 'react'
-import { IconPencil, IconTrash, IconLock, IconGitBranch, IconLayoutColumns, IconArrowsSplit, IconPin, IconPinnedOff, IconArrowUp, IconArrowDown } from '@tabler/icons-react'
+import { IconPencil, IconTrash, IconHistory, IconGitBranch, IconLayoutColumns, IconArrowsSplit, IconPin, IconPinnedOff, IconArrowUp, IconArrowDown } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTaskStore } from '@/stores/taskStore'
 import { SplitThreadPicker } from '@/components/chat/SplitThreadPicker'
@@ -151,10 +151,10 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="inline-flex shrink-0">
-                <IconLock className="size-3 text-muted-foreground/70" aria-label="View-only archived thread" />
+                <IconHistory className="size-3 text-muted-foreground/70" aria-label="Resumed from history" />
               </span>
             </TooltipTrigger>
-            <TooltipContent side="right">Archived — view only</TooltipContent>
+            <TooltipContent side="right">From history — agent reconnects on next send</TooltipContent>
           </Tooltip>
         )}
         {task.worktreePath && !task.isArchived && (
@@ -210,26 +210,21 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
             </span>
           </>
         )}
-      </div>
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden w-14 items-center justify-end rounded-r-lg pr-1 group-hover/thread:flex"
-        style={{ background: isActive
-          ? 'linear-gradient(to right, transparent 0%, hsl(var(--accent) / 0.85) 35%)'
-          : 'linear-gradient(to right, transparent 0%, hsl(var(--accent)) 35%)'
-        }}
-      >
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label="Delete thread"
-              onClick={(e) => { e.stopPropagation(); onDelete() }}
-              className="pointer-events-auto flex size-5 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
-            >
-              <IconTrash className="size-3" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top">Delete thread</TooltipContent>
-        </Tooltip>
+        {!editing && !jumpLabel && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="Delete thread"
+                onClick={(e) => { e.stopPropagation(); onDelete() }}
+                className="hidden size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover/thread:flex hover:bg-destructive/15 hover:text-destructive"
+              >
+                <IconTrash className="size-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Delete thread</TooltipContent>
+          </Tooltip>
+        )}
       </div>
 
       {ctxMenu && (

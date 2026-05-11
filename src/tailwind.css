@@ -142,21 +142,11 @@
     --pink-foreground: #ffffff;
 }
 
-/* Scale UI via font-size instead of zoom — CSS zoom breaks viewport units
-   (100vh stays unzoomed while content grows), clipping the bottom in Tauri
-   production builds where the webview doesn't compensate for zoom. */
+/* Base font-size is controlled by the user's font-size setting (applied via
+   inline style on <html> from App.tsx). The fallback below only applies before
+   JS hydrates. */
 html {
-    font-size: 87.5%;
-}
-@media (min-width: 900px) {
-    html {
-        font-size: 93.75%;
-    }
-}
-@media (min-width: 1100px) {
-    html {
-        font-size: 100%;
-    }
+    font-size: 13px;
 }
 
 body {

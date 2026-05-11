@@ -158,10 +158,10 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
   }
 
   return (
-    <div ref={containerRef} data-testid="chat-input" className="px-4 pt-1.5 pb-4 sm:px-6 sm:pt-2 sm:pb-5">
+    <div ref={containerRef} data-testid="chat-input" className="min-w-0 px-4 pt-1.5 pb-4 sm:px-6 sm:pt-2 sm:pb-5">
       <div className="mx-auto w-full min-w-0 max-w-3xl lg:max-w-4xl xl:max-w-5xl">
         <div className={cn(
-          'relative rounded-[20px] border-2 bg-card transition-colors duration-200',
+          'relative min-w-0 rounded-[20px] border-2 bg-card transition-colors duration-200',
           borderIdle, borderFocus,
           isDragOver && 'border-primary/50',
         )}>

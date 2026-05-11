@@ -166,7 +166,7 @@ export const BranchSelector = memo(function BranchSelector({ workspace, isWorktr
         type="button"
         data-testid="branch-selector-button"
         onClick={() => setOpen((v) => !v)}
-        className={cn('flex items-center gap-1 rounded-lg px-1.5 py-1 text-[14px] font-medium transition-colors', 'text-muted-foreground hover:text-foreground/80', open && 'text-foreground/80')}
+        className={cn('flex items-center gap-1 rounded-lg px-1.5 py-1 text-[12px] font-medium transition-colors', 'text-muted-foreground hover:text-foreground/80', open && 'text-foreground/80')}
       >
         <IconGitBranch className="size-3" />
         <span className="hidden max-w-[120px] truncate @[480px]/toolbar:inline">{currentBranch ?? 'branch'}</span>

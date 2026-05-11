@@ -217,6 +217,28 @@ describe('upsertToolCall', () => {
     expect(useTaskStore.getState().liveToolCalls['t1'][0].createdAt).toBe(created)
   })
 
+  it('stamps completedAt on the first terminal-status update', () => {
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch', kind: 'fetch', status: 'pending' })
+    expect(useTaskStore.getState().liveToolCalls['t1'][0].completedAt).toBeUndefined()
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch', kind: 'fetch', status: 'completed' })
+    const completed = useTaskStore.getState().liveToolCalls['t1'][0].completedAt
+    expect(completed).toBeDefined()
+    // Subsequent updates preserve the original completedAt.
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch v2', kind: 'fetch', status: 'completed' })
+    expect(useTaskStore.getState().liveToolCalls['t1'][0].completedAt).toBe(completed)
+  })
+
+  it('stamps completedAt when the first sighting is already terminal', () => {
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch', kind: 'fetch', status: 'completed' })
+    expect(useTaskStore.getState().liveToolCalls['t1'][0].completedAt).toBeDefined()
+  })
+
+  it('does not stamp completedAt for non-terminal statuses', () => {
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch', kind: 'fetch', status: 'pending' })
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch', kind: 'fetch', status: 'in_progress' })
+    expect(useTaskStore.getState().liveToolCalls['t1'][0].completedAt).toBeUndefined()
+  })
+
   it('updates existing by toolCallId', () => {
     useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'pending' })
     useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'completed' })

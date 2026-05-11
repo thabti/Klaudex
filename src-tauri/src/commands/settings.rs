@@ -174,6 +174,10 @@ pub struct AppSettings {
     pub agent_profiles: Vec<AgentProfile>,
     #[serde(default = "default_font_size")]
     pub font_size: u32,
+    /// Chat content font size in px. Falls back to {@link font_size} on the
+    /// frontend when missing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chat_font_size: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_model: Option<String>,
     /// Legacy boolean retained for backward-compat. Superseded by
@@ -213,19 +217,30 @@ pub struct AppSettings {
     /// Theme mode: "dark", "light", or "system". Default: "dark" (Claude orange-on-dark).
     #[serde(default = "default_theme")]
     pub theme: String,
-    /// Most-recently-opened project workspaces, newest-first. Capped at
-    /// [`MAX_RECENT_PROJECTS`]. Mutated via the `recent_projects_*` commands.
-    #[serde(default)]
-    pub recent_projects: Vec<RecentProject>,
-    /// xterm scrollback ring-buffer size. Default 5000 lines (TASK-011).
-    #[serde(default = "default_terminal_scrollback")]
-    pub terminal_scrollback: u32,
-    /// Minutes of idle time after which a PTY auto-closes. `0` = disabled.
-    #[serde(default)]
-    pub terminal_idle_close_mins: u32,
+    /// Sidebar placement: "left" or "right". Default: "left".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sidebar_position: Option<String>,
     /// Base64 data URL for a user-supplied app icon (About dialog + dock).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub custom_app_icon: Option<String>,
+    /// Last app version whose changelog the user has seen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_seen_changelog_version: Option<String>,
+    /// Max character limit for /btw side questions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub btw_max_chars: Option<u32>,
+    /// Terminal scrollback line cap.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_scrollback: Option<u32>,
+    /// Auto-close background terminal tabs after this many idle minutes.
+    /// `None` disables auto-close.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_auto_close_idle_mins: Option<u32>,
+    /// When true, render tool calls inline within the assistant prose at the
+    /// point where the agent invoked them. When false (default), tool calls
+    /// collapse into a single grouped card.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inline_tool_calls: Option<bool>,
 }
 
 fn default_claude_bin() -> String {
@@ -250,6 +265,7 @@ impl Default for AppSettings {
             claude_bin: default_claude_bin(),
             agent_profiles: vec![],
             font_size: default_font_size(),
+            chat_font_size: None,
             default_model: None,
             auto_approve: false,
             permissions: Permissions::default(),
@@ -263,10 +279,13 @@ impl Default for AppSettings {
             analytics_enabled: true,
             analytics_anon_id: None,
             theme: default_theme(),
-            recent_projects: Vec::new(),
-            terminal_scrollback: default_terminal_scrollback(),
-            terminal_idle_close_mins: 0,
+            sidebar_position: None,
             custom_app_icon: None,
+            last_seen_changelog_version: None,
+            btw_max_chars: None,
+            terminal_scrollback: None,
+            terminal_auto_close_idle_mins: None,
+            inline_tool_calls: None,
         }
     }
 }

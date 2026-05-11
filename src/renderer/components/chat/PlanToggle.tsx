@@ -57,7 +57,7 @@ export const PlanToggle = memo(function PlanToggle() {
   const CurrentIcon = current.icon
 
   return (
-    <div ref={ref} data-testid="plan-toggle" className="relative">
+    <div ref={ref} data-testid="plan-toggle" className="relative min-w-0">
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}
@@ -65,7 +65,7 @@ export const PlanToggle = memo(function PlanToggle() {
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         className={cn(
-          'flex items-center gap-1 rounded-lg px-1.5 py-1 text-[14px] font-medium transition-colors',
+          'flex items-center gap-1 rounded-lg px-1.5 py-1 text-[12px] font-medium transition-colors',
           isPlan
             ? 'text-teal-600 dark:text-teal-400 hover:text-teal-500 dark:hover:text-teal-300'
             : 'text-muted-foreground hover:text-foreground',

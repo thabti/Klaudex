@@ -57,9 +57,13 @@ export const WorkingRow = memo(function WorkingRow({ row }: { row: WorkingRowDat
 
   return (
     <div className="py-2 select-none" data-timeline-row-kind="working">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
+        <span className={`relative flex size-2`}>
+          <span className={`absolute inline-flex size-full animate-ping rounded-full opacity-50 ${isPlan ? 'bg-teal-500' : 'bg-blue-500'}`} />
+          <span className={`relative inline-flex size-2 rounded-full ${isPlan ? 'bg-teal-500' : 'bg-blue-500'}`} />
+        </span>
         <span
-          className={`text-[13px] transition-opacity duration-300 ${isPlan ? 'text-teal-600 dark:text-teal-400' : 'text-primary'}`}
+          className={`text-[12px] font-medium transition-opacity duration-300 ${isPlan ? 'text-teal-600 dark:text-teal-400' : 'text-blue-600 dark:text-blue-400'}`}
           style={{ opacity: visible ? 1 : 0 }}
         >
           {LOADING_WORDS[idx]}&hellip;

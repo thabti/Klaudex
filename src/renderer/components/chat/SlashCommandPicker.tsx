@@ -18,7 +18,8 @@ const COMMAND_DESCRIPTIONS: Record<string, string> = {
   context: 'Manage context files or view token usage',
   data: 'Open the analytics dashboard with usage stats and charts',
   feedback: 'Submit feedback, request features, or report issues',
-  help: 'Get help with Claude CLI features and commands',
+  fork: 'Fork current thread into a new conversation branch',
+  help: 'Get help with Kiro CLI features and commands',
   knowledge: 'Add, search, or manage your knowledge base',
   model: 'Switch the active AI model',
   plan: 'Toggle plan mode on or off',
@@ -80,6 +81,11 @@ const COMMAND_ICONS: Record<string, () => React.ReactNode> = {
   feedback: () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  ),
+  fork: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="18" r="3" /><circle cx="6" cy="6" r="3" /><circle cx="18" cy="6" r="3" /><path d="M12 15V9" /><path d="M6 9v3a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V9" />
     </svg>
   ),
   help: () => (

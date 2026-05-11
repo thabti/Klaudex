@@ -27,8 +27,8 @@ export interface CollapsedToolGroup {
  * Returns null if the tool call should not be collapsed.
  */
 export function deriveCollapseKey(tc: ToolCall): string | null {
-  // Don't collapse in-progress/pending tool calls — they need individual visibility
-  if (tc.status === 'in_progress' || tc.status === 'pending') return null
+  // Don't collapse in-progress/pending/cancelled tool calls — they need individual visibility
+  if (tc.status === 'in_progress' || tc.status === 'pending' || tc.status === 'cancelled') return null
 
   // Group by kind + normalized title
   const kind = tc.kind ?? ''

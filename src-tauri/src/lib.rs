@@ -6,7 +6,7 @@ extern crate objc;
 
 mod commands;
 
-use commands::{acp, analytics, claude_config, claude_watcher, fs_ops, git, pty, settings};
+use commands::{acp, analytics, diff_parse, fs_ops, fuzzy, git, highlight, kiro_config, kiro_watcher, markdown, project_watcher, pty, settings, streaming_diff, thread_db, transport};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
 use tauri::Emitter;
@@ -132,6 +132,10 @@ fn shutdown_app(app: &tauri::AppHandle) {
             log::info!("Killed {} PTY session(s)", total);
         }
     }
+
+    // Stop all file watchers
+    kiro_watcher::stop_all(app);
+    project_watcher::stop_all_project_watchers(app);
 
     log::info!("Shutdown completed in {:?}", start.elapsed());
 }
@@ -338,6 +342,13 @@ pub fn run() {
         .manage(pty::PtyState::default())
         .manage(claude_watcher::ClaudeWatcherState::default())
         .manage(RelaunchFlag::default())
+        .manage(kiro_watcher::KiroWatcherState::default())
+        .manage(project_watcher::ProjectWatcherState::default())
+        .manage(thread_db::ThreadDbState {
+            db: thread_db::ThreadDatabase::open(),
+        })
+        .manage(highlight::HighlightState::default())
+        .manage(fuzzy::FuzzyState::default())
         .setup(|app| {
             let _window = app.get_webview_window("main")
                 .ok_or_else(|| "main window not found".to_string())?;
@@ -510,6 +521,7 @@ pub fn run() {
             git::git_stage,
             git::git_revert,
             git::task_diff,
+            git::task_diff_stats,
             git::git_diff,
             git::git_diff_file,
             git::git_diff_stats,
@@ -547,17 +559,63 @@ pub fn run() {
             claude_config::get_claude_config,
             claude_config::save_mcp_server_config,
             // Kiro watcher
-            claude_watcher::watch_claude_path,
-            claude_watcher::unwatch_claude_path,
+            kiro_watcher::watch_kiro_path,
+            kiro_watcher::unwatch_kiro_path,
+            // Project watcher & file operations
+            project_watcher::watch_project_tree,
+            project_watcher::unwatch_project_tree,
+            project_watcher::scan_directory,
+            project_watcher::scan_root,
+            project_watcher::create_file,
+            project_watcher::create_directory,
+            project_watcher::delete_entry,
+            project_watcher::rename_entry,
+            project_watcher::copy_entry,
+            project_watcher::duplicate_entry,
+            project_watcher::copy_entry_path,
+            project_watcher::reveal_in_finder,
+            project_watcher::open_in_default_app,
+            project_watcher::open_terminal_at,
+            project_watcher::add_to_gitignore,
+            project_watcher::open_finder_search,
             // Analytics
             analytics::analytics_save,
             analytics::analytics_load,
             analytics::analytics_clear,
             analytics::analytics_db_size,
-            // Statusline (TASK-115)
-            statusline::run_statusline_command,
-            // Permissions import (TASK-116)
-            settings::read_claude_settings_permissions,
+            analytics::analytics_coding_hours_by_day,
+            analytics::analytics_messages_by_day,
+            analytics::analytics_tokens_by_day,
+            analytics::analytics_diff_stats_by_day,
+            analytics::analytics_model_popularity,
+            analytics::analytics_tool_call_breakdown,
+            analytics::analytics_mode_usage,
+            analytics::analytics_project_stats,
+            analytics::analytics_totals,
+            // Streaming Diff
+            streaming_diff::compute_diff,
+            streaming_diff::compute_line_diff,
+            // Structured diff parsing
+            diff_parse::task_diff_structured,
+            diff_parse::git_diff_structured,
+            // Markdown parsing
+            markdown::parse_markdown,
+            // Syntax highlighting
+            highlight::highlight_code,
+            highlight::highlight_supported_languages,
+            // Fuzzy match
+            fuzzy::fuzzy_match,
+            // MCP Transport
+            transport::mcp_transport_test,
+            // Thread Database
+            thread_db::thread_db_list,
+            thread_db::thread_db_load,
+            thread_db::thread_db_save,
+            thread_db::thread_db_delete,
+            thread_db::thread_db_messages,
+            thread_db::thread_db_save_message,
+            thread_db::thread_db_search,
+            thread_db::thread_db_stats,
             // Relaunch
             set_relaunch_flag,
             // Reset

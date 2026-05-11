@@ -1,6 +1,38 @@
 import type { AnalyticsEvent, AnalyticsEventKind } from '@/types/analytics'
+import { ipc } from '@/lib/ipc'
 
 export interface DayValue { day: string; value: number; value2?: number }
+
+// ── Backend-aggregated wrappers (preferred for new charts) ────────────────────
+//
+// These thin wrappers forward to the Rust aggregation commands added in
+// `commands/analytics.rs`. Charts should consume these directly instead of
+// loading the whole event array and rolling it up in JS, mirroring the
+// pattern Zed uses for telemetry rollups.
+//
+// The legacy in-process aggregators below remain to keep existing charts
+// compiling during the per-chart migration. New charts should use the
+// `*FromBackend` helpers; existing ones can be migrated one by one.
+
+export const codingHoursByDayFromBackend = (since?: number) =>
+  ipc.analyticsCodingHoursByDay(since)
+export const messagesByDayFromBackend = (since?: number) =>
+  ipc.analyticsMessagesByDay(since)
+export const tokensByDayFromBackend = (since?: number) =>
+  ipc.analyticsTokensByDay(since)
+export const diffStatsByDayFromBackend = (since?: number) =>
+  ipc.analyticsDiffStatsByDay(since)
+export const modelPopularityFromBackend = (since?: number) =>
+  ipc.analyticsModelPopularity(since)
+export const toolCallBreakdownFromBackend = (since?: number) =>
+  ipc.analyticsToolCallBreakdown(since)
+export const modeUsageFromBackend = (since?: number) =>
+  ipc.analyticsModeUsage(since)
+export const projectStatsFromBackend = (since?: number) =>
+  ipc.analyticsProjectStats(since)
+export const totalsFromBackend = (since?: number) => ipc.analyticsTotals(since)
+
+// ── Legacy in-process aggregators (do not extend; migrate consumers instead) ──
 
 /** Pre-partition events by kind in a single pass. O(n) instead of O(n * k). */
 export interface PartitionedEvents {
