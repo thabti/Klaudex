@@ -12,6 +12,8 @@ use super::sandbox::{
 };
 use super::types::{AcpState, PendingPermission, PermissionOption, PermissionReply};
 use super::now_millis;
+use crate::commands::permissions::{match_permission, Decision};
+use crate::commands::settings::{PermissionMode, Permissions, SettingsState};
 
 pub(crate) struct KlaudexClient {
     pub(crate) task_id: String,
@@ -127,18 +129,120 @@ impl acp::Client for KlaudexClient {
             }
         }
 
-        // Auto-approve logic (matches Electron)
-        if self.auto_approve.load(std::sync::atomic::Ordering::SeqCst) {
-            let allow_opt = options.iter()
-                .find(|o| o.kind == "allow_once")
-                .or_else(|| options.iter().find(|o| o.kind == "allow_always"))
-                .or_else(|| options.first());
-            if let Some(opt) = allow_opt {
-                return Ok(acp::RequestPermissionResponse::new(
-                    acp::RequestPermissionOutcome::Selected(
-                        acp::SelectedPermissionOutcome::new(opt.option_id.clone()),
+        use tauri::Manager;
+
+        // Permission policy decision (TASK-105).
+        //
+        // Resolve the active `Permissions` scope from managed Tauri state
+        // (per-project override wins over global), then run the
+        // `match_permission` matcher shipped in TASK-102:
+        //
+        //   Decision::Deny    → auto-deny, even if mode is Bypass.
+        //                       Deny ALWAYS wins. The matcher already
+        //                       enforces this internally (deny patterns
+        //                       are checked first), so a broad allow rule
+        //                       can never override a narrower deny — and
+        //                       neither can `mode == Bypass`.
+        //   Decision::Allow   → auto-approve.
+        //   Decision::NoMatch → check `mode`:
+        //                         Bypass → auto-approve (legacy YOLO).
+        //                         Ask | AllowListed → fall through to
+        //                         user prompt below.
+        //
+        // The matcher is a pure, sync function with no external IO. Its
+        // existing tests cover malformed patterns (logged + skipped, never
+        // panicked) and degenerate globs. Wrapping it in
+        // `std::panic::catch_unwind` would require `UnwindSafe` bounds on
+        // the captured `&[String]` slices and gain nothing — the function
+        // contains no `unwrap` paths over user input, no slice indexing
+        // without bounds checks, and no recursion. So we invoke it
+        // directly. The fallback path on any future panic would still be
+        // the `mode`-driven prompt below (NOT a silent allow), thanks to
+        // the way the connection thread is itself wrapped in
+        // `catch_unwind` over in `connection.rs`.
+        //
+        // The legacy `auto_approve: AtomicBool` on `KlaudexClient` is kept
+        // as a fast-path mirror of `mode == Bypass`. It is updated by the
+        // wave-1 `task_set_auto_approve` command (and by initial spawn). A
+        // settings-save *can* drift this cache until the next bump; that
+        // is an acceptable gap because the authoritative read here goes
+        // through `try_state::<SettingsState>()` first, with the
+        // AtomicBool only used as a final fallback if the settings state
+        // is missing (e.g., during early startup).
+        let perm_decision = self.app
+            .try_state::<SettingsState>()
+            .map(|settings_state| {
+                let store = settings_state.0.lock();
+                // Per-project override wins; otherwise fall back to the
+                // global `permissions` block.
+                let perms_owned: Permissions = store
+                    .settings
+                    .project_prefs
+                    .as_ref()
+                    .and_then(|m| m.get(&self.workspace))
+                    .and_then(|p| p.permissions.clone())
+                    .unwrap_or_else(|| store.settings.permissions.clone());
+                drop(store);
+
+                let (tool, args) = extract_tool_and_args(&val);
+                let decision = match_permission(&tool, &args, &perms_owned.allow, &perms_owned.deny);
+                (decision, perms_owned.mode)
+            });
+
+        let auto_approve_now: Option<bool> = match perm_decision {
+            Some((Decision::Deny, _)) => Some(false), // auto-deny (deny > everything)
+            Some((Decision::Allow, _)) => Some(true), // auto-approve
+            Some((Decision::NoMatch, PermissionMode::Bypass)) => Some(true),
+            Some((Decision::NoMatch, PermissionMode::Ask))
+            | Some((Decision::NoMatch, PermissionMode::AllowListed)) => None,
+            None => {
+                // Settings state unavailable (early startup or teardown).
+                // Fall back to the legacy AtomicBool cache so we don't
+                // regress YOLO behavior for users mid-session.
+                if self.auto_approve.load(std::sync::atomic::Ordering::SeqCst) {
+                    Some(true)
+                } else {
+                    None
+                }
+            }
+        };
+
+        if let Some(approve) = auto_approve_now {
+            if approve {
+                let allow_opt = options.iter()
+                    .find(|o| o.kind == "allow_once")
+                    .or_else(|| options.iter().find(|o| o.kind == "allow_always"))
+                    .or_else(|| options.first());
+                if let Some(opt) = allow_opt {
+                    return Ok(acp::RequestPermissionResponse::new(
+                        acp::RequestPermissionOutcome::Selected(
+                            acp::SelectedPermissionOutcome::new(opt.option_id.clone()),
+                        ),
+                    ));
+                }
+            } else {
+                // Auto-deny (Decision::Deny). Prefer an explicit
+                // reject_once option if the agent offered one; otherwise
+                // surface as Cancelled so the agent treats it as a hard
+                // refusal.
+                let deny_opt = options.iter()
+                    .find(|o| o.kind == "reject_once")
+                    .or_else(|| options.iter().find(|o| o.kind == "reject_always"));
+                log::warn!(
+                    "[ACP] permission auto-denied by deny rule: tool='{}' workspace='{}'",
+                    extract_tool_and_args(&val).0,
+                    self.workspace,
+                );
+                return Ok(match deny_opt {
+                    Some(opt) => acp::RequestPermissionResponse::new(
+                        acp::RequestPermissionOutcome::Selected(
+                            acp::SelectedPermissionOutcome::new(opt.option_id.clone()),
+                        ),
                     ),
-                ));
+                    None => acp::RequestPermissionResponse::new(
+                        acp::RequestPermissionOutcome::Cancelled,
+                    ),
+                });
             }
         }
 
@@ -285,4 +389,137 @@ impl acp::Client for KlaudexClient {
     async fn ext_method(&self, _args: acp::ExtRequest) -> acp::Result<acp::ExtResponse> {
         Err(acp::Error::method_not_found())
     }
+}
+
+/// Extract a `(tool_name, args_string)` pair from a serialized
+/// `RequestPermissionRequest` JSON value, suitable for feeding into
+/// [`crate::commands::permissions::match_permission`] (TASK-102).
+///
+/// The ACP `RequestPermissionRequest` is serialized as JSON for inspection
+/// here (the agent-client-protocol crate doesn't expose its inner fields
+/// directly through a stable Rust API we can pattern-match on). Concrete
+/// payloads we've seen on the wire have a `toolCall` object containing a
+/// tool *kind* (Claude's category like `"execute"` / `"read"` / `"edit"`)
+/// plus a `rawInput` object with the actual call arguments.
+///
+/// We try, in order:
+///
+/// 1. A direct `name` / `toolName` field on the toolCall — used by some
+///    ACP implementations and the safest match for the matcher's exact
+///    string comparison against patterns like `Bash(...)`.
+/// 2. Mapping from the toolCall's `kind` to a canonical Claude tool name
+///    (`execute` → `Bash`, `read` → `Read`, `edit` → `Edit`, etc.). This
+///    is the path Claude's own ACP shape uses today.
+/// 3. Falling back to an empty tool name. The matcher will return
+///    `NoMatch` against any allow/deny pattern, which is the safe
+///    behavior — the request will route through the user prompt path.
+///
+/// For the args string we mirror the renderer's tool-title heuristics
+/// (Bash → `command` field, file tools → `file_path`, search tools →
+/// `pattern`, etc.). Patterns like `Bash(npm test:*)` and `Read(./src/**)`
+/// expect the bare command / path here, NOT a serialized JSON blob.
+fn extract_tool_and_args(val: &Value) -> (String, String) {
+    let tool_call = val.get("toolCall").or_else(|| val.get("tool_call"));
+    let raw_input = tool_call
+        .and_then(|tc| tc.get("rawInput").or_else(|| tc.get("raw_input")).or_else(|| tc.get("input")))
+        .cloned()
+        .unwrap_or(Value::Null);
+
+    // Prefer an explicit tool name field if present.
+    let explicit_name = tool_call
+        .and_then(|tc| {
+            tc.get("toolName")
+                .or_else(|| tc.get("tool_name"))
+                .or_else(|| tc.get("name"))
+        })
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let tool: String = match explicit_name {
+        Some(n) if !n.is_empty() => n,
+        _ => {
+            // Map ACP `kind` → canonical Claude tool name. The mapping is
+            // deliberately conservative; unknown kinds become an empty
+            // string so the matcher returns NoMatch and the request
+            // routes through the user prompt path.
+            let kind = tool_call
+                .and_then(|tc| tc.get("kind"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            match kind {
+                "execute" => "Bash".to_string(),
+                "read" => "Read".to_string(),
+                "edit" => {
+                    // ACP `edit` covers both Write (new file) and Edit
+                    // (existing file). Disambiguate via raw input shape:
+                    // a Write call carries `content`, an Edit call
+                    // carries `old_string` / `new_string`.
+                    if raw_input.get("old_string").is_some() {
+                        "Edit".to_string()
+                    } else if raw_input.get("content").is_some() {
+                        "Write".to_string()
+                    } else {
+                        "Edit".to_string()
+                    }
+                }
+                "search" => {
+                    if raw_input.get("pattern").is_some() && raw_input.get("path").is_some() {
+                        "Glob".to_string()
+                    } else if raw_input.get("pattern").is_some() {
+                        "Grep".to_string()
+                    } else {
+                        "Glob".to_string()
+                    }
+                }
+                "fetch" => {
+                    if raw_input.get("url").is_some() {
+                        "WebFetch".to_string()
+                    } else {
+                        "WebSearch".to_string()
+                    }
+                }
+                "think" => "Task".to_string(),
+                "switch_mode" => "ExitPlanMode".to_string(),
+                _ => String::new(),
+            }
+        }
+    };
+
+    // Build the `args` string the matcher patterns are written against.
+    // For Bash that's the raw shell command; for file tools that's the
+    // path; for search tools that's the pattern; etc. Falls back to a
+    // compact JSON dump of the raw input so a `Tool(*)` pattern still
+    // matches anything.
+    let args: String = match tool.as_str() {
+        "Bash" => raw_input
+            .get("command")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        "Read" | "Write" | "Edit" => raw_input
+            .get("file_path")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        "Glob" => {
+            let pattern = raw_input.get("pattern").and_then(|v| v.as_str()).unwrap_or("");
+            let path = raw_input.get("path").and_then(|v| v.as_str()).unwrap_or("");
+            if path.is_empty() { pattern.to_string() } else { format!("{path} {pattern}") }
+        }
+        "Grep" => raw_input.get("pattern").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        "WebFetch" => raw_input.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        "WebSearch" => raw_input.get("query").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        _ => {
+            // Generic fallback: serialize the raw input so a broad
+            // `Tool(*)` pattern still matches. Empty-string args still
+            // exposes `Tool()` exact-match semantics.
+            if raw_input.is_null() || (raw_input.is_object() && raw_input.as_object().map(|m| m.is_empty()).unwrap_or(false)) {
+                String::new()
+            } else {
+                serde_json::to_string(&raw_input).unwrap_or_default()
+            }
+        }
+    };
+
+    (tool, args)
 }

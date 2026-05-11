@@ -10,11 +10,17 @@ export const getResolvedTheme = (mode: ThemeMode): 'dark' | 'light' => {
   return mode
 }
 
-/** Read the persisted theme from localStorage (falls back to 'dark'). */
+/**
+ * Read the persisted theme from localStorage (falls back to 'dark', the
+ * default Claude orange-on-dark look). Migrates the legacy `'claude'` value
+ * (shipped briefly when the orange theme was a separate variant) to `'dark'`
+ * silently — both now produce the orange-on-dark surface.
+ */
 export const readPersistedTheme = (): ThemeMode => {
   try {
     const stored = localStorage.getItem(THEME_KEY)
     if (stored === 'dark' || stored === 'light' || stored === 'system') return stored
+    if (stored === 'claude') return 'dark'
   } catch { /* ignore */ }
   return 'dark'
 }
@@ -25,26 +31,24 @@ export const persistTheme = (mode: ThemeMode): void => {
 }
 
 /**
- * Apply the theme to the document. Adds/removes the `dark` class on <html>,
- * sets color-scheme, and updates the body background for the splash screen.
- * Suppresses transitions briefly to avoid a flash.
+ * Apply the theme to the document. Sets the `dark` class on <html> when
+ * resolved theme is dark; otherwise the `:root` light styles apply. Adjusts
+ * the splash background and suppresses transitions briefly to avoid a flash.
  */
 export const applyTheme = (mode: ThemeMode): void => {
   const resolved = getResolvedTheme(mode)
   const root = document.documentElement
 
-  // Suppress transitions during theme switch
   root.classList.add('no-transitions')
-
+  // Strip the legacy `claude` class if present from an older build.
+  root.classList.remove('dark', 'claude')
   if (resolved === 'dark') {
     root.classList.add('dark')
     document.body.style.backgroundColor = '#0a0a0a'
   } else {
-    root.classList.remove('dark')
     document.body.style.backgroundColor = '#ffffff'
   }
 
-  // Re-enable transitions after a frame
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       root.classList.remove('no-transitions')

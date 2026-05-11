@@ -1,7 +1,11 @@
 pub mod acp;
+pub mod analytics;
 pub mod claude_config;
+pub mod claude_watcher;
 pub mod error;
 pub mod fs_ops;
 pub mod git;
+pub mod permissions;
 pub mod pty;
 pub mod settings;
+pub mod statusline;

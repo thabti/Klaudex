@@ -11,6 +11,7 @@ const DEBUG_QUIET_COMMANDS = new Set([
   'git_checkout_branch', 'git_create_branch', 'git_delete_branch', 'git_current_branch',
   'git_worktree_setup', 'git_worktree_remove', 'git_worktree_list',
   'detect_editors', 'detect_editors_background', 'detect_project_icon',
+  'analytics_save', 'analytics_load', 'analytics_clear', 'analytics_db_size',
 ])
 
 /** Instrumented invoke that logs request/response/error to the debug store. */
@@ -25,6 +26,71 @@ const tracedInvoke = async <T>(command: string, args?: Record<string, unknown>):
   } catch (err) {
     if (!quiet) logIpcError(command, err, Math.round(performance.now() - start))
     throw err
+  }
+}
+
+/** Payload for `claude-config-changed` events from `commands/claude_watcher.rs`. */
+export interface ClaudeConfigChangedPayload {
+  scope: 'global' | 'project'
+  path: string
+}
+
+/**
+ * One entry persisted in `analytics.redb` via `analytics_save`. Mirrors the
+ * Rust `AnalyticsEvent` (camelCase via serde rename).
+ */
+export interface AnalyticsEvent {
+  ts: number
+  kind: string
+  project?: string
+  thread?: string
+  detail?: string
+  value?: number
+  value2?: number
+}
+
+/**
+ * Progress events emitted by `git_clone` while libgit2 fetches objects.
+ * Only the relative completion (received/total + indexedDeltas) is exposed —
+ * the raw byte counts vary too widely between repo shapes to be useful.
+ */
+export interface GitCloneProgress {
+  receivedObjects: number
+  totalObjects: number
+  indexedDeltas: number
+}
+
+/**
+ * Mirror of the Rust `RecentProject` struct (camelCase via serde rename).
+ *
+ * `iconPath` is an optional renderer-side annotation — the Rust struct never
+ * emits it today, but the sidebar's `RecentProjectsList` consumes it when
+ * present so it can show a project icon next to each entry. Marked optional
+ * so the Rust→JSON shape (which omits it entirely) still satisfies the type.
+ */
+export interface RecentProject {
+  path: string
+  name: string
+  lastOpened: number
+  iconPath?: string
+}
+
+/**
+ * rAF-throttle helper: coalesces back-pressured events into one callback per
+ * animation frame so a fast progress stream doesn't pin the React event loop.
+ * The latest payload always wins.
+ */
+const throttleRaf = <T>(cb: (payload: T) => void): ((payload: T) => void) => {
+  let scheduled = false
+  let latest: T | undefined
+  return (payload: T) => {
+    latest = payload
+    if (scheduled) return
+    scheduled = true
+    requestAnimationFrame(() => {
+      scheduled = false
+      if (latest !== undefined) cb(latest)
+    })
   }
 }
 
@@ -165,6 +231,28 @@ export const ipc = {
     tracedInvoke('get_claude_config', { projectPath }),
   readFile: (filePath: string): Promise<string | null> =>
     tracedInvoke('read_text_file', { path: filePath }),
+  /**
+   * Read a UTF-8 text file from disk. Alias for `readFile` whose name mirrors
+   * `writeTextFile` for symmetry at call sites. Forwards to the same
+   * `read_text_file` Rust command in `commands/fs_ops.rs`.
+   */
+  readTextFile: (filePath: string): Promise<string | null> =>
+    tracedInvoke('read_text_file', { path: filePath }),
+  /**
+   * Write a UTF-8 text file to disk.
+   *
+   * NOTE (TASK-112): This wrapper expects a `write_text_file(path, content)`
+   * Tauri command in `src-tauri/src/commands/fs_ops.rs` and registered in
+   * `lib.rs`'s `invoke_handler`. The plan preferred the `@tauri-apps/plugin-fs`
+   * route, but neither the JS plugin (`@tauri-apps/plugin-fs`) nor the Rust
+   * crate (`tauri-plugin-fs`) is installed in this repo, so the only viable
+   * path is a small custom Rust command that mirrors the existing
+   * `read_text_file`. Adding that command is intentionally out of scope of
+   * the editor task itself; until it lands, callers will receive a
+   * "command not found" error which the editor surfaces inline.
+   */
+  writeTextFile: (filePath: string, content: string): Promise<void> =>
+    tracedInvoke('write_text_file', { path: filePath, content }),
   readFileBase64: (filePath: string): Promise<string | null> =>
     tracedInvoke('read_file_base64', { path: filePath }),
   listProjectFiles: (root: string, respectGitignore: boolean = true): Promise<ProjectFile[]> =>
@@ -225,4 +313,133 @@ export const ipc = {
     tauriListen<{ taskId: string; requestId: string; fields: Array<{ name: string; label: string; type: string; required?: boolean; options?: string[] }> }>('user_input_request', (data) => { logEvent('user_input_request', { taskId: data.taskId, requestId: data.requestId }, data.taskId); cb(data) }),
   onEditorsUpdated: (cb: (bins: string[]) => void): UnsubscribeFn =>
     tauriListen<string[]>('editors-updated', (bins) => { logEvent('editors-updated', { count: bins.length }); cb(bins) }),
+  /**
+   * Subscribe to `claude-config-changed` events emitted by the Rust watcher in
+   * `commands/claude_watcher.rs`. Re-added for TASK-112 (CLAUDE.md memory file
+   * editor) so external edits hot-reload the open editor body. The Rust event
+   * is already emitted; this is the renderer-side wrapper.
+   */
+  onClaudeConfigChanged: (cb: (payload: ClaudeConfigChangedPayload) => void): UnsubscribeFn =>
+    tauriListen<ClaudeConfigChangedPayload>('claude-config-changed', (payload) => {
+      logEvent('claude-config-changed', { scope: payload.scope })
+      cb(payload)
+    }),
+
+  // ---------------------------------------------------------------------
+  // Analytics
+  // ---------------------------------------------------------------------
+  analyticsSave: (events: AnalyticsEvent[]): Promise<void> =>
+    tracedInvoke('analytics_save', { events }),
+  analyticsLoad: (since?: number): Promise<AnalyticsEvent[]> =>
+    tracedInvoke('analytics_load', { since }),
+  analyticsClear: (): Promise<void> =>
+    tracedInvoke('analytics_clear'),
+  analyticsDbSize: (): Promise<number> =>
+    tracedInvoke('analytics_db_size'),
+
+  // ---------------------------------------------------------------------
+  // Git (additional)
+  //
+  // NOTE: `git_clone` and `git_init` are not currently registered in the
+  // Rust `invoke_handler!` (commands/git.rs has no such fns yet). The
+  // wrappers are kept so renderer code that calls them via `ipc.gitClone`
+  // type-checks; at runtime the call rejects with "command not found"
+  // until the backend ships the matching commands.
+  // ---------------------------------------------------------------------
+  gitClone: (url: string, targetDir: string, sshKeyPath?: string): Promise<void> =>
+    tracedInvoke('git_clone', { url, targetDir, sshKeyPath }),
+  gitInit: (path: string, initialBranch?: string): Promise<void> =>
+    tracedInvoke('git_init', { path, initialBranch }),
+
+  // ---------------------------------------------------------------------
+  // Recent projects + macOS chrome (TASK-008/009/053)
+  // ---------------------------------------------------------------------
+
+  /**
+   * Returns the persisted recent-projects list, newest-first. Wrapped in a
+   * try/catch returning `[]` so the sidebar empty-state never crashes when
+   * the backend hasn't initialized the settings store yet.
+   */
+  getRecentProjects: async (): Promise<RecentProject[]> => {
+    try {
+      return await tracedInvoke<RecentProject[]>('recent_projects_get')
+    } catch {
+      return []
+    }
+  },
+  /**
+   * Persist a project to the recent-projects list. The Rust command only
+   * accepts `path` + optional `name`; `iconPath` is accepted here for
+   * forward-compat with the sidebar component but is silently dropped on
+   * the wire today (see TASK-053).
+   */
+  addRecentProject: (path: string, name?: string, _iconPath?: string): Promise<void> =>
+    tracedInvoke('recent_projects_add', { path, name }),
+  removeRecentProject: (path: string): Promise<void> =>
+    tracedInvoke('recent_projects_remove', { path }),
+  clearRecentProjects: (): Promise<void> =>
+    tracedInvoke('recent_projects_clear'),
+  /**
+   * Rebuild the macOS native menu so File → Open Recent reflects the latest
+   * list. Diverges from the original spec which named this `rebuildRecentMenu`
+   * — kept under that JS name but binds to the Rust command `rebuild_menu`,
+   * which now controls the *whole* menu, not just the Recent submenu.
+   */
+  rebuildRecentMenu: (): Promise<void> =>
+    tracedInvoke('rebuild_menu'),
+  /**
+   * Toggle the macOS dock icon visibility. Diverges from the spec's
+   * `setDockIcon(b64)` (image swap): the Rust command swaps the activation
+   * policy instead of the icon image. The JS wrapper name reflects the
+   * actual semantics so callers don't expect a base64 payload.
+   */
+  setDockIconVisible: (visible: boolean): Promise<void> =>
+    tracedInvoke('set_dock_icon_visible', { visible }),
+  requestRelaunch: (): Promise<void> =>
+    tracedInvoke('request_relaunch'),
+
+  // ---------------------------------------------------------------------
+  // File ops (additional)
+  //
+  // NOTE: `pick_image` and `is_directory` are not currently registered in
+  // the Rust `invoke_handler!`. Wrappers stay here for type-stability of
+  // any UI code that calls them; at runtime the call rejects until the
+  // backend command lands.
+  // ---------------------------------------------------------------------
+  pickImage: (): Promise<string | null> =>
+    tracedInvoke('pick_image'),
+  isDirectory: (path: string): Promise<boolean> =>
+    tracedInvoke('is_directory', { path }),
+
+  // ---------------------------------------------------------------------
+  // PTY (additional)
+  // NOTE: `pty_count` is not currently registered. Same caveat as above.
+  // ---------------------------------------------------------------------
+  ptyCount: (): Promise<number> =>
+    tracedInvoke('pty_count'),
+
+  // ---------------------------------------------------------------------
+  // Claude watcher
+  // ---------------------------------------------------------------------
+  watchClaudePath: (path: string): Promise<void> =>
+    tracedInvoke('watch_claude_path', { path }),
+  unwatchClaudePath: (path: string): Promise<void> =>
+    tracedInvoke('unwatch_claude_path', { path }),
+
+  // ---------------------------------------------------------------------
+  // Listeners (additional)
+  // ---------------------------------------------------------------------
+
+  /**
+   * Subscribe to `git-clone-progress` events. rAF-throttled so a fast clone
+   * doesn't fire >60 callbacks/sec into React state.
+   */
+  onGitCloneProgress: (cb: (payload: GitCloneProgress) => void): UnsubscribeFn => {
+    const throttled = throttleRaf<GitCloneProgress>(cb)
+    return tauriListen<GitCloneProgress>('git-clone-progress', throttled)
+  },
+
+  // --- TASK-115: Statusline shell exec ---
+  runStatuslineCommand: (command: string, contextJson: string): Promise<string> =>
+    tracedInvoke<string>('run_statusline_command', { command, contextJson }),
 }

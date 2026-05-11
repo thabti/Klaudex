@@ -936,6 +936,7 @@ fn task_serializes_auto_approve_true() {
         model: None,
         session_id: None,
         total_cost: 0.0,
+        output_style: None,
     };
     let json = serde_json::to_value(&task).unwrap();
     assert_eq!(json["autoApprove"], true);
@@ -960,6 +961,7 @@ fn task_serializes_auto_approve_false() {
         model: None,
         session_id: None,
         total_cost: 0.0,
+        output_style: None,
     };
     let json = serde_json::to_value(&task).unwrap();
     assert_eq!(json["autoApprove"], false);
@@ -984,6 +986,7 @@ fn task_omits_auto_approve_when_none() {
         model: None,
         session_id: None,
         total_cost: 0.0,
+        output_style: None,
     };
     let json = serde_json::to_value(&task).unwrap();
     assert!(json.get("autoApprove").is_none());
@@ -1008,6 +1011,7 @@ fn task_auto_approve_roundtrip() {
         model: None,
         session_id: None,
         total_cost: 0.0,
+        output_style: None,
     };
     let json_str = serde_json::to_string(&task).unwrap();
     let restored: Task = serde_json::from_str(&json_str).unwrap();

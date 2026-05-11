@@ -12,6 +12,8 @@ pub enum AppError {
     Confy(#[from] confy::ConfyError),
     #[error("Task not found: {0}")]
     TaskNotFound(String),
+    #[error("Analytics error: {0}")]
+    Analytics(String),
     #[error("{0}")]
     Other(String),
 }

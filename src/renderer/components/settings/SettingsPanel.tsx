@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { getVersion } from '@tauri-apps/api/app'
-import { IconX, IconArrowLeft, IconBrandGithub, IconSearch, IconRotate } from '@tabler/icons-react'
+import { IconX, IconArrowLeft, IconBrandGithub, IconSearch, IconRotate, IconShield, IconBolt } from '@tabler/icons-react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -8,13 +8,56 @@ import { cn } from '@/lib/utils'
 import type { AppSettings } from '@/types'
 import { applyTheme, persistTheme } from '@/lib/theme'
 import { AboutDialog } from './AboutDialog'
-import { NAV, SEARCHABLE_SETTINGS, type Section } from './settings-shared'
+import { NAV as SHARED_NAV, SEARCHABLE_SETTINGS, type Section as SharedSection } from './settings-shared'
 import { AccountSection } from './account-section'
 import { GeneralSection } from './general-section'
 import { AppearanceSection } from './appearance-section'
 import { KeymapSection } from './keymap-section'
 import { AdvancedSection } from './advanced-section'
 import { ArchivesSection } from './archives-section'
+import { PermissionsSection } from './permissions-section'
+import { HooksSection } from './hooks-section'
+
+// Local Section union extends the shared one with TASK-106's `permissions`
+// entry and TASK-114's `hooks` entry without modifying settings-shared.tsx
+// (owned by parallel agents).
+type Section = SharedSection | 'permissions' | 'hooks'
+
+interface NavItem {
+  id: Section
+  label: string
+  icon: typeof IconShield
+  description: string
+  sectionDescription: string
+  group?: string
+}
+
+// Indices in `SHARED_NAV` (settings-shared.tsx):
+//   0: account, 1: general, 2: appearance, 3: keymap, 4: advanced, 5: archives
+// Insert `permissions` between `general` (idx 1) and `appearance` (idx 2),
+// and `hooks` right after `advanced` (idx 4) so it sits in the Advanced
+// cluster — TASK-114 explicitly asks for "under Advanced".
+const NAV: readonly NavItem[] = [
+  ...(SHARED_NAV.slice(0, 2) as readonly NavItem[]), // account, general
+  {
+    id: 'permissions',
+    label: 'Permissions',
+    icon: IconShield,
+    description: 'Mode, allow, deny',
+    sectionDescription: 'Control how Klaudex handles tool-call approval and which patterns auto-approve.',
+    group: 'settings',
+  },
+  ...(SHARED_NAV.slice(2, 5) as readonly NavItem[]), // appearance, keymap, advanced
+  {
+    id: 'hooks',
+    label: 'Hooks',
+    icon: IconBolt,
+    description: 'Read-only viewer',
+    sectionDescription: 'Inspect Claude CLI hooks loaded from settings.json. Read-only.',
+    group: 'settings',
+  },
+  ...(SHARED_NAV.slice(5) as readonly NavItem[]), // archives
+]
 
 const defaultSettings: AppSettings = {
   claudeBin: 'claude',
@@ -257,9 +300,11 @@ export const SettingsPanel = () => {
                 <>
                   {section === 'account' && <AccountSection />}
                   {section === 'general' && <GeneralSection draft={draft} updateDraft={updateDraft} />}
+                  {section === 'permissions' && <PermissionsSection settings={draft} updateDraft={updateDraft} />}
                   {section === 'appearance' && <AppearanceSection draft={draft} updateDraft={updateDraft} />}
                   {section === 'keymap' && <KeymapSection />}
                   {section === 'advanced' && <AdvancedSection draft={draft} updateDraft={updateDraft} onClose={handleClose} />}
+                  {section === 'hooks' && <HooksSection />}
                   {section === 'archives' && <ArchivesSection />}
                 </>
               )}

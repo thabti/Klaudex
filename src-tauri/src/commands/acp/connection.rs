@@ -86,6 +86,9 @@ pub(crate) fn spawn_connection(
     model: Option<String>,
     tight_sandbox: bool,
     resume_session_id: Option<String>,
+    // TASK-113: Optional Claude output style name; appended as `--output-style <name>`
+    // when spawning the `claude` subprocess. `None` means no flag is appended.
+    output_style: Option<String>,
 ) -> Result<ConnectionHandle, String> {
     let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<AcpCommand>();
     let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
@@ -157,6 +160,7 @@ pub(crate) fn spawn_connection(
                     model,
                     tight_sandbox,
                     resume_session_id,
+                    output_style,
                 )
                 .await;
 
@@ -582,6 +586,8 @@ pub(crate) async fn run_claude_connection(
     model: Option<String>,
     tight_sandbox: bool,
     resume_session_id: Option<String>,
+    // TASK-113: Optional output style; appended as `--output-style <name>` when spawning claude.
+    output_style: Option<String>,
 ) -> Result<(), String> {
     let allowed_paths = Arc::new(parking_lot::Mutex::new(BTreeSet::new()));
 
@@ -632,6 +638,16 @@ pub(crate) async fn run_claude_connection(
         if !m.is_empty() {
             args.push("--model".into());
             args.push(m.clone());
+        }
+    }
+
+    // TASK-113: Set output style if specified (e.g. --output-style Explanatory).
+    // None / empty string means default — no flag appended. claude rejects unknown
+    // names with a stderr error which propagates through the existing debug log.
+    if let Some(ref style) = output_style {
+        if !style.is_empty() {
+            args.push("--output-style".into());
+            args.push(style.clone());
         }
     }
 

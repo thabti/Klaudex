@@ -6,8 +6,8 @@ extern crate objc;
 
 mod commands;
 
-use commands::{acp, claude_config, fs_ops, git, pty, settings};
-use tauri::Manager;
+use commands::{acp, analytics, claude_config, claude_watcher, fs_ops, git, pty, settings, statusline};
+use tauri::{Emitter, Manager};
 
 /// Install a global panic hook that logs the panic message and backtrace.
 /// This catches panics on *any* thread (background ACP, probe, PTY reader)
@@ -80,6 +80,10 @@ fn shutdown_app(app: &tauri::AppHandle) {
             }
         }
     }
+
+    // Stop all Claude config watchers BEFORE PTY teardown so the debouncer
+    // threads exit cleanly before the rest of Tauri state goes away.
+    claude_watcher::stop_all(app);
 
     // Kill all PTY sessions
     if let Some(pty_state) = app.try_state::<pty::PtyState>() {
@@ -158,9 +162,56 @@ pub fn run() {
         .manage(settings::SettingsState::default())
         .manage(acp::AcpState::default())
         .manage(pty::PtyState::default())
+        .manage(analytics::AnalyticsState::default())
+        .manage(claude_watcher::ClaudeWatcherState::default())
         .setup(|app| {
             let _window = app.get_webview_window("main")
                 .ok_or_else(|| "main window not found".to_string())?;
+
+            // Build and install the native menu (File → Open Recent etc.).
+            // Must run after `.manage(SettingsState)` so the recent-projects
+            // submenu can read the persisted list.
+            match settings::build_app_menu(app.handle()) {
+                Ok(menu) => {
+                    if let Err(e) = app.set_menu(menu) {
+                        log::error!("set_menu failed: {e}");
+                    }
+                }
+                Err(e) => log::error!("build_app_menu failed: {e}"),
+            }
+
+            // Dispatch native menu clicks back to the renderer.
+            app.on_menu_event(|app_handle, event| {
+                let id = event.id().0.as_str();
+                match id {
+                    "clear_recent" => {
+                        if let Some(state) = app_handle.try_state::<settings::SettingsState>() {
+                            {
+                                let mut store = state.0.lock();
+                                store.settings.recent_projects.clear();
+                                let _ = settings::persist_store(&store);
+                            }
+                            if let Ok(menu) = settings::build_app_menu(app_handle) {
+                                let _ = app_handle.set_menu(menu);
+                            }
+                        }
+                    }
+                    _ if id.starts_with("recent:") => {
+                        let path = &id["recent:".len()..];
+                        if !path.is_empty() {
+                            let _ = app_handle.emit("open-recent-project", path.to_string());
+                        }
+                    }
+                    other => {
+                        // Generic fallback so the renderer can listen for any
+                        // menu item we haven't bound a specific handler for.
+                        let _ = app_handle.emit("menu-action", other.to_string());
+                    }
+                }
+            });
+
+            // Start watching the global ~/.claude directory.
+            claude_watcher::watch_global_claude(app.handle());
 
             #[cfg(desktop)]
             app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
@@ -209,6 +260,13 @@ pub fn run() {
             // Settings
             settings::get_settings,
             settings::save_settings,
+            settings::recent_projects_get,
+            settings::recent_projects_add,
+            settings::recent_projects_remove,
+            settings::recent_projects_clear,
+            settings::rebuild_menu,
+            settings::set_dock_icon_visible,
+            settings::request_relaunch,
             // File ops
             fs_ops::detect_claude_cli,
             fs_ops::read_text_file,
@@ -272,6 +330,18 @@ pub fn run() {
             pty::pty_kill,
             // Claude config
             claude_config::get_claude_config,
+            // Claude watcher
+            claude_watcher::watch_claude_path,
+            claude_watcher::unwatch_claude_path,
+            // Analytics
+            analytics::analytics_save,
+            analytics::analytics_load,
+            analytics::analytics_clear,
+            analytics::analytics_db_size,
+            // Statusline (TASK-115)
+            statusline::run_statusline_command,
+            // Permissions import (TASK-116)
+            settings::read_claude_settings_permissions,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

@@ -1,0 +1,1160 @@
+{
+  "title": "Klaudex Parity with Kirodex (v0.40.4)",
+  "branch": "feat/kirodex-parity",
+  "mode": "EXPANSION",
+  "overview": "Bring Klaudex to full feature and behavioral parity with Kirodex v0.40.4. Klaudex should work exactly like Kirodex but pointed at Claude agents (via Claude CLI) instead of Kiro agents (via the agent-client-protocol SDK). Klaudex-ahead features (token usage tracking, ACP subagent display, /undo + task_rollback, UserInputCard, per-task model switching, claude_login flow) are preserved and integrate with the ported Kirodex UX. Includes a first-release pipeline so Klaudex can ship.",
+  "scopeChallenge": "User chose comprehensive plan over phased. Watcher scope: BOTH ~/.claude/ and project-local .claude/ (project wins on merge). Release pipeline included. Divergence policy: PRESERVE Klaudex-ahead features. Newly discovered during exploration (not in original audit): split-chat layout (PanelContext, SplitChatLayout, SplitDivider, SplitPanelHeader, SplitThreadPicker) only in Kirodex; UpdateAvailableDialog and WhatsNewDialog missing entirely from Klaudex; 5 hardcoded kiro.dev/* ext_notification namespaces in acp/client.rs:178-214 need verification against Claude CLI emit values.",
+  "existingCodeLeverage": [
+    { "subProblem": "Token usage tracking", "existingCode": "src-tauri/src/commands/acp/token_store.rs + tokenUsageStore.ts", "action": "reuse" },
+    { "subProblem": "ACP subagent display", "existingCode": "src/renderer/components/chat/AcpSubagentDisplay.tsx", "action": "reuse" },
+    { "subProblem": "/undo and rollback", "existingCode": "task_rollback command + /undo slash handler", "action": "reuse" },
+    { "subProblem": "UserInputCard", "existingCode": "src/renderer/components/chat/UserInputCard.tsx", "action": "reuse" },
+    { "subProblem": "Per-task model switching", "existingCode": "task_set_model command", "action": "reuse" },
+    { "subProblem": "claude_login flow", "existingCode": "claude_login command + claudeWhoami IPC", "action": "reuse" },
+    { "subProblem": "StatsPanel", "existingCode": "src/renderer/components/chat/StatsPanel.tsx", "action": "reuse" },
+    { "subProblem": "Claude config parsing", "existingCode": "src-tauri/src/commands/claude_config.rs", "action": "extend" },
+    { "subProblem": "Claude config store", "existingCode": "src/renderer/stores/claudeConfigStore.ts", "action": "extend" },
+    { "subProblem": "Git operations base", "existingCode": "src-tauri/src/commands/git.rs", "action": "extend" },
+    { "subProblem": "Settings persistence", "existingCode": "src-tauri/src/commands/settings.rs (confy)", "action": "extend" },
+    { "subProblem": "PTY lifecycle", "existingCode": "src-tauri/src/commands/pty.rs", "action": "extend" },
+    { "subProblem": "Sidebar footer", "existingCode": "src/renderer/components/sidebar/SidebarFooter.tsx", "action": "extend" },
+    { "subProblem": "Header toolbar", "existingCode": "src/renderer/components/header-toolbar.tsx", "action": "reuse" },
+    { "subProblem": "Onboarding suite", "existingCode": "src/renderer/components/Onboarding*.tsx", "action": "extend" },
+    { "subProblem": "Split chat layout", "existingCode": "(none)", "action": "build" },
+    { "subProblem": "Update / What's New dialogs", "existingCode": "(none)", "action": "build" },
+    { "subProblem": "Analytics dashboard", "existingCode": "(none)", "action": "build" },
+    { "subProblem": "File watcher", "existingCode": "(none)", "action": "build" },
+    { "subProblem": "Memory monitoring", "existingCode": "(none)", "action": "build" }
+  ],
+  "failureModes": [
+    { "risk": "Claude CLI emits different ext_notification namespaces than kiro.dev/* and breaks subagent/MCP UI silently", "affectedTasks": ["TASK-002", "TASK-031"], "mitigation": "TASK-002 captures live emit values before any rename; if changed, TASK-031 (and chart components) consume the verified IDs via TASK-003 outputs." },
+    { "risk": "Watching ~/.claude/ recursively triggers thousands of events on Claude CLI's own writes", "affectedTasks": ["TASK-005", "TASK-019"], "mitigation": "Watcher includes a denylist for ~/.claude/cache/, *.lock, .tmp.* and applies a 300ms debounce per path." },
+    { "risk": "SQLite + redb coexisting in the same app data directory creates lock contention", "affectedTasks": ["TASK-004"], "mitigation": "Each store opens its own file, separate connections, no shared transactions. Document the coexistence in CLAUDE.md (TASK-050)." },
+    { "risk": "Split chat layout regresses single-panel scroll-to-bottom behavior", "affectedTasks": ["TASK-042", "TASK-043"], "mitigation": "Each ChatPanel keeps its own scroll position state; integration tests in TASK-046 verify single-panel parity." },
+    { "risk": "Analytics buffer flush during app close loses recent events", "affectedTasks": ["TASK-018"], "mitigation": "Hook into Tauri's CloseRequested event to force-flush before window destruction; covered by TASK-018 acceptance." },
+    { "risk": "Memory spike indicator flashes on every tool-call streaming chunk", "affectedTasks": ["TASK-025"], "mitigation": "Use requestAnimationFrame debounce on memory recompute; only re-evaluate threshold every 1s, not per chunk." },
+    { "risk": "First release pipeline fails due to missing signing identity in secrets", "affectedTasks": ["TASK-056", "TASK-057"], "mitigation": "TASK-057 explicitly tests the dry-run path; failure surfaces in CI before tagging a real release." },
+    { "risk": "Klaudex-ahead features break when porting Kirodex behavior on top", "affectedTasks": ["TASK-019", "TASK-024", "TASK-034", "TASK-043"], "mitigation": "Each affected task includes an explicit acceptance criterion preserving the Klaudex-only behavior; TASK-034 demonstrates the dual-source pattern." },
+    { "risk": "Recent projects menu rebuild leaks listeners on macOS", "affectedTasks": ["TASK-008"], "mitigation": "Menu rebuild releases the previous menu via app.menu().take() before assigning the new one; covered in acceptance." },
+    { "risk": "Onboarding clone flow leaves orphan worktrees on cancel mid-clone", "affectedTasks": ["TASK-007", "TASK-038", "TASK-039"], "mitigation": "TASK-007 cleans up the partial clone target on error; TASK-038 dialog cancellation triggers explicit cleanup IPC call." }
+  ],
+  "testCoverageMap": [
+    { "codepath": "analytics_save SQLite insert + dedupe", "coveringTask": "TASK-004", "testType": "unit" },
+    { "codepath": "claude_watcher debounce + dual-scope events", "coveringTask": "TASK-005", "testType": "integration" },
+    { "codepath": "claude_config merge precedence", "coveringTask": "TASK-006", "testType": "unit" },
+    { "codepath": "git_clone success + invalid URL rejection", "coveringTask": "TASK-007", "testType": "integration" },
+    { "codepath": "analyticsStore buffer + flush + hydrate", "coveringTask": "TASK-018", "testType": "unit" },
+    { "codepath": "claudeConfigStore watcher subscription", "coveringTask": "TASK-019", "testType": "unit" },
+    { "codepath": "thread-memory estimate + reclaim", "coveringTask": "TASK-020", "testType": "unit" },
+    { "codepath": "useZoomLimit clamping", "coveringTask": "TASK-048", "testType": "unit" },
+    { "codepath": "useModifierKeys state + window blur", "coveringTask": "TASK-048", "testType": "unit" },
+    { "codepath": "useSessionTracker event emission", "coveringTask": "TASK-048", "testType": "unit" },
+    { "codepath": "memory-section render + reclaim interaction", "coveringTask": "TASK-024", "testType": "integration" },
+    { "codepath": "SidebarFooter spike indicator threshold", "coveringTask": "TASK-025", "testType": "unit" },
+    { "codepath": "Each analytics chart empty + populated render", "coveringTask": "TASK-049", "testType": "unit" },
+    { "codepath": "AnalyticsDashboard tab switching + date range", "coveringTask": "TASK-049", "testType": "integration" },
+    { "codepath": "CloneRepoDialog progress + error handling", "coveringTask": "TASK-038", "testType": "integration" },
+    { "codepath": "SplitChatLayout single + dual panel", "coveringTask": "TASK-046", "testType": "integration" },
+    { "codepath": "Header toolbar split-view focus", "coveringTask": "TASK-046", "testType": "unit" },
+    { "codepath": "AcpSubagentDisplay / PermissionCard / UserInputCard / StatsPanel", "coveringTask": "TASK-047", "testType": "unit" },
+    { "codepath": "ClaudeDebugTab", "coveringTask": "TASK-048", "testType": "unit" },
+    { "codepath": "UpdateAvailableDialog install flow", "coveringTask": "TASK-044", "testType": "integration" },
+    { "codepath": "WhatsNewDialog once-per-major", "coveringTask": "TASK-045", "testType": "unit" },
+    { "codepath": "Release pipeline build + sign + notarize", "coveringTask": "TASK-057", "testType": "e2e" }
+  ],
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "Rename `kiro` editor key to `claude` in OpenInEditorGroup",
+      "description": "Replace the property key `kiro` with `claude` in src/renderer/components/OpenInEditorGroup.tsx:49. Verify all call sites that index the editor map and update consistently. The label text remains 'Claude' — only the object key changes.",
+      "type": "chore",
+      "effort": "S",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "OpenInEditorGroup.tsx:49 uses claude: instead of kiro:",
+        "No remaining references to the old key in the file",
+        "bun run check:ts passes (no type errors from renamed key consumers)"
+      ],
+      "filesToModify": ["src/renderer/components/OpenInEditorGroup.tsx"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-002",
+      "title": "Verify ACP kiro.dev/* namespaces against Claude CLI emit",
+      "description": "Investigate whether the Claude CLI subprocess emits kiro.dev/mcp/server_initialized, kiro.dev/mcp/oauth_request, kiro.dev/commands/available, kiro.dev/compaction/status, and kiro.dev/subagent/list_update (lines 178-214 in src-tauri/src/commands/acp/client.rs), or whether Claude uses a different namespace prefix. Run a sample task end-to-end with debug logging on, capture the raw method names emitted, and either keep the namespaces (compat) or rename to claude.dev/*. Document the decision in the file as a comment.",
+      "type": "bug",
+      "effort": "M",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Debug log captures real ext_notification method names from a live Claude CLI run",
+        "Decision (keep kiro.dev/* or rename) is recorded in client.rs as a code comment",
+        "If renamed: all 5 string matches updated and frontend listeners still receive the same events",
+        "Failure case: if Claude CLI never emits any of these namespaces, that's documented and the corresponding handler branches stay (gated) for future use"
+      ],
+      "filesToModify": ["src-tauri/src/commands/acp/client.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-003",
+      "title": "Verify mode IDs and <kiro_summary> regex against Claude CLI",
+      "description": "Mode IDs kiro_default, kiro_planner, kiro_guide are hardcoded in src/renderer/components/chat/AcpSubagentDisplay.tsx:16-18, and the regex /<kiro_summary>...<\\/kiro_summary>/g is used in src/renderer/components/chat/TaskCompletionCard.tsx:16. Verify Claude CLI emits these exact strings via a live capture; if Claude emits claude_default/claude_planner or <claude_summary>, update both files and the useSlashAction.ts /plan mode-toggle hardcodes to match.",
+      "type": "bug",
+      "effort": "M",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Live capture of mode IDs from a Claude CLI session is documented",
+        "AcpSubagentDisplay.tsx mode-ID map matches what Claude CLI actually emits",
+        "TaskCompletionCard.tsx summary tag matches what Claude CLI actually emits",
+        "useSlashAction.ts /plan toggle uses the verified mode IDs",
+        "Failure case: if Claude CLI emits an unexpected variant, code falls back gracefully (no UI crash, plan summary just renders inline text instead of being stripped)"
+      ],
+      "filesToModify": [
+        "src/renderer/components/chat/AcpSubagentDisplay.tsx",
+        "src/renderer/components/chat/TaskCompletionCard.tsx",
+        "src/renderer/hooks/useSlashAction.ts"
+      ],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-004",
+      "title": "Port analytics.rs Tauri module with SQLite event store",
+      "description": "Port kirodex/src-tauri/src/commands/analytics.rs (258 LOC) to Klaudex/src-tauri/src/commands/analytics.rs. Implements analytics_save (batch insert), analytics_load (range query by date), analytics_clear (truncate), analytics_db_size (return byte size). Use SQLite via rusqlite (verify Cargo.toml). Schema must match Kirodex so analyticsStore aggregations work unchanged. Database file lives at confy/dirs-resolved app data dir.",
+      "type": "feature",
+      "effort": "L",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "All four commands compile and are gated by #[tauri::command]",
+        "Schema matches Kirodex (same columns, same types) so frontend aggregator can reuse logic untouched",
+        "analytics_save is idempotent on duplicate event IDs (no duplicate rows)",
+        "bun run check:rust passes",
+        "Failure case: if SQLite open fails, commands return AppError::Analytics(..) instead of panicking, and analytics_db_size returns Ok(0) rather than crash"
+      ],
+      "filesToModify": ["src-tauri/Cargo.toml", "src-tauri/src/commands/mod.rs"],
+      "filesToCreate": ["src-tauri/src/commands/analytics.rs"],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-005",
+      "title": "Port kiro_watcher.rs to claude_watcher.rs with dual-scope watching",
+      "description": "Port kirodex/src-tauri/src/commands/kiro_watcher.rs (149 LOC) to Klaudex/src-tauri/src/commands/claude_watcher.rs. Spawn a debounced filesystem watcher via notify crate. Watch BOTH ~/.claude/ (resolved via dirs::home_dir) and the project-local .claude/ dir for the active workspace. Emit a single claude-config-changed Tauri event with payload { scope, path }. Expose watch_claude_path(path), unwatch_claude_path(path) Tauri commands. Project wins over global on merged config.",
+      "type": "feature",
+      "effort": "L",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Watcher spawns one debouncer per registered path; unwatch_claude_path cleans up on drop",
+        "Touching ~/.claude/agents/foo.md emits claude-config-changed with scope: 'global'",
+        "Touching <workspace>/.claude/agents/bar.md emits claude-config-changed with scope: 'project'",
+        "Failure case: if ~/.claude doesn't exist, watcher still starts and does not panic",
+        "No duplicate events fired within the debounce window (300ms)"
+      ],
+      "filesToModify": ["src-tauri/Cargo.toml", "src-tauri/src/commands/mod.rs"],
+      "filesToCreate": ["src-tauri/src/commands/claude_watcher.rs"],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-006",
+      "title": "Extend claude_config.rs to full Kirodex kiro_config.rs parity",
+      "description": "Klaudex's claude_config.rs is thinner than kirodex/src-tauri/src/commands/kiro_config.rs (428 LOC). Extend Klaudex's module to parse: agents (markdown frontmatter via serde_yaml), skills, MCP server entries, steering rules, and memory files. Return a single ClaudeConfig struct mirroring KiroConfig shape. Resolve from both ~/.claude/ and project-local .claude/ and merge with project precedence. Expose get_claude_config(workspace?: string) Tauri command.",
+      "type": "feature",
+      "effort": "L",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "ClaudeConfig struct shape matches KiroConfig field-for-field (rename Kiro → Claude in type names only)",
+        "Parsing handles missing dirs gracefully (returns empty arrays, no error)",
+        "Frontmatter parse errors on a single file don't fail the whole config — that file is skipped with a logged warning",
+        "Project entries override global entries with the same name",
+        "bun run test:rust includes a new test for merge precedence"
+      ],
+      "filesToModify": ["src-tauri/src/commands/claude_config.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-007",
+      "title": "Add git_clone and git_init Tauri commands",
+      "description": "Add two commands to src-tauri/src/commands/git.rs: git_clone(url, target_dir, ssh_key_path?) using git2::Repository::clone with credential callback for SSH/HTTPS, and git_init(path, initial_branch?) using git2::Repository::init. Emit progress events during clone (event git-clone-progress with received_objects/total_objects/indexed_deltas). Validate: target_dir empty/non-existent for clone; URL must be valid git URL.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "git_clone succeeds for HTTPS public repos without credentials",
+        "git_clone succeeds for SSH repos using SSH agent or ~/.ssh/id_ed25519",
+        "git_init creates a repo with the requested initial branch name (defaults to main)",
+        "Failure case: cloning into a non-empty directory returns AppError::Git(..) with a clear message instead of corrupting the dir",
+        "Failure case: invalid URL is rejected before any network call"
+      ],
+      "filesToModify": ["src-tauri/src/commands/git.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-008",
+      "title": "Add recent projects commands to settings.rs",
+      "description": "Add Tauri commands get_recent_projects(), add_recent_project(path), clear_recent_projects(), rebuild_recent_menu() to src-tauri/src/commands/settings.rs. Persist a capped list (max 10) of recently-opened workspace paths via confy. add_recent_project deduplicates and moves entry to front. rebuild_recent_menu triggers a Tauri menu rebuild.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "List capped at 10 entries, oldest evicted on overflow",
+        "Adding an existing path re-orders to front (no duplicates)",
+        "rebuild_recent_menu updates the macOS File menu without restart",
+        "Failure case: add_recent_project with a non-existent path still records it (we don't validate disk; the menu hides missing entries on click)"
+      ],
+      "filesToModify": ["src-tauri/src/commands/settings.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-009",
+      "title": "Add macOS dock icon + relaunch flag commands",
+      "description": "Add Tauri commands set_dock_icon(image_data_b64), reset_dock_icon(), set_relaunch_flag() to src-tauri/src/commands/settings.rs. Use Cocoa NSApp.setApplicationIconImage: via objc on macOS only (no-op on other platforms). set_relaunch_flag writes a marker file so the next startup knows to skip the splash and reload the previous session.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Setting a custom dock icon updates immediately without app restart on macOS",
+        "reset_dock_icon restores the bundled .icns icon",
+        "set_relaunch_flag writes to ~/Library/Application Support/com.klaudex.app/relaunch (or platform equivalent)",
+        "Failure case: invalid base64 image data returns AppError::InvalidInput instead of panicking the objc bridge"
+      ],
+      "filesToModify": ["src-tauri/src/commands/settings.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-010",
+      "title": "Add 5 missing commands to fs_ops.rs",
+      "description": "Add to src-tauri/src/commands/fs_ops.rs: pick_image() (dialog filter for png/jpg/webp), detect_project_icon(path) (probe for .icon.png, icon.png, logo.png in workspace root), list_small_images(dir) (return all png/jpg under dir ≤ 256KB), is_directory(path) (returns bool), detect_editors_background() (runs detect_editors work in a background thread, emits editors-updated event when done). Mirror Kirodex signatures exactly.",
+      "type": "feature",
+      "effort": "L",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "All 5 commands match Kirodex signatures",
+        "detect_editors_background doesn't block the main runtime — uses tokio::spawn_blocking",
+        "list_small_images enforces the 256KB cap; larger files are silently skipped",
+        "Failure case: is_directory on a non-existent path returns Ok(false), not an error"
+      ],
+      "filesToModify": ["src-tauri/src/commands/fs_ops.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-011",
+      "title": "Add pty_count and terminal scrollback config",
+      "description": "Extend src-tauri/src/commands/pty.rs: add pty_count() (returns active session count from PtyState), and parameterize pty_create to accept scrollback_lines: u32 (default 5000, range 200..=20000) which the renderer respects when constructing xterm. Persist user preference via settings (AppSettings.terminal_scrollback, AppSettings.terminal_idle_close_mins).",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "pty_count returns the right number after creating/killing sessions",
+        "pty_create honors scrollback parameter when constructing the PTY ring buffer",
+        "Settings struct gains terminal_scrollback and terminal_idle_close_mins with sensible defaults",
+        "Failure case: scrollback < 200 or > 20000 is clamped silently to nearest bound"
+      ],
+      "filesToModify": ["src-tauri/src/commands/pty.rs", "src-tauri/src/commands/settings.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-012",
+      "title": "Register all new Tauri commands in lib.rs",
+      "description": "Update src-tauri/src/lib.rs invoke_handler! macro to register every command added by TASK-004 through TASK-011. Add the analytics SQLite state and ClaudeWatcher state to app.manage(). Wire claude-config-changed event to be re-emitted to the webview. Update shutdown_app() to drop watcher and close analytics db cleanly.",
+      "type": "chore",
+      "effort": "M",
+      "priority": "P0",
+      "dependsOn": ["TASK-004", "TASK-005", "TASK-006", "TASK-007", "TASK-008", "TASK-009", "TASK-010", "TASK-011"],
+      "acceptanceCriteria": [
+        "All new commands appear in invoke_handler and bun run check:rust passes",
+        "Watcher state and analytics state survive a full app launch and graceful shutdown without leaks",
+        "Failure case: if analytics db init fails on startup, the app logs a warning and continues (analytics features degrade silently)"
+      ],
+      "filesToModify": ["src-tauri/src/lib.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-013",
+      "title": "Add analytics IPC wrappers to lib/ipc.ts",
+      "description": "Add to src/renderer/lib/ipc.ts: analyticsSave(events), analyticsLoad(range), analyticsClear(), analyticsDbSize(). Mirror tracedInvoke instrumentation but add analytics* methods to the quiet list (high-volume saves shouldn't flood debug panel).",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-004"],
+      "acceptanceCriteria": [
+        "Four methods exist on the ipc object with TypeScript types matching Rust signatures",
+        "All four are in the quiet log list to avoid debug spam",
+        "Failure case: a thrown Tauri error is caught and re-thrown with a wrapped message including the command name"
+      ],
+      "filesToModify": ["src/renderer/lib/ipc.ts"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-014",
+      "title": "Add git clone/init IPC wrappers + progress listener",
+      "description": "Add gitClone(url, targetDir, sshKeyPath?) and gitInit(path, initialBranch?) to src/renderer/lib/ipc.ts. Wire onGitCloneProgress(cb) listener for git-clone-progress event. Throttle progress callbacks to ~10/sec via rAF or a manual gate.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-007"],
+      "acceptanceCriteria": [
+        "gitClone returns once the clone completes, error on failure",
+        "Progress listener fires while clone is in flight with a monotonically increasing received_objects",
+        "Failure case: invalid URL bubbles a clear error message that the dialog (TASK-038) can display"
+      ],
+      "filesToModify": ["src/renderer/lib/ipc.ts"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-015",
+      "title": "Add recent projects + dock icon IPC wrappers",
+      "description": "Add to src/renderer/lib/ipc.ts: getRecentProjects(), addRecentProject(path), clearRecentProjects(), rebuildRecentMenu(), setDockIcon(b64), resetDockIcon(), setRelaunchFlag().",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-008", "TASK-009"],
+      "acceptanceCriteria": [
+        "All seven methods present with types",
+        "setDockIcon accepts a string (base64) and rejects non-string input at the type level",
+        "Failure case: getRecentProjects returns [] (not throws) when settings file is missing"
+      ],
+      "filesToModify": ["src/renderer/lib/ipc.ts"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-016",
+      "title": "Add fs_ops + pty IPC wrappers",
+      "description": "Add to src/renderer/lib/ipc.ts: pickImage(), detectProjectIcon(path), listSmallImages(dir), isDirectory(path), detectEditorsBackground(), ptyCount(). Add onEditorsUpdated(cb) listener for the background detection event.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-010", "TASK-011"],
+      "acceptanceCriteria": [
+        "Six command wrappers + one event listener present with types",
+        "detectEditorsBackground is fire-and-forget (returns immediately); results arrive via onEditorsUpdated",
+        "Failure case: if no images match listSmallImages filter, returns []"
+      ],
+      "filesToModify": ["src/renderer/lib/ipc.ts"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-017",
+      "title": "Wire onClaudeConfigChanged IPC + watch/unwatch wrappers",
+      "description": "Add to src/renderer/lib/ipc.ts: watchClaudePath(path), unwatchClaudePath(path), onClaudeConfigChanged(cb). The listener should auto-cleanup on unmount (return an unlisten fn). Payload type: { scope: 'global' | 'project'; path: string }.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-005"],
+      "acceptanceCriteria": [
+        "onClaudeConfigChanged callback fires when watcher (TASK-005) emits its event",
+        "Returned unlisten fn correctly removes the listener",
+        "Failure case: re-watching an already-watched path is a no-op (no duplicate events)"
+      ],
+      "filesToModify": ["src/renderer/lib/ipc.ts"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-018",
+      "title": "Port analyticsStore.ts",
+      "description": "Port kirodex/src/renderer/stores/analyticsStore.ts (57 LOC) to Klaudex. Zustand store managing in-memory event buffer, flush-to-disk via analyticsSave, hydrate-from-disk via analyticsLoad, aggregations for dashboard charts. Match Kirodex schema field-for-field so chart components port unchanged.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-013"],
+      "acceptanceCriteria": [
+        "Store shape matches Kirodex analyticsStore.ts exactly",
+        "Buffered events flush in batches of 50 or every 30s (whichever first)",
+        "Hydration loads last 30 days by default",
+        "Failure case: if analyticsLoad throws, store starts empty and logs the error rather than crashing the app"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/stores/analyticsStore.ts"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-019",
+      "title": "Extend claudeConfigStore with watcher subscription",
+      "description": "Update src/renderer/stores/claudeConfigStore.ts to subscribe to onClaudeConfigChanged on init and call its existing loadConfig() action when the event fires. Add watchedPaths: Set<string> to state. On store init, call watchClaudePath(homeClaude) and watchClaudePath(activeWorkspace + '/.claude') when a workspace is selected. On workspace switch, unwatch the previous project path.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-017"],
+      "acceptanceCriteria": [
+        "Store auto-refreshes when a .claude/agents/foo.md file is touched on disk",
+        "Switching workspaces unwatches the old project .claude and watches the new one",
+        "~/.claude is always watched once per app lifetime",
+        "Failure case: HMR / store re-init does not leak duplicate watchers"
+      ],
+      "filesToModify": ["src/renderer/stores/claudeConfigStore.ts"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-020",
+      "title": "Port lib/thread-memory.ts",
+      "description": "Port kirodex/src/renderer/lib/thread-memory.ts (268 LOC) to Klaudex/src/renderer/lib/thread-memory.ts. Estimates per-thread memory (messages, tool calls, attachments, streaming buffers) and exposes reclaim helpers. Update any imports that referenced kiroStore to use claudeConfigStore if relevant.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "File compiles and bun run check:ts passes",
+        "estimateThreadMemory(taskId) returns a number ≥ 0 for any valid task",
+        "reclaimThread(taskId) clears messages but keeps the task record (matches Kirodex behavior)",
+        "Failure case: estimating an unknown task ID returns 0, not undefined or throw"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/lib/thread-memory.ts"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-021",
+      "title": "Port useZoomLimit hook",
+      "description": "Port kirodex/src/renderer/hooks/useZoomLimit.ts to Klaudex. Clamps webview zoom level between 50% and 100% (Cmd+/-/0 handlers). Listens for the Tauri webview zoom event and rejects values outside the range.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Cmd+= zooms in to a max of 100%",
+        "Cmd+- zooms out to a min of 50%",
+        "Cmd+0 resets to 100%",
+        "Failure case: zoom level read on app startup that's already outside range gets re-clamped immediately"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/hooks/useZoomLimit.ts"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-022",
+      "title": "Port useModifierKeys hook",
+      "description": "Port kirodex/src/renderer/hooks/useModifierKeys.ts to Klaudex. Tracks Shift/Cmd/Ctrl/Alt state across the window via global keydown/keyup listeners; exposes { shift, cmd, ctrl, alt } booleans. Used by drag-and-drop UIs and command-palette-style shortcuts.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Hook returns booleans that flip on key down/up within ~16ms",
+        "Window blur clears all modifier state (prevents stuck-key bug)",
+        "Failure case: rapid alt+tab during a held modifier doesn't leave the flag stuck"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/hooks/useModifierKeys.ts"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-023",
+      "title": "Port useSessionTracker hook",
+      "description": "Port kirodex/src/renderer/hooks/useSessionTracker.ts to Klaudex. Emits analytics events for: session_start, session_end, task_created, message_sent, slash_command_used, mode_switched. Each event includes workspace path, task id (if any), and timestamp. Buffers via analyticsStore.addEvent.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-018"],
+      "acceptanceCriteria": [
+        "All 6 event types fire at the right moments",
+        "Event payload schema matches Kirodex exactly so dashboard charts read it correctly",
+        "Hook is mounted at app root only (not per-component)",
+        "Failure case: if analyticsStore is uninitialized, events are silently dropped (no crash)"
+      ],
+      "filesToModify": ["src/renderer/App.tsx"],
+      "filesToCreate": ["src/renderer/hooks/useSessionTracker.ts"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-024",
+      "title": "Port Settings → Memory section",
+      "description": "Port kirodex/src/renderer/components/settings/memory-section.tsx (558 LOC) to Klaudex's src/renderer/components/settings/memory-section.tsx. Includes: total app memory readout, per-thread memory breakdown table, Reclaim buttons per thread, Purge soft-deleted threads button, Clear debug logs button, terminal scrollback slider (200..20000), terminal idle-close minutes input. Wire to lib/thread-memory.ts, taskStore, debugStore, and settings save.",
+      "type": "feature",
+      "effort": "L",
+      "priority": "P1",
+      "dependsOn": ["TASK-020", "TASK-016", "TASK-011"],
+      "acceptanceCriteria": [
+        "Section renders inside SettingsPanel and shows memory stats updated live",
+        "Reclaiming a thread reduces its memory estimate and triggers re-render",
+        "Terminal scrollback slider value persists across app restarts",
+        "Failure case: if pty_count returns 0, the terminal section shows a placeholder instead of crashing"
+      ],
+      "filesToModify": ["src/renderer/components/settings/SettingsPanel.tsx"],
+      "filesToCreate": ["src/renderer/components/settings/memory-section.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-025",
+      "title": "Add memory spike indicator to SidebarFooter",
+      "description": "Extend Klaudex's existing src/renderer/components/sidebar/SidebarFooter.tsx with a 'Memory Spike' indicator (red dot + button) that appears when total estimated thread memory exceeds a threshold (default 500MB). Clicking it opens Settings → Memory section directly. Update SidebarFooter.test.tsx to cover the new indicator.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-020", "TASK-024"],
+      "acceptanceCriteria": [
+        "Indicator appears only when estimateAllThreadsMemory() exceeds threshold",
+        "Click navigates to Settings → Memory and scrolls to the per-thread table",
+        "Threshold is configurable via settings (defaults to 500MB)",
+        "Test covers: appears above threshold, hidden below, click navigates correctly"
+      ],
+      "filesToModify": [
+        "src/renderer/components/sidebar/SidebarFooter.tsx",
+        "src/renderer/components/sidebar/SidebarFooter.test.tsx"
+      ],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-026",
+      "title": "Port shared chart primitives ChartCard + HorizontalBarSection",
+      "description": "Port kirodex/src/renderer/components/analytics/ChartCard.tsx and HorizontalBarSection.tsx to Klaudex. Establish the chart container styling that all 9 chart components reuse. Create the analytics/ directory under src/renderer/components/.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Both components compile and export",
+        "ChartCard accepts title, children, optional actions slot",
+        "HorizontalBarSection renders a labeled bar with percentage, gracefully handles 0/0 (renders empty state)",
+        "Failure case: passing empty data array renders an empty state, not a NaN/Infinity bar"
+      ],
+      "filesToModify": [],
+      "filesToCreate": [
+        "src/renderer/components/analytics/ChartCard.tsx",
+        "src/renderer/components/analytics/HorizontalBarSection.tsx"
+      ],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-027",
+      "title": "Port CodingHoursChart",
+      "description": "Port kirodex/src/renderer/components/analytics/CodingHoursChart.tsx to Klaudex. Hour-of-day heatmap of activity events from analyticsStore.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-018", "TASK-026"],
+      "acceptanceCriteria": [
+        "Heatmap renders 24 cells (0-23 hours)",
+        "Color intensity scales to max value across the dataset",
+        "Failure case: empty dataset renders empty grid, no errors"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/analytics/CodingHoursChart.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-028",
+      "title": "Port DiffStatsChart",
+      "description": "Port kirodex/src/renderer/components/analytics/DiffStatsChart.tsx to Klaudex. Line chart of additions/deletions over time.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-018", "TASK-026"],
+      "acceptanceCriteria": [
+        "Two lines (additions, deletions) render correctly with a date X-axis",
+        "Tooltip on hover shows exact daily counts",
+        "Failure case: single data point still renders (no broken line)"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/analytics/DiffStatsChart.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-029",
+      "title": "Port MessagesChart",
+      "description": "Port kirodex/src/renderer/components/analytics/MessagesChart.tsx to Klaudex. Trend of message count per day.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-018", "TASK-026"],
+      "acceptanceCriteria": [
+        "Bar/line chart of daily message totals",
+        "Failure case: weekend gap days render as 0 (not skipped/interpolated)"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/analytics/MessagesChart.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-030",
+      "title": "Port ModelPopularityChart",
+      "description": "Port kirodex/src/renderer/components/analytics/ModelPopularityChart.tsx to Klaudex. Distribution of model usage. Cross-reference with availableModels so unknown model IDs render with a fallback label.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-018", "TASK-026"],
+      "acceptanceCriteria": [
+        "Pie or horizontal bar showing per-model message counts",
+        "Models not in availableModels render with raw ID + (legacy) suffix",
+        "Failure case: zero usage renders empty state"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/analytics/ModelPopularityChart.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-031",
+      "title": "Port ModeUsageChart",
+      "description": "Port kirodex/src/renderer/components/analytics/ModeUsageChart.tsx to Klaudex. Stacked bar of plan vs default vs guide mode time/messages.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-018", "TASK-026", "TASK-003"],
+      "acceptanceCriteria": [
+        "Stacked bar with plan/default/guide segments",
+        "Mode IDs verified by TASK-003 are referenced (no hardcoded kiro_* strings)",
+        "Failure case: unknown mode IDs are bucketed under 'other'"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/analytics/ModeUsageChart.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-032",
+      "title": "Port ProjectStatsChart",
+      "description": "Port kirodex/src/renderer/components/analytics/ProjectStatsChart.tsx to Klaudex. Activity per project (messages, tool calls, time-spent).",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-018", "TASK-026"],
+      "acceptanceCriteria": [
+        "Horizontal bar listing projects sorted by total activity",
+        "Project paths truncated with tooltip on hover",
+        "Failure case: deleted projects still appear with last-known name + (deleted) tag"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/analytics/ProjectStatsChart.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-033",
+      "title": "Port SlashCommandChart",
+      "description": "Port kirodex/src/renderer/components/analytics/SlashCommandChart.tsx to Klaudex. Heatmap or bar of slash command usage frequency.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-018", "TASK-026"],
+      "acceptanceCriteria": [
+        "Renders a chart of /clear, /model, /plan, /undo, etc. counts",
+        "Includes Klaudex-only commands (/undo, /stats) — verify they appear when used",
+        "Failure case: no slash command events renders empty state"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/analytics/SlashCommandChart.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-034",
+      "title": "Port TokensChart and integrate Klaudex token tracking",
+      "description": "Port kirodex/src/renderer/components/analytics/TokensChart.tsx to Klaudex but read from BOTH analyticsStore (legacy event-based counts) and Klaudex's existing tokenUsageStore (redb-backed accurate counts). Prefer tokenUsageStore values when present, fall back to analytics events. Stacked bar: input/output/cache_read/cache_creation tokens. Cost estimate on hover.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-018", "TASK-026"],
+      "acceptanceCriteria": [
+        "Chart prefers tokenUsageStore data when available, falls back to analytics events",
+        "Cost estimate uses Klaudex's existing pricing table (from tokenUsageStore)",
+        "Empty case renders gracefully",
+        "Failure case: if tokenUsageStore is uninitialized (race on startup), falls back without throwing"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/analytics/TokensChart.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-035",
+      "title": "Port ToolCallChart",
+      "description": "Port kirodex/src/renderer/components/analytics/ToolCallChart.tsx to Klaudex. Bar chart of tool call counts grouped by tool name.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-018", "TASK-026"],
+      "acceptanceCriteria": [
+        "Bars sorted descending by count",
+        "Top 20 tools shown, rest collapsed into 'other'",
+        "Failure case: tool names with very long IDs are truncated visually"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/analytics/ToolCallChart.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-036",
+      "title": "Port AnalyticsDashboard container with tab nav",
+      "description": "Port kirodex/src/renderer/components/analytics/AnalyticsDashboard.tsx to Klaudex. Top-level container with tab nav (Hours/Diffs/Messages/Models/Modes/Projects/Slash/Tokens/Tools). Date-range filter (7d/30d/90d/all). Empty state when no data.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-027", "TASK-028", "TASK-029", "TASK-030", "TASK-031", "TASK-032", "TASK-033", "TASK-034", "TASK-035"],
+      "acceptanceCriteria": [
+        "Tabs switch the visible chart without remounting siblings",
+        "Date range filter re-queries analyticsStore and updates all charts",
+        "Empty state shows when zero events recorded across all categories",
+        "Failure case: switching tabs while data is loading doesn't tear down state"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/analytics/AnalyticsDashboard.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-037",
+      "title": "Wire analytics dashboard view into App.tsx",
+      "description": "Add an analytics view to App.tsx's view switcher and a sidebar/header entry point. Slash command /analytics opens it (add to useSlashAction.ts). Lazy-load the dashboard module to avoid bloating the main bundle.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-036"],
+      "acceptanceCriteria": [
+        "/analytics slash command opens the dashboard",
+        "First open triggers a network/disk load; subsequent opens are instant",
+        "Bundle analyzer confirms charts are in a separate chunk"
+      ],
+      "filesToModify": ["src/renderer/App.tsx", "src/renderer/hooks/useSlashAction.ts"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-038",
+      "title": "Port CloneRepoDialog UI",
+      "description": "Port kirodex/src/renderer/components/CloneRepoDialog.tsx (225 LOC) to Klaudex's src/renderer/components/CloneRepoDialog.tsx. Modal: URL input, target directory picker, optional SSH key path picker, Clone button with progress bar. Success closes modal and adds cloned dir to recent projects.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-014", "TASK-015"],
+      "acceptanceCriteria": [
+        "Modal opens and accepts URL + target dir",
+        "Progress bar reflects clone status in real time",
+        "Success path adds the new project to recentProjects and selects it",
+        "Failure case: clone error displays inline (not just toast) so user can retry without re-typing URL"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/CloneRepoDialog.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-039",
+      "title": "Wire CloneRepoDialog into onboarding + new project flow",
+      "description": "Add a 'Clone repository' entry to OnboardingSetupStep.tsx and to the new-project sheet. Clicking opens CloneRepoDialog (TASK-038). After successful clone, the workspace is set to the new directory.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-038"],
+      "acceptanceCriteria": [
+        "Onboarding offers a Clone option alongside Open Folder",
+        "After clone, the just-cloned repo becomes the active workspace",
+        "Failure case: cancelling the clone dialog returns user to the previous onboarding screen, no half-state"
+      ],
+      "filesToModify": ["src/renderer/components/OnboardingSetupStep.tsx"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-040",
+      "title": "Port PanelContext for split chat layout",
+      "description": "Port kirodex/src/renderer/components/chat/PanelContext.tsx to Klaudex. React Context tracking which thread is shown in each split panel (left/right) and which panel is active. Provider wraps the chat layout.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Context exposes { panels: { left, right }, activePanel, setActivePanel, setPanelThread }",
+        "Switching active panel updates focus styling",
+        "Failure case: setting an unknown thread ID falls back to the previous valid one"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/chat/PanelContext.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-041",
+      "title": "Port SplitDivider, SplitPanelHeader, SplitThreadPicker",
+      "description": "Port these three sibling components from kirodex/src/renderer/components/chat/ to Klaudex. SplitDivider is the draggable resize handle, SplitPanelHeader is the per-panel header (thread name, picker dropdown), SplitThreadPicker is the dropdown for swapping threads in a panel.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-040"],
+      "acceptanceCriteria": [
+        "Divider drag resizes both panels with min 30%/max 70% clamps",
+        "Header shows thread name and an X to close the panel",
+        "Picker lists threads; selecting one swaps the panel content",
+        "Failure case: dragging past clamps doesn't break layout"
+      ],
+      "filesToModify": [],
+      "filesToCreate": [
+        "src/renderer/components/chat/SplitDivider.tsx",
+        "src/renderer/components/chat/SplitPanelHeader.tsx",
+        "src/renderer/components/chat/SplitThreadPicker.tsx"
+      ],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-042",
+      "title": "Port SplitChatLayout container",
+      "description": "Port kirodex/src/renderer/components/chat/SplitChatLayout.tsx to Klaudex. Wraps ChatPanel instances in left/right panels. Controlled by PanelContext. When only one panel active, hides divider and renders full-width.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-040", "TASK-041"],
+      "acceptanceCriteria": [
+        "Single-panel mode renders identically to current Klaudex behavior",
+        "Split mode renders two ChatPanels with divider between",
+        "Each panel scrolls independently",
+        "Failure case: if both panels reference the same thread, both still render and remain in sync"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/chat/SplitChatLayout.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-043",
+      "title": "Wire split layout into App.tsx + add slash command",
+      "description": "Replace the direct ChatPanel mount in App.tsx with SplitChatLayout. Add slash command /split (in useSlashAction.ts) to toggle the right panel open/closed. Add keyboard shortcut Cmd+Shift+L. Persist split state in taskStore.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-042"],
+      "acceptanceCriteria": [
+        "/split and Cmd+Shift+L both toggle split view",
+        "Split state persists across app restarts",
+        "Failure case: if persisted state references a deleted thread, the panel falls back to the most-recent active thread"
+      ],
+      "filesToModify": [
+        "src/renderer/App.tsx",
+        "src/renderer/hooks/useSlashAction.ts",
+        "src/renderer/stores/taskStore.ts"
+      ],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-044",
+      "title": "Port UpdateAvailableDialog",
+      "description": "Port kirodex/src/renderer/components/UpdateAvailableDialog.tsx to Klaudex's src/renderer/components/UpdateAvailableDialog.tsx. Modal that appears when updateStore.available === true. Shows version, release notes, Update now / Remind me later buttons. Wires to tauri-plugin-updater install + relaunch flow.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-015"],
+      "acceptanceCriteria": [
+        "Modal opens automatically when an update is detected",
+        "Update now downloads, installs, and relaunches via setRelaunchFlag",
+        "Remind me later snoozes for 24 hours",
+        "Failure case: download error shows in dialog (retryable), doesn't crash app"
+      ],
+      "filesToModify": ["src/renderer/App.tsx"],
+      "filesToCreate": ["src/renderer/components/UpdateAvailableDialog.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-045",
+      "title": "Port WhatsNewDialog + first-launch trigger",
+      "description": "Port kirodex/src/renderer/components/WhatsNewDialog.tsx to Klaudex. Auto-opens once per major version after an update completes. Reads release notes from a bundled JSON or the CHANGELOG.md. Includes Got it dismiss that records the version in settings.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Opens exactly once per major version after install",
+        "Dismiss persists; no second open until next major version",
+        "Renders markdown release notes correctly (uses existing react-markdown)",
+        "Failure case: missing changelog data shows a generic 'Updated to vX.Y.Z' message, no crash"
+      ],
+      "filesToModify": ["src/renderer/App.tsx"],
+      "filesToCreate": ["src/renderer/components/WhatsNewDialog.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-046",
+      "title": "Port header-toolbar.test.tsx",
+      "description": "Port kirodex/src/renderer/components/header-toolbar.test.tsx to Klaudex. Covers split-view focus behavior, breadcrumb rendering, action button states.",
+      "type": "test",
+      "effort": "S",
+      "priority": "P2",
+      "dependsOn": ["TASK-043"],
+      "acceptanceCriteria": [
+        "Test file compiles and runs under Vitest",
+        "All tests pass against Klaudex's header-toolbar.tsx",
+        "Failure case: test catches it if a button's disabled state is computed wrong"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/header-toolbar.test.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-047",
+      "title": "Add tests for net-new Klaudex chat components",
+      "description": "Write Vitest tests for AcpSubagentDisplay.tsx, PermissionCard.tsx, UserInputCard.tsx, StatsPanel.tsx (all Klaudex-only, currently untested). Smoke render + key interaction per component.",
+      "type": "test",
+      "effort": "M",
+      "priority": "P2",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Four test files added, all passing",
+        "Each covers at least: render with valid props, render with empty/null props, one user interaction",
+        "Failure case: passing malformed props is handled (renders fallback, doesn't crash)"
+      ],
+      "filesToModify": [],
+      "filesToCreate": [
+        "src/renderer/components/chat/AcpSubagentDisplay.test.tsx",
+        "src/renderer/components/chat/PermissionCard.test.tsx",
+        "src/renderer/components/chat/UserInputCard.test.tsx",
+        "src/renderer/components/chat/StatsPanel.test.tsx"
+      ],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-048",
+      "title": "Add tests for ClaudeDebugTab and new hooks",
+      "description": "Write tests for ClaudeDebugTab.tsx and the three new hooks (useZoomLimit, useModifierKeys, useSessionTracker). Hook tests use renderHook from @testing-library/react.",
+      "type": "test",
+      "effort": "M",
+      "priority": "P2",
+      "dependsOn": ["TASK-021", "TASK-022", "TASK-023"],
+      "acceptanceCriteria": [
+        "Four test files (one per hook + ClaudeDebugTab)",
+        "Hook tests cover: initial state, state change on event, cleanup on unmount",
+        "Failure case: useZoomLimit clamps an injected out-of-range value back into range"
+      ],
+      "filesToModify": [],
+      "filesToCreate": [
+        "src/renderer/components/debug/ClaudeDebugTab.test.tsx",
+        "src/renderer/hooks/useZoomLimit.test.ts",
+        "src/renderer/hooks/useModifierKeys.test.ts",
+        "src/renderer/hooks/useSessionTracker.test.ts"
+      ],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-049",
+      "title": "Add smoke tests for analytics components",
+      "description": "Write Vitest smoke tests for the 12 analytics components. Each test renders with empty data and with mock-populated data, asserting no crash and key DOM elements present.",
+      "type": "test",
+      "effort": "M",
+      "priority": "P2",
+      "dependsOn": ["TASK-036"],
+      "acceptanceCriteria": [
+        "12+ components covered",
+        "Empty state and populated state both tested",
+        "Failure case: dashboard with all-empty data still renders the empty state"
+      ],
+      "filesToModify": [],
+      "filesToCreate": [
+        "src/renderer/components/analytics/analytics-charts.test.tsx",
+        "src/renderer/components/analytics/AnalyticsDashboard.test.tsx"
+      ],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-050",
+      "title": "Refresh CLAUDE.md to reflect Klaudex reality",
+      "description": "Rewrite stale parts of CLAUDE.md: replace kiro_config.rs references with claude_config.rs, replace agent-client-protocol SDK references with the hand-rolled Claude CLI subprocess, list new modules (analytics.rs, claude_watcher.rs), update command count, document dual-scope watcher decision and SQLite analytics persistence. Keep Engineering learnings section but add new entries from this migration.",
+      "type": "docs",
+      "effort": "M",
+      "priority": "P2",
+      "dependsOn": ["TASK-005", "TASK-006", "TASK-019"],
+      "acceptanceCriteria": [
+        "No remaining references to kiro_config.rs, kiroStore.ts, or agent-client-protocol crate",
+        "Module list matches actual directory contents",
+        "Command count and module sizes accurate",
+        "Dual-scope watcher design rationale documented in a new learning entry"
+      ],
+      "filesToModify": ["CLAUDE.md"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-051",
+      "title": "Sync activity.md with completed migration entries",
+      "description": "For each completed task in this plan, prepend an entry to activity.md per the project convention. Group by completion day. Bring activity.md from its current 9.5 KB to a state that mirrors Kirodex's depth for the migration period.",
+      "type": "docs",
+      "effort": "M",
+      "priority": "P2",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Every TASK-NNN that ships has an activity entry",
+        "Entries follow the existing format exactly",
+        "Failure case: tasks marked complete without a corresponding activity entry are flagged"
+      ],
+      "filesToModify": ["activity.md"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-052",
+      "title": "Create todo.md roadmap",
+      "description": "Create todo.md at repo root with: short-term polish (any P3 punted), medium-term roadmap (post-parity Claude-specific features like sub-agent orchestration UI, Claude Skills integration), long-term ideas. Mirror Kirodex's todo.md shape.",
+      "type": "docs",
+      "effort": "S",
+      "priority": "P2",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "File exists at repo root",
+        "At least 3 short-term, 3 medium-term, 2 long-term items",
+        "Items are concrete (linked to file paths or specific behaviors), not vague"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["todo.md"],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-053",
+      "title": "Wire recent projects into File menu and sidebar",
+      "description": "Add an Open Recent submenu to the macOS app menu (constructed in lib.rs Tauri menu setup). Also surface the recent projects list in the sidebar's empty-state placeholder. Selecting an entry calls addRecentProject (re-orders) and switches workspace.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-015"],
+      "acceptanceCriteria": [
+        "File → Open Recent shows up to 10 entries in chronological order",
+        "Clicking an entry switches workspace and re-orders the list",
+        "Sidebar empty state lists recent projects when no thread is selected",
+        "Failure case: a recent project whose path no longer exists shows a (missing) suffix and on click prompts removal"
+      ],
+      "filesToModify": [
+        "src-tauri/src/lib.rs",
+        "src/renderer/components/sidebar/TaskSidebar.tsx"
+      ],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-054",
+      "title": "Sync CHANGELOG.md from Klaudex commit history",
+      "description": "Klaudex's CHANGELOG.md is truncated (16 KB vs Kirodex's 34 KB). Build a CHANGELOG entry for every Klaudex tag/release-candidate, sourced from git log --oneline since the rename. Group by minor/patch versions, follow Keep-a-Changelog format. Include Added/Changed/Fixed/Removed sections per release.",
+      "type": "docs",
+      "effort": "M",
+      "priority": "P3",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Every commit since rename has at least one CHANGELOG line",
+        "Format follows Keep-a-Changelog",
+        "Failure case: merge commits and analytics-only chore commits are excluded"
+      ],
+      "filesToModify": ["CHANGELOG.md"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-055",
+      "title": "Initialize downloads.json for first release",
+      "description": "Replace the empty 191-byte downloads.json with a structure matching Kirodex's schema (releases array, per-platform asset URLs, download counters initialized to 0). Stub for v0.1.0. Verify the website page that reads this file renders correctly with the stub.",
+      "type": "infra",
+      "effort": "S",
+      "priority": "P3",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "downloads.json schema matches Kirodex",
+        "Website renders without 'no releases' empty state",
+        "Failure case: malformed JSON is caught by the build script (validate via bun run check:ts)"
+      ],
+      "filesToModify": ["downloads.json"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-056",
+      "title": "Configure release pipeline (tauri.ci.conf.json + GitHub Actions)",
+      "description": "Configure src-tauri/tauri.ci.conf.json for production builds. Add .github/workflows/release.yml that triggers on tag push, runs cargo tauri build for macOS ARM (and stub Linux/Windows jobs for later), uploads artifacts, drafts a GitHub release. Mirror Kirodex's CI setup.",
+      "type": "infra",
+      "effort": "L",
+      "priority": "P3",
+      "dependsOn": ["TASK-055"],
+      "acceptanceCriteria": [
+        "Tagging v0.1.0-rc.1 triggers a build",
+        "Build produces a signed .dmg artifact attached to a draft release",
+        "Failure case: missing signing keys in repo secrets fails the build with a clear message, doesn't publish anything"
+      ],
+      "filesToModify": ["src-tauri/tauri.ci.conf.json"],
+      "filesToCreate": [".github/workflows/release.yml"],
+      "agent": "devops-aws-senior-engineer"
+    },
+    {
+      "id": "TASK-057",
+      "title": "Set up code signing and first release dry-run",
+      "description": "Generate or import macOS code signing certificate. Add APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID to repo secrets. Run a tagged dry-run to verify the full pipeline: build → sign → notarize → publish draft.",
+      "type": "infra",
+      "effort": "L",
+      "priority": "P3",
+      "dependsOn": ["TASK-056"],
+      "acceptanceCriteria": [
+        "DMG passes spctl -a -t open --context context:primary-signature -v after notarization",
+        "Draft release contains the signed DMG and updater JSON manifest",
+        "Failure case: notarization rejection produces a clear error in CI logs (not a silent skip)"
+      ],
+      "filesToModify": [".github/workflows/release.yml"],
+      "filesToCreate": [],
+      "agent": "devops-aws-senior-engineer"
+    }
+  ],
+  "dependencies": {
+    "TASK-001": [],
+    "TASK-002": [],
+    "TASK-003": [],
+    "TASK-004": [],
+    "TASK-005": [],
+    "TASK-006": [],
+    "TASK-007": [],
+    "TASK-008": [],
+    "TASK-009": [],
+    "TASK-010": [],
+    "TASK-011": [],
+    "TASK-012": ["TASK-004", "TASK-005", "TASK-006", "TASK-007", "TASK-008", "TASK-009", "TASK-010", "TASK-011"],
+    "TASK-013": ["TASK-004"],
+    "TASK-014": ["TASK-007"],
+    "TASK-015": ["TASK-008", "TASK-009"],
+    "TASK-016": ["TASK-010", "TASK-011"],
+    "TASK-017": ["TASK-005"],
+    "TASK-018": ["TASK-013"],
+    "TASK-019": ["TASK-017"],
+    "TASK-020": [],
+    "TASK-021": [],
+    "TASK-022": [],
+    "TASK-023": ["TASK-018"],
+    "TASK-024": ["TASK-020", "TASK-016", "TASK-011"],
+    "TASK-025": ["TASK-020", "TASK-024"],
+    "TASK-026": [],
+    "TASK-027": ["TASK-018", "TASK-026"],
+    "TASK-028": ["TASK-018", "TASK-026"],
+    "TASK-029": ["TASK-018", "TASK-026"],
+    "TASK-030": ["TASK-018", "TASK-026"],
+    "TASK-031": ["TASK-018", "TASK-026", "TASK-003"],
+    "TASK-032": ["TASK-018", "TASK-026"],
+    "TASK-033": ["TASK-018", "TASK-026"],
+    "TASK-034": ["TASK-018", "TASK-026"],
+    "TASK-035": ["TASK-018", "TASK-026"],
+    "TASK-036": ["TASK-027", "TASK-028", "TASK-029", "TASK-030", "TASK-031", "TASK-032", "TASK-033", "TASK-034", "TASK-035"],
+    "TASK-037": ["TASK-036"],
+    "TASK-038": ["TASK-014", "TASK-015"],
+    "TASK-039": ["TASK-038"],
+    "TASK-040": [],
+    "TASK-041": ["TASK-040"],
+    "TASK-042": ["TASK-040", "TASK-041"],
+    "TASK-043": ["TASK-042"],
+    "TASK-044": ["TASK-015"],
+    "TASK-045": [],
+    "TASK-046": ["TASK-043"],
+    "TASK-047": [],
+    "TASK-048": ["TASK-021", "TASK-022", "TASK-023"],
+    "TASK-049": ["TASK-036"],
+    "TASK-050": ["TASK-005", "TASK-006", "TASK-019"],
+    "TASK-051": [],
+    "TASK-052": [],
+    "TASK-053": ["TASK-015"],
+    "TASK-054": [],
+    "TASK-055": [],
+    "TASK-056": ["TASK-055"],
+    "TASK-057": ["TASK-056"]
+  }
+}

@@ -99,6 +99,8 @@ export interface AgentTask {
   originalWorkspace?: string
   /** Canonical project workspace path — threads always group under this */
   projectId?: string
+  /** TASK-113: Selected Claude output style for this task; passed as `--output-style <name>` */
+  outputStyle?: string
 }
 
 // ── Soft-deleted threads ──────────────────────────────────────────
@@ -214,11 +216,36 @@ export interface ClaudeMcpServer {
   oauthUrl?: string
 }
 
+export interface ClaudeOutputStyle {
+  name: string
+  description?: string
+  body: string
+  source: 'global' | 'project'
+  filePath: string
+}
+
+export interface ClaudeHook {
+  event: string
+  matcher?: string
+  command: string
+  source: 'global' | 'project'
+}
+
+export interface StatuslineConfig {
+  kind: string
+  command: string
+  padding?: number
+  source: 'global' | 'project'
+}
+
 export interface ClaudeConfig {
   agents: ClaudeAgent[]
   commands: ClaudeCommand[]
   memoryFiles: ClaudeMemoryFile[]
   mcpServers?: ClaudeMcpServer[]
+  outputStyles?: ClaudeOutputStyle[]
+  hooks?: ClaudeHook[]
+  statusline?: StatuslineConfig | null
 }
 
 

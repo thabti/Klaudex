@@ -11,8 +11,11 @@
             // Apply theme before first paint to prevent flash
             (function(){
                 var t='dark';try{t=localStorage.getItem('klaudex-theme')||'dark'}catch(e){}
+                if(t==='claude'){t='dark'} // migrate legacy 'claude' value
                 if(t==='system'){t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}
-                if(t==='dark'){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark')}
+                var r=document.documentElement;
+                r.classList.remove('dark','claude');
+                if(t==='dark'){r.classList.add('dark')}
                 window.__klaudex_resolved_theme=t;
             })();
         </script>

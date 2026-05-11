@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
@@ -47,6 +47,38 @@ pub struct ClaudeMcpServer {
     pub file_path: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeOutputStyle {
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    pub body: String,
+    pub source: String,
+    pub file_path: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeHook {
+    pub event: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub matcher: Option<String>,
+    pub command: String,
+    pub source: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct StatuslineConfig {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub command: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub padding: Option<u32>,
+    pub source: String,
+}
+
 #[derive(Serialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeConfig {
@@ -54,6 +86,12 @@ pub struct ClaudeConfig {
     pub commands: Vec<ClaudeCommand>,
     pub memory_files: Vec<ClaudeMemoryFile>,
     pub mcp_servers: Vec<ClaudeMcpServer>,
+    #[serde(default)]
+    pub output_styles: Vec<ClaudeOutputStyle>,
+    #[serde(default)]
+    pub hooks: Vec<ClaudeHook>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub statusline: Option<StatuslineConfig>,
 }
 
 fn source_str(is_global: bool) -> &'static str {
@@ -272,6 +310,192 @@ fn load_mcp_file(file_path: &Path, enabled: bool, out: &mut Vec<ClaudeMcpServer>
     }
 }
 
+/// Output-style source string ("global" or "project") — distinct from
+/// `source_str` which uses "local" for the local scope.
+fn output_source_str(is_global: bool) -> &'static str {
+    if is_global { "global" } else { "project" }
+}
+
+/// Extract `name` and `description` fields from a YAML frontmatter block
+/// at the top of `content`. Returns `(name, description, body)` where body
+/// has the frontmatter stripped. If no frontmatter exists, returns
+/// `(None, None, content)` unchanged.
+///
+/// We avoid pulling in `serde_yaml` and instead parse the simple
+/// `key: value` shape that Claude Code's output-style files use. Lines that
+/// don't match `key:value` are ignored. Unknown keys are also ignored.
+fn parse_output_style_frontmatter(content: &str) -> (Option<String>, Option<String>, String) {
+    if !content.starts_with("---") {
+        return (None, None, content.to_string());
+    }
+    // Find the closing `---` after the opening one.
+    let after_open = &content[3..];
+    let Some(end_idx) = after_open.find("\n---") else {
+        // Malformed: opening `---` but no closing — treat as no frontmatter.
+        return (None, None, content.to_string());
+    };
+    let fm = &after_open[..end_idx];
+    // body starts after the closing `---` plus the trailing newline (if any).
+    let body_start = 3 + end_idx + 4;
+    let body = if body_start <= content.len() {
+        let rest = &content[body_start..];
+        rest.strip_prefix('\n').unwrap_or(rest).to_string()
+    } else {
+        String::new()
+    };
+
+    let mut name: Option<String> = None;
+    let mut description: Option<String> = None;
+    for line in fm.lines() {
+        let line = line.trim_end();
+        if line.trim().is_empty() || line.trim_start().starts_with('#') {
+            continue;
+        }
+        if let Some((key, value)) = line.split_once(':') {
+            let key = key.trim();
+            let value = value.trim().trim_matches(|c| c == '"' || c == '\'').to_string();
+            match key {
+                "name" if !value.is_empty() => name = Some(value),
+                "description" if !value.is_empty() => description = Some(value),
+                _ => {}
+            }
+        }
+    }
+    (name, description, body)
+}
+
+/// Read and parse `<base>/output-styles/*.md` markdown-with-frontmatter files
+/// into [`ClaudeOutputStyle`] entries. Missing directory returns empty.
+/// Files with malformed frontmatter are kept (frontmatter just yields no
+/// fields); files that fail to read are logged and skipped.
+fn scan_output_styles(base: &Path, is_global: bool) -> Vec<ClaudeOutputStyle> {
+    let dir = base.join("output-styles");
+    let Ok(entries) = fs::read_dir(&dir) else { return vec![] };
+    let source = output_source_str(is_global);
+    let mut out = Vec::new();
+    for entry in entries.filter_map(|e| e.ok()) {
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if !name_str.ends_with(".md") || name_str.starts_with('.') {
+            continue;
+        }
+        let fp = entry.path();
+        let content = match fs::read_to_string(&fp) {
+            Ok(c) => c,
+            Err(e) => {
+                log::warn!("claude_config: failed to read {}: {}", fp.display(), e);
+                continue;
+            }
+        };
+        let (fm_name, fm_description, body) = parse_output_style_frontmatter(&content);
+        let file_stem = fp
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default();
+        out.push(ClaudeOutputStyle {
+            name: fm_name.unwrap_or(file_stem),
+            description: fm_description.unwrap_or_default(),
+            body,
+            source: source.to_string(),
+            file_path: fp.to_string_lossy().into_owned(),
+        });
+    }
+    out
+}
+
+/// Read and parse `<base>/settings.json` once. Returns `None` when the file
+/// is missing (no warning) or when JSON is malformed (logs a warning).
+fn parse_settings_json(path: &Path) -> Option<serde_json::Value> {
+    let text = fs::read_to_string(path).ok()?;
+    match serde_json::from_str::<serde_json::Value>(&text) {
+        Ok(v) => Some(v),
+        Err(e) => {
+            log::warn!("claude_config: malformed {}: {}", path.display(), e);
+            None
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct RawHookEntry {
+    #[serde(default)]
+    matcher: Option<String>,
+    command: String,
+}
+
+/// Extract the `hooks` block from an already-parsed settings.json `Value`.
+/// Returns one [`ClaudeHook`] per (event, entry) pair. Unknown / non-array
+/// event values are skipped with a warning.
+fn extract_hooks_from_settings(value: &serde_json::Value, is_global: bool) -> Vec<ClaudeHook> {
+    let Some(hooks_obj) = value.get("hooks").and_then(|v| v.as_object()) else {
+        return vec![];
+    };
+    let source = output_source_str(is_global);
+    let mut out = Vec::new();
+    for (event, entries_val) in hooks_obj {
+        let Some(entries) = entries_val.as_array() else {
+            log::warn!("claude_config: hooks.{} is not an array, skipping", event);
+            continue;
+        };
+        for entry_val in entries {
+            match serde_json::from_value::<RawHookEntry>(entry_val.clone()) {
+                Ok(raw) => out.push(ClaudeHook {
+                    event: event.clone(),
+                    matcher: raw.matcher,
+                    command: raw.command,
+                    source: source.to_string(),
+                }),
+                Err(e) => {
+                    log::warn!(
+                        "claude_config: malformed hook entry under {}: {}",
+                        event,
+                        e
+                    );
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Read `<base>/settings.json` and return the canonical Claude Code hooks list.
+fn scan_hooks(base: &Path, is_global: bool) -> Vec<ClaudeHook> {
+    let path = base.join("settings.json");
+    let Some(value) = parse_settings_json(&path) else { return vec![] };
+    extract_hooks_from_settings(&value, is_global)
+}
+
+/// Extract the `statusLine` block from an already-parsed settings.json `Value`.
+fn extract_statusline_from_settings(
+    value: &serde_json::Value,
+    is_global: bool,
+) -> Option<StatuslineConfig> {
+    let sl = value.get("statusLine")?.as_object()?;
+    let kind = sl.get("type").and_then(|v| v.as_str()).unwrap_or("");
+    if kind != "command" {
+        log::warn!(
+            "claude_config: unsupported statusLine.type '{}' (only 'command' supported)",
+            kind
+        );
+        return None;
+    }
+    let command = sl.get("command").and_then(|v| v.as_str()).map(String::from)?;
+    let padding = sl.get("padding").and_then(|v| v.as_u64()).map(|n| n as u32);
+    Some(StatuslineConfig {
+        kind: kind.to_string(),
+        command,
+        padding,
+        source: output_source_str(is_global).to_string(),
+    })
+}
+
+/// Read `<base>/settings.json` and return the optional statusline config.
+fn read_statusline(base: &Path, is_global: bool) -> Option<StatuslineConfig> {
+    let path = base.join("settings.json");
+    let value = parse_settings_json(&path)?;
+    extract_statusline_from_settings(&value, is_global)
+}
+
 #[tauri::command]
 pub fn get_claude_config(project_path: Option<String>) -> ClaudeConfig {
     let mut config = ClaudeConfig::default();
@@ -284,6 +508,15 @@ pub fn get_claude_config(project_path: Option<String>) -> ClaudeConfig {
         config.memory_files.extend(scan_memory_files(None, &global_claude, true));
         load_mcp_file(&global_claude.join("settings").join("mcp.json"), true, &mut config.mcp_servers);
         load_mcp_file(&global_claude.join("settings").join("mcp-disabled.json"), false, &mut config.mcp_servers);
+
+        // TASK-108 / TASK-109 / TASK-110: output styles, hooks, statusline.
+        config.output_styles.extend(scan_output_styles(&global_claude, true));
+        let global_settings = parse_settings_json(&global_claude.join("settings.json"));
+        if let Some(ref settings) = global_settings {
+            config.hooks.extend(extract_hooks_from_settings(settings, true));
+            // Global statusline only applies if no project statusline is set later.
+            config.statusline = extract_statusline_from_settings(settings, true);
+        }
     }
 
     // Local: <project>/.claude/
@@ -294,6 +527,17 @@ pub fn get_claude_config(project_path: Option<String>) -> ClaudeConfig {
         config.memory_files.extend(scan_memory_files(Some(project), &local_claude, false));
         load_mcp_file(&local_claude.join("settings").join("mcp.json"), true, &mut config.mcp_servers);
         load_mcp_file(&local_claude.join("settings").join("mcp-disabled.json"), false, &mut config.mcp_servers);
+
+        // TASK-108 / TASK-109 / TASK-110: output styles, hooks, statusline.
+        config.output_styles.extend(scan_output_styles(&local_claude, false));
+        let local_settings = parse_settings_json(&local_claude.join("settings.json"));
+        if let Some(ref settings) = local_settings {
+            config.hooks.extend(extract_hooks_from_settings(settings, false));
+            // Project statusline wins over global per TASK-110.
+            if let Some(sl) = extract_statusline_from_settings(settings, false) {
+                config.statusline = Some(sl);
+            }
+        }
     }
 
     config
@@ -489,5 +733,197 @@ mod tests {
         assert!(config.mcp_servers.is_empty());
         assert!(config.commands.is_empty());
         assert!(config.memory_files.is_empty());
+        assert!(config.output_styles.is_empty());
+        assert!(config.hooks.is_empty());
+        assert!(config.statusline.is_none());
+    }
+
+    // -------------------------------------------------------------------
+    // TASK-108: scan_output_styles
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn scan_output_styles_nonexistent_dir_returns_empty() {
+        let tmp = std::env::temp_dir().join("klaudex_test_nonexistent_output_styles");
+        assert!(super::scan_output_styles(&tmp, true).is_empty());
+    }
+
+    #[test]
+    fn scan_output_styles_parses_frontmatter_name_and_description() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("output-styles");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("concise.md"),
+            "---\nname: Concise\ndescription: Short replies\n---\nBody content here\n",
+        )
+        .unwrap();
+        let result = super::scan_output_styles(tmp.path(), true);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "Concise");
+        assert_eq!(result[0].description, "Short replies");
+        assert_eq!(result[0].body, "Body content here\n");
+        assert_eq!(result[0].source, "global");
+    }
+
+    #[test]
+    fn scan_output_styles_falls_back_to_filename_when_name_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("output-styles");
+        std::fs::create_dir_all(&dir).unwrap();
+        // No frontmatter at all.
+        std::fs::write(dir.join("verbose.md"), "Just the body, no frontmatter").unwrap();
+        // Frontmatter without `name`.
+        std::fs::write(
+            dir.join("terse.md"),
+            "---\ndescription: Tiny\n---\nbody",
+        )
+        .unwrap();
+        let mut result = super::scan_output_styles(tmp.path(), false);
+        result.sort_by(|a, b| a.name.cmp(&b.name));
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].name, "terse");
+        assert_eq!(result[0].description, "Tiny");
+        assert_eq!(result[1].name, "verbose");
+        assert_eq!(result[1].source, "project");
+    }
+
+    #[test]
+    fn scan_output_styles_skips_malformed_and_continues() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("output-styles");
+        std::fs::create_dir_all(&dir).unwrap();
+        // Malformed: opening `---` but no closing — parse_output_style_frontmatter
+        // returns the original content as the body, with no name/description.
+        std::fs::write(dir.join("broken.md"), "---\nname: oops\n(no closing fence)").unwrap();
+        // Good file.
+        std::fs::write(
+            dir.join("good.md"),
+            "---\nname: Good\n---\nbody",
+        )
+        .unwrap();
+        // Hidden file is ignored.
+        std::fs::write(dir.join(".hidden.md"), "ignored").unwrap();
+        // Non-md is ignored.
+        std::fs::write(dir.join("notes.txt"), "ignored").unwrap();
+        let result = super::scan_output_styles(tmp.path(), true);
+        assert_eq!(result.len(), 2);
+        assert!(result.iter().any(|s| s.name == "Good"));
+        // Malformed file falls back to filename for `name`.
+        assert!(result.iter().any(|s| s.name == "broken"));
+    }
+
+    // -------------------------------------------------------------------
+    // TASK-109: scan_hooks
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn scan_hooks_nonexistent_settings_returns_empty() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(super::scan_hooks(tmp.path(), true).is_empty());
+    }
+
+    #[test]
+    fn scan_hooks_no_hooks_key_returns_empty() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("settings.json"), r#"{"theme": "dark"}"#).unwrap();
+        assert!(super::scan_hooks(tmp.path(), true).is_empty());
+    }
+
+    #[test]
+    fn scan_hooks_malformed_json_returns_empty() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("settings.json"), "{not valid json").unwrap();
+        // Should log a warning and return empty rather than panicking.
+        assert!(super::scan_hooks(tmp.path(), false).is_empty());
+    }
+
+    #[test]
+    fn scan_hooks_parses_all_four_events() {
+        let tmp = tempfile::tempdir().unwrap();
+        let json = r#"{
+            "hooks": {
+                "PreToolUse":   [{"matcher": "Bash(*)",  "command": "echo pre"}],
+                "PostToolUse":  [{"matcher": "Edit(*)",  "command": "echo post"}],
+                "SessionStart": [{"command": "echo start"}],
+                "Stop":         [{"command": "echo stop"}]
+            }
+        }"#;
+        std::fs::write(tmp.path().join("settings.json"), json).unwrap();
+        let result = super::scan_hooks(tmp.path(), true);
+        assert_eq!(result.len(), 4);
+        let by_event: std::collections::HashMap<_, _> = result
+            .iter()
+            .map(|h| (h.event.as_str(), h))
+            .collect();
+        assert_eq!(by_event["PreToolUse"].matcher.as_deref(), Some("Bash(*)"));
+        assert_eq!(by_event["PreToolUse"].command, "echo pre");
+        assert_eq!(by_event["PostToolUse"].matcher.as_deref(), Some("Edit(*)"));
+        assert_eq!(by_event["SessionStart"].matcher, None);
+        assert_eq!(by_event["SessionStart"].command, "echo start");
+        assert_eq!(by_event["Stop"].command, "echo stop");
+        assert!(result.iter().all(|h| h.source == "global"));
+    }
+
+    // -------------------------------------------------------------------
+    // TASK-110: read_statusline
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn read_statusline_nonexistent_settings_returns_none() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(super::read_statusline(tmp.path(), true).is_none());
+    }
+
+    #[test]
+    fn read_statusline_no_statusline_key_returns_none() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("settings.json"), r#"{"theme": "dark"}"#).unwrap();
+        assert!(super::read_statusline(tmp.path(), true).is_none());
+    }
+
+    #[test]
+    fn read_statusline_happy_path() {
+        let tmp = tempfile::tempdir().unwrap();
+        let json = r#"{
+            "statusLine": {
+                "type": "command",
+                "command": "echo hi",
+                "padding": 2
+            }
+        }"#;
+        std::fs::write(tmp.path().join("settings.json"), json).unwrap();
+        let sl = super::read_statusline(tmp.path(), false).expect("statusline should parse");
+        assert_eq!(sl.kind, "command");
+        assert_eq!(sl.command, "echo hi");
+        assert_eq!(sl.padding, Some(2));
+        assert_eq!(sl.source, "project");
+    }
+
+    #[test]
+    fn read_statusline_padding_optional() {
+        let tmp = tempfile::tempdir().unwrap();
+        let json = r#"{"statusLine": {"type": "command", "command": "x"}}"#;
+        std::fs::write(tmp.path().join("settings.json"), json).unwrap();
+        let sl = super::read_statusline(tmp.path(), true).expect("statusline should parse");
+        assert_eq!(sl.padding, None);
+    }
+
+    #[test]
+    fn read_statusline_non_command_type_returns_none() {
+        let tmp = tempfile::tempdir().unwrap();
+        let json = r#"{"statusLine": {"type": "static", "text": "hello"}}"#;
+        std::fs::write(tmp.path().join("settings.json"), json).unwrap();
+        // Non-"command" kind → log warning + None.
+        assert!(super::read_statusline(tmp.path(), true).is_none());
+    }
+
+    #[test]
+    fn read_statusline_malformed_json_returns_none() {
+        // Plan acceptance: malformed settings.json → read_statusline returns
+        // None without panicking. Mirror of scan_hooks_malformed_json_returns_empty.
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("settings.json"), "{not valid json").unwrap();
+        assert!(super::read_statusline(tmp.path(), true).is_none());
     }
 }

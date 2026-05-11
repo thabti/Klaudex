@@ -49,6 +49,8 @@ pub fn task_create(
         plan: None,
         context_usage: None,
         auto_approve: Some(auto_approve),
+        // TASK-113: new tasks default to no output style; user picks from OutputStylePicker.
+        output_style: None,
         user_paused: None,
         parent_task_id: None,
         pending_user_input: None,
@@ -69,6 +71,7 @@ pub fn task_create(
         model,
         tight_sandbox,
         None,
+        None, // output_style — fresh task, no style yet
     )?;
 
     // Send initial prompt with UI formatting rules prepended (not shown in UI)
@@ -168,10 +171,10 @@ pub fn task_send_message(
         let claude_bin = settings.settings.claude_bin.clone();
         let global_auto_approve = settings.settings.auto_approve;
 
-        let (workspace, task_auto_approve, resume_sid) = {
+        let (workspace, task_auto_approve, resume_sid, task_output_style) = {
             let tasks = state.tasks.lock();
             let t = tasks.get(&task_id).ok_or("Task not found")?;
-            (t.workspace.clone(), t.auto_approve.unwrap_or(global_auto_approve), t.session_id.clone())
+            (t.workspace.clone(), t.auto_approve.unwrap_or(global_auto_approve), t.session_id.clone(), t.output_style.clone())
         };
 
         let project_prefs = settings.settings.project_prefs.as_ref()
@@ -192,6 +195,7 @@ pub fn task_send_message(
         let handle = spawn_connection(
             task_id.clone(), workspace, claude_bin, task_auto_approve,
             app.clone(), None, model, tight_sandbox, resume_sid,
+            task_output_style,
         )?;
         let _ = handle.cmd_tx.send(AcpCommand::Prompt(message, attachments.unwrap_or_default()));
         state.connections.lock().insert(task_id.clone(), handle);
@@ -248,10 +252,10 @@ pub fn task_resume(
         let settings = settings_state.0.lock();
         let claude_bin = settings.settings.claude_bin.clone();
         let global_auto_approve = settings.settings.auto_approve;
-        let (workspace, task_auto_approve, resume_sid) = {
+        let (workspace, task_auto_approve, resume_sid, task_output_style) = {
             let tasks = state.tasks.lock();
             let t = tasks.get(&task_id).ok_or("Task not found")?;
-            (t.workspace.clone(), t.auto_approve.unwrap_or(global_auto_approve), t.session_id.clone())
+            (t.workspace.clone(), t.auto_approve.unwrap_or(global_auto_approve), t.session_id.clone(), t.output_style.clone())
         };
         let project_prefs = settings.settings.project_prefs.as_ref()
             .and_then(|p| p.get(&workspace));
@@ -269,6 +273,7 @@ pub fn task_resume(
         let handle = spawn_connection(
             task_id.clone(), workspace, claude_bin, task_auto_approve,
             app.clone(), None, model, tight_sandbox, resume_sid,
+            task_output_style,
         )?;
         let _ = handle.cmd_tx.send(AcpCommand::Prompt("continue".to_string(), vec![]));
         state.connections.lock().insert(task_id.clone(), handle);
@@ -348,6 +353,8 @@ pub async fn task_fork(
         .unwrap_or_else(|| "thread".to_string());
     let parent_messages = parent.as_ref().map(|p| p.messages.clone()).unwrap_or_default();
     let parent_auto_approve = parent.as_ref().and_then(|p| p.auto_approve);
+    // TASK-113: forked threads inherit the parent's output style.
+    let parent_output_style = parent.as_ref().and_then(|p| p.output_style.clone());
     let has_live_connection = {
         let conns = state.connections.lock();
         conns.get(task_id)
@@ -408,8 +415,10 @@ pub async fn task_fork(
         model: model.clone(),
         session_id: None,
         total_cost: 0.0,
+        output_style: parent.as_ref().and_then(|p| p.output_style.clone()),
     };
     state.tasks.lock().insert(new_id.clone(), fork_task.clone());
+    let parent_output_style = fork_task.output_style.clone();
     let handle = spawn_connection(
         new_id.clone(),
         workspace,
@@ -420,6 +429,7 @@ pub async fn task_fork(
         model,
         tight_sandbox,
         None,
+        parent_output_style,
     )?;
     state.connections.lock().insert(new_id, handle);
     Ok(fork_task)
@@ -523,7 +533,7 @@ pub fn task_set_model(
         let _ = old.cmd_tx.send(AcpCommand::Kill);
     }
     // Update the stored model on the task
-    let (workspace, task_auto_approve) = {
+    let (workspace, task_auto_approve, task_output_style) = {
         let mut tasks = state.tasks.lock();
         let task = tasks.get_mut(&task_id).ok_or("Task not found")?;
         task.model = Some(model_id.clone());
@@ -531,7 +541,8 @@ pub fn task_set_model(
         use tauri::Emitter;
         let _ = app.emit("task_update", task.clone());
         let aa = task.auto_approve.unwrap_or(false);
-        (task.workspace.clone(), aa)
+        let os = task.output_style.clone();
+        (task.workspace.clone(), aa, os)
     };
     // Spawn a new connection with the new model (will be used on next message)
     let settings = settings_state.0.lock();
@@ -552,6 +563,7 @@ pub fn task_set_model(
         Some(model_id),
         tight_sandbox,
         None,
+        task_output_style,
     )?;
     state.connections.lock().insert(task_id.clone(), handle);
     let tasks = state.tasks.lock();
