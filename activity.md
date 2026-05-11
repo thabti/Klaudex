@@ -1,3 +1,9 @@
+## 2026-05-11 07:15 GST (Dubai)
+### Updater: Fix "Restart now" button silently failing
+Ported upstream commit 4a22d88 from kirodex. Made `triggerRestart` properly async, added try/catch with error surfacing to all three restart entry points (RestartPromptDialog, UpdatesCard, AboutDialog), added loading state + spinner to the restart dialog button, and prevented double-click/dismiss while restarting.
+
+**Modified:** `src/renderer/hooks/useUpdateChecker.ts`, `src/renderer/stores/updateStore.ts`, `src/renderer/components/sidebar/RestartPromptDialog.tsx`, `src/renderer/components/settings/updates-card.tsx`, `src/renderer/components/settings/AboutDialog.tsx`, `src/renderer/components/sidebar/SidebarFooter.test.tsx`
+
 ## 2026-05-11 07:14 GST (Dubai)
 ### History Store: Separate dev and prod store files
 Ported upstream commit 240b96e from kirodex. Dev builds now use `history-dev.json` and `history-dev.backup.json` via `import.meta.env.DEV`, so running `bun run dev` no longer shares or overwrites the production app's history data.
