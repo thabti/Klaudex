@@ -1,3 +1,9 @@
+## 2026-05-11 07:19 GST (Dubai)
+### Tests: Align tests with history persistence changes
+Ported upstream commit f22deff from kirodex. Updated saveThreads test to expect archived tasks persist, added missing IPC mocks (addRecentProject, rebuildRecentMenu), and fixed applyTurnEnd test to verify running tasks get processed to paused status.
+
+**Modified:** `src/renderer/lib/history-store.test.ts`, `src/renderer/stores/taskStore.test.ts`
+
 ## 2026-05-11 07:17 GST (Dubai)
 ### History: Fix state not persisting across restarts
 Ported upstream commit fb235c2 from kirodex. Added missing `store:allow-load` permission so LazyStore can load from disk. Removed `!isArchived` filter from saveThreads so archived threads survive persistence. Added `document.hasFocus()` guard to cross-window sync to prevent own-window writes from triggering reloads that overwrite live streaming state.

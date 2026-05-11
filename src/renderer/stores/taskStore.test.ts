@@ -13,6 +13,8 @@ vi.mock('@/lib/ipc', () => ({
     forkTask: vi.fn().mockResolvedValue({ id: 'fork-1', name: 'Fork', workspace: '/ws', status: 'paused', createdAt: '', messages: [] }),
     gitWorktreeHasChanges: vi.fn().mockResolvedValue(false),
     gitWorktreeRemove: vi.fn().mockResolvedValue(undefined),
+    addRecentProject: vi.fn().mockResolvedValue(undefined),
+    rebuildRecentMenu: vi.fn().mockResolvedValue(undefined),
   },
 }))
 vi.mock('@/lib/history-store', () => ({
@@ -578,12 +580,13 @@ describe('applyTurnEnd', () => {
     expect(result).toEqual({})
   })
 
-  it('skips processing when task is still running (new turn started)', () => {
+  it('processes running task and sets status to paused', () => {
     const state = baseState({
       tasks: { 't1': makeTask({ id: 't1', status: 'running' }) },
     })
     const result = applyTurnEnd(state, 't1', 'end_turn')
-    expect(result).toEqual({})
+    expect(result.tasks?.['t1']?.status).toBe('paused')
+    expect(result.streamingChunks?.['t1']).toBe('')
   })
 
   it('does not append empty assistant message after pause clears chunks', () => {

@@ -72,7 +72,7 @@ describe('saveThreads', () => {
     expect(mockSet).toHaveBeenCalledWith('projects', expect.any(Array))
   })
 
-  it('skips archived tasks', async () => {
+  it('persists archived tasks (for restore on relaunch)', async () => {
     const tasks: Record<string, AgentTask> = {
       't1': {
         id: 't1', name: 'Archived', workspace: '/ws', status: 'completed',
@@ -81,7 +81,9 @@ describe('saveThreads', () => {
       },
     }
     await saveThreads(tasks, {})
-    expect(mockSet).toHaveBeenCalledWith('threads', [])
+    expect(mockSet).toHaveBeenCalledWith('threads', [
+      expect.objectContaining({ id: 't1', name: 'Archived' }),
+    ])
   })
 
   it('skips tasks with no messages', async () => {
