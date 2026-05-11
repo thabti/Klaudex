@@ -8,9 +8,9 @@
 //! It doesn't require external tools like `git-branchless` or `graphite`.
 
 use serde::Serialize;
-use std::process::Command;
 
 use super::error::AppError;
+use super::git_utils::run_git_cmd;
 
 /// A single entry in the branch stack.
 #[derive(Serialize, Clone, Debug)]
@@ -137,19 +137,6 @@ pub fn git_stacked_push(cwd: String) -> Result<StackedPushResult, AppError> {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
-
-fn run_git_cmd(cwd: &str, args: &[&str]) -> Result<String, AppError> {
-    let output = Command::new("git")
-        .args(args)
-        .current_dir(cwd)
-        .output()?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        Err(AppError::Other(format!("git {} failed: {stderr}", args.join(" "))))
-    }
-}
 
 /// Detect the default branch (main, master, or develop).
 fn detect_default_branch(cwd: &str) -> Result<String, AppError> {

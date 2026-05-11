@@ -1,3 +1,9 @@
+## 2026-05-11 11:35 GST (Dubai)
+### Port: Address code review issues (kirodex@da0a737)
+Ported upstream commit da0a7378. Restricts signal_process to only allow signalling descendant PIDs, makes rename_worktree_branch async, makes collect_pr_context async with parallel diff stat/patch fetching via tokio::join!, and extracts shared git_utils module with run_git_cmd and run_git_cmd_async helpers.
+
+**Modified:** src-tauri/src/commands/branch_ai.rs, src-tauri/src/commands/git_stack.rs, src-tauri/src/commands/git_utils.rs (new), src-tauri/src/commands/mod.rs, src-tauri/src/commands/pr_ai.rs, src-tauri/src/commands/process_diagnostics.rs
+
 ## 2026-05-11 11:12 GST (Dubai)
 ### Port: Performance improvements and new commands (kirodex@c90011c)
 Ported upstream commit c90011c from kirodex. Adds new Rust backend commands: thread_title, branch_ai, diff_stats, git_ai, git_stack, pr_ai, process_diagnostics, and vcs_status. Adds new UI components: AnimatedHeight, CommandPalette, CommitDialog, DefaultBranchConfirmDialog, GlobalFilePreviewModal, PlanSidebar, ProviderStatusBanner, PublishRepoDialog, CompletionDivider, ThreadIdCaption, AddMcpServerDialog. Adds utility hooks: useCommitOnBlur, useCopyToClipboard, useMediaQuery. Adds lib modules: file-icons, git-toast, keybindings-toast, metrics, model-ordering, project-scripts, proposed-plan, provider-skill-presentation, resolve-mentions, resolve-model, terminal-context, thread-db, turn-diff-summary, version-skew, worktree-cleanup. Adds stores: filePreviewStore, vcsStatusStore. Updates chat components, settings, sidebar, and stores.

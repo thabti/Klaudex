@@ -48,7 +48,10 @@ pub fn list_child_processes() -> Result<ProcessDiagnosticsResult, AppError> {
     })
 }
 
-/// Tauri command — send a signal to a process.
+/// Tauri command — send a signal to a child process.
+///
+/// Only allows signalling processes that are descendants of the current app
+/// process. This prevents the frontend from killing arbitrary system processes.
 #[tauri::command]
 pub fn signal_process(pid: u32, signal: String) -> Result<(), AppError> {
     let sig = match signal.as_str() {
@@ -57,6 +60,17 @@ pub fn signal_process(pid: u32, signal: String) -> Result<(), AppError> {
         "SIGINT" | "int" => "INT",
         _ => return Err(AppError::Other(format!("Unknown signal: {signal}"))),
     };
+
+    // Security: verify the target PID is a descendant of this app process
+    let current_pid = std::process::id();
+    let children = query_process_tree(current_pid)?;
+    let is_descendant = children.iter().any(|p| p.pid == pid);
+
+    if !is_descendant {
+        return Err(AppError::Other(format!(
+            "Process {pid} is not a child of this application. Refusing to signal."
+        )));
+    }
 
     let output = Command::new("kill")
         .args([&format!("-{sig}"), &pid.to_string()])

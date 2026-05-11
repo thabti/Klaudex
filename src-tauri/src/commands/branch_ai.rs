@@ -59,22 +59,14 @@ pub async fn generate_branch_name(
 
 /// Tauri command — rename a git branch in a worktree.
 #[tauri::command]
-pub fn rename_worktree_branch(
+pub async fn rename_worktree_branch(
     cwd: String,
     old_branch: String,
     new_branch: String,
 ) -> Result<GeneratedBranchName, AppError> {
-    use std::process::Command;
+    use super::git_utils::run_git_cmd_async;
 
-    let output = Command::new("git")
-        .args(["branch", "-m", &old_branch, &new_branch])
-        .current_dir(&cwd)
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        return Err(AppError::Other(format!("git branch -m failed: {stderr}")));
-    }
+    run_git_cmd_async(&cwd, &["branch", "-m", &old_branch, &new_branch]).await?;
 
     Ok(GeneratedBranchName { branch: new_branch })
 }
