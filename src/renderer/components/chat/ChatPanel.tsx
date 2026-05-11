@@ -105,7 +105,7 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
   state.setDispatchSnapshot(targetTaskId, captureDispatchSnapshot(task, streamingChunk))
 
   const userMsg = buildUserMessage(msg)
-  state.upsertTask({ ...task, status: 'running', messages: [...task.messages, userMsg] })
+  state.upsertTask({ ...task, status: 'running', messages: [...task.messages, userMsg], isArchived: undefined, needsNewConnection: undefined })
   state.clearTurn(task.id)
 
   // Persist user message to SQLite immediately (survives crashes)
@@ -359,7 +359,7 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
           />
         </SearchQueryContext.Provider>
 
-        {isArchived && <ArchivedBanner />}
+        {isArchived && !isRunning && <ArchivedBanner />}
 
         {pendingPermission && resolvedTaskId && (
           <PermissionBanner

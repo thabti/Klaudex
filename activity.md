@@ -1,3 +1,9 @@
+## 2026-05-11 12:02 GST (Dubai)
+### Port: Hide archived banner when message is initiated (kirodex@d634861)
+Cherry-picked upstream fix: the blue zigzag "Resumed from history" divider now disappears immediately when the user sends a message, rather than persisting until the backend confirms the new connection.
+
+**Modified:** src/renderer/components/chat/ChatPanel.tsx
+
 ## 2026-05-11 12:00 GST (Dubai)
 ### Port: Improve chat UX and fix git diff output (kirodex@ef16bdf)
 Cherry-picked upstream fix: git diff functions now include file/hunk headers (F/H origins) so @pierre/diffs can parse correctly. Hid ThreadIdCaption from chat panel, added Copy Thread ID and Copy Session ID to sidebar context menu. TaskListDisplay defaults to collapsed with 600px max-height. WorkingRow gets middle-dot separator, tabular-nums, and zero-padded seconds.
