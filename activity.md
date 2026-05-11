@@ -1,3 +1,9 @@
+## 2026-05-11 09:19 GST (Dubai)
+### HeaderToolbar: simplify terminal toggle to use selectedTaskId
+Ported upstream commit 275a073. Removed focusedTaskId derivation and use selectedTaskId directly for terminal toggle state and click handler. Updated split view tooltip copy from 'work side-by-side' to 'compare two threads'.
+
+**Modified:** `src/renderer/components/header-toolbar.tsx`
+
 ## 2026-05-11 09:18 GST (Dubai)
 ### SplitPanelHeader: add always-visible close button on right panel
 Ported upstream commit 7e6a1c6. Added a `side` prop to `SplitPanelHeader`. The right panel now shows an always-visible `IconX` close button, while the left panel keeps the hover-only `IconTrash`. Updated `SplitChatLayout` to pass `side='left'` and `side='right'` to each header.
