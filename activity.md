@@ -1,3 +1,9 @@
+## 2026-05-11 08:09 GST (Dubai)
+### Chat: move working indicator dot above tool calls in timeline
+Cherry-picked 67a85baa from kirodex. Reordered the live streaming section of deriveTimeline() so the working indicator row renders above live tool calls instead of below them. Timeline order is now: live text → working dot → live tool calls.
+
+**Modified:** `src/renderer/lib/timeline.ts`
+
 ## 2026-05-11 08:08 GST (Dubai)
 ### Chat: replace /btw lightning bolt with message-circle-question icon
 Cherry-picked 652cd769 from kirodex. Replaced the lightning bolt SVG icon with a message-circle-question SVG (speech bubble with question mark) for /btw and /tangent slash commands in BtwOverlay, EmptyThreadSplash, and SlashCommandPicker. Differentiates side-question features from skills which now use the zap/bolt icon.
