@@ -1,3 +1,9 @@
+## 2026-05-11 10:45 GST (Dubai)
+### Port: Stable timeline rows, logic/UI separation, structural equality, tool call collapsing
+Ported upstream commit 8ed9320 from kirodex. Adds stable row identity for timeline rendering (prevents unnecessary virtualizer re-measurement during streaming), extracts pure business logic from ChatPanel and MessageList into testable .logic.ts modules, adds structural equality helpers for store bail-out guards, and implements tool call collapsing to reduce visual noise in timeline work rows.
+
+**Modified:** `src/renderer/components/chat/ChatPanel.logic.ts`, `src/renderer/components/chat/ChatPanel.logic.test.ts`, `src/renderer/components/chat/ChatPanel.tsx`, `src/renderer/components/chat/MessageList.logic.ts`, `src/renderer/components/chat/MessageList.tsx`, `src/renderer/lib/structural-equality.ts`, `src/renderer/lib/structural-equality.test.ts`, `src/renderer/lib/timeline-stability.ts`, `src/renderer/lib/timeline-stability.test.ts`, `src/renderer/lib/tool-call-collapsing.ts`, `src/renderer/lib/tool-call-collapsing.test.ts`, `src/renderer/stores/taskStore.ts`
+
 ## 2026-05-11 10:32 GST (Dubai)
 ### Port: File tree panel, MCP server management, drag-drop to chat
 Ported upstream commit 5a9fc6de from kirodex. Adds file tree panel with expand/collapse, file preview modal, and material icons. Adds MCP server context menu (enable/disable server, per-tool toggle, show logs). Adds in-app drag-and-drop from file tree to chat input. Adds MarkdownViewer component, save_mcp_server_config Tauri command, file-icons utility, fileTreeStore, wider zoom limits (0.6–1.3), submodule support in file listing, and path traversal fix in material-icons Vite plugin.
