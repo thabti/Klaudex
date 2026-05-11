@@ -1,3 +1,9 @@
+## 2026-05-11 06:13 GST (Dubai)
+### TaskStore: Restore soft-deleted threads when re-importing project
+Ported upstream commit 7f7350be from kirodex. The `addProject()` method now checks `softDeleted` for threads matching the workspace and restores them, removing their IDs from the `deletedTaskIds` blocklist so old threads reappear in the sidebar.
+
+**Modified:** src/renderer/stores/taskStore.ts
+
 ## 2026-05-11 06:11 GST (Dubai)
 ### Sidebar: Active project focus indicator
 Ported upstream commit 9e1c055 from kirodex. Added a visual indicator to the sidebar so the focused project is identifiable when multiple projects are open. The active project gets a 3px primary-colored left accent bar, subtle background tint, and bold project name. Active project is derived from the selected task's workspace or the pending workspace.
