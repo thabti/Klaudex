@@ -4,7 +4,7 @@
   "author": "Sabeur Thabti",
   "private": true,
   "scripts": {
-    "dev": "cargo tauri dev",
+    "dev": "cargo tauri dev --config src-tauri/tauri.dev.conf.json",
     "dev:renderer": "vite",
     "build": "cargo tauri build",
     "build:renderer": "vite build",
@@ -12,6 +12,7 @@
     "check:ts": "tsc --noEmit",
     "check:rust": "cd src-tauri && cargo check",
     "check:web": "tsc --noEmit && vite build",
+    "check:bundle": "node scripts/check-bundle-size.mjs",
     "lint": "oxlint --report-unused-disable-directives src/",
     "test:rust": "cd src-tauri && cargo test",
     "test:ui": "vitest run",

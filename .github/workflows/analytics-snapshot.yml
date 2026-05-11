@@ -4,7 +4,7 @@ name: Analytics snapshot
 #
 #  1. GitHub Releases download counts per asset (works today, no setup)
 #  2. Homebrew cask install counts via formulae.brew.sh (only available once
-#     Kirodex is accepted into homebrew/homebrew-cask; third-party taps are
+#     Klaudex is accepted into homebrew/homebrew-cask; third-party taps are
 #     not aggregated)
 #
 # Output is committed to the `analytics-data` branch as CSV so we keep a
@@ -73,11 +73,11 @@ jobs:
           echo "snapshot_date,window,cask,count" > "$OUT"
           for WINDOW in 30d 90d 365d; do
             URL="https://formulae.brew.sh/api/analytics/cask-install/${WINDOW}.json"
-            COUNT=$(curl -fsSL "$URL" | jq -r '.formulae["kirodex"][0].count // empty')
+            COUNT=$(curl -fsSL "$URL" | jq -r '.formulae["klaudex"][0].count // empty')
             if [ -n "$COUNT" ]; then
-              echo "${STAMP},${WINDOW},kirodex,${COUNT}" >> "$OUT"
+              echo "${STAMP},${WINDOW},klaudex,${COUNT}" >> "$OUT"
             else
-              echo "kirodex not yet in homebrew-cask analytics for ${WINDOW}; skipping"
+              echo "klaudex not yet in homebrew-cask analytics for ${WINDOW}; skipping"
             fi
           done
 

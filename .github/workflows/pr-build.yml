@@ -76,7 +76,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: kirodex-pr-${{ github.event.pull_request.number }}-${{ matrix.name == 'macOS' && 'macos' || 'windows' }}
+          name: klaudex-pr-${{ github.event.pull_request.number }}-${{ matrix.name == 'macOS' && 'macos' || 'windows' }}
           path: ${{ steps.installer.outputs.path }}
           retention-days: 7
           if-no-files-found: error
