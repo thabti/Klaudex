@@ -1,3 +1,9 @@
+## 2026-05-11 09:33 GST (Dubai)
+### Update dialog: fix z-index conflict with settings panel
+Ported upstream commit 2c29b9e. Added `overlayClassName` prop to DialogContent so UpdateAvailableDialog and RestartPromptDialog can render at z-[60] above the settings panel (z-50). Refactored UpdatesCard and AboutDialog to use the store's triggerDownload/triggerRestart instead of creating separate Update objects. Fixed useUpdateChecker to re-check when pendingUpdateRef is stale.
+
+**Modified:** `src/renderer/components/UpdateAvailableDialog.tsx`, `src/renderer/components/settings/AboutDialog.tsx`, `src/renderer/components/settings/updates-card.tsx`, `src/renderer/components/sidebar/RestartPromptDialog.tsx`, `src/renderer/components/ui/dialog.tsx`, `src/renderer/hooks/useUpdateChecker.ts`
+
 ## 2026-05-11 09:28 GST (Dubai)
 ### Split-view: per-panel state, fix split close, thread ordering, perf audit
 Ported upstream commit 3724da8. Split view panels now have fully independent state via PanelContext. Added taskModels map so model/mode/auto-approve changes in one panel don't affect the other. Fixed split closing unexpectedly by making setSelectedTask split-aware. Sidebar thread and project ordering now persists across restarts with per-project threadOrder arrays.

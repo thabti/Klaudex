@@ -200,6 +200,7 @@ export const UpdateAvailableDialog = ({ open: controlledOpen, onOpenChange: cont
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="z-[60] max-w-sm"
+        overlayClassName="z-[60]"
         showCloseButton={!isDownloading && !isRestarting}
       >
         <DialogHeader>
