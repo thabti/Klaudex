@@ -86,7 +86,7 @@ export const ReadOutput = memo(function ReadOutput({ rawInput, rawOutput }: Read
         {displayLines.map((line, i) => {
           const lineNum = offset + i + 1
           return (
-            <div key={i} className="flex">
+            <div key={`line-${lineNum}`} className="flex">
               <span
                 className="shrink-0 select-none text-right text-muted-foreground pr-3 pl-2"
                 style={{ minWidth: `${gutterWidth + 2}ch` }}

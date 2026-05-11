@@ -31,7 +31,7 @@ export const CollapsedAnswers = memo(function CollapsedAnswers({ questionAnswers
       {expanded && (
         <div className="border-t border-primary/10 px-4 py-3 space-y-3">
           {questionAnswers.map((qa, i) => (
-            <div key={i} className="space-y-0.5">
+            <div key={`qa-${i}-${qa.question.slice(0, 12)}`} className="space-y-0.5">
               <p className="break-words text-[15px] font-medium leading-relaxed text-foreground/80">{qa.question}</p>
               <p className="break-words text-[14px] leading-relaxed text-primary">{qa.answer}</p>
             </div>

@@ -287,7 +287,7 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall }: { toolCal
       {expanded && hasContent && toolCall.kind !== 'read' && (
         <div className="ml-8 mr-2 mb-2 mt-1 min-w-0 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5 text-[12px] space-y-2">
           {toolCall.content?.map((item, i) => (
-            <div key={i}>
+            <div key={`${item.type}-${i}`}>
               {item.type === 'diff' && item.path && (
                 <div>
                   <p className="mb-1 flex items-center gap-1.5 text-muted-foreground">

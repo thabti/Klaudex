@@ -4,7 +4,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 
 const ZOOM_MIN = 0.5
 const ZOOM_MAX = 2.0
-const ZOOM_DEFAULT = 0.9
+const ZOOM_DEFAULT = 1.0
 const ZOOM_STEP = 0.1
 const ZOOM_STORAGE_KEY = 'klaudex-zoom-level'
 
@@ -53,11 +53,19 @@ export const useZoomLimit = (): void => {
   useEffect(() => {
     const webview = getCurrentWebview()
 
-    // Restore persisted zoom level or fall back to the default
+    // Restore persisted zoom level or fall back to the default.
+    // Migration: earlier builds shipped a bug that forced zoom to 2.0 on
+    // every mount. If we read back a value >= 1.5 from storage assume it's
+    // that stale state and reset to the default rather than blasting users
+    // with 200% zoom on first launch of the fixed build.
     const stored = readStoredZoom()
-    const initial = stored ? clampZoom(parseFloat(stored)) : ZOOM_DEFAULT
+    const parsed = stored ? parseFloat(stored) : NaN
+    const initial = !Number.isFinite(parsed) || parsed >= 1.5
+      ? ZOOM_DEFAULT
+      : clampZoom(parsed)
     zoomRef.current = initial
     webview.setZoom(initial)
+    writeStoredZoom(initial)
 
     // Capture the base font sizes on mount (the user's configured values).
     const { settings } = useSettingsStore.getState()
@@ -107,11 +115,10 @@ export const useZoomLimit = (): void => {
       }
     }
 
-    // Re-clamp on mount: Tauri's webview JS API does not expose a getter
-    // for the current zoom, so reset to ZOOM_MAX (100%) which is the
-    // expected default and guarantees we start inside [ZOOM_MIN, ZOOM_MAX].
-    zoomRef.current = ZOOM_MAX
-    void webview.setZoom(ZOOM_MAX)
+    // Persisted zoom already applied above (line 60). Do NOT re-clamp here
+    // — that block previously forced ZOOM_MAX (2.0 = 200%) on every mount,
+    // overriding the user's persisted preference and shipping the app
+    // permanently zoomed in.
 
     const handleWheel = (e: WheelEvent): void => {
       if (!e.ctrlKey && !e.metaKey) return

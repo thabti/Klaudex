@@ -22,6 +22,7 @@ import {
 import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useDiffStore } from '@/stores/diffStore'
+import { useShallow } from 'zustand/react/shallow'
 import { ipc } from '@/lib/ipc'
 import { cn } from '@/lib/utils'
 
@@ -99,10 +100,14 @@ export const CommandPalette = memo(function CommandPalette({ open, onClose }: Co
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
-  const tasks = useTaskStore((s) => s.tasks)
-  const archivedMeta = useTaskStore((s) => s.archivedMeta)
-  const projects = useTaskStore((s) => s.projects)
-  const projectNames = useTaskStore((s) => s.projectNames)
+  const { tasks, archivedMeta, projects, projectNames } = useTaskStore(
+    useShallow((s) => ({
+      tasks: s.tasks,
+      archivedMeta: s.archivedMeta,
+      projects: s.projects,
+      projectNames: s.projectNames,
+    })),
+  )
   const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
   const setSelectedTask = useTaskStore((s) => s.setSelectedTask)
   const setView = useTaskStore((s) => s.setView)

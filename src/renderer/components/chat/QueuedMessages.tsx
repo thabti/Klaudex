@@ -27,7 +27,7 @@ export const QueuedMessages = memo(function QueuedMessages({ messages, onRemove,
           const attachmentCount = msg.attachments?.length ?? 0
           return (
             <div
-              key={i}
+              key={`queued-${i}-${msg.text.slice(0, 12)}`}
               className={cn(
                 'group flex items-center gap-2 rounded-xl border border-border/60 bg-muted/40 px-3 py-1.5',
                 'animate-in slide-in-from-bottom-2 fade-in duration-200',

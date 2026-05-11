@@ -1,4 +1,5 @@
 import { useMemo, useRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useTaskStore } from '@/stores/taskStore'
 import { hasInteractiveQuestionBlocks } from '@/lib/question-parser'
 
@@ -63,13 +64,17 @@ function computeHasPendingQuestion(messages: readonly { role: string; content: s
  * Streaming chunks, tool calls, messages, and thinking are ignored.
  */
 export function useSidebarTasks(sort: SortKey): readonly SidebarProject[] {
-  const tasks = useTaskStore((s) => s.tasks)
-  const archivedMeta = useTaskStore((s) => s.archivedMeta)
-  const projects = useTaskStore((s) => s.projects)
-  const projectIds = useTaskStore((s) => s.projectIds)
-  const projectNames = useTaskStore((s) => s.projectNames)
-  const drafts = useTaskStore((s) => s.drafts)
-  const threadOrders = useTaskStore((s) => s.threadOrders)
+  const { tasks, archivedMeta, projects, projectIds, projectNames, drafts, threadOrders } = useTaskStore(
+    useShallow((s) => ({
+      tasks: s.tasks,
+      archivedMeta: s.archivedMeta,
+      projects: s.projects,
+      projectIds: s.projectIds,
+      projectNames: s.projectNames,
+      drafts: s.drafts,
+      threadOrders: s.threadOrders,
+    })),
+  )
 
   // Extract only sidebar-relevant fields and memoize with structural sharing
   const prevRef = useRef<Map<string, SidebarTask>>(new Map())

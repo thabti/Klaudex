@@ -63,11 +63,14 @@ export const applyTurnEnd = (
   const liveSplits = s.liveToolSplits[taskId] ?? []
   const task = s.tasks[taskId]
   if (!task) return {}
-  const fallbackStatus = stopReason === 'refusal' ? 'failed' as const
+  const fallbackStatus = stopReason === 'refusal' ? 'error' as const
+    : stopReason === 'cancelled' ? 'cancelled' as const
+    : 'completed' as const
+  const toolFallbackStatus = stopReason === 'refusal' ? 'failed' as const
     : stopReason === 'cancelled' ? 'cancelled' as const
     : 'completed' as const
   const finalizedTools = liveTools.map((tc) =>
-    tc.status === 'completed' || tc.status === 'failed' || tc.status === 'cancelled' ? tc : { ...tc, status: fallbackStatus },
+    tc.status === 'completed' || tc.status === 'failed' || tc.status === 'cancelled' ? tc : { ...tc, status: toolFallbackStatus },
   )
   // Filter splits to those that reference one of the finalized tool calls
   // and sort by offset, breaking ties by the tool call's `createdAt` so the
@@ -113,11 +116,7 @@ export const applyTurnEnd = (
   }
   const updatedTask: AgentTask = {
     ...task,
-    // Both refusal and normal end leave the task `paused` so the user can
-    // send a new message. We surface the refusal as a system message in
-    // `newMessages` rather than via a sticky 'error' status (which would
-    // feel like the task is unrecoverable).
-    status: 'paused',
+    status: fallbackStatus,
     messages: newMessages,
     pendingPermission: undefined,
   }
@@ -581,7 +580,7 @@ export function initTaskListeners(): () => void {
     }
     if (models && typeof models === 'object') {
       const m = models as { availableModels?: Array<{ modelId: string; name: string; description?: string | null }>; currentModelId?: string }
-      if (m.availableModels) {
+      if (Array.isArray(m.availableModels) && m.availableModels.length > 0) {
         const settingsState = useSettingsStore.getState()
         const existingModel = settingsState.currentModelId
         const validExistingModel = existingModel && m.availableModels.some((mod) => mod.modelId === existingModel)

@@ -34,7 +34,7 @@ export function TerminalOutput({ lines, onClear }: TerminalOutputProps) {
         ) : (
           <pre className="font-mono text-[11px] leading-5 whitespace-pre-wrap break-all">
             {lines.map((line, i) => (
-              <div key={i}>{stripAnsi(line)}</div>
+              <div key={`term-${i}`}>{stripAnsi(line)}</div>
             ))}
           </pre>
         )}

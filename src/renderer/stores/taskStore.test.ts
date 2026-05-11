@@ -611,9 +611,9 @@ describe('applyTurnEnd', () => {
     expect(result.tasks?.['t1'].status).toBe('completed')
   })
 
-  it('sets status to paused on refusal (user can recover)', () => {
+  it('sets status to error on refusal', () => {
     const result = applyTurnEnd(baseState(), 't1', 'refusal')
-    expect(result.tasks?.['t1'].status).toBe('paused')
+    expect(result.tasks?.['t1'].status).toBe('error')
   })
 
   it('appends retry system message on refusal with refusalRetry=true', () => {
@@ -682,12 +682,12 @@ describe('applyTurnEnd', () => {
     expect(result).toEqual({})
   })
 
-  it('processes running task and sets status to paused', () => {
+  it('processes running task and sets status to completed', () => {
     const state = baseState({
       tasks: { 't1': makeTask({ id: 't1', status: 'running' }) },
     })
     const result = applyTurnEnd(state, 't1', 'end_turn')
-    expect(result.tasks?.['t1']?.status).toBe('paused')
+    expect(result.tasks?.['t1']?.status).toBe('completed')
     expect(result.streamingChunks?.['t1']).toBe('')
   })
 
@@ -997,15 +997,15 @@ describe('loadTasks', () => {
   it('merges worktree metadata from archived onto live tasks', async () => {
     const { ipc } = await import('@/lib/ipc')
     const { loadThreads, loadProjects } = await import('@/lib/history-store')
-    const liveTask = makeTask({ id: 'wt-1', workspace: '/project/.kiro/worktrees/feat', status: 'running' })
+    const liveTask = makeTask({ id: 'wt-1', workspace: '/project/.klaudex/worktrees/feat', status: 'running' })
     vi.mocked(ipc.listTasks).mockResolvedValueOnce([liveTask])
     vi.mocked(loadThreads).mockResolvedValueOnce([{
       id: 'wt-1',
       name: 'Test Task',
-      workspace: '/project/.kiro/worktrees/feat',
+      workspace: '/project/.klaudex/worktrees/feat',
       createdAt: '2026-01-01T00:00:00Z',
       messages: [],
-      worktreePath: '/project/.kiro/worktrees/feat',
+      worktreePath: '/project/.klaudex/worktrees/feat',
       originalWorkspace: '/project',
       projectId: 'uuid-123',
       parentTaskId: 'parent-1',
@@ -1052,15 +1052,15 @@ describe('loadTasks', () => {
   it('excludes worktree paths from projects array after merge', async () => {
     const { ipc } = await import('@/lib/ipc')
     const { loadThreads, loadProjects } = await import('@/lib/history-store')
-    const liveTask = makeTask({ id: 'wt-3', workspace: '/project/.kiro/worktrees/feat', status: 'running' })
+    const liveTask = makeTask({ id: 'wt-3', workspace: '/project/.klaudex/worktrees/feat', status: 'running' })
     vi.mocked(ipc.listTasks).mockResolvedValueOnce([liveTask])
     vi.mocked(loadThreads).mockResolvedValueOnce([{
       id: 'wt-3',
       name: 'Test Task',
-      workspace: '/project/.kiro/worktrees/feat',
+      workspace: '/project/.klaudex/worktrees/feat',
       createdAt: '2026-01-01T00:00:00Z',
       messages: [],
-      worktreePath: '/project/.kiro/worktrees/feat',
+      worktreePath: '/project/.klaudex/worktrees/feat',
       originalWorkspace: '/project',
       projectId: 'uuid-456',
     }])
@@ -1083,7 +1083,7 @@ describe('loadTasks', () => {
         workspace: '/ws',
         createdAt: '',
         messages: [],
-        worktreePath: '/ws/.kiro/worktrees/feat',
+        worktreePath: '/ws/.klaudex/worktrees/feat',
         originalWorkspace: '/ws',
         parentTaskId: 'parent-1',
         projectId: '/ws',
@@ -1095,7 +1095,7 @@ describe('loadTasks', () => {
     // Backup threads are restored as archived metadata (not inflated until opened).
     expect(useTaskStore.getState().archivedMeta['backup-1']).toBeDefined()
     expect(useTaskStore.getState().archivedMeta['backup-1'].name).toBe('Restored Thread')
-    expect(useTaskStore.getState().archivedMeta['backup-1'].worktreePath).toBe('/ws/.kiro/worktrees/feat')
+    expect(useTaskStore.getState().archivedMeta['backup-1'].worktreePath).toBe('/ws/.klaudex/worktrees/feat')
     expect(useTaskStore.getState().projectNames['/ws']).toBe('My Project')
   })
 

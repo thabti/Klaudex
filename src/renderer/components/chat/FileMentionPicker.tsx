@@ -9,7 +9,7 @@ import type { ProjectFile } from '@/types'
 
 // ── Built-in agents for @ mention ────────────────────────────────────
 const BUILT_IN_MENTION_AGENTS = [
-  { name: 'Default', id: 'default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-blue-600 dark:text-blue-400', bgCls: 'bg-blue-500/20' },
+  { name: 'Default', id: 'default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-brand', bgCls: 'bg-brand/20' },
   { name: 'Planner', id: 'plan', description: 'Plan before coding', icon: IconListCheck, color: 'text-teal-600 dark:text-teal-400', bgCls: 'bg-teal-500/20' },
 ] as const
 
@@ -118,7 +118,7 @@ const GitChangeBadge = memo(function GitChangeBadge({
       </TooltipTrigger>
       <TooltipContent side="top" className="text-[11px]">
         {tooltipLines.map((line, i) => (
-          <span key={i} className={i > 0 ? 'block text-muted-foreground' : ''}>{line}</span>
+          <span key={`line-${i}`} className={i > 0 ? 'block text-muted-foreground' : ''}>{line}</span>
         ))}
       </TooltipContent>
     </Tooltip>

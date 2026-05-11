@@ -200,7 +200,7 @@ export const UserMessageRow = memo(function UserMessageRow({ row }: { row: UserM
                   {parsedAttachments.length > 0 && (
                     <div className="grid max-w-[420px] grid-cols-2 gap-2">
                       {parsedAttachments.map((a, i) => (
-                        <AttachmentPill key={i} name={a.name} type={a.type} src={a.src} />
+                        <AttachmentPill key={`att-${a.name}-${i}`} name={a.name} type={a.type} src={a.src} />
                       ))}
                     </div>
                   )}

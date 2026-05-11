@@ -310,13 +310,13 @@ const CodeView = memo(function CodeView({ content, ext }: { content: string; ext
       {/* Line numbers */}
       <div className="sticky left-0 shrink-0 select-none border-r border-border/40 bg-muted/20 px-3 py-3 text-right text-muted-foreground/50">
         {lines.map((_, i) => (
-          <div key={i} style={{ minWidth: `${gutterWidth}ch` }}>{i + 1}</div>
+          <div key={`ln-${i}`} style={{ minWidth: `${gutterWidth}ch` }}>{i + 1}</div>
         ))}
       </div>
       {/* Code */}
       <pre className="flex-1 py-3 px-4 overflow-x-auto">
         {lines.map((line, i) => (
-          <div key={i} dangerouslySetInnerHTML={{ __html: tokenize(line, ext) || '&nbsp;' }} />
+          <div key={`code-${i}`} dangerouslySetInnerHTML={{ __html: tokenize(line, ext) || '&nbsp;' }} />
         ))}
       </pre>
     </div>
@@ -334,7 +334,7 @@ const CsvView = memo(function CsvView({ content }: { content: string }) {
         <thead>
           <tr className="border-b border-border">
             {header.map((cell, i) => (
-              <th key={i} className="px-3 py-2 text-left font-semibold text-foreground/90 bg-muted/30 whitespace-nowrap">{cell}</th>
+              <th key={`th-${i}-${cell.slice(0, 8)}`} className="px-3 py-2 text-left font-semibold text-foreground/90 bg-muted/30 whitespace-nowrap">{cell}</th>
             ))}
           </tr>
         </thead>

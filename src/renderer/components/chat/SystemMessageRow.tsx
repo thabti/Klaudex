@@ -55,7 +55,7 @@ export const SystemMessageRow = memo(function SystemMessageRow({ row }: { row: S
               <div className="min-w-0 space-y-2 text-[13px]">
                 <p className="break-words text-foreground/90"><HighlightText text={parts[0]} /></p>
                 {parts.slice(1).map((part, i) => (
-                  <p key={i} className="break-words text-muted-foreground text-[12px]"><HighlightText text={part} /></p>
+                  <p key={`sys-${i}`} className="break-words text-muted-foreground text-[12px]"><HighlightText text={part} /></p>
                 ))}
               </div>
             </div>

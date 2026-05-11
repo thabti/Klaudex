@@ -228,7 +228,7 @@ export const TreeContextMenu = memo(function TreeContextMenu({
       style={{ left: x, top: y }}
     >
       {items.map((item, i) => (
-        <div key={i}>
+        <div key={item.label ?? `ctx-${i}`}>
           <button
             type="button"
             disabled={item.disabled}

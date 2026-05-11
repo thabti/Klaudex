@@ -25,7 +25,7 @@ export const DiffFileSidebar = ({ fileStats, selectedFileIdx, sidebarWidth, onSe
       </button>
       {fileStats.map((file, i) => (
         <button
-          key={i}
+          key={file.name ?? `file-${i}`}
           type="button"
           onClick={() => onSelectFile(i)}
           className={cn(
