@@ -1,3 +1,9 @@
+## 2026-05-11 06:36 GST (Dubai)
+### Git: Replace git2 remote callbacks with git CLI for network ops
+Ported upstream commit 4812906 from kirodex. Replaced `git2` `RemoteCallbacks`/`Cred` credential handling with a `run_git()` helper that shells out to the system `git` binary for fetch, push, and pull. This fixes SSH auth failures caused by libssh2's inability to access macOS Keychain passphrases. Local operations (diff, stage, branch, commit) still use git2.
+
+**Modified:** `src-tauri/src/commands/git.rs`
+
 ## 2026-05-11 06:34 GST (Dubai)
 ### DiffPanel: Remove redundant file header
 Ported upstream commit 40557ef6 from kirodex. Added `disableFileHeader: true` to the `FileDiff` options in `DiffPanel.tsx` to hide the built-in header bar since the panel's file sidebar already displays filenames and +/- stats.

@@ -1,4 +1,4 @@
-use git2::{BranchType, Cred, DiffOptions, RemoteCallbacks, Repository};
+use git2::{BranchType, DiffOptions, Repository};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::Path;
@@ -8,72 +8,22 @@ use super::acp::AcpState;
 use super::error::AppError;
 use super::settings::SettingsState;
 
-/// Build `git2` remote callbacks with full credential support.
+/// Run a git CLI command and return stdout on success or an `AppError` on failure.
 ///
-/// Handles all common transport types:
-/// - **SSH** (`git@`, `ssh://`): tries the SSH agent first, then falls back to
-///   common key files (`~/.ssh/id_ed25519`, `id_rsa`, `id_ecdsa`).
-/// - **HTTPS**: delegates to the system git credential helper (macOS Keychain
-///   via `osxkeychain`, Windows Credential Manager, etc.).
-/// - **git://**: uses default (anonymous) credentials.
-fn make_remote_callbacks<'a>() -> RemoteCallbacks<'a> {
-    let mut cbs = RemoteCallbacks::new();
-    let mut attempts = 0;
-    cbs.credentials(move |url, username_from_url, allowed_types| {
-        attempts += 1;
-        // Bail after a few rounds to avoid infinite auth loops
-        if attempts > 6 {
-            return Err(git2::Error::from_str(
-                "authentication failed after multiple attempts — check your SSH keys or git credentials",
-            ));
-        }
-
-        let user = username_from_url.unwrap_or("git");
-
-        // ── SSH transport ────────────────────────────────────────────
-        if allowed_types.contains(git2::CredentialType::SSH_KEY) {
-            // Attempt 1: SSH agent (macOS Keychain agent, 1Password SSH agent, etc.)
-            if attempts <= 1 {
-                if let Ok(cred) = Cred::ssh_key_from_agent(user) {
-                    return Ok(cred);
-                }
-            }
-            // Attempt 2+: try common key files on disk
-            let home = dirs::home_dir().unwrap_or_default();
-            let ssh_dir = home.join(".ssh");
-            let key_names = ["id_ed25519", "id_ecdsa", "id_rsa"];
-            let key_idx = (attempts as usize).saturating_sub(2);
-            if key_idx < key_names.len() {
-                let private_key = ssh_dir.join(key_names[key_idx]);
-                if private_key.exists() {
-                    return Cred::ssh_key(user, None, &private_key, None);
-                }
-            }
-            // All key files exhausted — one more agent attempt in case of timing
-            return Cred::ssh_key_from_agent(user);
-        }
-
-        // ── HTTPS transport ──────────────────────────────────────────
-        if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
-            // Delegate to the system git credential helper (osxkeychain, manager, etc.)
-            if let Ok(config) = git2::Config::open_default() {
-                if let Ok(cred) = Cred::credential_helper(&config, url, username_from_url) {
-                    return Ok(cred);
-                }
-            }
-            return Err(git2::Error::from_str(
-                "no HTTPS credentials found — run `git credential approve` or log in via your git credential manager",
-            ));
-        }
-
-        // ── Anonymous / default (git:// protocol) ────────────────────
-        if allowed_types.contains(git2::CredentialType::DEFAULT) {
-            return Cred::default();
-        }
-
-        Err(git2::Error::from_str("unsupported credential type requested"))
-    });
-    cbs
+/// Uses the system `git` binary, which inherits the user's full SSH agent,
+/// credential helpers, and Keychain integration — avoiding the passphrase and
+/// credential issues that plague `libssh2` / `git2` for network operations.
+fn run_git(cwd: &str, args: &[&str]) -> Result<String, AppError> {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .output()?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(AppError::Other(format!("git {} failed: {stderr}", args.join(" "))))
+    }
 }
 
 #[derive(Serialize, Clone)]
@@ -244,12 +194,8 @@ pub fn git_commit(
 pub fn git_push(cwd: String) -> Result<String, AppError> {
     let repo = Repository::open(&cwd)?;
     let head = repo.head()?;
-    let branch_name = head.shorthand().unwrap_or("main");
-    let refspec = format!("refs/heads/{branch_name}:refs/heads/{branch_name}");
-    let mut remote = repo.find_remote("origin")?;
-    let mut opts = git2::PushOptions::new();
-    opts.remote_callbacks(make_remote_callbacks());
-    remote.push(&[&refspec], Some(&mut opts))?;
+    let branch_name = head.shorthand().unwrap_or("main").to_string();
+    run_git(&cwd, &["push", "-u", "origin", &branch_name])?;
     Ok(format!("Pushed {branch_name}"))
 }
 
@@ -258,35 +204,16 @@ pub fn git_pull(cwd: String) -> Result<String, AppError> {
     let repo = Repository::open(&cwd)?;
     let head = repo.head()?;
     let branch_name = head.shorthand().unwrap_or("main").to_string();
-    let mut remote = repo.find_remote("origin")?;
-    let fetch_refspec = format!("refs/heads/{branch_name}:refs/remotes/origin/{branch_name}");
-    let mut fetch_opts = git2::FetchOptions::new();
-    fetch_opts.remote_callbacks(make_remote_callbacks());
-    remote.fetch(&[&fetch_refspec], Some(&mut fetch_opts), None)?;
-    let fetch_head = repo.find_reference("FETCH_HEAD")?;
-    let fetch_commit = repo.reference_to_annotated_commit(&fetch_head)?;
-    let (analysis, _) = repo.merge_analysis(&[&fetch_commit])?;
-    if analysis.is_fast_forward() {
-        let target = fetch_commit.id();
-        let mut reference = repo.find_reference(&format!("refs/heads/{branch_name}"))?;
-        reference.set_target(target, &format!("pull: fast-forward {branch_name}"))?;
-        repo.set_head(&format!("refs/heads/{branch_name}"))?;
-        repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
-        Ok(format!("Pulled {branch_name} (fast-forward)"))
-    } else if analysis.is_up_to_date() {
-        Ok("Already up to date".to_string())
-    } else {
-        Err(AppError::Other("Cannot fast-forward; merge required".to_string()))
+    let output = run_git(&cwd, &["pull", "--ff-only", "origin", &branch_name])?;
+    if output.contains("Already up to date") {
+        return Ok("Already up to date".to_string());
     }
+    Ok(format!("Pulled {branch_name}"))
 }
 
 #[tauri::command]
 pub fn git_fetch(cwd: String) -> Result<String, AppError> {
-    let repo = Repository::open(&cwd)?;
-    let mut remote = repo.find_remote("origin")?;
-    let mut fetch_opts = git2::FetchOptions::new();
-    fetch_opts.remote_callbacks(make_remote_callbacks());
-    remote.fetch::<&str>(&[], Some(&mut fetch_opts), None)?;
+    run_git(&cwd, &["fetch", "origin"])?;
     Ok("Fetched origin".to_string())
 }
 
