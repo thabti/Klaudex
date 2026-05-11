@@ -1,3 +1,9 @@
+## 2026-05-11 11:42 GST (Dubai)
+### Port: Performance improvements and new features (kirodex@d638abf)
+Cherry-picked upstream commit with security hardening (sensitive path blocking in fs_ops, PTY cwd validation, command allowlist for open_terminal_with_command, env-var-based AppleScript injection prevention), git improvements (git2-based ahead/behind in vcs_status, git_history module with commit log/stash/diff commands, worktree validation), enhanced CommandPalette (frecency tracking, contextual commands, panel/git/action categories, keyboard shortcut hints), new CheckpointTimeline and GitHistoryPanel UI components, and backend-driven auto-archive for stale threads.
+
+**Modified:** package.json, src-tauri/src/commands/acp/sandbox.rs, src-tauri/src/commands/fs_ops.rs, src-tauri/src/commands/git.rs, src-tauri/src/commands/git_history.rs (new), src-tauri/src/commands/mod.rs, src-tauri/src/commands/pty.rs, src-tauri/src/commands/vcs_status.rs, src-tauri/src/lib.rs, src/renderer/components/CommandPalette.tsx, src/renderer/components/diff/CheckpointTimeline.tsx (new), src/renderer/components/diff/GitHistoryPanel.tsx (new), src/renderer/stores/taskStore.test.ts, src/renderer/stores/taskStore.ts
+
 ## 2026-05-11 11:39 GST (Dubai)
 ### Port: Remove T3 Code/Zed attribution comments (kirodex@0221ed3)
 Ported upstream commit that removes T3 Code and Zed attribution comments from the codebase. Also brings in new modules: checkpoint.rs (per-turn git ref snapshots), git_pr.rs (GitHub/GitLab PR creation), pattern_extract.rs (code signature extraction), tracing.rs (NDJSON structured tracing), thread_db auto-archive, and new IPC bindings for all of the above.

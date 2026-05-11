@@ -63,6 +63,28 @@ pub fn pty_create(
     cols: Option<u16>,
     rows: Option<u16>,
 ) -> Result<(), AppError> {
+    // Validate cwd: must exist, be a directory, and be under a reasonable location
+    let cwd_path = std::path::Path::new(&cwd);
+    if !cwd_path.is_dir() {
+        return Err(AppError::Other(format!("PTY cwd is not a directory: {cwd}")));
+    }
+    if let Ok(canonical) = cwd_path.canonicalize() {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+        let home_path = std::path::Path::new(&home);
+        let allowed = canonical.starts_with(home_path)
+            || canonical.starts_with("/tmp")
+            || canonical.starts_with("/private/tmp")  // macOS /tmp symlink target
+            || canonical.starts_with("/Volumes");     // macOS external drives
+        #[cfg(target_os = "linux")]
+        let allowed = allowed
+            || canonical.starts_with("/opt")
+            || canonical.starts_with("/srv")
+            || canonical.starts_with("/var/www");
+        if !allowed {
+            return Err(AppError::Other(format!("PTY cwd must be under home directory or a known project location: {cwd}")));
+        }
+    }
+
     let cols = cols.unwrap_or(80);
     let rows = rows.unwrap_or(24);
     let pty_system = native_pty_system();
