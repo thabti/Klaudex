@@ -67,10 +67,33 @@ def local_files(sha: str) -> set[str]:
     )
     return {ln.strip() for ln in out.splitlines() if ln.strip()}
 
+RENAME_PAIRS = (
+    # project name
+    ("kirodex", "klaudex"), ("klaudex", "kirodex"),
+    ("Kirodex", "Klaudex"), ("Klaudex", "Kirodex"),
+    # component/file prefix divergence (klaudex uses Claude*, kirodex uses Kiro*)
+    ("KiroFileViewer", "ClaudeFileViewer"), ("ClaudeFileViewer", "KiroFileViewer"),
+    ("KiroConfigPanel", "ClaudeConfigPanel"), ("ClaudeConfigPanel", "KiroConfigPanel"),
+    ("KiroAgentSection", "ClaudeAgentSection"), ("ClaudeAgentSection", "KiroAgentSection"),
+    ("KiroSkillRow", "ClaudeSkillRow"), ("ClaudeSkillRow", "KiroSkillRow"),
+    ("KiroSteeringRow", "ClaudeSteeringRow"), ("ClaudeSteeringRow", "KiroSteeringRow"),
+    ("KiroMcpRow", "ClaudeMcpRow"), ("ClaudeMcpRow", "KiroMcpRow"),
+    ("KiroCommandRow", "ClaudeCommandRow"), ("ClaudeCommandRow", "KiroCommandRow"),
+    ("KiroDebugTab", "ClaudeDebugTab"), ("ClaudeDebugTab", "KiroDebugTab"),
+    # store / config divergence (klaudex stores Claude config in same place kirodex stores Kiro)
+    ("kiroStore", "claudeConfigStore"), ("claudeConfigStore", "kiroStore"),
+    ("kiro_config", "claude_config"), ("claude_config", "kiro_config"),
+    ("kiro_watcher", "claude_watcher"), ("claude_watcher", "kiro_watcher"),
+    # binary / CLI references
+    ("kiro_cli", "claude_cli"), ("claude_cli", "kiro_cli"),
+    ("kiro-cli", "claude-code"), ("claude-code", "kiro-cli"),
+    ("detect_kiro_cli", "detect_claude_cli"), ("detect_claude_cli", "detect_kiro_cli"),
+    ("kiro_whoami", "claude_whoami"), ("claude_whoami", "kiro_whoami"),
+)
+
 def rename_equivalents(path: str) -> set[str]:
     eq = {path}
-    for s, d in (("kirodex", "klaudex"), ("klaudex", "kirodex"),
-                 ("Kirodex", "Klaudex"), ("Klaudex", "Kirodex")):
+    for s, d in RENAME_PAIRS:
         if s in path:
             eq.add(path.replace(s, d))
     return eq
