@@ -198,6 +198,13 @@ export async function loadFullThread(threadId: string): Promise<AgentTask | null
   if (!dbThread) return null
 
   const messages = await loadMessages(threadId)
+
+  // If the thread metadata exists but has no messages, return null so the
+  // caller can fall through to the JSON history store. This handles the case
+  // where `persistHistory` saved thread metadata to SQLite but the one-time
+  // message migration hasn't completed yet (it's async/best-effort).
+  if (messages.length === 0) return null
+
   const metadata = dbThread.metadata as Record<string, string> | undefined
 
   return {

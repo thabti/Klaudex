@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::error::AppError;
-use super::git_ai::{extract_first_json_object, run_claude_oneshot};
+use super::git_ai::{extract_first_json_object, extract_json_object_with_key, run_claude_oneshot};
 use super::git_utils::run_git_cmd_async;
 use super::settings::SettingsState;
 
@@ -173,7 +173,12 @@ fn build_pr_prompt(
 // ── Output parsing ───────────────────────────────────────────────────────
 
 fn parse_pr_response(raw: &str) -> Result<PrModelOutput, AppError> {
-    let block = extract_first_json_object(raw).ok_or_else(|| {
+    // Prefer a JSON object that contains `"title"` (or `"body"`) so a claude CLI
+    // warning like `@{MCPSERVERNAME}/` doesn't get parsed as the answer.
+    let block = extract_json_object_with_key(raw, "title")
+        .or_else(|| extract_json_object_with_key(raw, "body"))
+        .or_else(|| extract_first_json_object(raw))
+        .ok_or_else(|| {
         let preview = if raw.len() > 400 {
             let mut end = 400;
             while end > 0 && !raw.is_char_boundary(end) { end -= 1; }
@@ -248,6 +253,17 @@ mod tests {
         let raw = "📷 Checkpoints\n\n{\"title\":\"Fix login redirect\",\"body\":\"## Summary\\n\\nFixes the redirect.\\n\\n## Changes\\n\\n- Fixed redirect logic\"}\n\n▸ Credits: 0.05";
         let parsed = parse_pr_response(raw).unwrap();
         assert_eq!(parsed.title, "Fix login redirect");
+        assert!(parsed.body.contains("## Summary"));
+    }
+
+    #[test]
+    fn parse_pr_response_skips_claude_cli_warning_brace_block() {
+        // Regression: `{MCPSERVERNAME}` from claude CLI's `--trust-tools`
+        // warning is not valid JSON; the parser must walk past it.
+        let raw = "WARNING: --trust-tools arg ... prepended with @{MCPSERVERNAME}/\n\
+                   > {\"title\":\"Fix login\",\"body\":\"## Summary\\n\\nFix.\"}\n";
+        let parsed = parse_pr_response(raw).unwrap();
+        assert_eq!(parsed.title, "Fix login");
         assert!(parsed.body.contains("## Summary"));
     }
 

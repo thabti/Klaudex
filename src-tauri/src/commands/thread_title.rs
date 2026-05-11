@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::error::AppError;
-use super::git_ai::{extract_first_json_object, run_claude_oneshot};
+use super::git_ai::{extract_first_json_object, extract_json_object_with_key, run_claude_oneshot};
 use super::settings::SettingsState;
 
 /// Maximum title length in characters.
@@ -95,7 +95,13 @@ fn build_title_prompt(message: &str, custom_instructions: Option<&str>) -> Strin
 // ── Output parsing ───────────────────────────────────────────────────────
 
 fn parse_title_response(raw: &str) -> Result<TitleModelOutput, AppError> {
-    let block = extract_first_json_object(raw).ok_or_else(|| {
+    // Prefer a JSON object that actually contains `"title"` so we skip past
+    // any chrome-printed brace blocks (e.g. `{MCPSERVERNAME}` in a claude CLI
+    // warning). Falls back to any valid JSON, then to the first balanced
+    // block for diagnostic preview text.
+    let block = extract_json_object_with_key(raw, "title")
+        .or_else(|| extract_first_json_object(raw))
+        .ok_or_else(|| {
         let preview = if raw.len() > 400 {
             let mut end = 400;
             while end > 0 && !raw.is_char_boundary(end) {
@@ -206,6 +212,29 @@ mod tests {
     fn parse_title_response_errors_on_no_json() {
         let raw = "some error output without json";
         assert!(parse_title_response(raw).is_err());
+    }
+
+    #[test]
+    fn parse_title_response_skips_claude_cli_warning_brace_block() {
+        // Regression: real claude CLI output prints a `{MCPSERVERNAME}` token
+        // in a `--trust-tools` warning before the actual JSON answer. The
+        // previous parser latched onto that and failed every title gen.
+        let raw = "WARNING: --trust-tools arg for custom tool needs to be \
+                   prepended with @{MCPSERVERNAME}/\nCheckpoints are not \
+                   available in this directory. Use '/checkpoint init' to \
+                   enable checkpoints.\n> {\"title\":\"Fix login bug\"}\n \
+                   ▸ Credits: 0.04 • Time: 2s\n";
+        let parsed = parse_title_response(raw).unwrap();
+        assert_eq!(parsed.title, "Fix login bug");
+    }
+
+    #[test]
+    fn parse_title_response_picks_titled_object_over_unrelated_json() {
+        // Defensive: even if some chrome contains valid JSON without our
+        // key, prefer the object that actually has `title`.
+        let raw = "{\"meta\":\"ignore me\"}\n\n{\"title\":\"Real title\"}\n";
+        let parsed = parse_title_response(raw).unwrap();
+        assert_eq!(parsed.title, "Real title");
     }
 
     #[test]

@@ -306,12 +306,19 @@ pub(crate) async fn run_claude_oneshot(claude_bin: &str, cwd: &str, prompt: &str
 ///
 /// We scan for the first balanced `{ ... }` block in the body and parse it.
 pub(crate) fn parse_commit_response(raw: &str) -> Result<ModelOutput, AppError> {
-    let block = extract_first_json_object(raw).ok_or_else(|| {
-        AppError::Other(format!(
-            "Could not find JSON in agent output. Got:\n{}",
-            truncate_for_error(raw, 400)
-        ))
-    })?;
+    // Prefer a JSON object that actually has `subject` (or `body`) so we
+    // don't latch onto an unrelated brace block (e.g. `{MCPSERVERNAME}` in
+    // a claude CLI warning). Falls back to any valid JSON, then to the first
+    // balanced block for diagnostic purposes.
+    let block = extract_json_object_with_key(raw, "subject")
+        .or_else(|| extract_json_object_with_key(raw, "body"))
+        .or_else(|| extract_first_json_object(raw))
+        .ok_or_else(|| {
+            AppError::Other(format!(
+                "Could not find JSON in agent output. Got:\n{}",
+                truncate_for_error(raw, 400)
+            ))
+        })?;
 
     serde_json::from_str::<ModelOutput>(&block).map_err(|e| {
         AppError::Other(format!(
@@ -321,43 +328,117 @@ pub(crate) fn parse_commit_response(raw: &str) -> Result<ModelOutput, AppError> 
     })
 }
 
-/// Find the first balanced `{ ... }` JSON object in `text`. Tolerates braces
-/// inside string literals (handles `\"` escapes).
-/// Shared by `branch_ai`, `thread_title`, and `pr_ai`.
-pub(crate) fn extract_first_json_object(text: &str) -> Option<String> {
-    let bytes = text.as_bytes();
-    let start = bytes.iter().position(|&b| b == b'{')?;
+/// Iterate every balanced `{ ... }` block in `text` (top-level only — nested
+/// objects are returned as part of their parent, not separately). Tolerates
+/// braces inside string literals (handles `\"` escapes).
+///
+/// claude CLI sometimes prints brace-bracketed text in pre-amble warnings (e.g.
+/// `--trust-tools arg ... needs to be prepended with @{MCPSERVERNAME}/`),
+/// which the previous "first balanced block" heuristic captured instead of the
+/// real JSON answer that came afterwards. Iterating all candidates lets the
+/// caller skip past those with `serde_json` validation.
+pub(crate) fn iter_json_objects(text: &str) -> JsonObjectIter<'_> {
+    JsonObjectIter { text, bytes: text.as_bytes(), pos: 0 }
+}
 
-    let mut depth: i32 = 0;
-    let mut in_string = false;
-    let mut escape = false;
+pub(crate) struct JsonObjectIter<'a> {
+    text: &'a str,
+    bytes: &'a [u8],
+    pos: usize,
+}
 
-    for (i, &b) in bytes.iter().enumerate().skip(start) {
-        if in_string {
-            if escape {
-                escape = false;
-            } else if b == b'\\' {
-                escape = true;
-            } else if b == b'"' {
-                in_string = false;
-            }
-            continue;
-        }
-        match b {
-            b'"' => in_string = true,
-            b'{' => depth += 1,
-            b'}' => {
-                depth -= 1;
-                if depth == 0 {
-                    // Inclusive end. Slice via char-boundary safe range since
-                    // ASCII braces are 1-byte.
-                    return Some(text[start..=i].to_string());
+impl<'a> Iterator for JsonObjectIter<'a> {
+    type Item = String;
+
+    fn next(&mut self) -> Option<String> {
+        let rel = self.bytes.get(self.pos..)?.iter().position(|&b| b == b'{')?;
+        let start = self.pos + rel;
+
+        let mut depth: i32 = 0;
+        let mut in_string = false;
+        let mut escape = false;
+
+        for (i, &b) in self.bytes.iter().enumerate().skip(start) {
+            if in_string {
+                if escape {
+                    escape = false;
+                } else if b == b'\\' {
+                    escape = true;
+                } else if b == b'"' {
+                    in_string = false;
                 }
+                continue;
             }
-            _ => {}
+            match b {
+                b'"' => in_string = true,
+                b'{' => depth += 1,
+                b'}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        // ASCII braces are 1-byte so inclusive slice is safe.
+                        let block = self.text[start..=i].to_string();
+                        self.pos = i + 1;
+                        return Some(block);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Unbalanced — abandon the rest of the buffer.
+        self.pos = self.bytes.len();
+        None
+    }
+}
+
+/// Find the first balanced `{ ... }` block that parses as valid JSON.
+///
+/// Falls back to the first balanced block when nothing parses, so error
+/// messages remain useful for genuinely-broken output. Shared by `branch_ai`,
+/// `thread_title`, `pr_ai`, and `git_ai`'s own commit-message path.
+pub(crate) fn extract_first_json_object(text: &str) -> Option<String> {
+    let mut first_block: Option<String> = None;
+    for candidate in iter_json_objects(text) {
+        if first_block.is_none() {
+            first_block = Some(candidate.clone());
+        }
+        if serde_json::from_str::<serde_json::Value>(&candidate).is_ok() {
+            return Some(candidate);
         }
     }
-    None
+    first_block
+}
+
+/// Like [`extract_first_json_object`] but also requires the parsed object to
+/// contain the named top-level key. Use this when the caller knows the
+/// expected schema (e.g. `"title"` for thread titles, `"branch"` for branch
+/// names) so warnings or chrome that happen to contain valid JSON don't get
+/// mistaken for the real answer.
+///
+/// Falls back to the first valid JSON object, then to the first balanced
+/// block, so error preview text is still meaningful.
+pub(crate) fn extract_json_object_with_key(text: &str, key: &str) -> Option<String> {
+    let mut first_valid: Option<String> = None;
+    let mut first_block: Option<String> = None;
+
+    for candidate in iter_json_objects(text) {
+        if first_block.is_none() {
+            first_block = Some(candidate.clone());
+        }
+        match serde_json::from_str::<serde_json::Value>(&candidate) {
+            Ok(value) => {
+                if first_valid.is_none() {
+                    first_valid = Some(candidate.clone());
+                }
+                if value.as_object().is_some_and(|o| o.contains_key(key)) {
+                    return Some(candidate);
+                }
+            }
+            Err(_) => continue,
+        }
+    }
+
+    first_valid.or(first_block)
 }
 
 fn truncate_for_error(s: &str, max: usize) -> String {
@@ -488,10 +569,80 @@ mod tests {
     }
 
     #[test]
-    fn parse_commit_response_extracts_from_claude_chrome() {
+    fn extract_json_skips_invalid_block_before_real_answer() {
+        // Mirrors real claude CLI output: a warning containing `{MCPSERVERNAME}`
+        // (not valid JSON) followed by the actual answer.
+        let raw = "WARNING: --trust-tools arg ... prepended with @{MCPSERVERNAME}/\n\
+                   > {\"subject\":\"Fix login\",\"body\":\"\"}\n";
+        let block = extract_first_json_object(raw).unwrap();
+        assert_eq!(block, r#"{"subject":"Fix login","body":""}"#);
+    }
+
+    #[test]
+    fn extract_with_key_skips_unrelated_valid_json() {
+        // Even when the noise IS valid JSON, prefer the block that has the
+        // expected schema key.
+        let raw = "{\"unrelated\":1}\n\n{\"title\":\"The real answer\"}\n";
+        let block = extract_json_object_with_key(raw, "title").unwrap();
+        assert_eq!(block, r#"{"title":"The real answer"}"#);
+    }
+
+    #[test]
+    fn extract_with_key_falls_back_to_first_valid_when_key_missing() {
+        // No object has the requested key — degrade to the first parseable
+        // block so the caller still gets a useful error preview.
+        let raw = "{\"foo\":1} {\"bar\":2}";
+        let block = extract_json_object_with_key(raw, "title").unwrap();
+        assert_eq!(block, r#"{"foo":1}"#);
+    }
+
+    #[test]
+    fn extract_with_key_falls_back_to_first_block_when_nothing_parses() {
+        // Pathological case: nothing valid; still hand back the first block
+        // for diagnostic preview text.
+        let raw = "{not json} {also-not-json}";
+        let block = extract_json_object_with_key(raw, "title").unwrap();
+        assert_eq!(block, "{not json}");
+    }
+
+    #[test]
+    fn iter_json_objects_walks_top_level_blocks() {
+        let raw = "prefix {\"a\":1} middle {\"b\":{\"nested\":2}} tail";
+        let blocks: Vec<String> = iter_json_objects(raw).collect();
+        assert_eq!(blocks, vec![
+            r#"{"a":1}"#.to_string(),
+            r#"{"b":{"nested":2}}"#.to_string(),
+        ]);
+    }
+
+    #[test]
+    fn iter_json_objects_handles_braces_in_strings() {
+        let raw = r#"{"a":"} not really }"} {"b":2}"#;
+        let blocks: Vec<String> = iter_json_objects(raw).collect();
+        assert_eq!(blocks.len(), 2);
+        assert!(blocks[0].contains(r#""a""#));
+        assert_eq!(blocks[1], r#"{"b":2}"#);
+    }
+
+    #[test]
+    fn parse_commit_response_extracts_from_claude_cli_chrome() {
         let raw = "📷 Checkpoints are enabled! (took 0.15s)\n\n> json\n{\"subject\":\"add foo\",\"body\":\"\"}\n\n ▸ Credits: 0.03 • Time: 2s\n";
         let parsed = parse_commit_response(raw).unwrap();
         assert_eq!(parsed.subject, "add foo");
+        assert_eq!(parsed.body, "");
+    }
+
+    #[test]
+    fn parse_commit_response_skips_claude_cli_warning_brace_block() {
+        // Regression: `{MCPSERVERNAME}` from claude CLI's `--trust-tools`
+        // warning was being parsed as the answer, breaking commit message
+        // generation alongside thread titles, branch names, and PR content.
+        let raw = "WARNING: --trust-tools arg for custom tool needs to be \
+                   prepended with @{MCPSERVERNAME}/\n\
+                   > {\"subject\":\"Fix login\",\"body\":\"\"}\n \
+                   ▸ Credits: 0.04\n";
+        let parsed = parse_commit_response(raw).unwrap();
+        assert_eq!(parsed.subject, "Fix login");
         assert_eq!(parsed.body, "");
     }
 

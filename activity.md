@@ -1,3 +1,9 @@
+## 2026-05-11 11:48 GST (Dubai)
+### Port: Robust JSON parsing for claude CLI warnings and improve persistence (kirodex@550471a)
+Cherry-picked upstream commit that refactors `extract_first_json_object` into an iterator (`iter_json_objects`) that skips invalid brace blocks like `{MCPSERVERNAME}` in CLI warnings, adds `extract_json_object_with_key` for schema-aware JSON extraction, fixes @mention regex to require leading whitespace, returns null from `loadFullThread` when thread has no messages, persists in-flight streaming chunks during hot-reload/crash recovery, supports `archivedMeta` in UI state restoration, and switches `save_thread`/`update_context_usage` from `INSERT OR REPLACE` to proper UPSERT to avoid cascade-deleting child rows.
+
+**Modified:** src-tauri/src/commands/branch_ai.rs, src-tauri/src/commands/git_ai.rs, src-tauri/src/commands/pr_ai.rs, src-tauri/src/commands/thread_db.rs, src-tauri/src/commands/thread_title.rs, src/renderer/App.tsx, src/renderer/lib/resolve-mentions.ts, src/renderer/lib/thread-db.test.ts, src/renderer/lib/thread-db.ts, src/renderer/stores/chat-persistence.test.ts (new), src/renderer/stores/taskStore.ts
+
 ## 2026-05-11 11:42 GST (Dubai)
 ### Port: Performance improvements and new features (kirodex@d638abf)
 Cherry-picked upstream commit with security hardening (sensitive path blocking in fs_ops, PTY cwd validation, command allowlist for open_terminal_with_command, env-var-based AppleScript injection prevention), git improvements (git2-based ahead/behind in vcs_status, git_history module with commit log/stash/diff commands, worktree validation), enhanced CommandPalette (frecency tracking, contextual commands, panel/git/action categories, keyboard shortcut hints), new CheckpointTimeline and GitHistoryPanel UI components, and backend-driven auto-archive for stale threads.
