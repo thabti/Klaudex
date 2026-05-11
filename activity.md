@@ -1,3 +1,9 @@
+## 2026-05-11 10:01 GST (Dubai)
+### Port: Fix BtwOverlay AgentTask fixtures missing required fields
+Ported upstream commit 5e39a64. Added missing `name` and `createdAt` fields to every inline AgentTask fixture in `BtwOverlay.test.tsx` so tsc passes.
+
+**Modified:** `src/renderer/components/chat/BtwOverlay.test.tsx`
+
 ## 2026-05-11 09:56 GST (Dubai)
 ### Port: Memory monitoring + lazy-load archived threads
 Ported upstream commit a264d50. Adds a Memory section under Settings → Data with per-thread memory estimates, JS heap readout, and reclaim actions. PTY state is now per-window with configurable scrollback and idle auto-close. Archived threads are lazy-hydrated (metadata-only at startup) dropping ~25 MB to ~100 KB for 500 threads. Sidebar shows a lock icon for archived threads.
