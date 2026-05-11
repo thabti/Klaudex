@@ -165,6 +165,10 @@ export interface AppSettings {
   customAppIcon?: string | null
   /** Last app version whose changelog the user has seen. Used to show the "What's New" dialog once per upgrade. */
   lastSeenChangelogVersion?: string | null
+  /** Terminal scrollback line cap. Lower = less memory per open terminal. Default: 2000. */
+  terminalScrollback?: number
+  /** Auto-close background terminal tabs after this many minutes of no PTY activity. null = disabled. Default: null. */
+  terminalAutoCloseIdleMins?: number | null
 }
 
 export interface ProjectFile {

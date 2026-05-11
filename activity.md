@@ -1,3 +1,9 @@
+## 2026-05-11 09:56 GST (Dubai)
+### Port: Memory monitoring + lazy-load archived threads
+Ported upstream commit a264d50. Adds a Memory section under Settings → Data with per-thread memory estimates, JS heap readout, and reclaim actions. PTY state is now per-window with configurable scrollback and idle auto-close. Archived threads are lazy-hydrated (metadata-only at startup) dropping ~25 MB to ~100 KB for 500 threads. Sidebar shows a lock icon for archived threads.
+
+**Modified:** `src-tauri/src/commands/pty.rs`, `src-tauri/src/lib.rs`, `src/renderer/components/chat/TerminalDrawer.tsx`, `src/renderer/components/settings/SettingsPanel.tsx`, `src/renderer/components/settings/memory-section.tsx`, `src/renderer/components/settings/settings-shared.tsx`, `src/renderer/components/sidebar/ThreadItem.tsx`, `src/renderer/hooks/useSidebarTasks.ts`, `src/renderer/lib/history-store.ts`, `src/renderer/lib/ipc.ts`, `src/renderer/lib/thread-memory.ts`, `src/renderer/stores/task-store-types.ts`, `src/renderer/stores/taskStore.test.ts`, `src/renderer/stores/taskStore.ts`, `src/renderer/types/index.ts`
+
 ## 2026-05-11 09:54 GST (Dubai)
 ### Chat: Move question cards to bottom of message
 Ported upstream commit 151fea4. Moved QuestionCards rendering from above the markdown content to below it in ChatMarkdown, improving visibility of agent questions.

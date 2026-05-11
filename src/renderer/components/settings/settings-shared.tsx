@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  IconUser, IconSettings2, IconPaint, IconKeyboard, IconTool, IconArchive,
+  IconUser, IconSettings2, IconPaint, IconKeyboard, IconTool, IconArchive, IconActivity,
 } from '@tabler/icons-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 // ── Navigation ───────────────────────────────────────────────────
 
-export type Section = 'account' | 'general' | 'appearance' | 'keymap' | 'advanced' | 'archives'
+export type Section = 'account' | 'general' | 'appearance' | 'keymap' | 'advanced' | 'memory' | 'archives'
 
 export type NavGroup = 'account' | 'settings' | 'data'
 
@@ -25,6 +25,7 @@ export const NAV: { id: Section; label: string; icon: typeof IconSettings2; desc
   { id: 'appearance', label: 'Appearance', icon: IconPaint, description: 'Theme, font size', sectionDescription: 'Customize the look and feel of Klaudex.', group: 'settings' },
   { id: 'keymap', label: 'Keyboard', icon: IconKeyboard, description: 'Shortcuts reference', sectionDescription: 'View all available keyboard shortcuts.', group: 'settings' },
   { id: 'advanced', label: 'Advanced', icon: IconTool, description: 'Privacy, git, data', sectionDescription: 'Privacy, git integration, and data management.', group: 'settings' },
+  { id: 'memory', label: 'Memory', icon: IconActivity, description: 'Per-thread memory usage', sectionDescription: 'Inspect and reclaim memory held by threads, drafts, and debug buffers.', group: 'data' },
   { id: 'archives', label: 'Archives', icon: IconArchive, description: 'Deleted threads', sectionDescription: 'Restore or permanently remove deleted threads.', group: 'data' },
 ]
 
@@ -58,6 +59,10 @@ export const SEARCHABLE_SETTINGS: readonly SearchableItem[] = [
   { label: 'Clear history', description: 'Clear all threads without resetting settings', section: 'advanced', keywords: 'clear history delete conversations data threads' },
   { label: 'Replay onboarding', description: 'Run the setup wizard again', section: 'advanced', keywords: 'onboarding wizard setup replay' },
   { label: 'Account', description: 'Authentication status and sign in', section: 'account', keywords: 'account login sign auth email' },
+  { label: 'Thread memory monitor', description: 'Per-thread memory usage and live buffers', section: 'memory', keywords: 'memory monitor performance ram heap thread usage profile leak' },
+  { label: 'Terminal scrollback', description: 'Lines retained per terminal tab', section: 'memory', keywords: 'terminal scrollback pty memory lines history shell' },
+  { label: 'Auto-close idle terminals', description: 'Close background terminal tabs after N minutes', section: 'memory', keywords: 'terminal idle auto close pty kill memory background tab' },
+  { label: 'Reclaim memory', description: 'Purge soft-deleted threads and clear debug buffers', section: 'memory', keywords: 'memory reclaim purge clear ram heap soft deleted debug' },
   { label: 'Deleted threads', description: 'Restore or permanently remove deleted threads', section: 'archives', keywords: 'deleted threads restore archive trash' },
 ] as const
 

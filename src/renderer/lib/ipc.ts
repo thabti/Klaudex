@@ -229,9 +229,11 @@ export const ipc = {
   ptyResize: (id: string, cols: number, rows: number): Promise<void> =>
     tracedInvoke('pty_resize', { id, cols, rows }),
   ptyKill: (id: string): Promise<void> =>
-    tracedInvoke('pty_kill', { id }),
+    invoke('pty_kill', { id }),
+  ptyCount: (): Promise<number> =>
+    invoke('pty_count'),
   getClaudeConfig: (projectPath?: string): Promise<ClaudeConfig> =>
-    tracedInvoke('get_claude_config', { projectPath }),
+    invoke('get_claude_config', { projectPath }),
   readFile: (filePath: string): Promise<string | null> =>
     tracedInvoke('read_text_file', { path: filePath }),
   /**
@@ -393,13 +395,6 @@ export const ipc = {
     tracedInvoke('set_dock_icon_visible', { visible }),
   requestRelaunch: (): Promise<void> =>
     tracedInvoke('request_relaunch'),
-
-  // ---------------------------------------------------------------------
-  // PTY (additional)
-  // NOTE: `pty_count` is not currently registered. Same caveat as above.
-  // ---------------------------------------------------------------------
-  ptyCount: (): Promise<number> =>
-    tracedInvoke('pty_count'),
 
   // ---------------------------------------------------------------------
   // Claude watcher

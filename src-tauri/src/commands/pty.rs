@@ -33,11 +33,24 @@ impl Drop for PtyInstance {
     }
 }
 
-pub struct PtyState(pub Mutex<HashMap<String, PtyInstance>>);
+/// PTYs are keyed by the owning window's label so closing one window only
+/// kills its terminals — other windows keep theirs alive.
+pub struct PtyState(pub Mutex<HashMap<String, HashMap<String, PtyInstance>>>);
 
 impl Default for PtyState {
     fn default() -> Self {
         Self(Mutex::new(HashMap::new()))
+    }
+}
+
+impl PtyState {
+    /// Drop every PTY belonging to `window_label`. Returns the number killed.
+    pub fn kill_window(&self, window_label: &str) -> usize {
+        let mut map = self.0.lock();
+        match map.remove(window_label) {
+            Some(inner) => inner.len(), // Drop impl on each PtyInstance kills its child
+            None => 0,
+        }
     }
 }
 
@@ -77,23 +90,24 @@ pub fn pty_create(
     let mut reader = pair.master.try_clone_reader().map_err(|e| AppError::Other(e.to_string()))?;
     let writer = pair.master.take_writer().map_err(|e| AppError::Other(e.to_string()))?;
     let event_id = id.clone();
+    let event_window = window.clone();
     let reader_thread = std::thread::spawn(move || {
         let mut buf = [0u8; 16384];
         loop {
             match reader.read(&mut buf) {
                 Ok(0) => {
-                    let _ = window.emit("pty_exit", PtyExitPayload { id: event_id.clone() });
+                    let _ = event_window.emit("pty_exit", PtyExitPayload { id: event_id.clone() });
                     break;
                 }
                 Ok(n) => {
                     let data = String::from_utf8_lossy(&buf[..n]).to_string();
-                    let _ = window.emit(
+                    let _ = event_window.emit(
                         "pty_data",
                         PtyDataPayload { id: event_id.clone(), data },
                     );
                 }
                 Err(_) => {
-                    let _ = window.emit("pty_exit", PtyExitPayload { id: event_id.clone() });
+                    let _ = event_window.emit("pty_exit", PtyExitPayload { id: event_id.clone() });
                     break;
                 }
             }
@@ -105,29 +119,48 @@ pub fn pty_create(
         child,
         _reader_thread: reader_thread,
     };
+    let label = window.label().to_string();
     let mut ptys = state.0.lock();
-    ptys.insert(id, instance);
+    ptys.entry(label).or_default().insert(id, instance);
     Ok(())
 }
 
 #[tauri::command]
-pub fn pty_write(state: tauri::State<'_, PtyState>, id: String, data: String) -> Result<(), AppError> {
+pub fn pty_write(
+    state: tauri::State<'_, PtyState>,
+    window: tauri::Window,
+    id: String,
+    data: String,
+) -> Result<(), AppError> {
+    let label = window.label();
     let mut ptys = state.0.lock();
-    let instance = ptys.get_mut(&id).ok_or_else(|| AppError::Other("PTY not found".to_string()))?;
-    instance.writer.write_all(data.as_bytes()).map_err(|e| AppError::Io(e))?;
-    instance.writer.flush().map_err(|e| AppError::Io(e))?;
+    let inner = ptys
+        .get_mut(label)
+        .ok_or_else(|| AppError::Other("PTY not found".to_string()))?;
+    let instance = inner
+        .get_mut(&id)
+        .ok_or_else(|| AppError::Other("PTY not found".to_string()))?;
+    instance.writer.write_all(data.as_bytes()).map_err(AppError::Io)?;
+    instance.writer.flush().map_err(AppError::Io)?;
     Ok(())
 }
 
 #[tauri::command]
 pub fn pty_resize(
     state: tauri::State<'_, PtyState>,
+    window: tauri::Window,
     id: String,
     cols: u16,
     rows: u16,
 ) -> Result<(), AppError> {
+    let label = window.label();
     let ptys = state.0.lock();
-    let instance = ptys.get(&id).ok_or_else(|| AppError::Other("PTY not found".to_string()))?;
+    let inner = ptys
+        .get(label)
+        .ok_or_else(|| AppError::Other("PTY not found".to_string()))?;
+    let instance = inner
+        .get(&id)
+        .ok_or_else(|| AppError::Other("PTY not found".to_string()))?;
     instance.master.resize(PtySize {
         rows,
         cols,
@@ -138,9 +171,32 @@ pub fn pty_resize(
 }
 
 #[tauri::command]
-pub fn pty_kill(state: tauri::State<'_, PtyState>, id: String) -> Result<(), AppError> {
+pub fn pty_kill(
+    state: tauri::State<'_, PtyState>,
+    window: tauri::Window,
+    id: String,
+) -> Result<(), AppError> {
+    let label = window.label().to_string();
     let mut ptys = state.0.lock();
-    ptys.remove(&id).ok_or_else(|| AppError::Other("PTY not found".to_string()))?;
-    // Drop impl kills the child process and waits for it
+    let removed = match ptys.get_mut(&label) {
+        Some(inner) => inner.remove(&id),
+        None => None,
+    };
+    removed.ok_or_else(|| AppError::Other("PTY not found".to_string()))?;
+    // Tidy: drop the per-window entry once it's empty so the map doesn't grow forever
+    if ptys.get(&label).map(|m| m.is_empty()).unwrap_or(false) {
+        ptys.remove(&label);
+    }
+    // PtyInstance Drop kills the child and waits for it
     Ok(())
+}
+
+#[tauri::command]
+pub fn pty_count(
+    state: tauri::State<'_, PtyState>,
+    window: tauri::Window,
+) -> u32 {
+    let label = window.label();
+    let ptys = state.0.lock();
+    ptys.get(label).map(|m| m.len() as u32).unwrap_or(0)
 }
