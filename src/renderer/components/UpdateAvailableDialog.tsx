@@ -23,8 +23,8 @@ import { useUpdateChecker } from '@/hooks/useUpdateChecker'
 import { ipc } from '@/lib/ipc'
 
 interface UpdateAvailableDialogProps {
-  readonly open: boolean
-  readonly onOpenChange: (open: boolean) => void
+  readonly open?: boolean
+  readonly onOpenChange?: (open: boolean) => void
 }
 
 const SNOOZE_KEY = 'klaudex-update-snoozed-until'
@@ -61,7 +61,7 @@ export const isUpdateSnoozed = (): boolean => {
   return until !== null && until > Date.now()
 }
 
-export const UpdateAvailableDialog = ({ open, onOpenChange }: UpdateAvailableDialogProps) => {
+export const UpdateAvailableDialog = ({ open: controlledOpen, onOpenChange: controlledOnOpenChange }: UpdateAvailableDialogProps = {}) => {
   // Drive the actual updater plugin via the existing hook (it already wraps
   // `import('@tauri-apps/plugin-updater')` lazily, sets store status, and
   // streams progress chunks). The hook also auto-checks on mount, so we
@@ -75,8 +75,13 @@ export const UpdateAvailableDialog = ({ open, onOpenChange }: UpdateAvailableDia
   const [isRestarting, setIsRestarting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
 
+  // Self-contained mode: auto-open when update available and not snoozed
+  const isAvailable = status === 'available' && updateInfo !== null && !isUpdateSnoozed()
   const isDownloading = status === 'downloading'
   const isReady = status === 'ready'
+  const selfOpen = isAvailable || isDownloading || isReady
+  const open = controlledOpen ?? selfOpen
+  const onOpenChange = controlledOnOpenChange ?? (() => {})
   const downloadPercent = progress?.total
     ? Math.round((progress.downloaded / progress.total) * 100)
     : null

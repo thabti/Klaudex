@@ -1,5 +1,5 @@
-import { useEffect, useCallback, useState, lazy, Suspense } from "react";
-import { Toaster, toast } from "sonner";
+import { useEffect, useCallback, useState, useRef, lazy, Suspense } from "react";
+import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { applyTheme, listenSystemTheme, persistTheme } from "@/lib/theme";
@@ -38,10 +38,9 @@ import { useDebugStore } from "@/stores/debugStore";
 import { useDiffStore } from "@/stores/diffStore";
 import { useClaudeConfigStore, initClaudeConfigListeners } from "@/stores/claudeConfigStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { useUpdateChecker } from "@/hooks/useUpdateChecker";
 import { useSessionTracker } from "@/hooks/useSessionTracker";
+import { UpdateAvailableDialog } from "@/components/UpdateAvailableDialog";
 import { startAutoFlush, stopAutoFlush } from "@/lib/analytics-collector";
-import { RestartPromptDialog } from "@/components/sidebar/RestartPromptDialog";
 import { WorktreeCleanupDialog } from "@/components/sidebar/WorktreeCleanupDialog";
 import { getVersion } from "@tauri-apps/api/app";
 import {
@@ -139,54 +138,6 @@ function EmptyState() {
       </div>
     </div>
   );
-}
-
-const UPDATE_TOAST_ID = 'klaudex-update-toast' as const;
-
-function UpdateNotifier() {
-  const { status, updateInfo, progress, dismissedVersion, downloadAndInstall, restart, dismissVersion } = useUpdateChecker();
-
-  useEffect(() => {
-    if (status === 'available' && updateInfo) {
-      if (dismissedVersion === updateInfo.version) return;
-      toast(`Klaudex v${updateInfo.version} available`, {
-        id: UPDATE_TOAST_ID,
-        description: 'A new version is ready to install.',
-        duration: Infinity,
-        action: {
-          label: 'Update now',
-          onClick: () => downloadAndInstall(),
-        },
-        onDismiss: () => dismissVersion(updateInfo.version),
-      });
-    }
-
-    if (status === 'downloading') {
-      const pct = progress?.total
-        ? Math.round((progress.downloaded / progress.total) * 100)
-        : null;
-      const desc = pct !== null ? `Downloading... ${pct}%` : 'Downloading...';
-      toast.loading(desc, { id: UPDATE_TOAST_ID, duration: Infinity });
-    }
-
-    if (status === 'ready') {
-      toast.success('Update installed', {
-        id: UPDATE_TOAST_ID,
-        description: 'Restart to finish updating.',
-        duration: Infinity,
-        action: {
-          label: 'Restart',
-          onClick: () => restart(),
-        },
-      });
-    }
-
-    if (status === 'error') {
-      toast.dismiss(UPDATE_TOAST_ID);
-    }
-  }, [status, progress?.downloaded]);
-
-  return null;
 }
 
 /** Navigate to a task from a clicked notification, then remove it from the queue. */
@@ -546,8 +497,7 @@ export function App() {
         }}
         theme="dark"
       />
-      <UpdateNotifier />
-      <RestartPromptDialog />
+      <UpdateAvailableDialog />
       <WorktreeCleanupDialog />
     </TooltipProvider>
   );

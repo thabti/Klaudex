@@ -1,3 +1,9 @@
+## 2026-05-11 09:12 GST (Dubai)
+### UpdateAvailableDialog: wire self-contained Radix Dialog modal in App.tsx
+Ported upstream commit 5ba095f. Removed the toast-based `UpdateNotifier` component and `RestartPromptDialog` from App.tsx, replacing them with the existing `UpdateAvailableDialog` Radix Dialog modal. Made the dialog's props optional so it works self-contained (auto-opens when an update is available and not snoozed).
+
+**Modified:** `src/renderer/App.tsx`, `src/renderer/components/UpdateAvailableDialog.tsx`
+
 ## 2026-05-11 09:11 GST (Dubai)
 ### BtwOverlay: show permission requests inside btw overlay
 Ported upstream commit 4da6f3d. PermissionBanner was rendered behind the full-screen btw overlay, making it impossible to respond to ACP permission requests during side questions. Now renders the banner inside the overlay card.
