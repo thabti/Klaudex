@@ -1,3 +1,9 @@
+## 2026-05-11 10:53 GST (Dubai)
+### Port: Comprehensive test coverage for performance modules
+Ported upstream commit 5b286e0dc3 from kirodex. Adds 97 new tests across timeline-stability, MessageList.logic, ChatPanel.logic, structural-equality, tool-call-collapsing, connection-health, and task-store-selectors modules.
+
+**Modified:** `src/renderer/components/chat/ChatPanel.logic.test.ts`, `src/renderer/components/chat/MessageList.logic.test.ts`, `src/renderer/lib/connection-health.test.ts`, `src/renderer/lib/structural-equality.test.ts`, `src/renderer/lib/timeline-stability.test.ts`, `src/renderer/lib/tool-call-collapsing.test.ts`, `src/renderer/stores/task-store-selectors.test.ts`
+
 ## 2026-05-11 10:51 GST (Dubai)
 ### Port: Connection health monitor with exponential backoff
 Ported upstream commit 4e9901356a from kirodex. Adds ACP subprocess health monitoring with periodic IPC probes, exponential backoff with jitter for reconnection, and automatic connected/disconnected state transitions via useTaskStore.
