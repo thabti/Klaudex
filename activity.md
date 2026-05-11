@@ -1,3 +1,190 @@
+## 2026-05-11 17:01 GST (Dubai)
+### Git: Split working tree into 15 focused conventional commits
+
+Split all pending changes into small, logical commits: removed obsolete tests, added icon components, bundle budget tooling, tauri dev config, theme overhaul (color-mix→hex, brand token), splash screen updates, ACP refactor (removed client.rs), settings restructure, Rust backend fixes, blue→brand color replacement, performance optimizations (useShallow, stable keys), accessibility polish (focus-visible rings), CI/build config, test additions, and homebrew cask rename.
+
+**Modified:** 86 files across 15 commits on catch-up branch
+
+## 2026-05-11 16:18 GST (Dubai)
+### Branding: Replace code-mode blue with #DC5603 brand color
+Added `--brand` CSS custom property (#DC5603 light, #F07A2F dark) to the theme and replaced all code-mode/brand blue utility classes (`text-blue-*`, `bg-blue-*`, `border-blue-*`) with `text-brand`, `bg-brand/N` equivalents across 8 components. Planning mode teal and informational blue (file-type badges, git indicators, terminal) remain unchanged.
+
+**Modified:** `src/tailwind.css`, `src/renderer/App.tsx`, `src/renderer/components/AppHeader.tsx`, `src/renderer/components/PlanSidebar.tsx`, `src/renderer/components/chat/AgentPanel.tsx`, `src/renderer/components/chat/ChatPanel.tsx`, `src/renderer/components/chat/EmptyThreadSplash.tsx`, `src/renderer/components/chat/FileMentionPicker.tsx`, `src/renderer/components/chat/WorkingRow.tsx`
+
+## 2026-05-11 20:20 GST (Dubai)
+### Claude Config: Render Skills section in sidebar panel
+Added the Skills section to `ClaudeConfigPanel` between Commands and Agents. The `SkillRow` component was already implemented but never rendered in the JSX. Skills from both `~/.claude/skills/` (global) and project-local `.claude/skills/` now appear with the lightning bolt icon, drag-to-attach support, and source dot indicator.
+
+**Modified:** `src/renderer/components/sidebar/ClaudeConfigPanel.tsx`
+
+## 2026-05-11 16:18 GST (Dubai)
+
+### Tests: Add unit tests for performance optimization changes
+
+Added 11 new tests covering the performance optimization work: 2 tests in `useSidebarTasks.test.ts` verifying `useShallow` render stability (unrelated store changes don't trigger re-render), 5 tests in `bundle-budget.test.ts` validating the budget JSON structure, and 4 tests in `settings-selectors.test.ts` verifying granular settings selectors return correct values. Full suite passes: 84 files, 1366 tests.
+
+**Modified:** `src/renderer/hooks/useSidebarTasks.test.ts`, `src/renderer/lib/bundle-budget.test.ts`, `src/renderer/stores/settings-selectors.test.ts`
+
+## 2026-05-11 16:07 GST (Dubai)
+
+### Performance: Full performance audit and optimization pass
+
+Completed a comprehensive performance optimization covering Zustand selector optimization (added `useShallow` to `useSidebarTasks` and `CommandPalette`, fixed `PendingChat` and `GitPanels` to select specific properties instead of entire settings object), fixed all 21 `key={index}` anti-patterns across 15 files, converted `read_text_file` and `read_file_base64` in Rust `fs_ops.rs` to async `tokio::fs`, made Google Fonts non-render-blocking with preload pattern, and added bundle size monitoring CI script. Verified recharts, material-icons, and PostHog are already properly deferred behind lazy boundaries.
+
+**Modified:** `src/renderer/hooks/useSidebarTasks.ts`, `src/renderer/components/CommandPalette.tsx`, `src/renderer/components/chat/PendingChat.tsx`, `src/renderer/components/chat/GitPanels.tsx`, `src/renderer/components/chat/InlineDiff.tsx`, `src/renderer/components/chat/HighlightText.tsx`, `src/renderer/components/file-tree/FilePreviewModal.tsx`, `src/renderer/components/sidebar/ClaudeConfigPanel.tsx`, `src/renderer/components/chat/FileMentionPicker.tsx`, `src/renderer/components/chat/ReadOutput.tsx`, `src/renderer/components/chat/ToolCallEntry.tsx`, `src/renderer/components/chat/SystemMessageRow.tsx`, `src/renderer/components/chat/QueuedMessages.tsx`, `src/renderer/components/chat/UserMessageRow.tsx`, `src/renderer/components/chat/ExecutionPlan.tsx`, `src/renderer/components/chat/CollapsedAnswers.tsx`, `src/renderer/components/code/DiffFileSidebar.tsx`, `src/renderer/components/code/TerminalOutput.tsx`, `src/renderer/components/file-tree/TreeContextMenu.tsx`, `src-tauri/src/commands/fs_ops.rs`, `src-tauri/Cargo.toml`, `index.html`, `bundle-budget.json`, `scripts/check-bundle-size.mjs`, `package.json`
+
+## 2025-05-11 16:16 GST (Dubai)
+
+### Config: Fix dev mode opening production Klaudex instead of Klaudex Dev
+
+Added a separate `identifier` (`com.klaudex.dev`) to `tauri.dev.conf.json` so macOS treats the dev build as a distinct app from the installed production bundle. Also fixed `productName` casing and added a window `title` override to show "Klaudex Dev" in the Dock and title bar.
+
+**Modified:** src-tauri/tauri.dev.conf.json
+
+## 2026-05-11 20:12 GST (Dubai)
+### Splash Screen: Orange glow theme with title-case text
+Changed the app launch splash screen from purple glow (#7c6aef) to orange (#f97316). Updated text from "KLAUDEX" to "Klaudex" (title case). All glow animation keyframes updated to match the orange theme.
+
+**Modified:** `index.html`
+
+## 2026-05-11 20:07 GST (Dubai)
+### Claude Config: Load ~/.claude commands, agents, and memory files into sidebar panel
+Added `scan_commands` function to discover `.md` slash command files from `commands/` directories. Updated `scan_agents` to parse `.md` files with YAML frontmatter (used by `~/.claude/agents/`) in addition to `.json` files. Added `commands` and `memory_files` fields to the Rust `ClaudeConfig` struct; memory files are populated from steering rules with `alwaysApply: true`. Added `serde_yaml = "0.9"` dependency. The frontend panel already had all UI components wired up; it was only missing the backend data.
+
+**Modified:** `src-tauri/Cargo.toml`, `src-tauri/src/commands/claude_config.rs`
+
+## 2026-05-11 20:03 GST (Dubai)
+### Theme: Light mode overhaul for visual parity with dark mode
+Replaced all `color-mix()` CSS variables with solid hex values in both light and dark themes to fix WebKit rendering issues in Tauri. Light mode now uses warm stone-toned colors (#fdfcfb background, #f8f6f4 card, #f2eeeb sidebar, #ddd6cf border) with WCAG AA contrast on all text. Fixed invisible dividers in header toolbars by replacing `bg-white/[0.06]` with theme-aware `bg-foreground/[0.06]`. Updated ThemeSelector preview colors and floating-panel hardcoded values.
+
+**Modified:** `src/tailwind.css`, `src/renderer/lib/theme.ts`, `src/renderer/components/settings/ThemeSelector.tsx`, `src/renderer/components/header-toolbar.tsx`, `src/renderer/components/header-ghost-toolbar.tsx`
+
+## 2026-05-11 16:09 GST (Dubai)
+### Build: Dev mode app name set to "klaudex-dev"
+Created `src-tauri/tauri.dev.conf.json` as a config override with `productName: "klaudex-dev"` and dev icons. The main `tauri.conf.json` now uses `productName: "Klaudex"` with prod icons for release builds. The `bun run dev` script passes `--config src-tauri/tauri.dev.conf.json` to `cargo tauri dev`.
+
+**Modified:** `src-tauri/tauri.conf.json`, `src-tauri/tauri.dev.conf.json`, `package.json`
+
+## 2026-05-11 16:05 GST (Dubai)
+### ACP: Remove broken `claude models list` shell-out
+The Claude CLI has no `models list` subcommand; the old code was sending "models list" as a prompt to the agent. Replaced `list_models` and `probe_capabilities` to return hardcoded models immediately without spawning a CLI process. The real model list arrives via `session_init` when an ACP session starts.
+
+**Modified:** `src-tauri/src/commands/acp/commands.rs`
+
+## 2026-05-11 16:05 GST (Dubai)
+### Split view: Improve look, feel, and naming
+Renamed "Split Views" to "Side by Side" throughout the app. Improved SplitThreadPicker with a violet-accented border, search icon, descriptive header ("Pick a thread for the right panel"). Improved SplitPanelHeader with violet accent bar and subtle focused/unfocused states. Updated sidebar list with violet-tinted active/hover states and a vertical separator between thread names.
+
+**Modified:** `src/renderer/components/chat/SplitThreadPicker.tsx`, `src/renderer/components/chat/SplitPanelHeader.tsx`, `src/renderer/components/sidebar/TaskSidebar.tsx`, `src/renderer/components/header-toolbar.tsx`, `src/renderer/components/sidebar/ThreadItem.tsx`
+
+## 2026-05-11 16:05 GST (Dubai)
+### ThreadItem: Remove active state highlight
+Removed the distinct background/font-weight styling applied to the currently selected thread in the sidebar. All threads now share the same base style with only a hover state.
+
+**Modified:** `src/renderer/components/sidebar/ThreadItem.tsx`
+
+## 2026-05-11 16:04 GST (Dubai)
+### ModelIcons: Use Anthropic icon for Claude models
+Mapped the `claude` provider to `AnthropicIcon` (the orange "A" logo) instead of the purple cube `ClaudeIcon`. Claude models now show the same Anthropic icon as in kirodex.
+
+**Modified:** `src/renderer/lib/model-icons.tsx`
+
+## 2026-05-11 16:02 GST (Dubai)
+### ModelPickerPanel: Add model provider icons to list
+Added model provider icons (from kirodex) to the ModelPickerPanel list items, replacing the plain dot indicator with SVG icons that match each model's provider (Anthropic, OpenAI, Amazon, etc.).
+
+**Modified:** `src/renderer/components/chat/ModelPickerPanel.tsx`
+
+## 2026-05-11 16:02 GST (Dubai)
+### Settings: Archive list — bulk delete per project
+Added a trash icon button on each project group header that permanently deletes all threads in that project at once. Also shows a thread count badge next to the project name.
+
+**Modified:** `src/renderer/components/settings/deleted-threads-restore.tsx`
+
+## 2026-05-11 16:00 GST (Dubai)
+### Settings: Archive list — remove delete confirmation, add project icons
+Removed the two-step confirmation for permanent delete in the archives section; the trash button now deletes immediately. Added a `ProjectGroupHeader` sub-component that uses `useProjectIcon` + `ProjectIcon` to display detected project icons next to each workspace group header.
+
+**Modified:** `src/renderer/components/settings/deleted-threads-restore.tsx`
+
+## 2026-05-11 15:55 GST (Dubai)
+### Sidebar: Add global ~/.claude source indicator
+Updated `SourceDot` in `claude-config-helpers.tsx` to show a home icon with `~/.claude` title for global-source items (MCPs, agents, skills). Previously only local items had a visual indicator. Also fixed a `.kiro` → `.claude` comment in `ClaudeConfigPanel.tsx`.
+
+**Modified:** `src/renderer/components/sidebar/claude-config-helpers.tsx`, `src/renderer/components/sidebar/ClaudeConfigPanel.tsx`
+
+## 2026-05-11 15:55 GST (Dubai)
+### Theme: Fix accent color to match kirodex
+Changed `--accent` from `#B95F3D` (solid orange) to `color-mix(in srgb, white 7%, transparent)` (subtle white overlay) to match kirodex. The solid orange was making the settings sidebar nav items and all hover states look drastically different. Also fixed `--accent-foreground` from `#ffffff` to `#f0f0f0`.
+
+**Modified:** `src/tailwind.css`
+
+## 2026-05-11 15:53 GST (Dubai)
+### Icons: Replace ghost icon with Claude icon in sidebar
+Created `ClaudeIcon` component using the official Claude AI symbol SVG (CC0 public domain from Wikimedia Commons). Replaced `KlaudexGhostIcon` usage in `ClaudeConfigPanel` with the new `ClaudeIcon`.
+
+**Modified:** `src/renderer/components/icons/ClaudeIcon.tsx` (new), `src/renderer/components/sidebar/ClaudeConfigPanel.tsx`
+
+## 2026-05-11 15:52 GST (Dubai)
+### Header: Fix ghost toolbar icon order
+Updated `header-ghost-toolbar.tsx` to match the real toolbar layout: Editor → Terminal → File Tree → Split (in a connected `bg-muted/40` group) then Git section (emerald accent). Previously Terminal was the rightmost icon.
+
+**Modified:** `src/renderer/components/header-ghost-toolbar.tsx`
+
+## 2026-05-11 15:50 GST (Dubai)
+### Settings: Wire up missing HooksSection render
+The `HooksSection` component was imported and had a nav entry but was never rendered in the section switch. Added the missing `{section === 'hooks' && <HooksSection />}` conditional.
+
+**Modified:** `src/renderer/components/settings/SettingsPanel.tsx`
+
+## 2026-05-11 15:46 GST (Dubai)
+### Sidebar: Replace chevron with KlaudexGhostIcon in ClaudeConfigPanel
+Ported the last remaining change from kirodex's last 24h: replaced `IconChevronRight` with a new `KlaudexGhostIcon` SVG component in the Claude config panel toggle button. All other kirodex changes (layout refactor, header toolbar, settings memo/useCallback/tooltips, theme, diff overflow fix, chat UX, WorkingRow, git Rust H/F fix, ThreadItem copy IDs, button styles) were already present in klaudex.
+
+**Modified:** `src/renderer/components/icons/KlaudexGhostIcon.tsx`, `src/renderer/components/sidebar/ClaudeConfigPanel.tsx`
+
+## 2026-05-11 15:49 GST (Dubai)
+### Fix: Add MCP server dialog — padding, scroll, and .claude paths
+Added `px-6` horizontal padding to the dialog form body to match DialogHeader/DialogFooter spacing, `overflow-y-auto` for scrollability on smaller viewports, and updated scope hint paths from `.kiro/` to `.claude/` to match the Claude CLI's actual config locations.
+
+**Modified:** `src/renderer/components/sidebar/AddMcpServerDialog.tsx`
+
+## 2026-05-11 15:48 GST (Dubai)
+### UX: Button consistency, accessibility, and copy review
+Reviewed all 370 button instances across 119 files for UX consistency, clarity, and usability. Fixed critical accessibility gaps (missing aria-labels on PermissionBanner, missing focus-visible rings on onboarding/permission buttons), improved affordance (PendingChat sign-in now uses primary styling, CommitDialog Generate button enlarged), fixed copy issues ("Import Project" → "Open folder", "New Thread" → "New thread", "Commit on new refName" → "Commit on new branch", "Skip sign-in for now" → "Skip for now"), and added external link indicator to GitActionsGroup GitHub button.
+
+**Modified:** `src/renderer/App.tsx`, `src/renderer/components/CommitDialog.tsx`, `src/renderer/components/GitActionsGroup.tsx`, `src/renderer/components/OnboardingSetupStep.tsx`, `src/renderer/components/chat/PendingChat.tsx`, `src/renderer/components/chat/PermissionBanner.tsx`, `src/renderer/components/chat/PermissionCard.tsx`, `src/renderer/components/dashboard/Dashboard.tsx`
+
+## 2026-05-11 15:46 GST (Dubai)
+### Fix: Add MCP server dialog padding and scroll
+Added `px-6` horizontal padding to the dialog form body to match the DialogHeader/DialogFooter spacing, and `overflow-y-auto` so the form scrolls on smaller viewports instead of overflowing.
+
+**Modified:** `src/renderer/components/sidebar/AddMcpServerDialog.tsx`
+
+## 2026-05-11 15:41 GST (Dubai)
+### Sidebar: Grey-based active state redesign
+Replaced the visually heavy active project/thread indicators (blue left bar, accent backgrounds, primary colors) with a subtle grey-based design using `bg-muted/60 dark:bg-muted/40`. Applied consistently across ProjectItem, ThreadItem, PinnedThreadsList, and SplitViewsList.
+
+**Modified:** `src/renderer/components/sidebar/ProjectItem.tsx`, `src/renderer/components/sidebar/ThreadItem.tsx`, `src/renderer/components/sidebar/TaskSidebar.tsx`
+
+## 2026-05-11 15:38 GST (Dubai)
+### Fix: Guard availableModels in ModelPicker and ModelPickerPanel
+Added `Array.isArray` defensive guard to `ModelPicker.tsx` and `ModelPickerPanel.tsx` to prevent "models.find is not a function" crash when `availableModels` is unexpectedly non-array during new project creation.
+
+**Modified:** `src/renderer/components/chat/ModelPicker.tsx`, `src/renderer/components/chat/ModelPickerPanel.tsx`
+
+## 2026-05-11 15:37 GST (Dubai)
+### Fix: Guard availableModels against non-array values in GeneralSection
+The `availableModels` field from ACP `session_init` could arrive as a non-array value, crashing the `<GeneralSection>` component with `availableModels.map is not a function`. Added `Array.isArray` guard in `task-store-listeners.ts` before setting the store, and a defensive fallback in the component itself.
+
+**Modified:** `src/renderer/stores/task-store-listeners.ts`, `src/renderer/components/settings/general-section.tsx`
+
+## 2026-05-11 14:30 GST (Dubai)
+### Fix: Resolve ClaudeWatcherState duplicate manage panic and clean up warnings
+Fixed a runtime panic caused by `ClaudeWatcherState` being `.manage()`'d twice in `lib.rs`. Also resolved all compiler warnings: unused variables (`tight_sandbox`, `index`), dead code (`now_millis`, sandbox re-exports), private_interfaces (`ModelOutput` visibility), and unused enum (`ValueOrJsonString`).
+
+**Modified:** `src-tauri/src/lib.rs`, `src-tauri/src/commands/acp/connection.rs`, `src-tauri/src/commands/acp/mod.rs`, `src-tauri/src/commands/git_ai.rs`, `src-tauri/src/commands/serde_utils.rs`
+
 ## 2026-05-11 12:32 GST (Dubai)
 ### Port: Fix SidebarFooter test for icon-only Debug button (kirodex@51b5dd2)
 Ported upstream test fix. The Debug button was refactored to icon-only with aria-label but the test still expected visible text. Updated to use `getByLabelText` instead of `getByText`.
