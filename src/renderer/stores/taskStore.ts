@@ -43,7 +43,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   notifiedTaskIds: [],
   taskModes: {},
   isForking: false,
-  pendingUserInputs: {},
+  lastAddedProject: null,
   worktreeCleanupPending: null,
 
   setSelectedTask: (id) => {
@@ -85,6 +85,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       return {
         projects: [...s.projects, workspace],
         projectIds: { ...s.projectIds, [workspace]: id },
+        lastAddedProject: workspace,
         tasks,
         softDeleted,
         deletedTaskIds,
@@ -94,6 +95,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       get().persistHistory()
     }
   },
+  clearLastAddedProject: () => set({ lastAddedProject: null }),
   getProjectId: (workspace) => {
     const existing = get().projectIds[workspace]
     if (existing) return existing

@@ -1,3 +1,9 @@
+## 2026-05-11 07:41 GST (Dubai)
+### Sidebar: Auto-focus newly added project (port from kirodex@fd0e3f0)
+Ported upstream commit that adds `lastAddedProject` state to taskStore and an `autoFocus` prop to `ProjectItem`. When a project is added, its sidebar button receives focus automatically, then the flag is cleared.
+
+**Modified:** src/renderer/components/sidebar/ProjectItem.tsx, src/renderer/components/sidebar/TaskSidebar.tsx, src/renderer/stores/task-store-types.ts, src/renderer/stores/taskStore.ts
+
 ## 2026-05-11 07:34 GST (Dubai)
 ### Settings: Overhaul settings panel UI/UX (port from kirodex@9f6a0f8)
 Ported upstream settings panel overhaul. Added grouped sidebar nav labels (ACCOUNT, SETTINGS, DATA) with ARIA roles. Added dirty state indicator (amber dot) on Save button. Added ConfirmDialog for destructive actions. Merged Permissions + Worktrees + Sandbox into single Workspace card. Fixed SettingsCard default padding (py-3), removed negative margin hack from SettingRow. Expanded font size range to 12-22 with editable number input. Consistent search input styling.
