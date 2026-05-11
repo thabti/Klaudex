@@ -1,3 +1,9 @@
+## 2026-05-11 07:54 GST (Dubai)
+### Port: reconnect restored threads after soft-delete
+Cherry-picked a4174442 from kirodex. Added `needsNewConnection` flag to `AgentTask`. `restoreTask` now sets status to paused and flags the task so `sendMessageDirect` spawns a fresh ACP connection via `ipc.createTask` instead of sending on a dead handle.
+
+**Modified:** `src/renderer/types/index.ts`, `src/renderer/stores/taskStore.ts`, `src/renderer/components/chat/ChatPanel.tsx`
+
 ## 2026-05-11 07:53 GST (Dubai)
 ### Port: fix crash fallback with close button and timer cleanup
 Cherry-picked e4c7abb6 from kirodex. Added a close button to the crash-fallback overlay, stored the 10s crash timer on `window.__crashTimer` for cleanup, and added logic in main.tsx to cancel the timer and remove the fallback element once React mounts successfully.

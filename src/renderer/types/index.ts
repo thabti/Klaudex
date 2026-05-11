@@ -99,8 +99,8 @@ export interface AgentTask {
   originalWorkspace?: string
   /** Canonical project workspace path — threads always group under this */
   projectId?: string
-  /** TASK-113: Selected Claude output style for this task; passed as `--output-style <name>` */
-  outputStyle?: string
+  /** True for restored threads whose backend ACP connection was destroyed */
+  needsNewConnection?: boolean
 }
 
 // ── Soft-deleted threads ──────────────────────────────────────────

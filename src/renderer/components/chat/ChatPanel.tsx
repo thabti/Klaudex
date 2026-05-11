@@ -76,6 +76,7 @@ async function sendMessageDirect(msg: string, attachments?: IpcAttachment[]): Pr
   const task = id ? state.tasks[id] : null
   if (!task) return
   const isDraft = task.messages.length === 0 && task.status === 'paused'
+  const needsNewConnection = task.needsNewConnection === true
 
   const userMsg = { role: 'user' as const, content: msg, timestamp: new Date().toISOString() }
   state.upsertTask({ ...task, status: 'running', messages: [...task.messages, userMsg] })
@@ -85,7 +86,7 @@ async function sendMessageDirect(msg: string, attachments?: IpcAttachment[]): Pr
   const proj = (task.originalWorkspace ?? task.workspace).replace(/\\/g, '/').split('/').pop() ?? ''
   record('message_sent', { project: proj, thread: task.id, value: msg.split(/\s+/).filter(Boolean).length })
 
-  if (isDraft) {
+  if (isDraft || needsNewConnection) {
     const { settings, currentModeId } = useSettingsStore.getState()
     const projectRoot = task.originalWorkspace ?? task.workspace
     const projectPrefs = projectRoot ? settings.projectPrefs?.[projectRoot] : undefined
@@ -94,7 +95,7 @@ async function sendMessageDirect(msg: string, attachments?: IpcAttachment[]): Pr
     const created = await ipc.createTask({ name: task.name, workspace: task.workspace, prompt: msg, autoApprove, modeId, attachments })
     const draft = useTaskStore.getState().tasks[task.id]
     const messages = draft?.messages.length ? draft.messages : [userMsg]
-    state.upsertTask({ ...created, messages })
+    state.upsertTask({ ...created, messages, needsNewConnection: undefined })
     record('thread_created', { project: proj, thread: created.id })
     if (currentModeId && currentModeId !== 'kiro_default') {
       useTaskStore.getState().setTaskMode(created.id, currentModeId)
