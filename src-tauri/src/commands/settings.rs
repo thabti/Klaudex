@@ -66,7 +66,7 @@ pub struct Permissions {
     pub deny: Vec<String>,
 }
 
-#[derive(Serialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TextGenerationPolicy {
     /// Custom instructions appended to commit message prompts.
@@ -83,7 +83,7 @@ pub struct TextGenerationPolicy {
     pub pr_instructions: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectPrefs {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -145,6 +145,10 @@ struct ProjectPrefsRaw {
     symlink_directories: Option<Vec<String>>,
     #[serde(default)]
     tight_sandbox: Option<bool>,
+    #[serde(default)]
+    icon_override: Option<serde_json::Value>,
+    #[serde(default)]
+    text_generation_policy: Option<TextGenerationPolicy>,
 }
 
 impl From<ProjectPrefsRaw> for ProjectPrefs {
@@ -170,6 +174,8 @@ impl From<ProjectPrefsRaw> for ProjectPrefs {
             worktree_enabled: raw.worktree_enabled,
             symlink_directories: raw.symlink_directories,
             tight_sandbox: raw.tight_sandbox,
+            icon_override: raw.icon_override,
+            text_generation_policy: raw.text_generation_policy,
         }
     }
 }
@@ -268,6 +274,15 @@ pub struct AppSettings {
     /// `None` or 0 disables auto-archiving.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auto_archive_days: Option<u32>,
+    /// Recently-opened project workspaces, newest first. Capped at
+    /// [`MAX_RECENT_PROJECTS`].
+    #[serde(default)]
+    pub recent_projects: Vec<RecentProject>,
+    /// Idle-close cap for terminal tabs in minutes. Carried by the migration
+    /// path so older config files keep their explicit numeric value;
+    /// `None`/`0` is treated as "disabled" by the renderer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_idle_close_mins: Option<u32>,
 }
 
 fn default_claude_bin() -> String {
@@ -315,6 +330,8 @@ impl Default for AppSettings {
             inline_tool_calls: None,
             ai_commit_messages: true,
             auto_archive_days: None,
+            recent_projects: Vec::new(),
+            terminal_idle_close_mins: None,
         }
     }
 }
@@ -394,6 +411,7 @@ impl From<AppSettingsRaw> for AppSettings {
             claude_bin: raw.claude_bin,
             agent_profiles: raw.agent_profiles,
             font_size: raw.font_size,
+            chat_font_size: None,
             default_model: raw.default_model,
             auto_approve: raw.auto_approve,
             permissions,
@@ -407,10 +425,21 @@ impl From<AppSettingsRaw> for AppSettings {
             analytics_enabled: raw.analytics_enabled,
             analytics_anon_id: raw.analytics_anon_id,
             theme: raw.theme,
-            recent_projects: raw.recent_projects,
-            terminal_scrollback: raw.terminal_scrollback,
-            terminal_idle_close_mins: raw.terminal_idle_close_mins,
+            sidebar_position: None,
             custom_app_icon: raw.custom_app_icon,
+            last_seen_changelog_version: None,
+            btw_max_chars: None,
+            terminal_scrollback: Some(raw.terminal_scrollback),
+            terminal_auto_close_idle_mins: None,
+            inline_tool_calls: None,
+            ai_commit_messages: true,
+            auto_archive_days: None,
+            recent_projects: raw.recent_projects,
+            terminal_idle_close_mins: if raw.terminal_idle_close_mins > 0 {
+                Some(raw.terminal_idle_close_mins)
+            } else {
+                None
+            },
         }
     }
 }
@@ -1142,8 +1171,8 @@ mod tests {
     fn app_settings_default_includes_wave1_fields() {
         let s = AppSettings::default();
         assert!(s.recent_projects.is_empty());
-        assert_eq!(s.terminal_scrollback, 5000);
-        assert_eq!(s.terminal_idle_close_mins, 0);
+        assert_eq!(s.terminal_scrollback, None);
+        assert_eq!(s.terminal_idle_close_mins, None);
     }
 
     #[test]
@@ -1152,8 +1181,8 @@ mod tests {
         // via `default_terminal_scrollback` and `terminal_idle_close_mins = 0`.
         let json = r#"{"claudeBin": "/bin/claude"}"#;
         let s: AppSettings = serde_json::from_str(json).unwrap();
-        assert_eq!(s.terminal_scrollback, 5000);
-        assert_eq!(s.terminal_idle_close_mins, 0);
+        assert_eq!(s.terminal_scrollback, Some(5000));
+        assert_eq!(s.terminal_idle_close_mins, None);
         assert!(s.recent_projects.is_empty());
     }
 

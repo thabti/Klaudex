@@ -29,7 +29,9 @@ fn set_relaunch_flag(flag: tauri::State<'_, RelaunchFlag>) {
 
 #[tauri::command]
 fn rebuild_recent_menu(app: tauri::AppHandle) {
-    rebuild_menu(&app);
+    if let Err(e) = settings::rebuild_menu(app) {
+        log::warn!("rebuild_recent_menu failed: {e}");
+    }
 }
 
 #[tauri::command]
@@ -342,7 +344,6 @@ pub fn run() {
         .manage(pty::PtyState::default())
         .manage(claude_watcher::ClaudeWatcherState::default())
         .manage(RelaunchFlag::default())
-        .manage(claude_watcher::ClaudeWatcherState::default())
         .manage(project_watcher::ProjectWatcherState::default())
         .manage(thread_db::ThreadDbState {
             db: thread_db::ThreadDatabase::open(),
@@ -374,12 +375,12 @@ pub fn run() {
                     "clear_recent" => {
                         if let Some(state) = app_handle.try_state::<settings::SettingsState>() {
                             let mut store = state.0.lock();
-                            store.recent_projects.clear();
+                            store.settings.recent_projects.clear();
                             let _ = settings::persist_store(&store);
                         }
-                        rebuild_menu(app_handle);
+                        rebuild_recent_menu(app_handle.clone());
                     }
-                    _ if id.starts_with("recent:") => {
+                    id if id.starts_with("recent:") => {
                         let path = &id["recent:".len()..];
                         if !path.is_empty() {
                             let _ = app_handle.emit("menu-open-recent-project", path);
@@ -665,9 +666,10 @@ pub fn run() {
             // Reset
             reset_app_data,
             // Recent projects
-            settings::get_recent_projects,
-            settings::add_recent_project,
-            settings::clear_recent_projects,
+            settings::recent_projects_get,
+            settings::recent_projects_add,
+            settings::recent_projects_remove,
+            settings::recent_projects_clear,
             rebuild_recent_menu,
             // PR / MR creation (GitHub + GitLab)
             git_pr::git_detect_provider,
