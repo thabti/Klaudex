@@ -1,3 +1,10 @@
+## 2026-05-11 06:48 GST (Dubai)
+### Chat: Render completion card for all valid reports, not just file changes
+Ported upstream commit c2430dd from kirodex. `shouldRenderReportCard` now checks for any valid status + non-empty summary instead of requiring `filesChanged` to have items. No-file reports (e.g. answering a question) now render their summary card.
+
+**Modified:**
+- src/renderer/components/chat/TaskCompletionCard.tsx
+
 ## 2026-05-11 06:47 GST (Dubai)
 ### Sidebar: Add Copy Path to project context menu
 Ported upstream commit c92ca7f from kirodex. Adds a "Copy Path" button to the project right-click context menu, placed after "Open in Finder". Uses `navigator.clipboard.writeText(cwd)` to copy the project path.
