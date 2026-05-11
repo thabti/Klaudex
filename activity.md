@@ -1,3 +1,9 @@
+## 2026-05-11 07:29 GST (Dubai)
+### Store: Persist history after removeProject/archiveThreads and fix merge mutation
+Ported upstream commit 0c6da34 from kirodex. Added `persistHistory()` calls after `removeProject` and `archiveThreads` so state survives crashes. Fixed direct object mutation in `loadTasks` merge to create new objects (preserves Zustand reactivity). Reset `activityFeed` in `clearHistory`.
+
+**Modified:** `src/renderer/stores/taskStore.ts`
+
 ## 2026-05-11 07:28 GST (Dubai)
 ### History: Add tests for live task preservation during loadTasks
 Ported upstream commit 14f322b from kirodex. Added two test cases verifying that running and paused tasks survive loadTasks calls — messages and status are never overwritten by stale history data.
