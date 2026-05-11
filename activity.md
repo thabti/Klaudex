@@ -1,3 +1,9 @@
+## 2026-05-11 06:34 GST (Dubai)
+### DiffPanel: Remove redundant file header
+Ported upstream commit 40557ef6 from kirodex. Added `disableFileHeader: true` to the `FileDiff` options in `DiffPanel.tsx` to hide the built-in header bar since the panel's file sidebar already displays filenames and +/- stats.
+
+**Modified:** `src/renderer/components/diff/DiffPanel.tsx`
+
 ## 2026-05-11 06:32 GST (Dubai)
 ### Chat: Retain file/agent/skill mentions in draft threads on switch
 Ported upstream commit 7ec8fc17 from kirodex. Added `draftMentionedFiles` state to the task store so file/agent/skill mention pills persist when switching between draft threads. Threaded the `initialMentionedFiles` prop through ChatInput, useChatInput, and useFileMention hooks. PendingChat now saves and restores mentions alongside drafts and attachments.
