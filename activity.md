@@ -1,3 +1,15 @@
+## 2026-05-11 07:51 GST (Dubai)
+### Port: fix skill mention pill text contrast
+Cherry-picked ca50fffb from kirodex. Changed skill mention pill text from `text-yellow-300` to `text-yellow-600 dark:text-yellow-400` for readable contrast against the `bg-yellow-500/15` background.
+
+**Modified:** src/renderer/components/chat/FileMentionPicker.tsx
+
+## 2026-05-11 07:51 GST (Dubai)
+### PR: create catch-up to main pull request
+Created PR #4 from `catch-up` branch to `main` via `gh pr create`.
+
+**Modified:** n/a (remote operation)
+
 ## 2026-05-11 07:49 GST (Dubai)
 ### Icons: redesign from square to squircle shape (port from kirodex@696dbbf)
 Ported upstream icon redesign changing shape from square to superellipse squircle (n=5). Updated dev icon SVG with klaudex orange (#F97316) squircle path, and prod icons (SVG + all platform binaries) with blue (#0000FF) squircle. Dev binaries kept as-is (pending regeneration from new SVG source).
