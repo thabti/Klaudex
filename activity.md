@@ -1,3 +1,9 @@
+## 2026-05-11 07:52 GST (Dubai)
+### Port: fix overflow-hidden clipping question card options
+Cherry-picked 206c6531 from kirodex. Removed `overflow-x-auto overflow-y-hidden` from the inner message wrapper in MessageList since it created a scroll container that clipped QuestionCard options and footers.
+
+**Modified:** src/renderer/components/chat/MessageList.tsx
+
 ## 2026-05-11 07:51 GST (Dubai)
 ### Port: fix skill mention pill text contrast
 Cherry-picked ca50fffb from kirodex. Changed skill mention pill text from `text-yellow-300` to `text-yellow-600 dark:text-yellow-400` for readable contrast against the `bg-yellow-500/15` background.

@@ -186,7 +186,7 @@ export const MessageList = memo(function MessageList({
                   virtualRow.index === timelineRows.length - 1 && 'pb-6 sm:pb-8',
                 )}
               >
-                <div className="mx-auto w-full min-w-0 max-w-3xl overflow-x-auto overflow-y-hidden px-5 sm:px-8 lg:max-w-4xl xl:max-w-5xl">
+                <div className="mx-auto w-full min-w-0 max-w-3xl px-5 sm:px-8 lg:max-w-4xl xl:max-w-5xl">
                   <TimelineRowRenderer row={row} />
                 </div>
               </div>
