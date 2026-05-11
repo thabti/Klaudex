@@ -1,3 +1,9 @@
+## 2026-05-11 07:49 GST (Dubai)
+### Icons: redesign from square to squircle shape (port from kirodex@696dbbf)
+Ported upstream icon redesign changing shape from square to superellipse squircle (n=5). Updated dev icon SVG with klaudex orange (#F97316) squircle path, and prod icons (SVG + all platform binaries) with blue (#0000FF) squircle. Dev binaries kept as-is (pending regeneration from new SVG source).
+
+**Modified:** src-tauri/icons/icon.svg, src-tauri/icons/prod/icon.svg, src-tauri/icons/prod/icon.icns, src-tauri/icons/prod/icon.ico, src-tauri/icons/prod/icon.png
+
 ## 2026-05-11 07:48 GST (Dubai)
 ### Timeline: show working indicator during long tool calls (port from kirodex@8798d6b)
 Ported upstream fix so the "Crafting…" working row appears during long-running tool calls and subagents. Changed suppression condition from any live activity to only streaming text/thinking. Reordered live rows so indicator renders below tool call displays. Added tests.
