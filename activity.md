@@ -1,3 +1,9 @@
+## 2026-05-11 09:43 GST (Dubai)
+### Git: port clone from GitHub dialog and git_clone command
+Ported upstream commit 56c5f1a adding CloneRepoDialog component, `git_clone` Tauri command (uses system git for SSH/credential helper support), IPC binding, and File menu entry with Cmd+Shift+O shortcut. Removed pre-existing duplicate gitClone/gitInit stubs in ipc.ts that conflicted with the new real implementations.
+
+**Modified:** src-tauri/src/commands/git.rs, src-tauri/src/lib.rs, src/renderer/components/CloneRepoDialog.tsx, src/renderer/lib/ipc.ts
+
 ## 2026-05-11 09:38 GST (Dubai)
 ### Sidebar: port blue dot indicator for pending questions
 Ported upstream commit that adds a blue status dot on sidebar thread items when the last assistant message has unanswered structured questions. Adds `computeHasPendingQuestion()` to `useSidebarTasks` and a `pending_question` entry to the status dot map in `ThreadItem`.

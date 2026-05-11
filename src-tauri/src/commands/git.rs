@@ -70,6 +70,36 @@ pub fn git_detect(path: String) -> bool {
 }
 
 #[tauri::command]
+pub fn git_init(path: String) -> Result<(), AppError> {
+    Repository::init(&path)?;
+    Ok(())
+}
+
+/// Clone a remote repository into `target_dir`.
+///
+/// Uses the system `git` binary (not git2) so SSH agent, credential helpers,
+/// and Keychain integration work out of the box.
+#[tauri::command]
+pub async fn git_clone(url: String, target_dir: String) -> Result<String, AppError> {
+    let result = tokio::task::spawn_blocking(move || {
+        let output = Command::new("git")
+            .args(["clone", "--progress", &url, &target_dir])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .output()?;
+        if output.status.success() {
+            Ok(target_dir)
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            Err(AppError::Other(format!("git clone failed: {stderr}")))
+        }
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("clone task panicked: {e}")))?;
+    result
+}
+
+#[tauri::command]
 pub fn git_list_branches(cwd: String) -> Result<BranchInfo, AppError> {
     let repo = Repository::open(&cwd)?;
     let head = repo.head().ok();

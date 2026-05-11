@@ -159,7 +159,11 @@ export const ipc = {
   resetDockIcon: (): Promise<void> =>
     invoke('reset_dock_icon'),
   gitDetect: (path: string): Promise<boolean> =>
-    tracedInvoke('git_detect', { path }),
+    invoke('git_detect', { path }),
+  gitInit: (path: string): Promise<void> =>
+    invoke('git_init', { path }),
+  gitClone: (url: string, targetDir: string): Promise<string> =>
+    invoke('git_clone', { url, targetDir }),
   gitListBranches: (cwd: string): Promise<{
     local: Array<{ name: string; current: boolean; worktreeLocked: boolean }>;
     remotes: Record<string, Array<{ name: string; fullRef: string }>>;
@@ -341,19 +345,7 @@ export const ipc = {
   analyticsDbSize: (): Promise<number> =>
     tracedInvoke('analytics_db_size'),
 
-  // ---------------------------------------------------------------------
-  // Git (additional)
-  //
-  // NOTE: `git_clone` and `git_init` are not currently registered in the
-  // Rust `invoke_handler!` (commands/git.rs has no such fns yet). The
-  // wrappers are kept so renderer code that calls them via `ipc.gitClone`
-  // type-checks; at runtime the call rejects with "command not found"
-  // until the backend ships the matching commands.
-  // ---------------------------------------------------------------------
-  gitClone: (url: string, targetDir: string, sshKeyPath?: string): Promise<void> =>
-    tracedInvoke('git_clone', { url, targetDir, sshKeyPath }),
-  gitInit: (path: string, initialBranch?: string): Promise<void> =>
-    tracedInvoke('git_init', { path, initialBranch }),
+
 
   // ---------------------------------------------------------------------
   // Recent projects + macOS chrome (TASK-008/009/053)

@@ -233,6 +233,10 @@ fn build_app_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wr
         .id("new_project")
         .accelerator("CmdOrCtrl+O")
         .build(app)?;
+    let clone_from_github = MenuItemBuilder::new("Clone from GitHub…")
+        .id("clone_from_github")
+        .accelerator("CmdOrCtrl+Shift+O")
+        .build(app)?;
 
     let app_submenu = SubmenuBuilder::new(app, "Klaudex")
         .about(None)
@@ -250,6 +254,7 @@ fn build_app_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wr
         .item(&new_window)
         .item(&new_thread)
         .item(&new_project)
+        .item(&clone_from_github)
         .separator()
         .close_window()
         .build()?;
@@ -338,6 +343,23 @@ pub fn run() {
                     }
                     "new_project" => {
                         let _ = app_handle.emit("menu-new-project", ());
+                    }
+                    "clone_from_github" => {
+                        let _ = app_handle.emit("menu-clone-from-github", ());
+                    }
+                    "clear_recent" => {
+                        if let Some(state) = app_handle.try_state::<settings::SettingsState>() {
+                            let mut store = state.0.lock();
+                            store.recent_projects.clear();
+                            let _ = settings::persist_store(&store);
+                        }
+                        rebuild_menu(app_handle);
+                    }
+                    _ if id.starts_with("recent:") => {
+                        let path = &id["recent:".len()..];
+                        if !path.is_empty() {
+                            let _ = app_handle.emit("menu-open-recent-project", path);
+                        }
                     }
                     _ => {}
                 }
@@ -463,6 +485,8 @@ pub fn run() {
             fs_ops::list_small_images,
             // Git
             git::git_detect,
+            git::git_init,
+            git::git_clone,
             git::git_list_branches,
             git::git_checkout,
             git::git_create_branch,
