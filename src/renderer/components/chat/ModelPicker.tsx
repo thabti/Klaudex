@@ -1,6 +1,8 @@
 import { memo, useState, useRef, useEffect } from 'react'
 import { IconChevronDown, IconRefresh } from '@tabler/icons-react'
 import { useSettingsStore, type ModelOption } from '@/stores/settingsStore'
+import { useTaskStore } from '@/stores/taskStore'
+import { usePanelResolvedTaskId } from './PanelContext'
 import { ipc } from '@/lib/ipc'
 import { cn } from '@/lib/utils'
 import { getModelIcon } from '@/lib/model-icons'
@@ -8,9 +10,11 @@ import { getModelIcon } from '@/lib/model-icons'
 const RETRY_DELAY_MS = 10_000
 
 export const ModelPicker = memo(function ModelPicker() {
-  const rawModels = useSettingsStore((s) => s.availableModels)
-  const models = Array.isArray(rawModels) ? rawModels : []
-  const currentId = useSettingsStore((s) => s.currentModelId)
+  const resolvedTaskId = usePanelResolvedTaskId()
+  const models = useSettingsStore((s) => s.availableModels)
+  const globalModelId = useSettingsStore((s) => s.currentModelId)
+  const taskModelId = useTaskStore((s) => resolvedTaskId ? s.taskModels[resolvedTaskId] ?? null : null)
+  const currentId = taskModelId ?? globalModelId
   const modelsError = useSettingsStore((s) => s.modelsError)
   const [open, setOpen] = useState(false)
   const [isTimedOut, setIsTimedOut] = useState(false)
@@ -99,6 +103,10 @@ export const ModelPicker = memo(function ModelPicker() {
                   setProjectPref(activeWorkspace, { modelId: m.modelId })
                 } else {
                   useSettingsStore.setState({ currentModelId: m.modelId })
+                }
+                // Store per-task model so split panels stay independent
+                if (resolvedTaskId) {
+                  useTaskStore.getState().setTaskModel(resolvedTaskId, m.modelId)
                 }
                 setOpen(false)
               }}

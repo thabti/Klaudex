@@ -15,7 +15,7 @@ import { QueuedMessages } from './QueuedMessages'
 import { SearchBar } from './SearchBar'
 import { SearchQueryContext } from './HighlightText'
 import { BtwOverlay } from './BtwOverlay'
-import { UserInputCard } from './UserInputCard'
+import { PanelProvider } from './PanelContext'
 import { useMessageSearch } from '@/hooks/useMessageSearch'
 import { ipc } from '@/lib/ipc'
 import { record } from '@/lib/analytics-collector'
@@ -54,9 +54,9 @@ const StreamingMessageList = memo(function StreamingMessageList({
   const storeSelectedId = useTaskStore((s) => s.selectedTaskId)
   const resolvedId = taskIdProp ?? storeSelectedId
   const messages = useTaskStore((s) => resolvedId ? s.tasks[resolvedId]?.messages ?? EMPTY_MESSAGES : EMPTY_MESSAGES)
-  const streamingChunk = useTaskStore((s) => s.btwCheckpoint ? '' : resolvedId ? s.streamingChunks[resolvedId] ?? '' : '')
-  const liveToolCalls = useTaskStore((s) => s.btwCheckpoint ? EMPTY_TOOL_CALLS : resolvedId ? s.liveToolCalls[resolvedId] ?? EMPTY_TOOL_CALLS : EMPTY_TOOL_CALLS)
-  const liveThinking = useTaskStore((s) => s.btwCheckpoint ? '' : resolvedId ? s.thinkingChunks[resolvedId] ?? '' : '')
+  const streamingChunk = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? '' : resolvedId ? s.streamingChunks[resolvedId] ?? '' : '')
+  const liveToolCalls = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? EMPTY_TOOL_CALLS : resolvedId ? s.liveToolCalls[resolvedId] ?? EMPTY_TOOL_CALLS : EMPTY_TOOL_CALLS)
+  const liveThinking = useTaskStore((s) => (s.btwCheckpoint?.taskId === resolvedId) ? '' : resolvedId ? s.thinkingChunks[resolvedId] ?? '' : '')
 
   return (
     <MessageList
@@ -90,17 +90,20 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
 
   if (isDraft || needsNewConnection) {
     const { settings, currentModeId } = useSettingsStore.getState()
+    const taskState = useTaskStore.getState()
     const projectRoot = task.originalWorkspace ?? task.workspace
     const projectPrefs = projectRoot ? settings.projectPrefs?.[projectRoot] : undefined
     const autoApprove = projectPrefs?.autoApprove !== undefined ? projectPrefs.autoApprove : settings.autoApprove
-    const modeId = currentModeId && currentModeId !== 'default' ? currentModeId : undefined
-    const created = await ipc.createTask({ name: task.name, workspace: task.workspace, prompt: msg, autoApprove, modeId, attachments })
+    const modeId = taskState.taskModes[targetTaskId] ?? currentModeId
+    const effectiveModeId = modeId && modeId !== 'kiro_default' ? modeId : undefined
+    const created = await ipc.createTask({ name: task.name, workspace: task.workspace, prompt: msg, autoApprove, modeId: effectiveModeId, attachments })
     const draft = useTaskStore.getState().tasks[task.id]
     const messages = draft?.messages.length ? draft.messages : [userMsg]
     state.upsertTask({ ...created, messages, needsNewConnection: undefined })
     record('thread_created', { project: proj, thread: created.id })
-    if (currentModeId && currentModeId !== 'kiro_default') {
-      useTaskStore.getState().setTaskMode(created.id, currentModeId)
+    const resolvedMode = taskState.taskModes[targetTaskId] ?? currentModeId
+    if (resolvedMode && resolvedMode !== 'kiro_default') {
+      useTaskStore.getState().setTaskMode(created.id, resolvedMode)
     }
     state.setSelectedTask(created.id)
   } else {
@@ -139,14 +142,16 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
   const taskPlan = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.plan : null)
   const pendingPermission = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.pendingPermission : null)
   const contextUsage = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.contextUsage : null)
-  const isPlanMode = useSettingsStore((s) => s.currentModeId === 'kiro_planner')
+  const taskModeId = useTaskStore((s) => resolvedTaskId ? s.taskModes[resolvedTaskId] ?? null : null)
+  const globalModeId = useSettingsStore((s) => s.currentModeId)
+  const isPlanMode = (taskModeId ?? globalModeId) === 'kiro_planner'
   const taskWorkspace = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.workspace : null)
   const isWorktree = useTaskStore((s) => resolvedTaskId ? !!s.tasks[resolvedTaskId]?.worktreePath : false)
   const messageCount = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.messages?.length ?? 0 : 0)
   const terminalOpen = useTaskStore((s) => resolvedTaskId ? s.terminalOpenTasks.has(resolvedTaskId) : false)
   const toggleTerminal = useTaskStore((s) => s.toggleTerminal)
   const queuedMessages = useTaskStore((s) => resolvedTaskId ? s.queuedMessages[resolvedTaskId] ?? EMPTY_QUEUE : EMPTY_QUEUE)
-  const isBtwMode = useTaskStore((s) => s.btwCheckpoint !== null)
+  const isBtwMode = useTaskStore((s) => s.btwCheckpoint !== null && s.btwCheckpoint.taskId === resolvedTaskId)
   // In split view, determine if this panel is the focused one (for drag/drop scoping)
   const isFocusedPanel = useTaskStore((s) => {
     if (!s.activeSplitId || !taskIdProp) return true // not in split view = always active
@@ -196,7 +201,7 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
     const task = id ? state.tasks[id] : null
     if (!task || !id) return
 
-    if (task.status === 'running' && !state.btwCheckpoint) {
+    if (task.status === 'running' && !(state.btwCheckpoint?.taskId === id)) {
       state.enqueueMessage(task.id, msg, attachments)
       return
     }
@@ -257,7 +262,7 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
 
   const searchQuery = search.isOpen ? search.query : ''
 
-  return (
+  const content = (
     <div data-testid="chat-panel" className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col">
       {isBtwMode && <BtwOverlay taskId={resolvedTaskId} />}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -364,4 +369,11 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
       )}
     </div>
   )
+
+  // In split mode, wrap with PanelProvider so child components (ModelPicker, PlanToggle, etc.)
+  // can resolve the panel's task ID instead of reading global state
+  if (taskIdProp) {
+    return <PanelProvider value={taskIdProp}>{content}</PanelProvider>
+  }
+  return content
 })

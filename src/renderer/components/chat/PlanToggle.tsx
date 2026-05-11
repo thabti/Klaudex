@@ -2,6 +2,7 @@ import { memo, useState, useRef, useEffect, useCallback } from 'react'
 import { IconChevronDown, IconCode, IconListCheck } from '@tabler/icons-react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { usePanelResolvedTaskId } from './PanelContext'
 import { ipc } from '@/lib/ipc'
 import { cn } from '@/lib/utils'
 
@@ -20,7 +21,10 @@ const MODES: readonly ModeEntry[] = [
 ] as const
 
 export const PlanToggle = memo(function PlanToggle() {
-  const currentModeId = useSettingsStore((s) => s.currentModeId)
+  const resolvedTaskId = usePanelResolvedTaskId()
+  const globalModeId = useSettingsStore((s) => s.currentModeId)
+  const taskModeId = useTaskStore((s) => resolvedTaskId ? s.taskModes[resolvedTaskId] ?? null : null)
+  const currentModeId = taskModeId ?? globalModeId
   const [isOpen, setIsOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -39,14 +43,14 @@ export const PlanToggle = memo(function PlanToggle() {
       return
     }
     useSettingsStore.setState({ currentModeId: modeId })
-    const taskId = useTaskStore.getState().selectedTaskId
+    const taskId = resolvedTaskId
     if (taskId) {
       useTaskStore.getState().setTaskMode(taskId, modeId)
       ipc.setMode(taskId, modeId).catch(() => {})
       ipc.sendMessage(taskId, `/agent ${modeId}`).catch(() => {})
     }
     setIsOpen(false)
-  }, [currentModeId])
+  }, [currentModeId, resolvedTaskId])
 
   const isPlan = currentModeId === MODE_PLAN
   const current = MODES.find((m) => m.id === currentModeId) ?? MODES[0]

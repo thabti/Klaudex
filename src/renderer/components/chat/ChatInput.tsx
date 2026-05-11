@@ -58,7 +58,9 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
     handleChange, handleSend, handleKeyDown, handleSelect,
   } = useChatInput({ disabled, isRunning, isActive, taskId, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange })
 
-  const currentModeId = useSettingsStore((s) => s.currentModeId)
+  const panelTaskModeId = useTaskStore((s) => taskId ? s.taskModes[taskId] : null)
+  const globalModeId = useSettingsStore((s) => s.currentModeId)
+  const currentModeId = panelTaskModeId ?? globalModeId
   const compactionStatus = useTaskStore((s) => taskId ? s.tasks[taskId]?.compactionStatus : undefined)
   const isMetaHeld = useModifierKeys()
 

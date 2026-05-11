@@ -1,5 +1,7 @@
 import { memo, useState, useRef, useEffect } from 'react'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useTaskStore } from '@/stores/taskStore'
+import { usePanelResolvedTaskId } from './PanelContext'
 import type { WorkingRow as WorkingRowData } from '@/lib/timeline'
 
 const LOADING_WORDS = [
@@ -16,7 +18,10 @@ const LOADING_WORDS = [
 ]
 
 export const WorkingRow = memo(function WorkingRow({ row }: { row: WorkingRowData }) {
-  const isPlan = useSettingsStore((s) => s.currentModeId) === 'kiro_planner'
+  const resolvedTaskId = usePanelResolvedTaskId()
+  const globalModeId = useSettingsStore((s) => s.currentModeId)
+  const taskModeId = useTaskStore((s) => resolvedTaskId ? s.taskModes[resolvedTaskId] ?? null : null)
+  const isPlan = (taskModeId ?? globalModeId) === 'kiro_planner'
   const [idx, setIdx] = useState(() =>
     Math.floor(Math.random() * LOADING_WORDS.length),
   )

@@ -45,6 +45,7 @@ export function useSidebarTasks(sort: SortKey): readonly SidebarProject[] {
   const projectIds = useTaskStore((s) => s.projectIds)
   const projectNames = useTaskStore((s) => s.projectNames)
   const drafts = useTaskStore((s) => s.drafts)
+  const threadOrders = useTaskStore((s) => s.threadOrders)
 
   // Extract only sidebar-relevant fields and memoize with structural sharing
   const prevRef = useRef<Map<string, SidebarTask>>(new Map())
@@ -80,9 +81,30 @@ export function useSidebarTasks(sort: SortKey): readonly SidebarProject[] {
       grouped.get(cwd)!.push(task)
     }
 
+    // Build reverse map: projectId → workspace path for display and thread order lookup
+    const idToWorkspace = new Map<string, string>()
+    for (const [ws, pid] of Object.entries(projectIds)) {
+      idToWorkspace.set(pid, ws)
+    }
+
     // Sort tasks within each group
     for (const [cwd, tasks] of grouped) {
-      grouped.set(cwd, sortTasks(tasks, sort))
+      if (sort === 'custom') {
+        // Resolve workspace from projectId for threadOrders lookup
+        const ws = idToWorkspace.get(cwd) ?? cwd
+        const order = threadOrders[ws]
+        if (order?.length) {
+          const orderMap = new Map(order.map((id, i) => [id, i]))
+          const ordered = [...tasks].sort((a, b) => {
+            const ai = orderMap.get(a.id) ?? Infinity
+            const bi = orderMap.get(b.id) ?? Infinity
+            return ai - bi
+          })
+          grouped.set(cwd, ordered)
+        }
+      } else {
+        grouped.set(cwd, sortTasks(tasks, sort))
+      }
     }
 
     // Inject draft entries — drafts are keyed by workspace, resolve to projectId
@@ -110,12 +132,6 @@ export function useSidebarTasks(sort: SortKey): readonly SidebarProject[] {
         worktreeWorkspaces.add(task.workspace)
         worktreeWorkspaces.add(task.worktreePath)
       }
-    }
-
-    // Build reverse map: projectId → workspace path for display
-    const idToWorkspace = new Map<string, string>()
-    for (const [ws, pid] of Object.entries(projectIds)) {
-      idToWorkspace.set(pid, ws)
     }
 
     // Build project list from all known workspaces (skip worktree paths)
@@ -168,5 +184,5 @@ export function useSidebarTasks(sort: SortKey): readonly SidebarProject[] {
     }
 
     return result as readonly SidebarProject[]
-  }, [sidebarTasks, sort, projects, projectIds, projectNames, drafts])
+  }, [sidebarTasks, sort, projects, projectIds, projectNames, drafts, threadOrders])
 }

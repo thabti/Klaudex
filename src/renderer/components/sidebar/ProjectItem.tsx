@@ -21,6 +21,7 @@ interface ProjectItemProps {
   autoFocus?: boolean
   jumpLabel?: string | null
   isMetaHeld?: boolean
+  isCustomSort?: boolean
   onSelectTask: (id: string) => void
   onNewThread: () => void
   onDeleteTask: (id: string) => void
@@ -29,13 +30,14 @@ interface ProjectItemProps {
   onArchiveThreads: () => void
   onMoveUp: () => void
   onMoveDown: () => void
+  onMoveThread: (from: number, to: number) => void
 }
 
 export const ProjectItem = memo(function ProjectItem({
-  name, cwd, tasks, selectedTaskId, isActiveProject, canMoveUp, canMoveDown, autoFocus, jumpLabel, isMetaHeld,
+  name, cwd, tasks, selectedTaskId, isActiveProject, canMoveUp, canMoveDown, autoFocus, jumpLabel, isMetaHeld, isCustomSort,
   onSelectTask, onNewThread, onDeleteTask, onRenameTask,
   onRemoveProject, onArchiveThreads,
-  onMoveUp, onMoveDown,
+  onMoveUp, onMoveDown, onMoveThread,
 }: ProjectItemProps) {
   const [expanded, setExpanded] = useState(true)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
@@ -198,9 +200,13 @@ export const ProjectItem = memo(function ProjectItem({
                 task={task}
                 isActive={selectedTaskId === task.id}
                 jumpLabel={threadJumpLabel}
+                canMoveUp={isCustomSort && i > 0 && !task.isDraft}
+                canMoveDown={isCustomSort && i < tasks.length - 1 && !task.isDraft}
                 onSelect={() => onSelectTask(task.id)}
                 onDelete={() => onDeleteTask(task.id)}
                 onRename={(n) => onRenameTask(task.id, n)}
+                onMoveUp={() => onMoveThread(i, i - 1)}
+                onMoveDown={() => onMoveThread(i, i + 1)}
               />
             )
           })}

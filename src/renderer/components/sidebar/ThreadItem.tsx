@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useEffect, useCallback } from 'react'
-import { IconPencil, IconTrash, IconArchive, IconGitBranch, IconLayoutColumns, IconArrowsSplit, IconPin, IconPinnedOff } from '@tabler/icons-react'
+import { IconPencil, IconTrash, IconArchive, IconGitBranch, IconLayoutColumns, IconArrowsSplit, IconPin, IconPinnedOff, IconArrowUp, IconArrowDown } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTaskStore } from '@/stores/taskStore'
 import { SplitThreadPicker } from '@/components/chat/SplitThreadPicker'
@@ -27,12 +27,16 @@ interface ThreadItemProps {
   task: SidebarTask
   isActive: boolean
   jumpLabel?: string | null
+  canMoveUp?: boolean
+  canMoveDown?: boolean
   onSelect: () => void
   onDelete: () => void
   onRename: (name: string) => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
 }
 
-export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, onSelect, onDelete, onRename }: ThreadItemProps) {
+export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, canMoveUp, canMoveDown, onSelect, onDelete, onRename, onMoveUp, onMoveDown }: ThreadItemProps) {
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(task.name)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
@@ -275,6 +279,29 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
                     </button>
                   )}
                   <div className="my-1 border-t border-border/50" />
+                  {(canMoveUp || canMoveDown) && (
+                    <>
+                      {canMoveUp && (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                          onClick={() => { onMoveUp?.(); setCtxMenu(null) }}
+                        >
+                          <IconArrowUp className="size-3.5" /> Move Up
+                        </button>
+                      )}
+                      {canMoveDown && (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                          onClick={() => { onMoveDown?.(); setCtxMenu(null) }}
+                        >
+                          <IconArrowDown className="size-3.5" /> Move Down
+                        </button>
+                      )}
+                      <div className="my-1 border-t border-border/50" />
+                    </>
+                  )}
                 </>
               )}
               <button

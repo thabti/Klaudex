@@ -2,6 +2,7 @@ import { memo, useCallback, useState } from 'react'
 import { IconRocket, IconArrowRight } from '@tabler/icons-react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { usePanelResolvedTaskId } from './PanelContext'
 import { ipc } from '@/lib/ipc'
 
 const HANDOFF_PATTERN = /ready to exit \[plan\] agent/i
@@ -12,12 +13,15 @@ export const isPlanHandoff = (text: string): boolean =>
   HANDOFF_PATTERN.test(text)
 
 export const PlanHandoffCard = memo(function PlanHandoffCard() {
-  const currentModeId = useSettingsStore((s) => s.currentModeId)
-  const isPlan = currentModeId === 'plan'
+  const resolvedTaskId = usePanelResolvedTaskId()
+  const globalModeId = useSettingsStore((s) => s.currentModeId)
+  const taskModeId = useTaskStore((s) => resolvedTaskId ? s.taskModes[resolvedTaskId] ?? null : null)
+  const currentModeId = taskModeId ?? globalModeId
+  const isPlan = currentModeId === 'kiro_planner'
   const [isSwitching, setIsSwitching] = useState(false)
 
   const handleSwitch = useCallback(() => {
-    const taskId = useTaskStore.getState().selectedTaskId
+    const taskId = resolvedTaskId
     if (!taskId || isSwitching) return
     setIsSwitching(true)
     useSettingsStore.setState({ currentModeId: 'default' })
@@ -31,7 +35,7 @@ export const PlanHandoffCard = memo(function PlanHandoffCard() {
       state.clearTurn(taskId)
       ipc.sendMessage(taskId, HANDOFF_MESSAGE)
     }).catch(() => setIsSwitching(false))
-  }, [isSwitching])
+  }, [isSwitching, resolvedTaskId])
 
   if (!isPlan) return null
 

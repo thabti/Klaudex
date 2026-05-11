@@ -37,7 +37,8 @@ export const SplitChatLayout = memo(function SplitChatLayout() {
     if (state.focusedPanel !== 'left') {
       setFocusedPanel('left')
       const sv = state.splitViews.find((v) => v.id === state.activeSplitId)
-      if (sv && state.selectedTaskId !== sv.left) {
+      if (sv) {
+        // Update selectedTaskId so non-split-aware code (App.tsx workspace sync) tracks the focused panel
         useTaskStore.setState({ selectedTaskId: sv.left })
       }
     }
@@ -47,7 +48,7 @@ export const SplitChatLayout = memo(function SplitChatLayout() {
     if (state.focusedPanel !== 'right') {
       setFocusedPanel('right')
       const sv = state.splitViews.find((v) => v.id === state.activeSplitId)
-      if (sv && state.selectedTaskId !== sv.right) {
+      if (sv) {
         useTaskStore.setState({ selectedTaskId: sv.right })
       }
     }

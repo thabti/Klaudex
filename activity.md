@@ -1,3 +1,9 @@
+## 2026-05-11 09:28 GST (Dubai)
+### Split-view: per-panel state, fix split close, thread ordering, perf audit
+Ported upstream commit 3724da8. Split view panels now have fully independent state via PanelContext. Added taskModels map so model/mode/auto-approve changes in one panel don't affect the other. Fixed split closing unexpectedly by making setSelectedTask split-aware. Sidebar thread and project ordering now persists across restarts with per-project threadOrder arrays.
+
+**Modified:** `src/renderer/App.tsx`, `src/renderer/components/chat/AgentPanel.tsx`, `src/renderer/components/chat/AutoApproveToggle.tsx`, `src/renderer/components/chat/ChatInput.tsx`, `src/renderer/components/chat/ChatPanel.tsx`, `src/renderer/components/chat/CompactSuggestBanner.tsx`, `src/renderer/components/chat/MessageItem.tsx`, `src/renderer/components/chat/ModelPicker.tsx`, `src/renderer/components/chat/PanelContext.tsx`, `src/renderer/components/chat/PlanHandoffCard.tsx`, `src/renderer/components/chat/PlanToggle.tsx`, `src/renderer/components/chat/SplitChatLayout.tsx`, `src/renderer/components/chat/WorkingRow.tsx`, `src/renderer/components/sidebar/ProjectItem.tsx`, `src/renderer/components/sidebar/TaskSidebar.tsx`, `src/renderer/components/sidebar/ThreadItem.tsx`, `src/renderer/hooks/useSidebarTasks.ts`, `src/renderer/lib/history-store.ts`, `src/renderer/stores/task-store-types.ts`, `src/renderer/stores/taskStore.test.ts`, `src/renderer/stores/taskStore.ts`
+
 ## 2026-05-11 09:26 GST (Dubai)
 ### Analytics: port slash command mode tracking and estimated token cost
 Ported upstream commit ce93c25. SlashCommandChart now shows stacked horizontal bars by mode (command vs plan) using recharts. TokensChart gains estimated cost display based on most-used model pricing with a 75/25 input/output heuristic. The `record('slash_cmd')` call in useSlashAction now appends the current mode to the detail field.

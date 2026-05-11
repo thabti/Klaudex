@@ -33,6 +33,7 @@ interface SavedProject {
   displayName?: string
   projectId?: string
   threadIds: string[]
+  threadOrder?: string[]
 }
 
 // ── Store singleton ──────────────────────────────────────────────
@@ -88,7 +89,13 @@ export async function loadProjects(): Promise<SavedProject[]> {
 }
 
 /** Persist a snapshot of the current threads */
-export async function saveThreads(tasks: Record<string, AgentTask>, projectNames: Record<string, string>, projectIds: Record<string, string> = {}): Promise<void> {
+export async function saveThreads(
+  tasks: Record<string, AgentTask>,
+  projectNames: Record<string, string>,
+  projectIds: Record<string, string> = {},
+  orderedProjects: string[] = [],
+  threadOrders: Record<string, string[]> = {},
+): Promise<void> {
   const threads: SavedThread[] = Object.values(tasks)
     .filter((t) => t.messages.length > 0)
     .map((t) => ({
@@ -112,12 +119,22 @@ export async function saveThreads(tasks: Record<string, AgentTask>, projectNames
     threadsByWorkspace.set(ws, ids)
   }
 
-  const workspaces = [...threadsByWorkspace.keys()]
+  // Use the caller's project order if provided, then append any workspaces not in the list
+  const seen = new Set<string>()
+  const workspaces: string[] = []
+  for (const ws of orderedProjects) {
+    if (!seen.has(ws)) { seen.add(ws); workspaces.push(ws) }
+  }
+  for (const ws of threadsByWorkspace.keys()) {
+    if (!seen.has(ws)) { seen.add(ws); workspaces.push(ws) }
+  }
+
   const projects: SavedProject[] = workspaces.map((ws) => ({
     workspace: ws,
     ...(projectNames[ws] ? { displayName: projectNames[ws] } : {}),
     ...(projectIds[ws] ? { projectId: projectIds[ws] } : {}),
     threadIds: threadsByWorkspace.get(ws) ?? [],
+    ...(threadOrders[ws]?.length ? { threadOrder: threadOrders[ws] } : {}),
   }))
 
   const store = await getStore()

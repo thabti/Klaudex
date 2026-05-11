@@ -2031,14 +2031,36 @@ describe('saveScrollPosition', () => {
 })
 
 describe('setSelectedTask deactivates split', () => {
-  it('deactivates active split when selecting a thread', () => {
+  it('keeps split active when selecting a thread that is part of the split', () => {
     useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
     useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
     useTaskStore.getState().createSplitView('t1', 't2')
     expect(useTaskStore.getState().activeSplitId).not.toBeNull()
     useTaskStore.getState().setSelectedTask('t1')
-    expect(useTaskStore.getState().activeSplitId).toBeNull()
+    expect(useTaskStore.getState().activeSplitId).not.toBeNull()
     expect(useTaskStore.getState().selectedTaskId).toBe('t1')
+    expect(useTaskStore.getState().focusedPanel).toBe('left')
+  })
+
+  it('focuses right panel when selecting the right split thread', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().createSplitView('t1', 't2')
+    useTaskStore.getState().setSelectedTask('t2')
+    expect(useTaskStore.getState().activeSplitId).not.toBeNull()
+    expect(useTaskStore.getState().selectedTaskId).toBe('t2')
+    expect(useTaskStore.getState().focusedPanel).toBe('right')
+  })
+
+  it('deactivates split when selecting a thread outside the split', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't3' }))
+    useTaskStore.getState().createSplitView('t1', 't2')
+    expect(useTaskStore.getState().activeSplitId).not.toBeNull()
+    useTaskStore.getState().setSelectedTask('t3')
+    expect(useTaskStore.getState().activeSplitId).toBeNull()
+    expect(useTaskStore.getState().selectedTaskId).toBe('t3')
   })
 
   it('deactivates split when selecting null', () => {
@@ -2052,8 +2074,9 @@ describe('setSelectedTask deactivates split', () => {
   it('preserves split views list when deactivating via setSelectedTask', () => {
     useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
     useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't3' }))
     const id = useTaskStore.getState().createSplitView('t1', 't2')
-    useTaskStore.getState().setSelectedTask('t1')
+    useTaskStore.getState().setSelectedTask('t3')
     // Split view still saved, just not active
     expect(useTaskStore.getState().splitViews).toHaveLength(1)
     expect(useTaskStore.getState().splitViews[0].id).toBe(id)
@@ -2210,13 +2233,14 @@ describe('split view focus isolation', () => {
     expect(useTaskStore.getState().activeSplitId).not.toBeNull()
   })
 
-  it('setSelectedTask deactivates split (normal navigation)', () => {
+  it('setSelectedTask focuses panel for split thread instead of deactivating', () => {
     useTaskStore.getState().upsertTask(makeTask({ id: 'left-1' }))
     useTaskStore.getState().upsertTask(makeTask({ id: 'right-1' }))
     useTaskStore.getState().createSplitView('left-1', 'right-1')
     expect(useTaskStore.getState().activeSplitId).not.toBeNull()
     useTaskStore.getState().setSelectedTask('left-1')
-    expect(useTaskStore.getState().activeSplitId).toBeNull()
+    expect(useTaskStore.getState().activeSplitId).not.toBeNull()
+    expect(useTaskStore.getState().focusedPanel).toBe('left')
   })
 
   it('each panel has independent messages scoped to its own task', () => {

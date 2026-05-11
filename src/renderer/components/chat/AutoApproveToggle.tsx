@@ -4,7 +4,15 @@ import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { usePanelResolvedTaskId } from './PanelContext'
 import type { AppSettings } from '@/types'
+
+/** Resolve auto-approve for a specific workspace (or fall back to global). */
+export const getAutoApproveForWorkspace = (workspace: string | null): boolean => {
+  const { settings } = useSettingsStore.getState()
+  const projectPref = workspace ? settings.projectPrefs?.[workspace]?.autoApprove : undefined
+  return projectPref !== undefined ? projectPref : (settings.autoApprove ?? false)
+}
 
 // ── Local mirror of the Rust types in commands/settings.rs ─────────────
 type PermissionMode = 'ask' | 'allowListed' | 'bypass'
@@ -53,8 +61,22 @@ const PERMISSIONS: readonly PermissionEntry[] = [
 ] as const
 
 export const AutoApproveToggle = memo(function AutoApproveToggle() {
-  const mode = useSettingsStore(selectPermissionMode)
-  const isAutoApprove = mode === 'bypass'
+  const resolvedTaskId = usePanelResolvedTaskId()
+  // Derive workspace from the panel's task, not the global activeWorkspace
+  const panelWorkspace = useTaskStore((s) => {
+    if (!resolvedTaskId) return null
+    const task = s.tasks[resolvedTaskId]
+    return task ? (task.originalWorkspace ?? task.workspace) : null
+  })
+  // Read auto-approve from the panel's workspace.
+  // Both stores are subscribed separately — panelWorkspace is a primitive (string|null)
+  // so Object.is bail-out works. The settings selector re-runs when settings change.
+  const globalAutoApprove = useSettingsStore((s) => s.settings.autoApprove ?? false)
+  const projectAutoApprove = useSettingsStore((s) => {
+    if (!panelWorkspace) return undefined
+    return s.settings.projectPrefs?.[panelWorkspace]?.autoApprove
+  })
+  const isAutoApprove = projectAutoApprove !== undefined ? projectAutoApprove : globalAutoApprove
   const [isOpen, setIsOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -68,37 +90,31 @@ export const AutoApproveToggle = memo(function AutoApproveToggle() {
   }, [isOpen])
 
   const handleSelect = useCallback((permissionId: string) => {
-    const nextMode: PermissionMode = permissionId === 'auto-approve' ? 'bypass' : 'ask'
-    const { settings, activeWorkspace, setProjectPref, saveSettings } = useSettingsStore.getState()
-    const settingsWithPerms = settings as SettingsWithPermissions
-    const globalPerms = settingsWithPerms.permissions ?? DEFAULT_PERMISSIONS
-    const projectPerms = activeWorkspace
-      ? (settings.projectPrefs?.[activeWorkspace] as ProjectPrefsWithPermissions | undefined)?.permissions
-      : undefined
-    const currentScope: Permissions = projectPerms ?? globalPerms
-    if (currentScope.mode === nextMode) {
+    const next = permissionId === 'auto-approve'
+    const { settings, setProjectPref, saveSettings } = useSettingsStore.getState()
+    const workspace = panelWorkspace
+    const current = workspace
+      ? (settings.projectPrefs?.[workspace]?.autoApprove ?? settings.autoApprove ?? false)
+      : (settings.autoApprove ?? false)
+    if (next === current) {
       setIsOpen(false)
       return
     }
-    const nextScope: Permissions = { ...currentScope, mode: nextMode }
-    if (activeWorkspace) {
-      setProjectPref(activeWorkspace, { permissions: nextScope } as unknown as Parameters<typeof setProjectPref>[1])
+    if (workspace) {
+      setProjectPref(workspace, { autoApprove: next })
     } else {
-      const nextSettings: SettingsWithPermissions = { ...settingsWithPerms, permissions: nextScope }
-      saveSettings(nextSettings as AppSettings).catch(() => {
-        console.warn('[autoApprove] failed to persist permission mode')
-      })
+      saveSettings({ ...settings, autoApprove: next })
     }
-    const { selectedTaskId, tasks } = useTaskStore.getState()
-    if (selectedTaskId) {
-      const task = tasks[selectedTaskId]
-      const isLive = task && (task.status === 'running' || task.status === 'pending_permission' || task.status === 'paused' || task.status === 'completed')
+    const taskId = resolvedTaskId
+    if (taskId) {
+      const task = useTaskStore.getState().tasks[taskId]
+      const isLive = task && (task.status === 'running' || task.status === 'pending_permission' || task.status === 'paused')
       if (isLive) {
-        ipc.setAutoApprove(selectedTaskId, nextMode === 'bypass').catch(() => {})
+        ipc.setAutoApprove(taskId, next).catch(() => {})
       }
     }
     setIsOpen(false)
-  }, [])
+  }, [panelWorkspace, resolvedTaskId])
 
   const currentId = isAutoApprove ? 'auto-approve' : 'ask-first'
   const current = PERMISSIONS.find((p) => p.id === currentId) ?? PERMISSIONS[0]

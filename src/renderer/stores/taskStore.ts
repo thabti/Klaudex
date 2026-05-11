@@ -42,6 +42,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   _suppressDraftSave: null,
   notifiedTaskIds: [],
   taskModes: {},
+  taskModels: {},
   isForking: false,
   lastAddedProject: null,
   worktreeCleanupPending: null,
@@ -50,12 +51,33 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   activeSplitId: null,
   focusedPanel: 'left' as const,
   scrollPositions: {},
+  threadOrders: {},
 
   setSelectedTask: (id) => {
-    const { selectedTaskId: currentId, activeSplitId } = get()
+    const { selectedTaskId: currentId, activeSplitId, splitViews, focusedPanel } = get()
     if (currentId === id && !activeSplitId) return
+    // If the target task is part of the active split, focus that panel instead of closing the split
+    if (activeSplitId && id) {
+      const sv = splitViews.find((v) => v.id === activeSplitId)
+      if (sv && (sv.left === id || sv.right === id)) {
+        const panel = sv.left === id ? 'left' as const : 'right' as const
+        const updates: Partial<import('./task-store-types').TaskStore> = { selectedTaskId: id }
+        if (focusedPanel !== panel) updates.focusedPanel = panel
+        set(updates)
+        const task = get().tasks[id]
+        const modeId = get().taskModes[id] ?? 'kiro_default'
+        const workspace = task ? (task.originalWorkspace ?? task.workspace) : null
+        const operationalWs = task ? task.workspace : null
+        useSettingsStore.getState().setActiveWorkspace(workspace, operationalWs)
+        useSettingsStore.setState({ currentModeId: modeId })
+        // Sync per-task model to global (for non-split-aware components)
+        const modelId = get().taskModels[id]
+        if (modelId) useSettingsStore.setState({ currentModelId: modelId })
+        return
+      }
+    }
     const updates: Partial<import('./task-store-types').TaskStore> = { selectedTaskId: id }
-    // Navigating to a thread deactivates split (but keeps the saved pairing)
+    // Navigating to a thread outside the split deactivates it (but keeps the saved pairing)
     if (activeSplitId) {
       updates.activeSplitId = null
     }
@@ -66,6 +88,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const operationalWs = task ? task.workspace : null
     useSettingsStore.getState().setActiveWorkspace(workspace, operationalWs)
     useSettingsStore.setState({ currentModeId: modeId })
+    // Sync per-task model to global (for non-split-aware components)
+    if (id) {
+      const modelId = get().taskModels[id]
+      if (modelId) useSettingsStore.setState({ currentModelId: modelId })
+    }
   },
   setView: (view) => {
     if (get().view === view) return
@@ -140,6 +167,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const { [workspace]: _, ...drafts } = s.drafts
       const taskModes = { ...s.taskModes }
       taskIds.forEach((id) => { delete taskModes[id] })
+      const taskModels = { ...s.taskModels }
+      taskIds.forEach((id) => { delete taskModels[id] })
       // Clean up projectIds entries that point to this UUID
       const projectIds = { ...s.projectIds }
       for (const [ws, pid] of Object.entries(projectIds)) {
@@ -154,6 +183,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         deletedTaskIds,
         drafts,
         taskModes,
+        taskModels,
         pendingWorkspace: s.pendingWorkspace === workspace ? null : s.pendingWorkspace,
         view: selectedTaskId === null && s.view === 'chat' ? 'dashboard' : s.view,
       }
@@ -339,6 +369,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const { [id]: _tc, ...tools } = state.liveToolCalls
       const { [id]: _sa, ...subagents } = state.liveSubagents
       const { [id]: _m, ...modes } = state.taskModes
+      const { [id]: _mdl, ...models } = state.taskModels
       const deletedTaskIds = new Set(state.deletedTaskIds)
       deletedTaskIds.add(id)
       const softDeleted = {
@@ -352,6 +383,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         liveToolCalls: tools,
         liveSubagents: subagents,
         taskModes: modes,
+        taskModels: models,
         deletedTaskIds,
         softDeleted,
         selectedTaskId: state.selectedTaskId === id ? null : state.selectedTaskId,
@@ -679,6 +711,18 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     get().persistHistory()
   },
 
+  reorderThread: (workspace, from, to) => {
+    if (from === to) return
+    set((state) => {
+      const order = [...(state.threadOrders[workspace] ?? [])]
+      if (from < 0 || from >= order.length || to < 0 || to >= order.length) return state
+      const [item] = order.splice(from, 1)
+      order.splice(to, 0, item)
+      return { threadOrders: { ...state.threadOrders, [workspace]: order } }
+    })
+    get().persistHistory()
+  },
+
   setDraft: (workspace, content) => {
     // Skip save if this workspace was just explicitly deleted (unmount flush guard)
     if (get()._suppressDraftSave === workspace) {
@@ -771,6 +815,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set((s) => ({ taskModes: { ...s.taskModes, [taskId]: modeId } }))
   },
 
+  setTaskModel: (taskId, modelId) => {
+    if (get().taskModels[taskId] === modelId) return
+    set((s) => ({ taskModels: { ...s.taskModels, [taskId]: modelId } }))
+  },
+
   loadTasks: async () => {
     try {
       const list = await ipc.listTasks()
@@ -802,10 +851,17 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           }
         }
         // Derive projects AFTER merge so worktree tasks use restored originalWorkspace
-        const projects = [...new Set(Object.values(tasks).map((t) => t.originalWorkspace ?? t.workspace))]
-        // Merge project workspaces from history
+        // Start with saved project order, then append any new workspaces
+        const savedOrder = savedProjects.map((sp) => sp.workspace)
+        const projectsSet = new Set(savedOrder)
+        const projects = [...savedOrder]
+        for (const t of Object.values(tasks)) {
+          const ws = t.originalWorkspace ?? t.workspace
+          if (!projectsSet.has(ws)) { projectsSet.add(ws); projects.push(ws) }
+        }
+        // Merge project workspaces from history (already in savedOrder, but handle edge cases)
         for (const sp of savedProjects) {
-          if (!projects.includes(sp.workspace)) projects.push(sp.workspace)
+          if (!projectsSet.has(sp.workspace)) { projectsSet.add(sp.workspace); projects.push(sp.workspace) }
         }
         // Restore project display names and projectIds
         const projectNames: Record<string, string> = {}
@@ -856,7 +912,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
             tasks[id] = t
           }
         }
-        set({ tasks, projects, projectIds, projectNames, softDeleted, deletedTaskIds, connected: true })
+        // Restore per-project thread ordering
+        const threadOrders: Record<string, string[]> = {}
+        for (const sp of savedProjects) {
+          if (sp.threadOrder?.length) threadOrders[sp.workspace] = sp.threadOrder
+        }
+        set({ tasks, projects, projectIds, projectNames, softDeleted, deletedTaskIds, threadOrders, connected: true })
       } catch {
         // History load failed — derive projects from live tasks, filtering worktree paths
         const projects = [...new Set(list.map((t) => t.originalWorkspace ?? t.workspace))]
@@ -916,7 +977,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
             tasks[id] = t
           }
         }
-        set({ tasks, projects, projectIds, projectNames, softDeleted, deletedTaskIds, connected: false })
+        // Restore per-project thread ordering
+        const threadOrders: Record<string, string[]> = {}
+        for (const sp of savedProjects) {
+          if (sp.threadOrder?.length) threadOrders[sp.workspace] = sp.threadOrder
+        }
+        set({ tasks, projects, projectIds, projectNames, softDeleted, deletedTaskIds, threadOrders, connected: false })
       } catch {
         set({ connected: false })
       }
@@ -929,8 +995,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   persistHistory: () => {
-    const { tasks, projectNames, projectIds, softDeleted } = get()
-    historyStore.saveThreads(tasks, projectNames, projectIds).catch((err) => {
+    const { tasks, projectNames, projectIds, softDeleted, projects, threadOrders } = get()
+    historyStore.saveThreads(tasks, projectNames, projectIds, projects, threadOrders).catch((err) => {
       console.warn('[persistHistory] saveThreads failed:', err)
     })
     historyStore.saveSoftDeleted(Object.values(softDeleted)).catch((err) => {
@@ -970,7 +1036,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       _suppressDraftSave: null,
       notifiedTaskIds: [],
       activityFeed: [],
-      pendingUserInputs: {},
+      threadOrders: {},
     })
     // Clear project-specific preferences but preserve core settings (onboarding, CLI path, model, etc.)
     const currentSettings = useSettingsStore.getState().settings
@@ -1008,6 +1074,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         const { [taskId]: _tc, ...tools } = state.liveToolCalls
         const { [taskId]: _sa, ...subagents } = state.liveSubagents
         const { [taskId]: _m, ...modes } = state.taskModes
+        const { [taskId]: _mdl, ...models } = state.taskModels
         const deletedTaskIds = new Set(state.deletedTaskIds)
         deletedTaskIds.add(taskId)
         const softDeleted = {
@@ -1021,6 +1088,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           liveToolCalls: tools,
           liveSubagents: subagents,
           taskModes: modes,
+          taskModels: models,
           deletedTaskIds,
           softDeleted,
           selectedTaskId: state.selectedTaskId === taskId ? null : state.selectedTaskId,

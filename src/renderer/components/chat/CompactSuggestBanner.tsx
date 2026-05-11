@@ -2,6 +2,7 @@ import { memo, useCallback, useState } from 'react'
 import { IconWriting, IconArrowRight } from '@tabler/icons-react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { usePanelResolvedTaskId } from './PanelContext'
 import { ipc } from '@/lib/ipc'
 
 const COMPACT_SUGGEST_THRESHOLD = 30
@@ -16,10 +17,11 @@ export const CompactSuggestBanner = memo(function CompactSuggestBanner({
   contextUsage,
   isPlanMode,
 }: CompactSuggestBannerProps) {
+  const resolvedTaskId = usePanelResolvedTaskId()
   const [isSwitching, setIsSwitching] = useState(false)
 
   const handleStartBuilding = useCallback(() => {
-    const taskId = useTaskStore.getState().selectedTaskId
+    const taskId = resolvedTaskId
     if (!taskId || isSwitching) return
     setIsSwitching(true)
     useSettingsStore.setState({ currentModeId: 'default' })
@@ -33,7 +35,7 @@ export const CompactSuggestBanner = memo(function CompactSuggestBanner({
       state.clearTurn(taskId)
       ipc.sendMessage(taskId, HANDOFF_MESSAGE)
     }).catch(() => setIsSwitching(false))
-  }, [isSwitching])
+  }, [isSwitching, resolvedTaskId])
 
   if (!isPlanMode) return null
   if (!contextUsage || contextUsage.size === 0) return null

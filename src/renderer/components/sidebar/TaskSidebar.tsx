@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
-import { useSidebarTasks, type SortKey } from '@/hooks/useSidebarTasks'
+import { useSidebarTasks, type SortKey, type SidebarTask } from '@/hooks/useSidebarTasks'
 import { useResizeHandle } from '@/hooks/useResizeHandle'
 import { useModifierKeys } from '@/hooks/useModifierKeys'
 import { ProjectItem } from './ProjectItem'
@@ -188,14 +188,32 @@ const SidebarDivider = memo(function SidebarDivider() {
   )
 })
 
+const SORT_STORAGE_KEY = 'klaudex-sidebar-sort'
+
+const loadSortPreference = (): SortKey => {
+  try {
+    const stored = localStorage.getItem(SORT_STORAGE_KEY)
+    if (stored && SORT_OPTIONS.some((o) => o.key === stored)) return stored as SortKey
+  } catch { /* private browsing / quota exceeded */ }
+  return 'created'
+}
+
+const saveSortPreference = (sort: SortKey): void => {
+  try { localStorage.setItem(SORT_STORAGE_KEY, sort) } catch { /* best-effort */ }
+}
+
 export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position = 'left' }: TaskSidebarProps) {
   const isRight = position === 'right'
-  const [sort, setSort] = useState<SortKey>('created')
+  const [sort, setSort] = useState<SortKey>(loadSortPreference)
+  const handleSortChange = useCallback((s: SortKey) => {
+    setSort(s)
+    saveSortPreference(s)
+  }, [])
   const projectList = useSidebarTasks(sort)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
   const isMetaHeld = useModifierKeys()
 
-  const { selectedTaskId, pendingWorkspace, lastAddedProject, setSelectedTask, setView, setNewProjectOpen, removeTask, removeProject, archiveThreads, renameTask, reorderProject, clearLastAddedProject } = useTaskStore(
+  const { selectedTaskId, pendingWorkspace, lastAddedProject, setSelectedTask, setView, setNewProjectOpen, removeTask, removeProject, archiveThreads, renameTask, reorderProject, reorderThread, clearLastAddedProject } = useTaskStore(
     useShallow((s) => ({
       selectedTaskId: s.selectedTaskId,
       pendingWorkspace: s.pendingWorkspace,
@@ -208,6 +226,7 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
       archiveThreads: s.archiveThreads,
       renameTask: s.renameTask,
       reorderProject: s.reorderProject,
+      reorderThread: s.reorderThread,
       clearLastAddedProject: s.clearLastAddedProject,
     }))
   )
@@ -226,9 +245,21 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
   const handleMoveProject = useCallback((fromIdx: number, direction: 'up' | 'down') => {
     const toIdx = direction === 'up' ? fromIdx - 1 : fromIdx + 1
     if (toIdx < 0 || toIdx >= projectList.length) return
-    if (sort !== 'custom') setSort('custom')
+    if (sort !== 'custom') handleSortChange('custom')
     reorderProject(fromIdx, toIdx)
-  }, [sort, projectList.length, reorderProject])
+  }, [sort, projectList.length, reorderProject, handleSortChange])
+
+  /** Move a thread up or down within a project, auto-switching to custom sort and initializing order */
+  const handleMoveThread = useCallback((workspace: string, tasks: readonly SidebarTask[], from: number, to: number) => {
+    if (sort !== 'custom') handleSortChange('custom')
+    // Initialize threadOrders for this workspace if not yet set
+    const state = useTaskStore.getState()
+    if (!state.threadOrders[workspace]?.length) {
+      const order = tasks.filter((t) => !t.isDraft).map((t) => t.id)
+      useTaskStore.setState((s) => ({ threadOrders: { ...s.threadOrders, [workspace]: order } }))
+    }
+    reorderThread(workspace, from, to)
+  }, [sort, handleSortChange, reorderThread])
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -305,7 +336,7 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
       <div className="flex items-center justify-between px-4 py-2 pr-3">
         <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Projects</span>
         <div className="flex shrink-0 items-center gap-1">
-          <SortDropdown sort={sort} onChange={setSort} />
+          <SortDropdown sort={sort} onChange={handleSortChange} />
           <Tooltip>
             <TooltipTrigger asChild>
               <button type="button" aria-label="Add project" data-testid="add-project-button" onClick={() => setNewProjectOpen(true)}
@@ -357,6 +388,7 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
                   autoFocus={project.cwd === lastAddedProject}
                   jumpLabel={isMetaHeld && idx < 9 ? `⌘${idx + 1}` : null}
                   isMetaHeld={isMetaHeld}
+                  isCustomSort={sort === 'custom'}
                   onSelectTask={handleSelectTask}
                   onNewThread={() => handleNewThread(project.cwd)}
                   onDeleteTask={handleDeleteTask}
@@ -365,6 +397,7 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
                   onArchiveThreads={() => archiveThreads(project.cwd)}
                   onMoveUp={() => handleMoveProject(idx, 'up')}
                   onMoveDown={() => handleMoveProject(idx, 'down')}
+                  onMoveThread={(from, to) => handleMoveThread(project.cwd, project.tasks, from, to)}
                 />
               ))}
             </ul>

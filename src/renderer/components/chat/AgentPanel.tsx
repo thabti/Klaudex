@@ -5,6 +5,7 @@ import { fuzzyScore } from '@/lib/fuzzy-search'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { useClaudeConfigStore } from '@/stores/claudeConfigStore'
+import { usePanelResolvedTaskId } from './PanelContext'
 import { ipc } from '@/lib/ipc'
 import { PanelShell } from './PanelShell'
 
@@ -22,20 +23,23 @@ const BUILT_IN_AGENTS = [
 
 export const AgentPanel = memo(function AgentPanel({ onDismiss }: { onDismiss: () => void }) {
   const servers = useSettingsStore((s) => s.liveMcpServers)
-  const currentModeId = useSettingsStore((s) => s.currentModeId)
+  const resolvedTaskId = usePanelResolvedTaskId()
+  const globalModeId = useSettingsStore((s) => s.currentModeId)
+  const taskModeId = useTaskStore((s) => resolvedTaskId ? s.taskModes[resolvedTaskId] ?? null : null)
+  const currentModeId = taskModeId ?? globalModeId
   const claudeAgents = useClaudeConfigStore((s) => s.config.agents)
   const [query, setQuery] = useState('')
 
   const handleSelectAgent = useCallback((agentId: string) => {
     useSettingsStore.setState({ currentModeId: agentId })
-    const taskId = useTaskStore.getState().selectedTaskId
+    const taskId = resolvedTaskId
     if (taskId) {
       useTaskStore.getState().setTaskMode(taskId, agentId)
       ipc.setMode(taskId, agentId).catch(() => {})
       ipc.sendMessage(taskId, `/agent ${agentId}`).catch(() => {})
     }
     onDismiss()
-  }, [onDismiss])
+  }, [onDismiss, resolvedTaskId])
 
   const formatName = (name: string): string => name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 

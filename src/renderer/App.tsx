@@ -144,6 +144,20 @@ function EmptyState() {
 const navigateToNotifiedTask = (taskId: string): void => {
   const store = useTaskStore.getState()
   if (!store.tasks[taskId]) return
+  // If the task is already visible in the active split, just focus that panel
+  if (store.activeSplitId) {
+    const sv = store.splitViews.find((v) => v.id === store.activeSplitId)
+    if (sv && (sv.left === taskId || sv.right === taskId)) {
+      const panel = sv.left === taskId ? 'left' as const : 'right' as const
+      store.setFocusedPanel(panel)
+      useTaskStore.setState((s) => ({
+        selectedTaskId: taskId,
+        notifiedTaskIds: s.notifiedTaskIds.filter((id) => id !== taskId),
+      }))
+      store.setView('chat')
+      return
+    }
+  }
   store.setSelectedTask(taskId)
   store.setView('chat')
   useTaskStore.setState((s) => ({

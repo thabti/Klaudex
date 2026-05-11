@@ -56,6 +56,8 @@ export interface TaskStore {
   notifiedTaskIds: string[]
   /** Per-thread mode (e.g. 'plan') so toggling plan mode in one thread doesn't affect others */
   taskModes: Record<string, string>
+  /** Per-thread model ID so switching model in one thread doesn't affect others */
+  taskModels: Record<string, string>
   /** Whether a fork operation is in progress */
   isForking: boolean
   /** Workspace path of the most recently added project (for auto-focus) */
@@ -72,6 +74,8 @@ export interface TaskStore {
   focusedPanel: 'left' | 'right'
   /** Per-thread scroll positions (in-memory only, not persisted) */
   scrollPositions: Record<string, number>
+  /** Per-project thread ordering (workspace → ordered thread IDs) */
+  threadOrders: Record<string, string[]>
   setSelectedTask: (id: string | null) => void
   setView: (view: 'chat' | 'dashboard' | 'analytics') => void
   setNewProjectOpen: (open: boolean) => void
@@ -107,6 +111,8 @@ export interface TaskStore {
   forkTask: (taskId: string) => Promise<void>
   projectNames: Record<string, string>
   reorderProject: (from: number, to: number) => void
+  /** Reorder a thread within a project */
+  reorderThread: (workspace: string, from: number, to: number) => void
   setDraft: (workspace: string, content: string) => void
   removeDraft: (workspace: string) => void
   setDraftAttachments: (workspace: string, attachments: Attachment[]) => void
@@ -118,6 +124,7 @@ export interface TaskStore {
   toggleTerminal: (taskId: string) => void
   toggleWorkspaceTerminal: () => void
   setTaskMode: (taskId: string, modeId: string) => void
+  setTaskModel: (taskId: string, modelId: string) => void
   loadTasks: () => Promise<void>
   setConnected: (v: boolean) => void
   persistHistory: () => void
