@@ -7,8 +7,24 @@ extern crate objc;
 mod commands;
 
 use commands::{acp, analytics, fs_ops, git, kiro_config, pty, settings};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
 use tauri::Emitter;
+
+/// Flag set by the frontend before calling `relaunch()` so the
+/// `CloseRequested` handler skips the quit confirmation dialog.
+struct RelaunchFlag(AtomicBool);
+
+impl Default for RelaunchFlag {
+    fn default() -> Self {
+        Self(AtomicBool::new(false))
+    }
+}
+
+#[tauri::command]
+fn set_relaunch_flag(flag: tauri::State<'_, RelaunchFlag>) {
+    flag.0.store(true, Ordering::Release);
+}
 
 /// Install a global panic hook that logs the panic message and backtrace.
 /// This catches panics on *any* thread (background ACP, probe, PTY reader)
@@ -283,6 +299,7 @@ pub fn run() {
         .manage(acp::AcpState::default())
         .manage(pty::PtyState::default())
         .manage(claude_watcher::ClaudeWatcherState::default())
+        .manage(RelaunchFlag::default())
         .setup(|app| {
             let _window = app.get_webview_window("main")
                 .ok_or_else(|| "main window not found".to_string())?;
@@ -334,6 +351,16 @@ pub fn run() {
             match event {
                 tauri::WindowEvent::CloseRequested { api, .. } => {
                     let app = window.app_handle();
+
+                    // If a relaunch is in progress, skip the confirmation dialog
+                    // and let the close proceed so `relaunch()` can restart the app.
+                    if let Some(flag) = app.try_state::<RelaunchFlag>() {
+                        if flag.0.load(Ordering::Acquire) {
+                            shutdown_app(&app);
+                            return;
+                        }
+                    }
+
                     let window_count = app.webview_windows().len();
                     // Secondary windows close without confirmation
                     if window_count > 1 {
@@ -451,6 +478,8 @@ pub fn run() {
             statusline::run_statusline_command,
             // Permissions import (TASK-116)
             settings::read_claude_settings_permissions,
+            // Relaunch
+            set_relaunch_flag,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

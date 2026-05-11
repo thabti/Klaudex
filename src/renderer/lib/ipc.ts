@@ -265,6 +265,9 @@ export const ipc = {
     tracedInvoke('claude_login', { claudeBin }),
   openTerminalWithCommand: (command: string): Promise<void> =>
     invoke('open_terminal_with_command', { command }),
+  // Relaunch
+  setRelaunchFlag: (): Promise<void> =>
+    invoke('set_relaunch_flag'),
   // Event listeners
   onTaskUpdate: (cb: (task: AgentTask) => void): UnsubscribeFn =>
     tauriListen<AgentTask>('task_update', (task) => { logEvent('task_update', { taskId: task.id, status: task.status }, task.id); cb(task) }),

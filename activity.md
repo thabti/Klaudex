@@ -1,3 +1,12 @@
+## 2026-05-11 06:38 GST (Dubai)
+### Updater: Bypass quit confirmation dialog on relaunch
+Ported upstream commit 8ee1659 from kirodex. Added a `RelaunchFlag` (AtomicBool) to managed Tauri state with a `set_relaunch_flag` command. `prepareForRelaunch()` now sets this flag before calling `relaunch()`. The `CloseRequested` handler checks the flag and skips the confirmation dialog when a relaunch is in progress.
+
+**Modified:**
+- `src-tauri/src/lib.rs`
+- `src/renderer/lib/ipc.ts`
+- `src/renderer/lib/relaunch.ts`
+
 ## 2026-05-11 06:36 GST (Dubai)
 ### Git: Replace git2 remote callbacks with git CLI for network ops
 Ported upstream commit 4812906 from kirodex. Replaced `git2` `RemoteCallbacks`/`Cred` credential handling with a `run_git()` helper that shells out to the system `git` binary for fetch, push, and pull. This fixes SSH auth failures caused by libssh2's inability to access macOS Keychain passphrases. Local operations (diff, stage, branch, commit) still use git2.
