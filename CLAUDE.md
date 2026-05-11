@@ -6,20 +6,20 @@ Klaudex is a native macOS desktop app for managing AI coding agents via the Agen
 
 ## Tech stack
 
-- **Desktop framework**: Tauri v2 (Rust backend, WebView frontend)
+- **Desktop framework**: Tauri v2 (Rust backend, WebView frontend) — macOS, Windows, Linux
 - **Backend**: Rust 2021 edition
 - **Frontend**: React 19, TypeScript 5, Vite 6
-- **Styling**: Tailwind CSS 4 (utility-first, dark theme)
+- **Styling**: Tailwind CSS 4 (utility-first, dark/light theme)
 - **UI components**: Radix UI primitives, Tabler icons (`@tabler/icons-react`)
 - **State management**: Zustand 5 (stores in `src/renderer/stores/`)
 - **Markdown**: react-markdown + remark-gfm
 - **Virtualization**: @tanstack/react-virtual
-- **Diffing**: diff + @pierre/diffs
+- **Diffing**: diff + @pierre/diffs + imara-diff (Rust, fast Myers/Histogram)
 - **Terminal**: xterm + @xterm/addon-fit + portable-pty (Rust)
-- **Code highlighting**: Shiki
+- **Code highlighting**: Shiki (frontend) + syntect (Rust backend)
 - **Build**: Vite (renderer), Cargo (Rust backend), bun as package manager
 - **Protocol**: agent-client-protocol crate for ACP subprocess management
-- **Rust crates**: git2 (libgit2 bindings), thiserror (error types), which (binary detection), serde_yaml (YAML parsing), confy (config persistence)
+- **Rust crates**: git2 (libgit2), thiserror, which, serde_yaml, confy, redb (embedded KV), rusqlite (bundled SQLite), nucleo-matcher (fuzzy search), pulldown-cmark (markdown), blake3 (hashing), reqwest (HTTP), tauri-plugin-{log,store,updater,notification,process,dialog}, notify (fs watching), parking_lot, window-vibrancy
 
 ## Project structure
 
@@ -29,57 +29,129 @@ src/
 │   ├── main.tsx             # React entry
 │   ├── App.tsx              # Root layout
 │   ├── types/index.ts       # Shared types (TaskStatus, AgentTask, etc.)
-│   ├── lib/
+│   ├── lib/                 # Utilities and business logic (40+ modules)
 │   │   ├── ipc.ts           # Tauri invoke/listen wrappers
 │   │   ├── timeline.ts      # Timeline rendering logic
-│   │   └── utils.ts         # cn() helper
-│   ├── hooks/
-│   │   └── useSlashAction.ts # Client-side slash command handler
+│   │   ├── analytics.ts     # Analytics collection/aggregation
+│   │   ├── thread-db.ts     # Thread persistence (SQLite via Tauri)
+│   │   ├── connection-state.ts  # Connection health/state machine
+│   │   ├── fuzzy-search.ts  # nucleo-based fuzzy matching
+│   │   ├── sounds.ts        # Audio feedback
+│   │   └── utils.ts         # cn() helper + misc
+│   ├── hooks/               # 20+ custom hooks
+│   │   ├── useSlashAction.ts      # Client-side slash command handler
+│   │   ├── useChatInput.ts        # Chat input state + attachments
+│   │   ├── useKeyboardShortcuts.ts
+│   │   ├── useSidebarTasks.ts     # Sidebar task filtering/grouping
+│   │   ├── useUpdateChecker.ts    # Auto-update polling
+│   │   └── useResolvedTheme.ts    # Dark/light theme resolution
 │   ├── stores/
-│   │   ├── taskStore.ts     # Tasks, streaming, connection state
-│   │   ├── settingsStore.ts # Agent profiles, models, appearance
-│   │   ├── kiroStore.ts     # .kiro/ config state
-│   │   ├── diffStore.ts     # Diff viewer state
-│   │   └── debugStore.ts    # Debug panel state
+│   │   ├── taskStore.ts           # Tasks, streaming, connection state
+│   │   ├── task-store-selectors.ts # Memoized selectors
+│   │   ├── task-store-listeners.ts # IPC event subscriptions
+│   │   ├── task-store-types.ts    # Store type definitions
+│   │   ├── settingsStore.ts       # Agent profiles, models, appearance
+│   │   ├── claudeConfigStore.ts   # Claude config (~/.claude/) state
+│   │   ├── diffStore.ts           # Diff viewer state
+│   │   ├── debugStore.ts          # Debug panel state (JS + Rust logs)
+│   │   ├── jsDebugStore.ts        # JS console interceptor state
+│   │   ├── fileTreeStore.ts       # File tree expand/selection state
+│   │   ├── filePreviewStore.ts    # Global file preview modal state
+│   │   ├── analyticsStore.ts      # Usage analytics state
+│   │   ├── updateStore.ts         # App update state
+│   │   └── vcsStatusStore.ts      # Git VCS status polling
 │   └── components/
 │       ├── ui/              # Radix-based primitives (button, input, dialog, etc.)
-│       ├── chat/            # ChatPanel, MessageList, ChatInput, SlashPanels, etc.
-│       ├── sidebar/         # TaskSidebar, KiroConfigPanel
-│       ├── code/            # CodePanel, DiffViewer
-│       ├── dashboard/       # Dashboard, TaskCard
-│       ├── settings/        # SettingsPanel
-│       ├── diff/            # DiffPanel
-│       ├── debug/           # DebugPanel
+│       ├── chat/            # ChatPanel, MessageList, ChatInput, PermissionBanner,
+│       │                    #   PendingChat, WorktreePanel, SplitChatLayout, etc. (60+ files)
+│       ├── sidebar/         # TaskSidebar, ClaudeConfigPanel, WorktreeCleanupDialog,
+│       │                    #   MemoryFileEditor, IconPickerDialog, etc.
+│       ├── settings/        # SettingsPanel + section components (appearance, hooks,
+│       │                    #   permissions, keymap, memory, archives, etc.)
+│       ├── code/            # CodePanel, DiffViewer, DiffFileActionBar, DiffFileSidebar
+│       ├── diff/            # DiffPanel, CheckpointTimeline, GitHistoryPanel
+│       ├── debug/           # DebugLog
 │       ├── task/            # NewProjectSheet
+│       ├── dashboard/       # Dashboard, TaskCard
+│       ├── analytics/       # AnalyticsDashboard + chart components
+│       ├── file-tree/       # FileTreePanel, FilePreviewModal, FileTypeIcon
+│       ├── icons/           # ClaudeIcon, KlaudexGhostIcon
+│       ├── unified-title-bar/ # Per-platform title bars (macOS/Windows/Linux)
 │       ├── AppHeader.tsx
+│       ├── CommandPalette.tsx
 │       ├── ErrorBoundary.tsx
-│       └── Playground.tsx
+│       ├── Onboarding.tsx   # Multi-step onboarding flow
+│       ├── PlanSidebar.tsx
+│       ├── MarkdownViewer.tsx
+│       └── GlobalFilePreviewModal.tsx
+website/                     # Marketing/docs website (Bun, standalone)
+scripts/                     # Build/release scripts (bump-version.sh, release.sh, etc.)
 src-tauri/
 ├── src/
 │   ├── main.rs              # Entry point
 │   ├── lib.rs               # Tauri app setup, command registration, window events
-│   └── commands/
-│       ├── acp.rs           # ACP protocol (kiro-cli subprocess, ~42KB)
+│   └── commands/            # 40+ Rust modules
+│       ├── acp/             # ACP protocol (kiro-cli subprocess management)
 │       ├── error.rs         # Shared AppError type (thiserror)
 │       ├── pty.rs           # Terminal emulation (portable-pty)
-│       ├── git.rs           # Git operations via git2 (libgit2)
+│       ├── git.rs           # Core git operations via git2
+│       ├── git_ai.rs        # AI-assisted git (commit messages, etc.)
+│       ├── git_pr.rs        # PR creation/management
+│       ├── git_history.rs   # Commit history queries
+│       ├── git_stack.rs     # Stacked diffs / branch stack
+│       ├── git_utils.rs     # Shared git helpers
 │       ├── settings.rs      # Config persistence via confy
-│       ├── fs_ops.rs        # File ops, kiro-cli detection (which crate)
-│       └── kiro_config.rs   # .kiro/ config discovery (serde_yaml for frontmatter)
+│       ├── fs_ops.rs        # File ops, kiro-cli detection
+│       ├── claude_config.rs # ~/.claude/ config reading/writing
+│       ├── claude_watcher.rs # fs_notify watcher for claude config
+│       ├── thread_db.rs     # SQLite thread persistence (rusqlite)
+│       ├── checkpoint.rs    # Conversation checkpoints
+│       ├── analytics.rs     # Usage analytics aggregation
+│       ├── fuzzy.rs         # nucleo-matcher fuzzy search
+│       ├── highlight.rs     # syntect syntax highlighting
+│       ├── markdown.rs      # pulldown-cmark rendering
+│       ├── diff_parse.rs    # Diff parsing (imara-diff)
+│       ├── diff_stats.rs    # Diff statistics
+│       ├── streaming_diff.rs # Live streaming diff computation
+│       ├── transport.rs     # HTTP transport (reqwest)
+│       ├── permissions.rs   # ACP permission management
+│       ├── statusline.rs    # Status line data aggregation
+│       ├── vcs_status.rs    # Git working tree status
+│       ├── project_watcher.rs # File system project watching
+│       ├── tracing.rs       # Rust tracing/logging setup
+│       ├── pattern_extract.rs # Pattern extraction utilities
+│       ├── thread_title.rs  # Auto-generate thread titles
+│       ├── branch_ai.rs     # AI branch name suggestions
+│       ├── pr_ai.rs         # AI PR description generation
+│       └── process_diagnostics.rs # Process health checks
 ├── Cargo.toml
 ├── tauri.conf.json
+├── tauri.dev.conf.json      # Dev-mode overrides
 └── capabilities/            # Tauri v2 permission capabilities
 ```
 
 ## Commands
 
 ```bash
-bun run dev           # Start dev (Vite + Tauri)
-bun run build         # Production build (.app + .dmg)
-bun run check:ts      # TypeScript type check
-bun run check:rust    # Rust type check
-bun run test:rust     # Run Rust tests
-bun run clean         # Remove build artifacts
+bun run dev                # Start dev (Vite + Tauri, dev config)
+bun run dev:renderer       # Vite only (no Tauri)
+bun run build              # Production build (.app + .dmg)
+bun run check:ts           # TypeScript type check
+bun run check:rust         # Rust type check (cargo check)
+bun run check              # Both TS + Rust checks
+bun run check:web          # TS check + Vite bundle build
+bun run check:bundle       # Bundle size audit (scripts/check-bundle-size.mjs)
+bun run lint               # oxlint on src/
+bun run test:rust          # Run Rust tests
+bun run test:ui            # Vitest (frontend tests)
+bun run test:coverage      # Vitest with coverage
+bun run test               # All tests (Vitest + Rust)
+bun run clean              # Remove build artifacts
+bun run bump               # Patch version bump
+bun run bump:patch/minor/major  # Targeted version bumps
+bun run release            # Full release (scripts/release.sh)
+bun run website:dev        # Start website dev server
+bun run website:build      # Build website
 ```
 
 ## Architecture decisions
@@ -87,10 +159,17 @@ bun run clean         # Remove build artifacts
 - **Tauri IPC**: All frontend↔backend communication uses `invoke()` for commands and `listen()` for events. No direct Node.js APIs.
 - **ACP on dedicated OS threads**: The ACP Rust SDK uses `!Send` futures, so each connection runs on a dedicated OS thread with a single-threaded tokio runtime + `LocalSet`. Communication with the Tauri async runtime happens via `mpsc` channels.
 - **Permission handling**: Permission requests from ACP go through a `oneshot` channel. The permission handler runs on the Tauri async runtime and accesses managed state via `app.try_state::<AcpState>()`, not a cloned copy.
-- **State**: Zustand stores are the single source of truth. No Redux, no Context for global state.
-- **Styling**: Tailwind utility classes only. No custom CSS files for components. Theme tokens in `src/tailwind.css`.
+- **Thread persistence**: Threads are stored in SQLite via `rusqlite` (bundled). `redb` is used for fast KV metadata. Both live in the Tauri app data directory.
+- **State**: Zustand stores are the single source of truth. No Redux, no Context for global state. Selectors in `task-store-selectors.ts`; IPC listeners wired in `task-store-listeners.ts`.
+- **Styling**: Tailwind utility classes only. No custom CSS files for components. Theme tokens in `src/tailwind.css`. Light and dark themes supported.
 - **Components**: Radix UI primitives with `class-variance-authority` for variants, `clsx` + `tailwind-merge` via `cn()` helper.
 - **Path aliases**: `@/*` maps to `./src/renderer/*` (configured in tsconfig.json and vite.config.ts).
+- **Multi-platform title bar**: `unified-title-bar/` has separate macOS (traffic lights), Windows (custom controls), and Linux variants selected at runtime.
+- **Claude config integration**: `claude_config.rs` + `claude_watcher.rs` read/watch `~/.claude/` for memory files, hooks, MCPs, skills, and steering docs. `claudeConfigStore.ts` mirrors this state.
+- **Analytics**: Usage events collected in `analyticsStore.ts` + `lib/analytics.ts`, aggregated in `lib/analytics-aggregators.ts`, and visualized in `components/analytics/`.
+- **File tree**: `fileTreeStore.ts` + `components/file-tree/` provide browseable project file tree with fuzzy search and preview.
+- **Worktrees**: Git worktrees are managed for parallel agent sessions. `worktree-cleanup.ts` + `WorktreeCleanupDialog` handle stale worktree removal.
+- **Auto-updates**: `tauri-plugin-updater` + `updateStore.ts` + `useUpdateChecker.ts` handle update polling and install.
 
 ## Conventions
 
@@ -111,7 +190,8 @@ A task is not done until both pass with zero errors:
 
 ```bash
 bun run check:ts
-bun run build         # or: npx vite build
+bun run check:rust
+bun run build         # or: bun run check:web for faster renderer-only check
 ```
 
 ## Critical rules

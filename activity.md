@@ -1,3 +1,28 @@
+## 2026-05-11 19:10 GST (Dubai)
+### ToolCallEntry: Fix missing title after tool_call_update
+
+`tool_call_update` events from the Rust backend don't carry a `title` field. The `upsertToolCall` updater was spreading the incoming object over the existing tool call, overwriting `title` with `undefined`. Fixed by preserving the existing `title` and `kind` when the update omits them.
+
+**Modified:** src/renderer/stores/taskStore.ts
+
+## 2026-05-11 18:30 GST (Dubai)
+### CLAUDE.md: Sync project structure and tech stack with current codebase
+
+Updated CLAUDE.md to reflect significant codebase growth: expanded tech stack (redb, rusqlite, nucleo-matcher, imara-diff, syntect, 10+ new Tauri plugins), fully updated project structure tree (40+ Rust command modules, 15+ Zustand stores, analytics/file-tree/unified-title-bar/onboarding components), expanded commands section (lint, test:ui, bump, release, website scripts), and updated architecture decisions (SQLite persistence, multi-platform title bars, Claude config integration, analytics, worktrees, auto-updates).
+
+**Modified:** CLAUDE.md
+
+## 2026-05-11 17:19 GST (Dubai)
+### Icons: Fix oversized dock icons by adding transparent padding
+
+Resized both prod (orange) and dev (pink) icon artwork from edge-to-edge 1024x1024 to 824x824 centered on a transparent 1024x1024 canvas (~100px padding on all sides). This matches the Kirodex icon approach and fixes icons appearing too large in the macOS dock. Regenerated .icns and .ico for both variants.
+
+**Modified:** src-tauri/icons/prod/icon.png, src-tauri/icons/prod/icon.icns, src-tauri/icons/prod/icon.ico, src-tauri/icons/prod/prod.png, src-tauri/icons/dev/icon.png, src-tauri/icons/dev/icon.icns, src-tauri/icons/dev/icon.ico, src-tauri/icons/dev/dev.png
+
+Resized the Klaudex icon artwork from edge-to-edge 1024x1024 to 824x824 centered on a transparent 1024x1024 canvas (~100px padding on all sides). This matches the Kirodex icon approach and fixes the icon appearing too large in the macOS dock. Regenerated .icns and .ico from the padded PNG.
+
+**Modified:** src-tauri/icons/prod/icon.png, src-tauri/icons/prod/icon.icns, src-tauri/icons/prod/icon.ico
+
 ## 2026-05-11 17:01 GST (Dubai)
 ### Git: Split working tree into 15 focused conventional commits
 
