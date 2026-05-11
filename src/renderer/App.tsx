@@ -39,9 +39,15 @@ import { useDiffStore } from "@/stores/diffStore";
 import { useClaudeConfigStore, initClaudeConfigListeners } from "@/stores/claudeConfigStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useSessionTracker } from "@/hooks/useSessionTracker";
+import { useZoomLimit } from "@/hooks/useZoomLimit";
 import { UpdateAvailableDialog } from "@/components/UpdateAvailableDialog";
+import { WhatsNewDialog } from "@/components/WhatsNewDialog";
+import { CHANGELOG, isNewerVersion } from "@/lib/changelog";
+import type { ChangelogEntry } from "@/lib/changelog";
+import { useUpdateStore } from "@/stores/updateStore";
 import { startAutoFlush, stopAutoFlush } from "@/lib/analytics-collector";
 import { WorktreeCleanupDialog } from "@/components/sidebar/WorktreeCleanupDialog";
+import { CloneRepoDialog } from "@/components/CloneRepoDialog";
 import { getVersion } from "@tauri-apps/api/app";
 import {
   initAnalytics,
@@ -52,7 +58,17 @@ import {
 } from "@/lib/analytics";
 import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
-import { IconStack2, IconPlus, IconFolderOpen } from "@tabler/icons-react";
+import {
+  IconStack2,
+  IconPlus,
+  IconFolderOpen,
+  IconLayoutColumns,
+  IconArrowsShuffle,
+  IconGitBranch,
+  IconTerminal2,
+  IconMessageChatbot,
+  IconGitCompare,
+} from "@tabler/icons-react";
 const Onboarding = lazy(() =>
   import("@/components/Onboarding").then((m) => ({ default: m.Onboarding })),
 );
@@ -84,6 +100,51 @@ function LoginBanner() {
   );
 }
 
+const SHOWCASE_FEATURES = [
+  {
+    icon: IconLayoutColumns,
+    label: "Split view",
+    description: "Two threads side by side",
+    color: "text-blue-400",
+    bgColor: "bg-blue-500/10",
+  },
+  {
+    icon: IconArrowsShuffle,
+    label: "Spin threads",
+    description: "Fork and branch conversations",
+    color: "text-violet-400",
+    bgColor: "bg-violet-500/10",
+  },
+  {
+    icon: IconGitBranch,
+    label: "Git worktrees",
+    description: "Isolate each thread in its own branch",
+    color: "text-emerald-400",
+    bgColor: "bg-emerald-500/10",
+  },
+  {
+    icon: IconGitCompare,
+    label: "Inline diffs",
+    description: "Syntax-highlighted code changes",
+    color: "text-amber-400",
+    bgColor: "bg-amber-500/10",
+  },
+  {
+    icon: IconTerminal2,
+    label: "Built-in terminal",
+    description: "Run commands without leaving the app",
+    color: "text-pink-400",
+    bgColor: "bg-pink-500/10",
+  },
+  {
+    icon: IconMessageChatbot,
+    label: "Slash commands",
+    description: "/plan, /fork, /btw, /worktree and more",
+    color: "text-cyan-400",
+    bgColor: "bg-cyan-500/10",
+  },
+] as const;
+
 function EmptyState() {
   const projects = useTaskStore((s) => s.projects);
   const hasProjects = projects.length > 0;
@@ -97,8 +158,8 @@ function EmptyState() {
   }, [projects]);
 
   return (
-    <div data-testid="empty-state" className="flex min-h-0 flex-1 flex-col items-center justify-center px-6">
-      <div className="flex flex-col items-center gap-5 -mt-12 max-w-sm">
+    <div data-testid="empty-state" className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 overflow-y-auto">
+      <div className="flex flex-col items-center gap-5 -mt-4 max-w-lg w-full">
         <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10">
           <IconStack2 size={28} stroke={1.5} className="text-primary" />
         </div>
@@ -135,6 +196,29 @@ function EmptyState() {
             Or press <kbd className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[10px]">⌘O</kbd> to open a folder
           </p>
         )}
+
+        {/* Features showcase */}
+        <div className="mt-4 w-full" role="region" aria-label="Features overview">
+          <p className="mb-3 text-center text-[11px] font-medium uppercase tracking-widest text-muted-foreground/60">
+            What you can do
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {SHOWCASE_FEATURES.map((feature) => (
+              <div
+                key={feature.label}
+                className="group flex items-start gap-3 rounded-xl border border-border/50 bg-card/50 px-3.5 py-3 transition-colors hover:border-border hover:bg-card"
+              >
+                <div className={cn("mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg", feature.bgColor)}>
+                  <feature.icon size={16} stroke={1.5} className={cn(feature.color, "transition-transform group-hover:scale-110")} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12.5px] font-medium text-foreground/90">{feature.label}</p>
+                  <p className="text-[11px] leading-snug text-muted-foreground">{feature.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -183,8 +267,10 @@ export function App() {
   const theme = useSettingsStore((s) => s.settings.theme ?? 'dark');
   const sidebarPosition = useSettingsStore((s) => s.settings.sidebarPosition ?? 'left');
   const isRightSidebar = sidebarPosition === 'right';
+  const isUpdateDialogActive = useUpdateStore((s) => s.status !== 'idle');
   useKeyboardShortcuts();
   useSessionTracker();
+  useZoomLimit();
 
   // Apply font size from settings to the document root
   useEffect(() => {
@@ -217,6 +303,9 @@ export function App() {
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(240);
+  const [isCloneDialogOpen, setIsCloneDialogOpen] = useState(false);
+  const [whatsNewEntry, setWhatsNewEntry] = useState<ChangelogEntry | null>(null);
+  const [appVersion, setAppVersion] = useState('');
 
   // Sync diffStore.isOpen → sidePanelOpen (for openToFile)
   const diffIsOpen = useDiffStore((s) => s.isOpen);
@@ -301,6 +390,8 @@ export function App() {
     let unlistenFlushBeforeQuit: (() => void) | null = null
     let unlistenNewThread: (() => void) | null = null
     let unlistenNewProject: (() => void) | null = null
+    let unlistenRecentProject: (() => void) | null = null
+    let unlistenCloneFromGithub: (() => void) | null = null
     import('@tauri-apps/api/event').then(({ listen }) => {
       // Rust emits this right before app.exit(0) — flush all state to disk
       listen('app://flush-before-quit', () => {
@@ -346,6 +437,16 @@ export function App() {
       listen('menu-new-project', () => {
         useTaskStore.getState().setNewProjectOpen(true)
       }).then((fn) => { unlistenNewProject = fn })
+      listen<string>('menu-open-recent-project', (event) => {
+        const path = event.payload
+        if (!path) return
+        const state = useTaskStore.getState()
+        state.addProject(path)
+        state.setPendingWorkspace(path)
+      }).then((fn) => { unlistenRecentProject = fn })
+      listen('menu-clone-from-github', () => {
+        setIsCloneDialogOpen(true)
+      }).then((fn) => { unlistenCloneFromGithub = fn })
     })
     // Cross-window state sync — reload when another window persists changes
     let unsubSync: (() => void) | null = null
@@ -375,6 +476,9 @@ export function App() {
       if (unlistenFlushBeforeQuit) unlistenFlushBeforeQuit()
       if (unlistenNewThread) unlistenNewThread()
       if (unlistenNewProject) unlistenNewProject()
+      if (unlistenRecentProject) unlistenRecentProject()
+      if (unlistenFlushBeforeQuit) unlistenFlushBeforeQuit()
+      if (unlistenCloneFromGithub) unlistenCloneFromGithub()
       if (unsubSync) unsubSync()
       if (syncDebounce) clearTimeout(syncDebounce)
     };
@@ -408,6 +512,32 @@ export function App() {
     });
   }, [settingsLoaded, analyticsEnabled, analyticsAnonId]);
 
+  // Show "What's New" dialog once after a version upgrade.
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    getVersion().then((currentVersion) => {
+      setAppVersion(currentVersion);
+      const { settings, saveSettings } = useSettingsStore.getState();
+      const lastSeen = settings.lastSeenChangelogVersion;
+      // Fresh install — seed the version silently, don't show dialog
+      if (!lastSeen) {
+        saveSettings({ ...settings, lastSeenChangelogVersion: currentVersion }).catch(() => {});
+        return;
+      }
+      // Only show if current version is strictly newer than last seen
+      if (!isNewerVersion(currentVersion, lastSeen)) return;
+      // Find a matching entry, or fall back to the newest entry newer than lastSeen
+      const entry = CHANGELOG.find((e) => e.version === currentVersion)
+        ?? CHANGELOG.find((e) => isNewerVersion(e.version, lastSeen));
+      if (entry) {
+        setWhatsNewEntry(entry);
+      } else {
+        // No entry found — still update lastSeen so we don't re-check every launch
+        saveSettings({ ...settings, lastSeenChangelogVersion: currentVersion }).catch(() => {});
+      }
+    }).catch(() => {});
+  }, [settingsLoaded]);
+
   // ⌘B keyboard shortcut to toggle sidebar
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -431,6 +561,14 @@ export function App() {
     useDiffStore.getState().setOpen(false)
   }, [])
   const toggleSidebar = useCallback(() => setIsSidebarCollapsed((v) => !v), []);
+
+  const handleWhatsNewDismiss = useCallback(() => {
+    setWhatsNewEntry(null);
+    getVersion().then((v) => {
+      const { settings, saveSettings } = useSettingsStore.getState();
+      saveSettings({ ...settings, lastSeenChangelogVersion: v }).catch(() => {});
+    }).catch(() => {});
+  }, []);
 
   if (settingsLoaded && !hasOnboardedV2)
     return (
@@ -521,6 +659,10 @@ export function App() {
       />
       <UpdateAvailableDialog />
       <WorktreeCleanupDialog />
+      <CloneRepoDialog open={isCloneDialogOpen} onOpenChange={setIsCloneDialogOpen} />
+      {whatsNewEntry && !isUpdateDialogActive && (
+        <WhatsNewDialog open={!!whatsNewEntry} entry={whatsNewEntry} currentVersion={appVersion} onDismiss={handleWhatsNewDismiss} />
+      )}
     </TooltipProvider>
   );
 }

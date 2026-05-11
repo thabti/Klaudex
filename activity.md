@@ -1,3 +1,9 @@
+## 2026-05-11 09:47 GST (Dubai)
+### App: wire zoom limit, What's New, and Clone dialogs into App
+Ported upstream commit be07c2d. Integrates useZoomLimit hook, WhatsNewDialog, and CloneRepoDialog into the root App component. Adds a features showcase grid to the empty state and updates split view tooltip copy. Created changelog.ts re-export module for the What's New version-checking logic.
+
+**Modified:** src/renderer/App.tsx, src/renderer/components/header-toolbar.tsx, src/renderer/lib/changelog.ts
+
 ## 2026-05-11 09:46 GST (Dubai)
 ### Chat: port cleaning review card component
 Ported upstream commit aa62518 adding CleaningReviewCard component that renders a star-rating review card for cleaning/starring operations in chat.
