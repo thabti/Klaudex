@@ -1,4 +1,10 @@
 ## 2026-05-11 09:38 GST (Dubai)
+### Sidebar: port blue dot indicator for pending questions
+Ported upstream commit that adds a blue status dot on sidebar thread items when the last assistant message has unanswered structured questions. Adds `computeHasPendingQuestion()` to `useSidebarTasks` and a `pending_question` entry to the status dot map in `ThreadItem`.
+
+**Modified:** src/renderer/components/sidebar/ThreadItem.tsx, src/renderer/hooks/useSidebarTasks.ts
+
+## 2026-05-11 09:38 GST (Dubai)
 ### Icons: regenerate dev icons from new dev logo
 Copied k-logo-dev.png as the dev icon, resized to 1024x1024, and generated icon.icns and icon.ico with all standard sizes.
 

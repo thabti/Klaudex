@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { useTaskStore } from '@/stores/taskStore'
+import { hasQuestionBlocks } from '@/lib/question-parser'
 
 /** Minimal task shape for sidebar rendering — no messages, no streaming, no tool calls */
 export interface SidebarTask {
@@ -14,6 +15,8 @@ export interface SidebarTask {
   readonly isDraft?: boolean
   readonly worktreePath?: string
   readonly originalWorkspace?: string
+  /** True when the last assistant message has unanswered questions */
+  readonly hasPendingQuestion?: boolean
 }
 
 export type SortKey = 'created' | 'recent' | 'oldest' | 'name-asc' | 'name-desc' | 'custom'
@@ -32,6 +35,23 @@ function sortTasks(tasks: readonly SidebarTask[], sort: SortKey): SidebarTask[] 
     if (sort === 'oldest') return new Date(a.lastActivityAt).getTime() - new Date(b.lastActivityAt).getTime()
     return new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime()
   })
+}
+
+/**
+ * Check if the last assistant message has unanswered question blocks.
+ * Returns true when the most recent assistant message contains `[N]:` questions
+ * and no subsequent user message has `questionAnswers`.
+ */
+function computeHasPendingQuestion(messages: readonly { role: string; content: string; questionAnswers?: unknown[] }[]): boolean {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg.role === 'user') return false
+    if (msg.role === 'assistant' && msg.content && hasQuestionBlocks(msg.content)) {
+      const hasAnswer = messages.slice(i + 1).some((m) => m.role === 'user' && m.questionAnswers?.length)
+      return !hasAnswer
+    }
+  }
+  return false
 }
 
 /**
@@ -59,12 +79,13 @@ export function useSidebarTasks(sort: SortKey): readonly SidebarProject[] {
       const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1].timestamp : ''
       const lastActivityAt = lastMsg || t.createdAt
       const pid = t.projectId ?? t.originalWorkspace ?? t.workspace
+      const hasPendingQuestion = computeHasPendingQuestion(msgs)
       const p = prev.get(t.id)
-      if (p && p.name === t.name && p.status === t.status && p.createdAt === t.createdAt && p.workspace === t.workspace && p.isArchived === t.isArchived && p.worktreePath === t.worktreePath && p.originalWorkspace === t.originalWorkspace && p.projectId === pid && p.lastActivityAt === lastActivityAt && !p.isDraft) {
+      if (p && p.name === t.name && p.status === t.status && p.createdAt === t.createdAt && p.workspace === t.workspace && p.isArchived === t.isArchived && p.worktreePath === t.worktreePath && p.originalWorkspace === t.originalWorkspace && p.projectId === pid && p.lastActivityAt === lastActivityAt && p.hasPendingQuestion === hasPendingQuestion && !p.isDraft) {
         next.set(t.id, p)
       } else {
         changed = true
-        next.set(t.id, { id: t.id, name: t.name, workspace: t.workspace, projectId: pid, createdAt: t.createdAt, lastActivityAt, status: t.status, isArchived: t.isArchived, worktreePath: t.worktreePath, originalWorkspace: t.originalWorkspace })
+        next.set(t.id, { id: t.id, name: t.name, workspace: t.workspace, projectId: pid, createdAt: t.createdAt, lastActivityAt, status: t.status, isArchived: t.isArchived, worktreePath: t.worktreePath, originalWorkspace: t.originalWorkspace, hasPendingQuestion })
       }
     }
     if (!changed) return prev

@@ -9,6 +9,7 @@ import type { SidebarTask } from '@/hooks/useSidebarTasks'
 const STATUS_DOT: Record<string, { color: string; pulse?: boolean }> = {
   running: { color: 'bg-emerald-400', pulse: true },
   pending_permission: { color: 'bg-amber-400' },
+  pending_question: { color: 'bg-blue-400' },
   error: { color: 'bg-red-400' },
   cancelled: { color: 'bg-red-400/50' },
 }
@@ -43,7 +44,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
   const [confirmDelete, setConfirmDelete] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const ctxRef = useRef<HTMLDivElement>(null)
-  const dot = STATUS_DOT[task.status]
+  const dot = STATUS_DOT[task.hasPendingQuestion ? 'pending_question' : task.status]
 
   useEffect(() => {
     if (editing) inputRef.current?.select()
