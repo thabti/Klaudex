@@ -1,3 +1,9 @@
+## 2026-05-11 08:51 GST (Dubai)
+### QueuedMessages: improve queue reorder chevron UX
+Ported upstream commit improving move up/down chevron buttons: increased icon size (3→3.5), added hover background, replaced invisible disabled state with dimmed + cursor-not-allowed, wrapped buttons in tooltips, improved aria-labels with message text snippet, and added tabIndex management.
+
+**Modified:** `src/renderer/components/chat/QueuedMessages.tsx`
+
 ## 2026-05-11 08:48 GST (Dubai)
 ### Sidebar: drag-to-reorder projects and Cmd+N project jumping
 Ported upstream commit adding pointer-based vertical drag reorder in 'Custom' sort mode, a `useModifierKeys` hook with delayed show / instant hide, ⌘1–⌘9 kbd badges on sidebar projects, and Cmd+N project jumping. Updated test file to match new boolean-returning hook API.

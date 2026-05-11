@@ -34,15 +34,39 @@ export const QueuedMessages = memo(function QueuedMessages({ messages, onRemove,
               )}
             >
               {canReorder && (
-                <div className="flex shrink-0 flex-col -my-0.5">
-                  <button type="button" disabled={i === 0} onClick={() => onReorder!(i, i - 1)}
-                    className="text-muted-foreground hover:text-foreground disabled:opacity-0 transition-colors" aria-label="Move up">
-                    <IconChevronUp className="size-3" />
-                  </button>
-                  <button type="button" disabled={i === messages.length - 1} onClick={() => onReorder!(i, i + 1)}
-                    className="text-muted-foreground hover:text-foreground disabled:opacity-0 transition-colors" aria-label="Move down">
-                    <IconChevronDown className="size-3" />
-                  </button>
+                <div className="flex shrink-0 flex-col -space-y-0.5 -my-0.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" disabled={i === 0} onClick={() => onReorder!(i, i - 1)}
+                        className={cn(
+                          'rounded p-0.5 transition-colors',
+                          i === 0
+                            ? 'text-muted-foreground/30 cursor-not-allowed'
+                            : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                        )}
+                        aria-label={`Move "${msg.text?.slice(0, 30) || 'message'}" up`}
+                        tabIndex={i === 0 ? -1 : 0}>
+                        <IconChevronUp className="size-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    {i > 0 && <TooltipContent side="left" className="text-[11px]">Move up</TooltipContent>}
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" disabled={i === messages.length - 1} onClick={() => onReorder!(i, i + 1)}
+                        className={cn(
+                          'rounded p-0.5 transition-colors',
+                          i === messages.length - 1
+                            ? 'text-muted-foreground/30 cursor-not-allowed'
+                            : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                        )}
+                        aria-label={`Move "${msg.text?.slice(0, 30) || 'message'}" down`}
+                        tabIndex={i === messages.length - 1 ? -1 : 0}>
+                        <IconChevronDown className="size-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    {i < messages.length - 1 && <TooltipContent side="left" className="text-[11px]">Move down</TooltipContent>}
+                  </Tooltip>
                 </div>
               )}
               {hasAttachments && (
