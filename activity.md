@@ -1,3 +1,9 @@
+## 2026-05-11 12:32 GST (Dubai)
+### Port: Fix SidebarFooter test for icon-only Debug button (kirodex@51b5dd2)
+Ported upstream test fix. The Debug button was refactored to icon-only with aria-label but the test still expected visible text. Updated to use `getByLabelText` instead of `getByText`.
+
+**Modified:** `src/renderer/components/sidebar/SidebarFooter.test.tsx`
+
 ## 2026-05-11 12:27 GST (Dubai)
 ### Port: Add memo, useCallback, and tooltips to all settings sections (kirodex@308276e)
 Cherry-picked upstream refactor. Wraps all section components in memo, extracts inline handlers into useCallback, adds Tooltip wrappers to icon-only buttons, adds aria-labels, extracts FontSizeStepper sub-component, adds type="button" to prevent form submission. Fixed property name conflicts (kiroAuth→claudeAuth, kiroBin→claudeBin) for klaudex compatibility.
