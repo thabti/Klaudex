@@ -1,11 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
-import { IconBolt, IconX, IconCheck } from '@tabler/icons-react'
+import { IconMessageCircleQuestion, IconX, IconCheck } from '@tabler/icons-react'
 import { useTaskStore } from '@/stores/taskStore'
+import { ipc } from '@/lib/ipc'
 import ChatMarkdown from './ChatMarkdown'
+import { PermissionBanner } from './PermissionBanner'
 import { parseReport, stripReport } from './TaskCompletionCard'
 import type { TaskMessage } from '@/types'
 
 const EMPTY_MESSAGES: TaskMessage[] = []
+const EMPTY_OPTIONS: Array<{ optionId: string; name: string; kind: string }> = []
 
 /**
  * Thin inline report pill for btw overlay.
@@ -25,12 +28,14 @@ const BtwReportPill = memo(function BtwReportPill({ status, summary }: { status:
  * Shows the question and streams the response without polluting the main conversation.
  * Dismiss with Escape to discard, or click "Keep" to preserve the Q&A (tail mode).
  */
-export const BtwOverlay = memo(function BtwOverlay() {
+export const BtwOverlay = memo(function BtwOverlay({ taskId: taskIdProp }: { taskId?: string | null }) {
   const checkpoint = useTaskStore((s) => s.btwCheckpoint)
-  const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
-  const messages = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.messages ?? EMPTY_MESSAGES : EMPTY_MESSAGES)
-  const streamingChunk = useTaskStore((s) => selectedTaskId ? s.streamingChunks[selectedTaskId] ?? '' : '')
+  const storeSelectedId = useTaskStore((s) => s.selectedTaskId)
+  const resolvedTaskId = taskIdProp ?? storeSelectedId
+  const messages = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.messages ?? EMPTY_MESSAGES : EMPTY_MESSAGES)
+  const streamingChunk = useTaskStore((s) => resolvedTaskId ? s.streamingChunks[resolvedTaskId] ?? '' : '')
   const exitBtwMode = useTaskStore((s) => s.exitBtwMode)
+  const pendingPermission = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.pendingPermission : null)
   const overlayRef = useRef<HTMLDivElement>(null)
 
   // Find the assistant response added after the checkpoint
@@ -44,6 +49,11 @@ export const BtwOverlay = memo(function BtwOverlay() {
   const strippedText = useMemo(() => (!isStreaming && responseText ? stripReport(responseText) : displayText), [isStreaming, responseText, displayText])
 
   const handleDismiss = useCallback(() => exitBtwMode(false), [exitBtwMode])
+
+  const handlePermissionSelect = useCallback((optionId: string) => {
+    if (!resolvedTaskId || !pendingPermission) return
+    ipc.selectPermissionOption(resolvedTaskId, pendingPermission.requestId, optionId).catch(() => {})
+  }, [resolvedTaskId, pendingPermission])
 
   // Escape key dismisses
   useEffect(() => {
@@ -85,7 +95,7 @@ export const BtwOverlay = memo(function BtwOverlay() {
       >
         {/* Header */}
         <div className="flex shrink-0 items-center gap-2 border-b border-border/50 px-4 py-2.5">
-          <IconBolt className="size-4 text-yellow-500" />
+          <IconMessageCircleQuestion className="size-4 text-yellow-500" />
           <span className="text-[13px] font-medium text-yellow-500">btw</span>
           <span className="flex-1 truncate text-[12px] text-muted-foreground">Side question — not saved to conversation</span>
           <button
@@ -117,10 +127,23 @@ export const BtwOverlay = memo(function BtwOverlay() {
           )}
         </div>
 
+        {/* Permission request (rendered inside overlay so user can respond) */}
+        {pendingPermission && resolvedTaskId && (
+          <div className="shrink-0 border-t border-border/30">
+            <PermissionBanner
+              taskId={resolvedTaskId}
+              toolName={pendingPermission.toolName}
+              description={pendingPermission.description}
+              options={pendingPermission.options ?? EMPTY_OPTIONS}
+              onSelect={handlePermissionSelect}
+            />
+          </div>
+        )}
+
         {/* Footer hint */}
         <div className="shrink-0 border-t border-border/30 px-4 py-1.5">
           <span className="text-[11px] text-muted-foreground/60">
-            Press <kbd className="rounded border border-border/50 px-1 py-0.5 text-[10px] font-mono">Esc</kbd> to dismiss
+            Press <kbd className="rounded-sm bg-muted px-1 py-0.5 text-[10px] font-mono">Esc</kbd> to dismiss
           </span>
         </div>
       </div>

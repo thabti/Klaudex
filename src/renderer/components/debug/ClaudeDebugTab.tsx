@@ -212,6 +212,7 @@ export const ClaudeDebugTab = memo(function ClaudeDebugTab() {
     return entries.filter((e) => {
       if (filter.category !== 'all' && e.category !== filter.category) return false
       if (filter.errorsOnly && !e.isError) return false
+      if (filter.mcpServerName && e.mcpServerName !== filter.mcpServerName) return false
       if (filter.threadName) {
         const task = e.taskId ? tasks[e.taskId] : null
         if (!task || task.name !== filter.threadName) return false
@@ -329,6 +330,17 @@ export const ClaudeDebugTab = memo(function ClaudeDebugTab() {
           />
           Errors
         </label>
+
+        {filter.mcpServerName && (
+          <button
+            type="button"
+            onClick={() => setFilter({ mcpServerName: '' })}
+            className="flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-600 dark:text-sky-400 hover:bg-sky-500/25 transition-colors"
+          >
+            MCP: {filter.mcpServerName}
+            <span className="text-[9px]">✕</span>
+          </button>
+        )}
 
         <span className="ml-auto text-[9px] tabular-nums text-muted-foreground">
           {filtered.length}/{entries.length}

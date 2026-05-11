@@ -1,46 +1,21 @@
-import { memo, useEffect, useMemo } from 'react'
-import { IconArrowLeft, IconChartBar, IconClock } from '@tabler/icons-react'
+import { memo, useEffect, useMemo, lazy, Suspense } from 'react'
+import { IconArrowLeft, IconChartBar } from '@tabler/icons-react'
 import { useAnalyticsStore, type TimeRange } from '@/stores/analyticsStore'
 import { useTaskStore } from '@/stores/taskStore'
-import type { AnalyticsEvent } from '@/lib/ipc'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
-import { ChartCard } from './ChartCard'
-import { CodingHoursChart } from './CodingHoursChart'
-import { MessagesChart } from './MessagesChart'
-import { TokensChart } from './TokensChart'
-import { DiffStatsChart } from './DiffStatsChart'
-import { ModelPopularityChart } from './ModelPopularityChart'
-import { SlashCommandChart } from './SlashCommandChart'
-import { ToolCallChart } from './ToolCallChart'
-import { ProjectStatsChart } from './ProjectStatsChart'
 import { cn } from '@/lib/utils'
+import { partitionEvents } from '@/lib/analytics-aggregators'
 
-/**
- * TASK-036 — Top-level analytics dashboard container.
- *
- * Ports `kirodex/src/renderer/components/analytics/AnalyticsDashboard.tsx` to
- * Klaudex. Differences vs kirodex:
- *
- *  - Klaudex has no shared `lib/analytics-aggregators.ts` (the wave-4 chart
- *    agents inlined their own aggregators per-file). The single-pass kind →
- *    bucket partition is reproduced inline below so charts that take pre-
- *    filtered slices (CodingHours, Messages, DiffStats, ModelPopularity)
- *    avoid an O(n * k) scan; the four self-binding charts (Tokens,
- *    SlashCommand, ToolCall, ProjectStats) read the store directly and
- *    don't need the partition.
- *  - Klaudex's wave-4 charts are eagerly imported because none of them
- *    pull in heavy chart libraries (recharts is not a dep — every chart
- *    is hand-rolled SVG / CSS bars). The kirodex `lazy()` + `Suspense`
- *    boundary doesn't earn its weight here, so we drop it.
- *  - TASK-031 (ModeUsageChart) is deferred because it's blocked on TASK-003
- *    (live Claude CLI mode-ID capture). The "Mode usage" slot renders a
- *    placeholder card so the dashboard layout still has 9 sections.
- *  - Klaudex's `View` union is `'chat' | 'dashboard'` (see
- *    `task-store-types.ts`). `setView('chat')` is the safe back-target;
- *    TASK-037 (next wave) will mount this component from `App.tsx` and
- *    extend the union to include an analytics view.
- */
+const CodingHoursChart = lazy(() => import('./CodingHoursChart').then((m) => ({ default: m.CodingHoursChart })))
+const MessagesChart = lazy(() => import('./MessagesChart').then((m) => ({ default: m.MessagesChart })))
+const TokensChart = lazy(() => import('./TokensChart').then((m) => ({ default: m.TokensChart })))
+const DiffStatsChart = lazy(() => import('./DiffStatsChart').then((m) => ({ default: m.DiffStatsChart })))
+const ModelPopularityChart = lazy(() => import('./ModelPopularityChart').then((m) => ({ default: m.ModelPopularityChart })))
+const ModeUsageChart = lazy(() => import('./ModeUsageChart').then((m) => ({ default: m.ModeUsageChart })))
+const SlashCommandChart = lazy(() => import('./SlashCommandChart').then((m) => ({ default: m.SlashCommandChart })))
+const ToolCallChart = lazy(() => import('./ToolCallChart').then((m) => ({ default: m.ToolCallChart })))
+const ProjectStatsChart = lazy(() => import('./ProjectStatsChart').then((m) => ({ default: m.ProjectStatsChart })))
 
 const RANGES: { label: string; value: TimeRange }[] = [
   { label: 'All Time', value: 'all' },
@@ -48,63 +23,11 @@ const RANGES: { label: string; value: TimeRange }[] = [
   { label: '7 Days', value: '7d' },
 ]
 
-interface PartitionedEvents {
-  readonly session: AnalyticsEvent[]
-  readonly message_sent: AnalyticsEvent[]
-  readonly message_received: AnalyticsEvent[]
-  readonly diff_stats: AnalyticsEvent[]
-  readonly file_edited: AnalyticsEvent[]
-  readonly model_used: AnalyticsEvent[]
-}
-
-const EMPTY_PARTITION: PartitionedEvents = {
-  session: [],
-  message_sent: [],
-  message_received: [],
-  diff_stats: [],
-  file_edited: [],
-  model_used: [],
-}
-
-/**
- * Single-pass O(n) partition. Only buckets the kinds the prop-taking charts
- * care about — the rest read the unioned `events` array straight from the
- * store. This keeps the dashboard linear in event count even as the chart
- * matrix grows.
- */
-const partitionEvents = (events: AnalyticsEvent[]): PartitionedEvents => {
-  const session: AnalyticsEvent[] = []
-  const message_sent: AnalyticsEvent[] = []
-  const message_received: AnalyticsEvent[] = []
-  const diff_stats: AnalyticsEvent[] = []
-  const file_edited: AnalyticsEvent[] = []
-  const model_used: AnalyticsEvent[] = []
-  for (const e of events) {
-    switch (e.kind) {
-      case 'session':
-        session.push(e)
-        break
-      case 'message_sent':
-        message_sent.push(e)
-        break
-      case 'message_received':
-        message_received.push(e)
-        break
-      case 'diff_stats':
-        diff_stats.push(e)
-        break
-      case 'file_edited':
-        file_edited.push(e)
-        break
-      case 'model_used':
-        model_used.push(e)
-        break
-      default:
-        break
-    }
-  }
-  return { session, message_sent, message_received, diff_stats, file_edited, model_used }
-}
+const ChartFallback = () => (
+  <div className="flex h-[200px] items-center justify-center rounded-xl border border-border/40 bg-card">
+    <div className="size-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary" />
+  </div>
+)
 
 export const AnalyticsDashboard = memo(function AnalyticsDashboard() {
   const events = useAnalyticsStore((s) => s.events)
@@ -114,29 +37,17 @@ export const AnalyticsDashboard = memo(function AnalyticsDashboard() {
   const loadEvents = useAnalyticsStore((s) => s.loadEvents)
   const setView = useTaskStore((s) => s.setView)
 
-  // Hydrate once on mount when the store hasn't loaded yet. The store guards
-  // against duplicate loads internally via `isLoaded`, but we also short-
-  // circuit here so re-mounts (HMR, panel toggles) don't re-fetch.
-  useEffect(() => {
-    if (!isLoaded) {
-      void loadEvents()
-    }
-    // We intentionally only watch `isLoaded`/`loadEvents`; if the user clears
-    // analytics data (`clearData()`), the store sets `events: []` while
-    // keeping `isLoaded: true`, so we don't want to re-hydrate from this hook.
-  }, [isLoaded, loadEvents])
+  useEffect(() => { loadEvents() }, [loadEvents])
 
-  const partition = useMemo(() => (events.length === 0 ? EMPTY_PARTITION : partitionEvents(events)), [events])
+  // Single-pass partition — O(n) instead of O(n * 13)
+  const p = useMemo(() => partitionEvents(events), [events])
 
-  const handleBack = (): void => {
-    setView('chat')
-  }
-
+  const handleBack = () => setView('chat')
   const isEmpty = isLoaded && events.length === 0
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center gap-3 border-b border-border/40 px-5 py-3">
+      <div className="flex shrink-0 items-center gap-3 border-b border-border/40 px-5 py-3">
         <Button
           variant="ghost"
           size="sm"
@@ -151,13 +62,11 @@ export const AnalyticsDashboard = memo(function AnalyticsDashboard() {
           <IconChartBar size={18} stroke={1.5} className="text-primary" />
           <h1 className="text-[15px] font-semibold">Analytics</h1>
         </div>
-        <div className="ml-auto flex items-center gap-1 rounded-lg bg-muted/40 p-0.5" role="tablist" aria-label="Time range">
+        <div className="ml-auto flex items-center gap-1 rounded-lg bg-muted/40 p-0.5">
           {RANGES.map((r) => (
             <button
               key={r.value}
               type="button"
-              role="tab"
-              aria-selected={timeRange === r.value}
               onClick={() => setTimeRange(r.value)}
               className={cn(
                 'rounded-md px-3 py-1 text-[11px] font-medium transition-colors',
@@ -170,41 +79,47 @@ export const AnalyticsDashboard = memo(function AnalyticsDashboard() {
             </button>
           ))}
         </div>
-      </header>
+      </div>
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="p-5">
           {!isLoaded ? (
-            <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">
-              Loading analytics...
-            </div>
+            <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">Loading analytics...</div>
           ) : isEmpty ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <IconChartBar size={40} stroke={1} className="mb-3 text-muted-foreground/40" />
               <p className="text-sm font-medium text-muted-foreground">No analytics data yet</p>
-              <p className="mt-1 text-xs text-muted-foreground/70">
-                Start chatting to populate your usage stats
-              </p>
+              <p className="mt-1 text-xs text-muted-foreground/70">Start using Klaudex and your usage stats will appear here</p>
             </div>
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
-              <CodingHoursChart events={partition.session} />
-              <MessagesChart sent={partition.message_sent} received={partition.message_received} />
-              <TokensChart />
-              <DiffStatsChart diffEvents={partition.diff_stats} fileEvents={partition.file_edited} />
-              <ModelPopularityChart events={partition.model_used} />
-              {/* TODO: TASK-031 — ModeUsageChart blocked on TASK-003 (live Claude CLI mode ID capture) */}
-              <ChartCard title="Mode usage">
-                <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-                  <IconClock size={28} stroke={1.25} className="text-muted-foreground/40" />
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Mode usage analytics will appear once mode IDs are verified against Claude CLI emit (TASK-003)
-                  </p>
-                </div>
-              </ChartCard>
-              <SlashCommandChart />
-              <ToolCallChart />
-              <ProjectStatsChart />
+              <Suspense fallback={<ChartFallback />}>
+                <CodingHoursChart events={p.session} />
+              </Suspense>
+              <Suspense fallback={<ChartFallback />}>
+                <MessagesChart sent={p.message_sent} received={p.message_received} />
+              </Suspense>
+              <Suspense fallback={<ChartFallback />}>
+                <TokensChart events={p.token_usage} modelEvents={p.model_used} />
+              </Suspense>
+              <Suspense fallback={<ChartFallback />}>
+                <DiffStatsChart diffEvents={p.diff_stats} fileEvents={p.file_edited} />
+              </Suspense>
+              <Suspense fallback={<ChartFallback />}>
+                <ModelPopularityChart events={p.model_used} />
+              </Suspense>
+              <Suspense fallback={<ChartFallback />}>
+                <ModeUsageChart events={p.mode_switch} />
+              </Suspense>
+              <Suspense fallback={<ChartFallback />}>
+                <SlashCommandChart events={p.slash_cmd} />
+              </Suspense>
+              <Suspense fallback={<ChartFallback />}>
+                <ToolCallChart events={p.tool_call} />
+              </Suspense>
+              <Suspense fallback={<ChartFallback />}>
+                <ProjectStatsChart threadEvents={p.thread_created} messageEvents={[...p.message_sent, ...p.message_received]} />
+              </Suspense>
             </div>
           )}
         </div>

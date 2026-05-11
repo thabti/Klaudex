@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { useTaskStore } from '@/stores/taskStore'
-import { useDiffStore } from '@/stores/diffStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useClaudeConfigStore } from '@/stores/claudeConfigStore'
+import { useDiffStore } from '@/stores/diffStore'
+import { useDebugStore } from '@/stores/debugStore'
 import { ipc } from '@/lib/ipc'
 import type { AppSettings } from '@/types'
 
@@ -155,25 +157,45 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // ── Cmd+O → New project ────────────────────────────────
-      if (key === 'o' && !e.shiftKey) {
+      // ── Cmd+\ → Toggle split view ─────────────────────────
+      if ((key === '\\' || e.code === 'Backslash') && !e.shiftKey) {
         e.preventDefault()
-        useTaskStore.getState().setNewProjectOpen(true)
+        const state = useTaskStore.getState()
+        if (state.activeSplitId) {
+          state.closeSplit()
+        } else if (state.splitViews.length > 0) {
+          state.setActiveSplit(state.splitViews[0].id)
+        } else if (state.selectedTaskId) {
+          const current = state.selectedTaskId
+          const candidate = Object.values(state.tasks)
+            .filter((t) => t.id !== current && !t.isArchived && t.status !== 'completed' && t.status !== 'cancelled' && t.messages.length > 0)
+            .sort((a, b) => (b.messages[b.messages.length - 1]?.timestamp ?? b.createdAt).localeCompare(a.messages[a.messages.length - 1]?.timestamp ?? a.createdAt))[0]
+          if (candidate) state.createSplitView(current, candidate.id)
+        }
         return
       }
 
-      // ── Cmd+N → New thread ─────────────────────────────────
-      if (key === 'n' && !e.shiftKey) {
+      // ── Cmd+Shift+\ → New split view with current thread ──
+      if ((key === '\\' || e.code === 'Backslash') && e.shiftKey) {
         e.preventDefault()
         const state = useTaskStore.getState()
-        // Use the active project root or the first project
-        const task = state.selectedTaskId ? state.tasks[state.selectedTaskId] : null
-        const workspace = task
-          ? (task.originalWorkspace ?? task.workspace)
-          : state.projects[0]
-        if (workspace) {
-          state.setPendingWorkspace(workspace)
-        }
+        const current = state.selectedTaskId
+        if (!current) return
+        const candidate = Object.values(state.tasks)
+          .filter((t) => t.id !== current && !t.isArchived && t.status !== 'completed' && t.status !== 'cancelled' && t.messages.length > 0)
+          .sort((a, b) => {
+            const aTime = a.messages[a.messages.length - 1]?.timestamp ?? a.createdAt
+            const bTime = b.messages[b.messages.length - 1]?.timestamp ?? b.createdAt
+            return bTime.localeCompare(aTime)
+          })[0]
+        if (candidate) state.createSplitView(current, candidate.id)
+        return
+      }
+
+      // ── Cmd+Shift+D → Toggle debug panel ───────────────────
+      if (key === 'd' && e.shiftKey) {
+        e.preventDefault()
+        useDebugStore.getState().toggleOpen()
         return
       }
 
@@ -221,19 +243,86 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // ── Cmd+1 through Cmd+9 → Jump to thread ──────────────
+      // ── Cmd+1 through Cmd+9 → Jump to thread in active project ──
       if (!e.shiftKey && key >= '1' && key <= '9') {
         e.preventDefault()
-        const ids = getOrderedThreadIds()
+        const state = useTaskStore.getState()
+        // Determine the active project workspace
+        const activeWorkspace = state.selectedTaskId
+          ? (state.tasks[state.selectedTaskId]?.originalWorkspace ?? state.tasks[state.selectedTaskId]?.workspace)
+          : state.pendingWorkspace
+        if (!activeWorkspace) return
+        // Get threads in this project, sorted by creation time (matches sidebar default)
+        const threads = Object.values(state.tasks)
+          .filter((t) => (t.originalWorkspace ?? t.workspace) === activeWorkspace)
+          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
         const jumpIdx = parseInt(key, 10) - 1
-        if (jumpIdx < ids.length) {
-          useTaskStore.getState().setSelectedTask(ids[jumpIdx])
+        if (jumpIdx < threads.length) {
+          state.setSelectedTask(threads[jumpIdx].id)
         }
         return
       }
     }
 
+    // ── Agent keyboard shortcuts (ctrl+<key> or shift+<key> from agent config) ──
+    // NOTE: This block is OUTSIDE the `if (!mod) return` guard above so that
+    // shift-only shortcuts (e.g. "shift+a") can fire even without Cmd/Ctrl held.
+    const agentHandler = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase()
+      const agents = useClaudeConfigStore.getState().config.agents
+      for (const agent of agents) {
+        if (!agent.keyboardShortcut) continue
+        // Parse "ctrl+a", "shift+b", "ctrl+shift+r" etc.
+        const parts = agent.keyboardShortcut.toLowerCase().split('+')
+        const agentKey = parts[parts.length - 1]
+        const needsCtrl = parts.includes('ctrl')
+        const needsShift = parts.includes('shift')
+        // Require exact modifier match to avoid false positives:
+        // - ctrl shortcuts: ctrlKey must be true, metaKey must be false (no Cmd confusion on macOS)
+        // - shift shortcuts: shiftKey must be true, ctrlKey/metaKey must be false
+        if (
+          key === agentKey &&
+          (needsCtrl ? (e.ctrlKey && !e.metaKey) : !e.ctrlKey) &&
+          (needsShift ? e.shiftKey : !e.shiftKey)
+        ) {
+          // Don't fire when typing in inputs
+          const tag = (e.target as HTMLElement)?.tagName
+          if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
+          e.preventDefault()
+          const currentModeId = useSettingsStore.getState().currentModeId
+          const taskId = useTaskStore.getState().selectedTaskId
+          // Toggle: if already on this agent, switch back to default
+          const targetId = currentModeId === agent.name ? 'kiro_default' : agent.name
+          useSettingsStore.setState({ currentModeId: targetId })
+          if (taskId) {
+            useTaskStore.getState().setTaskMode(taskId, targetId)
+            ipc.setMode(taskId, targetId).catch(() => {})
+            ipc.sendMessage(taskId, `/agent ${targetId}`).catch(() => {})
+            // Show welcome message when switching to the agent (not when toggling back)
+            if (targetId === agent.name && agent.welcomeMessage) {
+              const { tasks, upsertTask } = useTaskStore.getState()
+              const task = tasks[taskId]
+              if (task) {
+                upsertTask({
+                  ...task,
+                  messages: [
+                    ...task.messages,
+                    { role: 'system', content: `🤖 **${agent.name}**: ${agent.welcomeMessage}`, timestamp: new Date().toISOString() },
+                  ],
+                })
+              }
+            }
+          }
+          return
+        }
+      }
+    }
+
     window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    window.addEventListener('keydown', agentHandler)
+    return () => {
+      window.removeEventListener('keydown', handler)
+      window.removeEventListener('keydown', agentHandler)
+    }
   }, [])
 }

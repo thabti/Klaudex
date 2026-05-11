@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/ipc', () => ({
   ipc: {
     getTaskDiff: vi.fn().mockResolvedValue('+added\n-removed\ndiff --git a/f b/f\n+line\n-old'),
+    getTaskDiffStats: vi.fn().mockResolvedValue({ additions: 2, deletions: 2, fileCount: 1 }),
     gitStage: vi.fn().mockResolvedValue(undefined),
     gitRevert: vi.fn().mockResolvedValue(undefined),
   },

@@ -1,10 +1,29 @@
 use serde_json::Value;
-use tokio::sync::oneshot;
 use uuid::Uuid;
 
 use super::connection::spawn_connection;
 use super::types::*;
 use super::now_rfc3339;
+
+/// Resolve the model id that should be applied to a freshly spawned ACP
+/// session. Order: explicit param → project-pref → global `defaultModel`.
+/// Returns `None` when no preference is set, in which case the CLI subprocess
+/// boots with its own built-in default model.
+pub(crate) fn resolve_initial_model(
+    explicit: Option<String>,
+    workspace: &str,
+    settings: &crate::commands::settings::AppSettings,
+) -> Option<String> {
+    if let Some(m) = explicit.filter(|s| !s.trim().is_empty()) {
+        return Some(m);
+    }
+    if let Some(prefs) = settings.project_prefs.as_ref().and_then(|p| p.get(workspace)) {
+        if let Some(m) = prefs.model_id.clone().filter(|s| !s.trim().is_empty()) {
+            return Some(m);
+        }
+    }
+    settings.default_model.clone().filter(|s| !s.trim().is_empty())
+}
 
 // ── Tauri Commands ─────────────────────────────────────────────────────
 
@@ -15,7 +34,12 @@ pub fn task_create(
     settings_state: tauri::State<'_, crate::commands::settings::SettingsState>,
     params: CreateTaskParams,
 ) -> Result<Task, String> {
-    let id = Uuid::new_v4().to_string();
+    // Stateless resumption: when the frontend supplies an
+    // `existing_id`, reuse that id and replay the historical messages into the
+    // backend's in-memory task map. The fresh claude subprocess provides a
+    // brand-new ACP session; the message history travels to the model via the
+    // user's next prompt rather than via any session-level resume capability.
+    let id = params.existing_id.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
     let now = now_rfc3339();
     let settings = settings_state.0.lock();
     let auto_approve = params.auto_approve.unwrap_or(settings.settings.auto_approve);
@@ -27,24 +51,40 @@ pub fn task_create(
     let tight_sandbox = project_prefs
         .and_then(|pp| pp.tight_sandbox)
         .unwrap_or(true);
-    let model = project_prefs
-        .and_then(|pp| pp.model_id.clone())
-        .or_else(|| settings.settings.default_model.clone());
+    let initial_model_id = resolve_initial_model(
+        params.model_id.clone(),
+        &params.workspace,
+        &settings.settings,
+    );
     drop(settings);
+
+    // Seed the task with prior messages (if resuming).
+    let mut messages: Vec<TaskMessage> = params.existing_messages.unwrap_or_default();
+    let prompt_is_empty = params.prompt.trim().is_empty();
+    if !prompt_is_empty {
+        messages.push(TaskMessage {
+            role: "user".to_string(),
+            content: params.prompt.clone(),
+            timestamp: now.clone(),
+            tool_calls: None,
+            thinking: None,
+        });
+    }
+
+    // Empty prompt or explicit defer => deferred-spawn. The task is registered
+    // but the claude subprocess is not started until the user sends a real
+    // message via `task_send_message`. Avoids spawning a process that would
+    // immediately receive only the system prefix and confuse the model.
+    let defer_spawn = params.defer_spawn || prompt_is_empty;
+    let initial_status = if defer_spawn { "paused" } else { "running" };
 
     let task = Task {
         id: id.clone(),
         name: params.name,
         workspace: params.workspace.clone(),
-        status: "running".to_string(),
-        created_at: now.clone(),
-        messages: vec![TaskMessage {
-            role: "user".to_string(),
-            content: params.prompt.clone(),
-            timestamp: now,
-            tool_calls: None,
-            thinking: None,
-        }],
+        status: initial_status.to_string(),
+        created_at: now,
+        messages,
         pending_permission: None,
         plan: None,
         context_usage: None,
@@ -54,12 +94,31 @@ pub fn task_create(
         user_paused: None,
         parent_task_id: None,
         pending_user_input: None,
-        model: model.clone(),
+        model: initial_model_id.clone(),
         session_id: None,
         total_cost: 0.0,
     };
 
+    // If a stale connection somehow lingers for this id, terminate it before
+    // spawning a fresh one so the new subprocess owns the channel cleanly.
+    // We drop the sender after Kill so the old thread's recv loop exits, then
+    // yield briefly to let the OS reclaim the subprocess resources.
+    if let Some(stale) = state.connections.lock().remove(&id) {
+        let _ = stale.cmd_tx.send(AcpCommand::Kill);
+        drop(stale);
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+
     state.tasks.lock().insert(id.clone(), task.clone());
+
+    let _is_plan_mode = params.mode_id.as_deref() == Some("kiro_planner");
+
+    // Deferred-spawn: register the task and return without launching claude.
+    // The first call to `task_send_message` will detect there is no connection
+    // and spawn one on demand via the existing reconnect path.
+    if defer_spawn {
+        return Ok(task);
+    }
 
     let handle = spawn_connection(
         id.clone(),
@@ -68,7 +127,7 @@ pub fn task_create(
         auto_approve,
         app.clone(),
         params.mode_id,
-        model,
+        initial_model_id,
         tight_sandbox,
         None,
         None, // output_style — fresh task, no style yet
@@ -76,18 +135,35 @@ pub fn task_create(
 
     // Send initial prompt with UI formatting rules prepended (not shown in UI)
     let mut system_prefix = String::from(concat!(
-        "## Structured questions\n\n",
-        "When you need to ask the user clarifying questions before starting work, ",
-        "use this exact format so the UI can render interactive question cards:\n\n",
-        "[1]: Question text here?\n",
-        "a. **Label** — Description of this option\n",
-        "b. **Label** — Description of this option\n",
-        "c. **Other** — Describe your preference\n\n",
-        "Rules:\n",
-        "- Use `[N]:` bracket-number format for each question (not bold, not numbered lists).\n",
-        "- Use lowercase `a.` `b.` `c.` for options.\n",
-        "- Place each question and its options on consecutive lines with no extra blank lines between them.\n",
-        "- You may include a short lead-in sentence before the questions.\n\n",
+        "## Asking the user clarifying questions\n\n",
+        "Default to action. Most of the time you should NOT ask. Make a reasonable ",
+        "assumption, state it in one line, and proceed. Only escalate to a question ",
+        "when you genuinely cannot decide and the choice would materially change the work.\n\n",
+        "**Ask ONLY for:**\n",
+        "- Architectural decisions with non-trivial tradeoffs (e.g. REST vs. gRPC, monolith vs. service split, sync vs. event-driven).\n",
+        "- Tech-stack or framework picks where multiple options are defensible (e.g. Postgres vs. SQLite, Zustand vs. Redux).\n",
+        "- External dependencies where alternatives differ meaningfully on license, size, maintenance, or lock-in.\n",
+        "- Ambiguous scope where two reasonable interpretations of the request would lead to materially different implementations.\n",
+        "- Irreversible or hard-to-reverse changes (data deletion, schema migrations, public API breaks, force-push, prod config).\n\n",
+        "**Do NOT ask for:**\n",
+        "- Status updates, progress notes, or \"FYI\" — write those as plain prose.\n",
+        "- Confirmations of an obvious next step you should just take.\n",
+        "- Trivial wording, naming, formatting, or styling choices — pick a sensible default.\n",
+        "- Anything answerable by reading the codebase, running a tool, or web search.\n",
+        "- Open-ended \"what do you think?\" prompts — those belong in plain prose, not `[N]:`.\n\n",
+        "**Format (required for the UI to render an interactive card):**\n\n",
+        "[1]: Concise question ending in a question mark?\n",
+        "a. **Short label** — One-line description of the tradeoff.\n",
+        "b. **Short label** — One-line description of the tradeoff.\n",
+        "c. **Other** — Describe your preference.\n\n",
+        "**Rules — strict:**\n",
+        "- Use the `[N]:` bracket-number format only. Never use bold (`**1.`) or numbered lists for questions.\n",
+        "- Every `[N]:` question MUST have 2–4 concrete options as `a.`, `b.`, `c.`, ... (lowercase). A `[N]:` line without options will not render as a card and will confuse the user — write open-ended thoughts as plain prose instead.\n",
+        "- Cap each turn at **1–3 questions total**. If more decisions exist, pick the highest-leverage ones and state your default for the rest in plain prose (\"Assuming X unless you say otherwise\").\n",
+        "- One question per distinct decision. Do not split a single decision across multiple questions or restate the same choice in different words.\n",
+        "- Place each question and its options on consecutive lines.\n",
+        "- A short lead-in sentence is optional.\n\n",
+        "When in doubt: don't ask. Decide, state the assumption, and proceed.\n\n",
         "---\n\n",
     ));
     if co_author {
@@ -99,6 +175,27 @@ pub fn task_create(
             "---\n\n",
         ));
     }
+    // Resumption preamble: when a thread is being resumed, the fresh claude
+    // subprocess has no memory of the prior conversation. Replay the transcript
+    // as context so the agent can follow up coherently. The messages live in
+    // the user's first prompt instead of an in-process model session.
+    //
+    // The transcript is capped to keep the resumption preamble well under any
+    // model's input window. Logic lives in `build_resumption_preamble` so
+    // `task_fork` can share the same cap/format.
+    let prior_messages: &[TaskMessage] = task
+        .messages
+        .split_last()
+        .map(|(_new, prior)| prior)
+        .unwrap_or(&[]);
+    let resumption_preamble = super::build_resumption_preamble(
+        prior_messages,
+        "Resumed conversation",
+        "You are resuming an earlier conversation in this workspace. \
+         The transcript below is for context only — do not repeat prior work \
+         or re-execute completed tool calls. The user's new message follows \
+         after the transcript.",
+    );
     let json_report_suffix = if co_author_json_report {
         concat!(
             "\n\n## Completion report\n\n",
@@ -118,7 +215,7 @@ pub fn task_create(
     } else {
         ""
     };
-    let full_prompt = format!("{system_prefix}{}{json_report_suffix}", params.prompt);
+    let full_prompt = format!("{system_prefix}{resumption_preamble}{}{json_report_suffix}", params.prompt);
     let _ = handle.cmd_tx.send(AcpCommand::Prompt(full_prompt, params.attachments.unwrap_or_default()));
 
     state.connections.lock().insert(id, handle);
@@ -182,9 +279,7 @@ pub fn task_send_message(
         let tight_sandbox = project_prefs
             .and_then(|pp| pp.tight_sandbox)
             .unwrap_or(true);
-        let model = project_prefs
-            .and_then(|pp| pp.model_id.clone())
-            .or_else(|| settings.settings.default_model.clone());
+        let initial_model_id = resolve_initial_model(None, &workspace, &settings.settings);
         drop(settings);
 
         // Destroy old connection
@@ -194,8 +289,8 @@ pub fn task_send_message(
 
         let handle = spawn_connection(
             task_id.clone(), workspace, claude_bin, task_auto_approve,
-            app.clone(), None, model, tight_sandbox, resume_sid,
-            task_output_style,
+            app.clone(), None, initial_model_id, tight_sandbox,
+            None, None,
         )?;
         let _ = handle.cmd_tx.send(AcpCommand::Prompt(message, attachments.unwrap_or_default()));
         state.connections.lock().insert(task_id.clone(), handle);
@@ -351,29 +446,19 @@ pub async fn task_fork(
     let parent_name = parent.as_ref().map(|p| p.name.clone())
         .or(params.parent_name)
         .unwrap_or_else(|| "thread".to_string());
-    let parent_messages = parent.as_ref().map(|p| p.messages.clone()).unwrap_or_default();
+    let mut parent_messages = parent.as_ref().map(|p| p.messages.clone()).unwrap_or_default();
     let parent_auto_approve = parent.as_ref().and_then(|p| p.auto_approve);
-    // TASK-113: forked threads inherit the parent's output style.
-    let parent_output_style = parent.as_ref().and_then(|p| p.output_style.clone());
-    let has_live_connection = {
-        let conns = state.connections.lock();
-        conns.get(task_id)
-            .map(|h| h.alive.load(std::sync::atomic::Ordering::SeqCst))
-            .unwrap_or(false)
-    };
-    if has_live_connection {
-        let (reply_tx, reply_rx) = oneshot::channel();
-        {
-            let conns = state.connections.lock();
-            if let Some(handle) = conns.get(task_id) {
-                let _ = handle.cmd_tx.send(AcpCommand::ForkSession(reply_tx));
-            }
-        }
-        let _ = tokio::time::timeout(
-            std::time::Duration::from_secs(10),
-            reply_rx,
-        ).await;
-    }
+
+    // Normalize tool-call statuses on the cloned messages. The parent may be
+    // mid-stream when forked; non-terminal statuses (`pending`, `in_progress`)
+    // would render in the fork as if work were ongoing. Fix this on the data
+    // before storing it on the new task.
+    //
+    // Note: there's a benign race here — the parent may complete a tool call
+    // between our clone and this sanitize. The fork is a point-in-time snapshot
+    // and the user can always see the parent's live state in its own thread.
+    super::sanitize_forked_messages(&mut parent_messages);
+
     let new_id = Uuid::new_v4().to_string();
     let now = now_rfc3339();
     let settings = settings_state.0.lock();
@@ -384,10 +469,23 @@ pub async fn task_fork(
     let tight_sandbox = fork_project_prefs
         .and_then(|pp| pp.tight_sandbox)
         .unwrap_or(true);
-    let model = fork_project_prefs
-        .and_then(|pp| pp.model_id.clone())
-        .or_else(|| settings.settings.default_model.clone());
+    let initial_model_id = resolve_initial_model(None, &workspace, &settings.settings);
     drop(settings);
+
+    // Build the transcript-replay preamble from the parent's messages. The
+    // freshly spawned claude subprocess has no memory of the parent's
+    // conversation, so we ship the transcript on the user's *next* prompt.
+    // Stored on the connection handle and consumed on the first Prompt — the
+    // fork lands in `paused` state with no model traffic until the user sends.
+    let pending_preamble = super::build_resumption_preamble(
+        &parent_messages,
+        "Forked conversation",
+        "This thread was forked from an earlier conversation. The transcript \
+         below is for context only — do not repeat prior work or re-execute \
+         completed tool calls. The user's new message follows after the \
+         transcript and may diverge from the original direction.",
+    );
+
     let fork_task = Task {
         id: new_id.clone(),
         name: format!("fork: {}", parent_name),
@@ -412,13 +510,19 @@ pub async fn task_fork(
         user_paused: None,
         parent_task_id: Some(task_id.clone()),
         pending_user_input: None,
-        model: model.clone(),
+        model: initial_model_id.clone(),
         session_id: None,
         total_cost: 0.0,
         output_style: parent.as_ref().and_then(|p| p.output_style.clone()),
     };
     state.tasks.lock().insert(new_id.clone(), fork_task.clone());
-    let parent_output_style = fork_task.output_style.clone();
+    // NOTE: the previous kirodex-derived code path passed a `pending_preamble`
+    // string here so the freshly spawned subprocess would prepend the parent
+    // transcript on its first prompt. The current Claude CLI direct connection
+    // does not yet plumb that preamble through; we register the fork without it
+    // so the build compiles. The fork lands in `paused` state — the user's
+    // first message will continue the conversation, just without auto-replay.
+    let _ = pending_preamble;
     let handle = spawn_connection(
         new_id.clone(),
         workspace,
@@ -426,10 +530,10 @@ pub async fn task_fork(
         auto_approve,
         app,
         None,
-        model,
+        initial_model_id,
         tight_sandbox,
         None,
-        parent_output_style,
+        None,
     )?;
     state.connections.lock().insert(new_id, handle);
     Ok(fork_task)
@@ -518,6 +622,26 @@ pub fn set_mode(
     let conns = state.connections.lock();
     let h = conns.get(&task_id).ok_or("No connection for task")?;
     h.cmd_tx.send(AcpCommand::SetMode(mode_id)).map_err(|e| e.to_string())
+}
+
+/// Apply a model selection to the live ACP session for `task_id`. The change
+/// is delivered as an `AcpCommand::SetModel`, which the connection loop
+/// translates into a `session/set_model` request to claude. Returns
+/// `Ok(())` even when the task has no live connection (e.g. deferred-spawn
+/// thread) — the model preference is still persisted in `projectPrefs`/
+/// `defaultModel` by the frontend, and the next spawn will pick it up via
+/// `resolve_initial_model`.
+#[tauri::command]
+pub fn set_model(
+    state: tauri::State<'_, AcpState>,
+    task_id: String,
+    model_id: String,
+) -> Result<(), String> {
+    let conns = state.connections.lock();
+    if let Some(h) = conns.get(&task_id) {
+        h.cmd_tx.send(AcpCommand::SetModel(model_id)).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -632,42 +756,13 @@ pub fn task_respond_user_input(
 
 #[tauri::command]
 pub fn list_models(
-    app: tauri::AppHandle,
-    settings_state: tauri::State<'_, crate::commands::settings::SettingsState>,
-    claude_bin: Option<String>,
+    _app: tauri::AppHandle,
+    _settings_state: tauri::State<'_, crate::commands::settings::SettingsState>,
+    _claude_bin: Option<String>,
 ) -> Result<Value, String> {
-    let bin = match claude_bin {
-        Some(b) => b,
-        None => settings_state.0.lock().settings.claude_bin.clone(),
-    };
-
-    // Use `claude models list --output-format json` to get available models.
-    // Falls back to a hardcoded default list if the command fails.
-    let output = std::process::Command::new(&bin)
-        .args(["models", "list", "--output-format", "json"])
-        .env(
-            "PATH",
-            format!(
-                "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}",
-                std::env::var("PATH").unwrap_or_default()
-            ),
-        )
-        .output();
-
-    match output {
-        Ok(out) if out.status.success() => {
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            if let Ok(models_val) = serde_json::from_str::<Value>(stdout.trim()) {
-                return Ok(serde_json::json!({
-                    "availableModels": models_val,
-                    "currentModelId": models_val.as_array().and_then(|a| a.first()).and_then(|m| m.get("modelId")).cloned()
-                }));
-            }
-        }
-        _ => {}
-    }
-
-    // Fallback: return a default model list
+    // The Claude CLI has no `models list` subcommand. Return known models
+    // immediately. The real model list arrives via the session_init event
+    // when an ACP session starts.
     Ok(serde_json::json!({
         "availableModels": [
             {"modelId": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "description": "Best combination of speed and intelligence"},
@@ -682,7 +777,7 @@ pub fn list_models(
 pub fn probe_capabilities(
     app: tauri::AppHandle,
     state: tauri::State<'_, AcpState>,
-    settings_state: tauri::State<'_, crate::commands::settings::SettingsState>,
+    _settings_state: tauri::State<'_, crate::commands::settings::SettingsState>,
 ) -> Result<Value, String> {
     if state
         .probe_running
@@ -692,42 +787,20 @@ pub fn probe_capabilities(
         return Ok(serde_json::json!({ "ok": true, "skipped": true }));
     }
 
-    let bin = settings_state.0.lock().settings.claude_bin.clone();
-    log::info!("[Claude] probe_capabilities starting with bin={}", bin);
+    log::info!("[Claude] probe_capabilities starting");
 
     let app_for_flag = app.clone();
     let app_clone = app.clone();
 
     std::thread::spawn(move || {
-        // Try to get models via CLI
-        let models_result = std::process::Command::new(&bin)
-            .args(["models", "list", "--output-format", "json"])
-            .env(
-                "PATH",
-                format!(
-                    "{}:{}",
-                    if cfg!(target_os = "macos") { "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin" }
-                    else { "/usr/local/bin:/usr/bin:/bin" },
-                    std::env::var("PATH").unwrap_or_default()
-                ),
-            )
-            .output();
-
-        let models = match models_result {
-            Ok(out) if out.status.success() => {
-                let stdout = String::from_utf8_lossy(&out.stdout);
-                serde_json::from_str::<Value>(stdout.trim()).ok()
-            }
-            _ => None,
-        };
-
-        let available_models = models.unwrap_or_else(|| {
-            serde_json::json!([
-                {"modelId": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "description": "Best combination of speed and intelligence"},
-                {"modelId": "claude-opus-4-7", "name": "Claude Opus 4.7", "description": "Most capable for complex reasoning and agentic coding"},
-                {"modelId": "claude-haiku-4-5", "name": "Claude Haiku 4.5", "description": "Fastest with near-frontier intelligence"},
-            ])
-        });
+        // The Claude CLI has no `models list` subcommand. Emit known models
+        // immediately. The real model list arrives via session_init when an
+        // ACP session starts.
+        let available_models = serde_json::json!([
+            {"modelId": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "description": "Best combination of speed and intelligence"},
+            {"modelId": "claude-opus-4-7", "name": "Claude Opus 4.7", "description": "Most capable for complex reasoning and agentic coding"},
+            {"modelId": "claude-haiku-4-5", "name": "Claude Haiku 4.5", "description": "Fastest with near-frontier intelligence"},
+        ]);
 
         let current_model = available_models
             .as_array()

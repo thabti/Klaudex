@@ -58,7 +58,8 @@ export const WorktreePanel = memo(function WorktreePanel({ onDismiss }: { onDism
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const workspace = useSettingsStore((s) => s.activeWorkspace)
-  const settings = useSettingsStore((s) => s.settings)
+  const projectPrefs = useSettingsStore((s) => s.settings.projectPrefs)
+  const autoApprove = useSettingsStore((s) => s.settings.autoApprove)
 
   const normalizedSlug = slugify(slug)
   const isValid = normalizedSlug.length > 0 && isValidWorktreeSlug(normalizedSlug)
@@ -67,7 +68,7 @@ export const WorktreePanel = memo(function WorktreePanel({ onDismiss }: { onDism
     if (!normalizedSlug || !workspace || !isValidWorktreeSlug(normalizedSlug)) return
     setIsCreating(true); setError(null)
     try {
-      const symlinkDirs = settings.projectPrefs?.[workspace]?.symlinkDirectories ?? ['node_modules']
+      const symlinkDirs = projectPrefs?.[workspace]?.symlinkDirectories ?? ['node_modules']
       const result = await ipc.gitWorktreeCreate(workspace, normalizedSlug)
       try {
         await ipc.gitWorktreeSetup(workspace, result.worktreePath, symlinkDirs)
@@ -75,7 +76,7 @@ export const WorktreePanel = memo(function WorktreePanel({ onDismiss }: { onDism
         void ipc.gitWorktreeRemove(workspace, result.worktreePath).catch(() => {})
         throw setupErr
       }
-      const task = await ipc.createTask({ name: normalizedSlug, workspace: result.worktreePath, prompt: '', autoApprove: settings.autoApprove })
+      const task = await ipc.createTask({ name: normalizedSlug, workspace: result.worktreePath, prompt: '', autoApprove, deferSpawn: true })
       const store = useTaskStore.getState()
       store.upsertTask({ ...task, worktreePath: result.worktreePath, originalWorkspace: workspace, messages: [{ role: 'system', content: `Working in worktree \`${result.worktreePath}\` on branch \`${result.branch}\``, timestamp: new Date().toISOString() }] })
       store.setSelectedTask(task.id)
@@ -83,7 +84,7 @@ export const WorktreePanel = memo(function WorktreePanel({ onDismiss }: { onDism
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally { setIsCreating(false) }
-  }, [normalizedSlug, workspace, settings, onDismiss])
+  }, [normalizedSlug, workspace, projectPrefs, autoApprove, onDismiss])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') { e.preventDefault(); void handleCreate() }

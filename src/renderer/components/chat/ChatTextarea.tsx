@@ -15,6 +15,7 @@ interface ChatTextareaProps {
   disabled?: boolean
   placeholderText: string
   textareaRef: React.RefObject<HTMLTextAreaElement | null>
+  hasContextRing?: boolean
   // Slash command picker
   showPicker: boolean
   slashQuery: string
@@ -37,8 +38,10 @@ interface ChatTextareaProps {
   imageAttachments: readonly Attachment[]
   nonImageAttachments: readonly Attachment[]
   pastedChunks: readonly PastedChunk[]
+  folderPaths: readonly string[]
   onRemoveAttachment: (id: string) => void
   onRemoveMention: (path: string) => void
+  onRemoveFolder: (path: string) => void
   onRemoveChunk: (id: number) => void
   // Handlers
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
@@ -52,11 +55,13 @@ export const ChatTextarea = memo(function ChatTextarea({
   disabled,
   placeholderText,
   textareaRef,
+  hasContextRing,
   showPicker, slashQuery, commands, slashIndex, onSelectCommand, onDismissSlash,
   showFilePicker, mentionTrigger, mentionIndex, mentionedFiles, workspace, onSelectFile, onDismissMention,
   panel, onDismissPanel,
   imageAttachments, nonImageAttachments, pastedChunks,
-  onRemoveAttachment, onRemoveMention, onRemoveChunk,
+  folderPaths,
+  onRemoveAttachment, onRemoveMention, onRemoveFolder, onRemoveChunk,
   onChange, onKeyDown, onSelect, onPaste,
 }: ChatTextareaProps) {
   const [hasScrollShadow, setHasScrollShadow] = useState(false)
@@ -120,13 +125,15 @@ export const ChatTextarea = memo(function ChatTextarea({
         </div>
       )}
       {/* Pills row */}
-      {(mentionedFiles.length > 0 || nonImageAttachments.length > 0 || pastedChunks.length > 0) && (
+      {(mentionedFiles.length > 0 || nonImageAttachments.length > 0 || pastedChunks.length > 0 || folderPaths.length > 0) && (
         <PillsRow
           mentionedFiles={mentionedFiles}
           nonImageAttachments={nonImageAttachments}
           pastedChunks={pastedChunks}
+          folderPaths={folderPaths}
           onRemoveMention={onRemoveMention}
           onRemoveAttachment={onRemoveAttachment}
+          onRemoveFolder={onRemoveFolder}
           onRemoveChunk={onRemoveChunk}
         />
       )}
@@ -152,10 +159,11 @@ export const ChatTextarea = memo(function ChatTextarea({
         disabled={disabled}
         rows={1}
         className={cn(
-          'block max-h-[200px] min-h-[70px] w-full resize-none rounded-lg bg-transparent text-sm leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground',
+          'block max-h-[200px] min-h-[70px] w-full resize-none rounded-lg bg-transparent leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground',
+          hasContextRing && 'pr-8',
           disabled && 'cursor-not-allowed opacity-50',
         )}
-        style={{ overflow: 'auto', fontFamily: 'inherit', caretColor: 'var(--foreground)' }}
+        style={{ overflowY: 'auto', overflowX: 'hidden', fontFamily: 'inherit', caretColor: 'var(--foreground)', fontSize: 'var(--chat-font-size, 15px)' }}
       />
     </div>
   )

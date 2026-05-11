@@ -20,6 +20,23 @@ vi.mock('@/stores/debugStore', () => ({
   ),
 }))
 
+vi.mock('@/stores/jsDebugStore', () => ({
+  useJsDebugStore: Object.assign(
+    (selector: (s: Record<string, unknown>) => unknown) =>
+      selector({}),
+    { getState: () => ({}) },
+  ),
+}))
+
+vi.mock('@/hooks/useModifierKeys', () => ({
+  useModifierKeys: () => false,
+}))
+
+vi.mock('@/lib/thread-memory', () => ({
+  measureMemory: () => ({ threads: [], threadsTotal: 0, debugTotal: 0, softDeletedTotal: 0, grandTotal: 0 }),
+  formatBytes: (n: number) => `${n} B`,
+}))
+
 vi.mock('@/hooks/useResizeHandle', () => ({
   useResizeHandle: () => vi.fn(),
 }))
@@ -32,7 +49,7 @@ import { SidebarFooter } from './SidebarFooter'
 
 const wrap = (ui: React.ReactNode) => <TooltipProvider>{ui}</TooltipProvider>
 
-const resetUpdateStore = (overrides: Partial<{ status: UpdateStatus; triggerDownload: (() => void) | null; triggerRestart: (() => void) | null }> = {}) => {
+const resetUpdateStore = (overrides: Partial<{ status: UpdateStatus; triggerDownload: (() => void) | null; triggerRestart: (() => Promise<void>) | null }> = {}) => {
   useUpdateStore.setState({
     status: 'idle',
     updateInfo: null,
@@ -103,8 +120,8 @@ describe('SidebarFooter update indicator', () => {
     expect(screen.getByText('Settings')).toBeInTheDocument()
   })
 
-  it('renders Debug button text', () => {
+  it('renders Debug button', () => {
     render(wrap(<SidebarFooter />))
-    expect(screen.getByText('Debug')).toBeInTheDocument()
+    expect(screen.getByLabelText('Toggle debug panel')).toBeInTheDocument()
   })
 })

@@ -27,6 +27,7 @@ beforeEach(() => {
     streamingChunks: {},
     thinkingChunks: {},
     liveToolCalls: {},
+    liveToolSplits: {},
     queuedMessages: {},
     activityFeed: [],
     connected: false,
@@ -218,5 +219,126 @@ describe('useSidebarTasks projectId grouping', () => {
     const { result } = renderHook(() => useSidebarTasks('recent'))
     expect(result.current).toHaveLength(1)
     expect(result.current[0].cwd).toBe('/project')
+  })
+
+  it('does not create sidebar entry for orphaned UUID projectId with no workspace mapping', () => {
+    const orphanUuid = crypto.randomUUID()
+    useTaskStore.setState({
+      tasks: {
+        't1': makeTask({ id: 't1', workspace: '/old-project', projectId: orphanUuid }),
+      },
+      projects: [],
+      projectIds: {},
+    })
+    const { result } = renderHook(() => useSidebarTasks('recent'))
+    // Should not create an entry with the UUID as the project name
+    const uuidEntry = result.current.find((p) => p.cwd === orphanUuid)
+    expect(uuidEntry).toBeUndefined()
+  })
+})
+
+describe('useSidebarTasks custom sort', () => {
+  it('preserves store project order when sort is custom', () => {
+    useTaskStore.setState({
+      tasks: {
+        't1': makeTask({ id: 't1', workspace: '/alpha', projectId: '/alpha' }),
+        't2': makeTask({ id: 't2', workspace: '/beta', projectId: '/beta' }),
+        't3': makeTask({ id: 't3', workspace: '/gamma', projectId: '/gamma' }),
+      },
+      projects: ['/gamma', '/alpha', '/beta'],
+    })
+    const { result } = renderHook(() => useSidebarTasks('custom'))
+    expect(result.current.map((p) => p.cwd)).toEqual(['/gamma', '/alpha', '/beta'])
+  })
+
+  it('recent sort reorders projects by activity', () => {
+    useTaskStore.setState({
+      tasks: {
+        't1': makeTask({ id: 't1', workspace: '/alpha', projectId: '/alpha', createdAt: '2026-01-01T00:00:00Z' }),
+        't2': makeTask({ id: 't2', workspace: '/beta', projectId: '/beta', createdAt: '2026-06-01T00:00:00Z' }),
+      },
+      projects: ['/alpha', '/beta'],
+    })
+    const { result } = renderHook(() => useSidebarTasks('recent'))
+    // beta has more recent activity, should come first
+    expect(result.current[0].cwd).toBe('/beta')
+  })
+
+  it('custom sort does not reorder projects by activity', () => {
+    useTaskStore.setState({
+      tasks: {
+        't1': makeTask({ id: 't1', workspace: '/alpha', projectId: '/alpha', createdAt: '2026-01-01T00:00:00Z' }),
+        't2': makeTask({ id: 't2', workspace: '/beta', projectId: '/beta', createdAt: '2026-06-01T00:00:00Z' }),
+      },
+      projects: ['/alpha', '/beta'],
+    })
+    const { result } = renderHook(() => useSidebarTasks('custom'))
+    // Store order preserved regardless of activity
+    expect(result.current.map((p) => p.cwd)).toEqual(['/alpha', '/beta'])
+  })
+
+  it('custom sort preserves task order within a project', () => {
+    useTaskStore.setState({
+      tasks: {
+        't1': makeTask({ id: 't1', name: 'Zebra', workspace: '/project', projectId: '/project', createdAt: '2026-01-01T00:00:00Z' }),
+        't2': makeTask({ id: 't2', name: 'Apple', workspace: '/project', projectId: '/project', createdAt: '2026-02-01T00:00:00Z' }),
+      },
+      projects: ['/project'],
+    })
+    const { result } = renderHook(() => useSidebarTasks('custom'))
+    // Tasks should be in store insertion order (not sorted by name or date)
+    expect(result.current[0].tasks.map((t) => t.name)).toEqual(['Zebra', 'Apple'])
+  })
+})
+
+describe('useSidebarTasks render stability (useShallow)', () => {
+  it('does not re-render when unrelated store fields change', () => {
+    useTaskStore.setState({
+      tasks: {
+        't1': makeTask({ id: 't1', workspace: '/project', projectId: '/project' }),
+      },
+      projects: ['/project'],
+      archivedMeta: {},
+      threadOrders: {},
+    })
+    let renderCount = 0
+    const { result } = renderHook(() => {
+      renderCount++
+      return useSidebarTasks('recent')
+    })
+    expect(result.current).toHaveLength(1)
+    const initialRenders = renderCount
+
+    // Mutate an unrelated field (streamingChunks) — should NOT trigger re-render
+    useTaskStore.setState({ streamingChunks: { 't1': 'hello' } })
+    expect(renderCount).toBe(initialRenders)
+  })
+
+  it('re-renders when tasks object changes', () => {
+    useTaskStore.setState({
+      tasks: {
+        't1': makeTask({ id: 't1', workspace: '/project', projectId: '/project' }),
+      },
+      projects: ['/project'],
+      archivedMeta: {},
+      threadOrders: {},
+    })
+    let renderCount = 0
+    const { result, rerender } = renderHook(() => {
+      renderCount++
+      return useSidebarTasks('recent')
+    })
+    expect(result.current).toHaveLength(1)
+    const initialRenders = renderCount
+
+    // Mutate tasks — SHOULD trigger re-render
+    useTaskStore.setState({
+      tasks: {
+        't1': makeTask({ id: 't1', workspace: '/project', projectId: '/project' }),
+        't2': makeTask({ id: 't2', workspace: '/project', projectId: '/project' }),
+      },
+    })
+    rerender()
+    expect(result.current[0].tasks).toHaveLength(2)
   })
 })

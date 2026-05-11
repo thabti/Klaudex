@@ -6,7 +6,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{mpsc, oneshot};
 
 use super::claude_types::*;
-use super::sandbox::{extract_paths_from_message, friendly_prompt_error};
+use super::sandbox::{extract_paths_from_message};
 use super::types::{
     AcpCommand, AcpState, AttachmentData, ConnectionHandle, PendingPermission, PermissionOption,
     PermissionReply,
@@ -246,7 +246,7 @@ fn handle_claude_message(
         ClaudeMessage::StreamEvent(se) => match &se.event {
             StreamEvent::ContentBlockStart {
                 content_block,
-                index,
+                index: _,
             } => match content_block {
                 ContentBlock::Text { .. } => {}
                 ContentBlock::Thinking { .. } => {}
@@ -584,7 +584,7 @@ pub(crate) async fn run_claude_connection(
     cmd_rx: &mut mpsc::UnboundedReceiver<AcpCommand>,
     initial_mode_id: Option<String>,
     model: Option<String>,
-    tight_sandbox: bool,
+    _tight_sandbox: bool,
     resume_session_id: Option<String>,
     // TASK-113: Optional output style; appended as `--output-style <name>` when spawning claude.
     output_style: Option<String>,
@@ -973,6 +973,12 @@ pub(crate) async fn run_claude_connection(
             AcpCommand::SetMode(_mode_id) => {
                 // Mode changes not directly supported in Claude CLI mid-session
                 log::debug!("[Claude] SetMode ignored (not supported mid-session)");
+            }
+            AcpCommand::SetModel(_model_id) => {
+                // Model changes mid-session are not supported by the Claude CLI
+                // direct-mode subprocess; the renderer's next message will spawn
+                // a fresh connection with the new model id baked into argv.
+                log::debug!("[Claude] SetModel ignored (not supported mid-session)");
             }
             AcpCommand::ForkSession(reply_tx) => {
                 let _ = reply_tx.send(Err("Fork not supported in direct Claude mode".to_string()));

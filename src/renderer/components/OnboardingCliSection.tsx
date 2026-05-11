@@ -6,6 +6,7 @@ import {
 } from '@tabler/icons-react'
 import { ipc } from '@/lib/ipc'
 import { cn } from '@/lib/utils'
+import { handleExternalLinkClick, handleExternalLinkKeyDown } from '@/lib/open-external'
 import {
   type DetectState, type Platform,
   INSTALL_COMMANDS, PLATFORM_LABELS, detectPlatform, CommandRow,
@@ -105,7 +106,7 @@ export const OnboardingCliSection = ({ onCliReady }: OnboardingCliSectionProps) 
               <IconFolderOpen size={16} />
             </button>
           </div>
-          <a href="https://docs.anthropic.com/en/docs/claude-code/getting-started" target="_blank" rel="noopener noreferrer"
+          <a href="https://docs.anthropic.com/en/docs/claude-code/getting-started" onClick={handleExternalLinkClick} onKeyDown={handleExternalLinkKeyDown}
             className="flex items-center justify-center gap-1.5 text-[12px] text-primary transition-colors hover:text-primary">
             Full installation guide <IconExternalLink size={12} />
           </a>

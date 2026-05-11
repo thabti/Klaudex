@@ -1,17 +1,32 @@
-import { memo, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { IconRefresh } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 import { fuzzyScore } from '@/lib/fuzzy-search'
+import { getModelIcon } from '@/lib/model-icons'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { usePanelResolvedTaskId } from './PanelContext'
 import { ipc } from '@/lib/ipc'
 import { PanelShell } from './PanelShell'
 
 export const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { onDismiss: () => void }) {
+  const resolvedTaskId = usePanelResolvedTaskId()
   const rawModels = useSettingsStore((s) => s.availableModels)
   const models = Array.isArray(rawModels) ? rawModels : []
-  const currentId = useSettingsStore((s) => s.currentModelId)
+  const globalModelId = useSettingsStore((s) => s.currentModelId)
+  const taskModelId = useTaskStore((s) => resolvedTaskId ? s.taskModels[resolvedTaskId] ?? null : null)
+  const currentId = taskModelId ?? globalModelId
+  const modelsError = useSettingsStore((s) => s.modelsError)
   const [query, setQuery] = useState('')
+  const [isShaking, setIsShaking] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!modelsError) return
+    setIsShaking(true)
+    const id = setTimeout(() => setIsShaking(false), 400)
+    return () => clearTimeout(id)
+  }, [modelsError])
 
   const filtered = useMemo(() => {
     if (!query.trim()) return models
@@ -28,11 +43,23 @@ export const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { 
   }, [models, query])
 
   const handleSelect = (modelId: string) => {
-    const { activeWorkspace, setProjectPref } = useSettingsStore.getState()
+    const { activeWorkspace, setProjectPref, settings, saveSettings } = useSettingsStore.getState()
     if (activeWorkspace) {
       setProjectPref(activeWorkspace, { modelId })
     } else {
+      // No active workspace: persist as the user's global default so the
+      // choice survives a restart instead of being held only in transient
+      // zustand state.
       useSettingsStore.setState({ currentModelId: modelId })
+      if (settings.defaultModel !== modelId) {
+        saveSettings({ ...settings, defaultModel: modelId }).catch(() => {})
+      }
+    }
+    if (resolvedTaskId) {
+      useTaskStore.getState().setTaskModel(resolvedTaskId, modelId)
+      // Push the selection to the live ACP session so claude actually
+      // starts using the new model on the next prompt.
+      ipc.setModel(resolvedTaskId, modelId).catch(() => {})
     }
     // Switch model mid-session if a task is active
     const taskId = useTaskStore.getState().selectedTaskId
@@ -42,9 +69,29 @@ export const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { 
     onDismiss()
   }
 
+  const handleRetry = () => {
+    ipc.probeCapabilities().catch(() => {})
+  }
+
   if (models.length === 0) return (
     <PanelShell onDismiss={onDismiss}>
-      <p className="px-3 py-3 text-xs text-muted-foreground">No models available</p>
+      <div
+        className="flex items-center justify-between px-3 py-3"
+        style={isShaking ? { animation: 'var(--animate-shake)' } : undefined}
+      >
+        <p className={cn('text-xs', modelsError ? 'text-destructive/80' : 'text-muted-foreground')}>
+          {modelsError ?? 'No models available'}
+        </p>
+        <button
+          type="button"
+          onClick={handleRetry}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          aria-label="Retry loading models"
+        >
+          <IconRefresh className="size-3" />
+          Retry
+        </button>
+      </div>
     </PanelShell>
   )
 
@@ -80,7 +127,7 @@ export const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { 
                 isActive ? 'text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
               )}
             >
-              <span className={cn('size-1.5 shrink-0 rounded-full', isActive ? 'bg-primary' : 'bg-transparent')} />
+              <span className="shrink-0">{getModelIcon(m.modelId || m.name, { size: 14 })}</span>
               <span className={cn('flex-1 truncate', isActive && 'font-medium')}>{m.name}</span>
               {isActive && <span className="text-[10px] text-primary">active</span>}
             </li>

@@ -13,16 +13,30 @@ vi.mock('@/lib/ipc', () => ({
     forkTask: vi.fn().mockResolvedValue({ id: 'fork-1', name: 'Fork', workspace: '/ws', status: 'paused', createdAt: '', messages: [] }),
     gitWorktreeHasChanges: vi.fn().mockResolvedValue(false),
     gitWorktreeRemove: vi.fn().mockResolvedValue(undefined),
+    addRecentProject: vi.fn().mockResolvedValue(undefined),
+    rebuildRecentMenu: vi.fn().mockResolvedValue(undefined),
+    threadDbAutoArchive: vi.fn().mockResolvedValue([]),
   },
 }))
 vi.mock('@/lib/history-store', () => ({
   loadThreads: vi.fn().mockResolvedValue([]),
+  loadThread: vi.fn().mockResolvedValue(null),
   loadProjects: vi.fn().mockResolvedValue([]),
   loadSoftDeleted: vi.fn().mockResolvedValue([]),
+  loadBackup: vi.fn().mockResolvedValue({ threads: [], projects: [], softDeleted: [] }),
   saveThreads: vi.fn().mockResolvedValue(undefined),
   saveSoftDeleted: vi.fn().mockResolvedValue(undefined),
   toArchivedTasks: vi.fn().mockReturnValue([]),
   clearHistory: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock('@/lib/thread-db', () => ({
+  saveThread: vi.fn().mockResolvedValue(undefined),
+  saveMessage: vi.fn().mockResolvedValue(undefined),
+  saveAllMessages: vi.fn().mockResolvedValue(undefined),
+  loadFullThread: vi.fn().mockResolvedValue(null),
+  loadMessages: vi.fn().mockResolvedValue([]),
+  migrateFromJsonHistory: vi.fn().mockResolvedValue({ migrated: 0, skipped: 0, failed: 0 }),
+  clearAll: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('./debugStore', () => ({
   useDebugStore: { getState: () => ({ addEntry: vi.fn() }) },
@@ -56,11 +70,13 @@ const makeTask = (overrides?: Partial<AgentTask>): AgentTask => ({
 beforeEach(() => {
   useTaskStore.setState({
     tasks: {}, projects: [], projectIds: {}, deletedTaskIds: new Set(), softDeleted: {}, selectedTaskId: null,
-    streamingChunks: {}, thinkingChunks: {}, liveToolCalls: {}, liveSubagents: {},
+    streamingChunks: {}, thinkingChunks: {}, liveToolCalls: {}, liveToolSplits: {},
     queuedMessages: {}, activityFeed: [], connected: false,
     terminalOpenTasks: new Set(), pendingWorkspace: null,
     view: 'dashboard', isNewProjectOpen: false, isSettingsOpen: false, projectNames: {},
     btwCheckpoint: null,
+    splitViews: [], activeSplitId: null, focusedPanel: 'left' as const, scrollPositions: {},
+    pinnedThreadIds: [],
   })
 })
 
@@ -174,11 +190,13 @@ describe('streaming', () => {
       streamingChunks: { t1: 'text' },
       thinkingChunks: { t1: 'think' },
       liveToolCalls: { t1: [{ toolCallId: 'tc1', title: 'test', status: 'completed' }] },
+      liveToolSplits: { t1: [{ at: 4, toolCallId: 'tc1' }] },
     })
     useTaskStore.getState().clearTurn('t1')
     expect(useTaskStore.getState().streamingChunks['t1']).toBe('')
     expect(useTaskStore.getState().thinkingChunks['t1']).toBe('')
     expect(useTaskStore.getState().liveToolCalls['t1']).toEqual([])
+    expect(useTaskStore.getState().liveToolSplits['t1']).toEqual([])
   })
 })
 
@@ -186,6 +204,50 @@ describe('upsertToolCall', () => {
   it('adds new tool call', () => {
     useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'pending' })
     expect(useTaskStore.getState().liveToolCalls['t1']).toHaveLength(1)
+  })
+
+  it('records a split anchor at the current streaming offset on first sight', () => {
+    useTaskStore.setState({ streamingChunks: { t1: 'hello world' } })
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'pending' })
+    expect(useTaskStore.getState().liveToolSplits['t1']).toEqual([{ at: 11, toolCallId: 'tc1' }])
+  })
+
+  it('does not record a duplicate split when the same tool is updated', () => {
+    useTaskStore.setState({ streamingChunks: { t1: 'hello' } })
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'pending' })
+    useTaskStore.setState({ streamingChunks: { t1: 'hello world' } })
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'completed' })
+    expect(useTaskStore.getState().liveToolSplits['t1']).toEqual([{ at: 5, toolCallId: 'tc1' }])
+  })
+
+  it('stamps createdAt on first sight and preserves it across updates', () => {
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'pending' })
+    const created = useTaskStore.getState().liveToolCalls['t1'][0].createdAt
+    expect(created).toBeDefined()
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'read', status: 'completed' })
+    expect(useTaskStore.getState().liveToolCalls['t1'][0].createdAt).toBe(created)
+  })
+
+  it('stamps completedAt on the first terminal-status update', () => {
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch', kind: 'fetch', status: 'pending' })
+    expect(useTaskStore.getState().liveToolCalls['t1'][0].completedAt).toBeUndefined()
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch', kind: 'fetch', status: 'completed' })
+    const completed = useTaskStore.getState().liveToolCalls['t1'][0].completedAt
+    expect(completed).toBeDefined()
+    // Subsequent updates preserve the original completedAt.
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch v2', kind: 'fetch', status: 'completed' })
+    expect(useTaskStore.getState().liveToolCalls['t1'][0].completedAt).toBe(completed)
+  })
+
+  it('stamps completedAt when the first sighting is already terminal', () => {
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch', kind: 'fetch', status: 'completed' })
+    expect(useTaskStore.getState().liveToolCalls['t1'][0].completedAt).toBeDefined()
+  })
+
+  it('does not stamp completedAt for non-terminal statuses', () => {
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch', kind: 'fetch', status: 'pending' })
+    useTaskStore.getState().upsertToolCall('t1', { toolCallId: 'tc1', title: 'fetch', kind: 'fetch', status: 'in_progress' })
+    expect(useTaskStore.getState().liveToolCalls['t1'][0].completedAt).toBeUndefined()
   })
 
   it('updates existing by toolCallId', () => {
@@ -201,8 +263,15 @@ describe('queue', () => {
     useTaskStore.getState().enqueueMessage('t1', 'msg1')
     useTaskStore.getState().enqueueMessage('t1', 'msg2')
     const msgs = useTaskStore.getState().dequeueMessages('t1')
-    expect(msgs).toEqual(['msg1', 'msg2'])
+    expect(msgs).toEqual([{ text: 'msg1' }, { text: 'msg2' }])
     expect(useTaskStore.getState().queuedMessages['t1']).toEqual([])
+  })
+
+  it('enqueue with attachments', () => {
+    const attachment = { base64: 'abc', mimeType: 'image/png', name: 'img.png' }
+    useTaskStore.getState().enqueueMessage('t1', 'look', [attachment])
+    const msgs = useTaskStore.getState().dequeueMessages('t1')
+    expect(msgs).toEqual([{ text: 'look', attachments: [attachment] }])
   })
 
   it('removeQueuedMessage removes by index', () => {
@@ -210,7 +279,7 @@ describe('queue', () => {
     useTaskStore.getState().enqueueMessage('t1', 'b')
     useTaskStore.getState().enqueueMessage('t1', 'c')
     useTaskStore.getState().removeQueuedMessage('t1', 1)
-    expect(useTaskStore.getState().queuedMessages['t1']).toEqual(['a', 'c'])
+    expect(useTaskStore.getState().queuedMessages['t1']).toEqual([{ text: 'a' }, { text: 'c' }])
   })
 
   it('reorderQueuedMessage moves item', () => {
@@ -218,7 +287,7 @@ describe('queue', () => {
     useTaskStore.getState().enqueueMessage('t1', 'b')
     useTaskStore.getState().enqueueMessage('t1', 'c')
     useTaskStore.getState().reorderQueuedMessage('t1', 0, 2)
-    expect(useTaskStore.getState().queuedMessages['t1']).toEqual(['b', 'c', 'a'])
+    expect(useTaskStore.getState().queuedMessages['t1']).toEqual([{ text: 'b' }, { text: 'c' }, { text: 'a' }])
   })
 })
 
@@ -252,6 +321,18 @@ describe('projects', () => {
     expect(useTaskStore.getState().projectIds['/ws']).toBe(pid)
   })
 
+  it('addProject does not restore soft-deleted threads', () => {
+    useTaskStore.getState().addProject('/ws')
+    const oldPid = useTaskStore.getState().projectIds['/ws']
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1', workspace: '/ws', projectId: oldPid }))
+    useTaskStore.getState().removeProject('/ws')
+    expect(useTaskStore.getState().softDeleted['t1']).toBeDefined()
+    // Re-add the same project — soft-deleted threads stay deleted
+    useTaskStore.getState().addProject('/ws')
+    expect(useTaskStore.getState().softDeleted['t1']).toBeDefined()
+    expect(useTaskStore.getState().tasks['t1']).toBeUndefined()
+  })
+
   it('addProject rejects worktree paths', () => {
     useTaskStore.getState().addProject('/project/.klaudex/worktrees/feat')
     expect(useTaskStore.getState().projects).toHaveLength(0)
@@ -261,6 +342,30 @@ describe('projects', () => {
     useTaskStore.setState({ projects: ['/a', '/b', '/c'] })
     useTaskStore.getState().reorderProject(0, 2)
     expect(useTaskStore.getState().projects).toEqual(['/b', '/c', '/a'])
+  })
+
+  it('reorderProject no-ops when from equals to', () => {
+    useTaskStore.setState({ projects: ['/a', '/b', '/c'] })
+    useTaskStore.getState().reorderProject(1, 1)
+    expect(useTaskStore.getState().projects).toEqual(['/a', '/b', '/c'])
+  })
+
+  it('reorderProject handles adjacent swap forward', () => {
+    useTaskStore.setState({ projects: ['/a', '/b', '/c'] })
+    useTaskStore.getState().reorderProject(0, 1)
+    expect(useTaskStore.getState().projects).toEqual(['/b', '/a', '/c'])
+  })
+
+  it('reorderProject handles adjacent swap backward', () => {
+    useTaskStore.setState({ projects: ['/a', '/b', '/c'] })
+    useTaskStore.getState().reorderProject(2, 1)
+    expect(useTaskStore.getState().projects).toEqual(['/a', '/c', '/b'])
+  })
+
+  it('reorderProject handles last-to-first', () => {
+    useTaskStore.setState({ projects: ['/a', '/b', '/c'] })
+    useTaskStore.getState().reorderProject(2, 0)
+    expect(useTaskStore.getState().projects).toEqual(['/c', '/a', '/b'])
   })
 })
 
@@ -489,12 +594,15 @@ describe('removeProject cleans up taskModes', () => {
 })
 
 describe('applyTurnEnd', () => {
+  // In production, the ACP task_update event sets the task to 'paused' before
+  // turn_end fires, so applyTurnEnd never sees status === 'running' (it has a
+  // guard that returns {} for running tasks to avoid clobbering a new turn).
   const baseState = (overrides?: Partial<Parameters<typeof applyTurnEnd>[0]>) => ({
-    tasks: { 't1': makeTask({ id: 't1', status: 'running' }) },
+    tasks: { 't1': makeTask({ id: 't1', status: 'paused' }) },
     streamingChunks: {} as Record<string, string>,
     thinkingChunks: {} as Record<string, string>,
     liveToolCalls: {} as Record<string, import('@/types').ToolCall[]>,
-    liveSubagents: {} as Record<string, import('@/types').SubagentInfo[]>,
+    liveToolSplits: {} as Record<string, import('@/types').ToolCallSplit[]>,
     ...overrides,
   })
 
@@ -503,9 +611,9 @@ describe('applyTurnEnd', () => {
     expect(result.tasks?.['t1'].status).toBe('completed')
   })
 
-  it('sets status to paused on refusal (user can recover)', () => {
+  it('sets status to error on refusal', () => {
     const result = applyTurnEnd(baseState(), 't1', 'refusal')
-    expect(result.tasks?.['t1'].status).toBe('paused')
+    expect(result.tasks?.['t1'].status).toBe('error')
   })
 
   it('appends retry system message on refusal with refusalRetry=true', () => {
@@ -574,6 +682,15 @@ describe('applyTurnEnd', () => {
     expect(result).toEqual({})
   })
 
+  it('processes running task and sets status to completed', () => {
+    const state = baseState({
+      tasks: { 't1': makeTask({ id: 't1', status: 'running' }) },
+    })
+    const result = applyTurnEnd(state, 't1', 'end_turn')
+    expect(result.tasks?.['t1']?.status).toBe('completed')
+    expect(result.streamingChunks?.['t1']).toBe('')
+  })
+
   it('does not append empty assistant message after pause clears chunks', () => {
     const state = baseState({
       tasks: { 't1': makeTask({ id: 't1', status: 'paused', messages: [{ role: 'user', content: 'hello', timestamp: '' }] }) },
@@ -585,6 +702,178 @@ describe('applyTurnEnd', () => {
     const messages = result.tasks?.['t1'].messages ?? []
     expect(messages).toHaveLength(1)
     expect(messages[0].role).toBe('user')
+  })
+})
+
+describe('hydrateArchivedTask', () => {
+  it('preserves toolCalls and toolCallSplits from persisted thread', async () => {
+    const { loadThread } = await import('@/lib/history-store')
+    const archivedId = 'archived-with-tools'
+    vi.mocked(loadThread).mockResolvedValueOnce({
+      id: archivedId,
+      name: 'Test Task',
+      workspace: '/ws',
+      createdAt: '2026-01-01T00:00:00Z',
+      messages: [
+        { role: 'user', content: 'do a thing', timestamp: '2026-01-01T00:00:00Z' },
+        {
+          role: 'assistant',
+          content: 'doing the thing',
+          timestamp: '2026-01-01T00:00:01Z',
+          toolCalls: [{
+            toolCallId: 'tc-1',
+            title: 'Read file',
+            kind: 'read',
+            status: 'completed',
+            createdAt: '2026-01-01T00:00:01Z',
+          }],
+          toolCallSplits: [{ toolCallId: 'tc-1', at: 5 }],
+        },
+      ],
+    })
+    // Seed archivedMeta so hydrateArchivedTask doesn't bail early.
+    useTaskStore.setState({
+      archivedMeta: {
+        [archivedId]: {
+          id: archivedId,
+          name: 'Test Task',
+          workspace: '/ws',
+          createdAt: '2026-01-01T00:00:00Z',
+          lastActivityAt: '2026-01-01T00:00:01Z',
+          messageCount: 2,
+        },
+      },
+    })
+
+    const ok = await useTaskStore.getState().hydrateArchivedTask(archivedId)
+    expect(ok).toBe(true)
+    const hydrated = useTaskStore.getState().tasks[archivedId]
+    expect(hydrated).toBeDefined()
+    const assistantMsg = hydrated.messages[1]
+    // Regression guard: prior implementation dropped tool data on hydration,
+    // leaving reopened threads with text-only stubs of the live transcript.
+    expect(assistantMsg.toolCalls?.length).toBe(1)
+    expect(assistantMsg.toolCalls?.[0].toolCallId).toBe('tc-1')
+    expect(assistantMsg.toolCallSplits?.length).toBe(1)
+    expect(assistantMsg.toolCallSplits?.[0].at).toBe(5)
+  })
+})
+
+describe('autoArchiveStaleThreads', () => {
+  it('archives threads returned by the backend', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const settingsMod = await import('./settingsStore')
+    const originalGetState = settingsMod.useSettingsStore.getState
+    ;(settingsMod.useSettingsStore as any).getState = () => ({
+      settings: { autoArchiveDays: 7 },
+      saveSettings: vi.fn().mockResolvedValue(undefined),
+      setActiveWorkspace: mockSetActiveWorkspace,
+    })
+
+    const oldTimestamp = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString() // 10 days ago
+    useTaskStore.getState().upsertTask(makeTask({
+      id: 'stale-1',
+      status: 'completed',
+      messages: [{ role: 'user', content: 'hi', timestamp: oldTimestamp }],
+    }))
+
+    // Mock the backend returning this thread as stale
+    vi.mocked(ipc.threadDbAutoArchive).mockResolvedValueOnce([
+      { id: 'stale-1', name: 'Test Task', workspace: '/projects/test', createdAt: oldTimestamp, lastActivityAt: oldTimestamp, messageCount: 1 },
+    ])
+
+    useTaskStore.getState().autoArchiveStaleThreads()
+    // Wait for the async IPC call to resolve
+    await vi.waitFor(() => {
+      expect(useTaskStore.getState().tasks['stale-1']).toBeUndefined()
+    })
+
+    expect(useTaskStore.getState().archivedMeta['stale-1']).toBeDefined()
+    ;(settingsMod.useSettingsStore as any).getState = originalGetState
+  })
+
+  it('does not archive when backend returns empty list', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const settingsMod = await import('./settingsStore')
+    const originalGetState = settingsMod.useSettingsStore.getState
+    ;(settingsMod.useSettingsStore as any).getState = () => ({
+      settings: { autoArchiveDays: 1 },
+      saveSettings: vi.fn().mockResolvedValue(undefined),
+      setActiveWorkspace: mockSetActiveWorkspace,
+    })
+
+    const oldTimestamp = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+    useTaskStore.getState().upsertTask(makeTask({
+      id: 'running-1',
+      status: 'running',
+      messages: [{ role: 'user', content: 'hi', timestamp: oldTimestamp }],
+    }))
+
+    // Backend correctly excludes running threads
+    vi.mocked(ipc.threadDbAutoArchive).mockResolvedValueOnce([])
+
+    useTaskStore.getState().autoArchiveStaleThreads()
+    await vi.waitFor(() => {
+      expect(vi.mocked(ipc.threadDbAutoArchive)).toHaveBeenCalledWith(1)
+    })
+
+    expect(useTaskStore.getState().tasks['running-1']).toBeDefined()
+    ;(settingsMod.useSettingsStore as any).getState = originalGetState
+  })
+
+  it('does nothing when autoArchiveDays is 0 or unset', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const settingsMod = await import('./settingsStore')
+    const originalGetState = settingsMod.useSettingsStore.getState
+    ;(settingsMod.useSettingsStore as any).getState = () => ({
+      settings: { autoArchiveDays: 0 },
+      saveSettings: vi.fn().mockResolvedValue(undefined),
+      setActiveWorkspace: mockSetActiveWorkspace,
+    })
+
+    const oldTimestamp = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString()
+    useTaskStore.getState().upsertTask(makeTask({
+      id: 'old-1',
+      status: 'completed',
+      messages: [{ role: 'user', content: 'hi', timestamp: oldTimestamp }],
+    }))
+
+    vi.mocked(ipc.threadDbAutoArchive).mockClear()
+    useTaskStore.getState().autoArchiveStaleThreads()
+
+    // Should not even call the backend when days is 0
+    expect(vi.mocked(ipc.threadDbAutoArchive)).not.toHaveBeenCalled()
+    expect(useTaskStore.getState().tasks['old-1']).toBeDefined()
+    ;(settingsMod.useSettingsStore as any).getState = originalGetState
+  })
+
+  it('does not archive threads within the threshold (backend decides)', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const settingsMod = await import('./settingsStore')
+    const originalGetState = settingsMod.useSettingsStore.getState
+    ;(settingsMod.useSettingsStore as any).getState = () => ({
+      settings: { autoArchiveDays: 30 },
+      saveSettings: vi.fn().mockResolvedValue(undefined),
+      setActiveWorkspace: mockSetActiveWorkspace,
+    })
+
+    const recentTimestamp = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() // 5 days ago
+    useTaskStore.getState().upsertTask(makeTask({
+      id: 'recent-1',
+      status: 'completed',
+      messages: [{ role: 'user', content: 'hi', timestamp: recentTimestamp }],
+    }))
+
+    // Backend returns empty — thread is within threshold
+    vi.mocked(ipc.threadDbAutoArchive).mockResolvedValueOnce([])
+
+    useTaskStore.getState().autoArchiveStaleThreads()
+    await vi.waitFor(() => {
+      expect(vi.mocked(ipc.threadDbAutoArchive)).toHaveBeenCalledWith(30)
+    })
+
+    expect(useTaskStore.getState().tasks['recent-1']).toBeDefined()
+    ;(settingsMod.useSettingsStore as any).getState = originalGetState
   })
 })
 
@@ -618,6 +907,46 @@ describe('loadTasks', () => {
     expect(useTaskStore.getState().tasks['shared-id'].status).toBe('running')
   })
 
+  it('preserves running tasks in store when loadTasks is called mid-session', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const { loadThreads, loadProjects, toArchivedTasks } = await import('@/lib/history-store')
+    // Simulate a running task already in the store with messages
+    const runningTask = makeTask({
+      id: 'active-1', status: 'running', workspace: '/ws',
+      messages: [
+        { role: 'user', content: 'hello', timestamp: '' },
+        { role: 'assistant', content: 'hi there', timestamp: '' },
+      ],
+    })
+    useTaskStore.getState().upsertTask(runningTask)
+    // loadTasks returns an empty backend list (task not visible to backend yet)
+    vi.mocked(ipc.listTasks).mockResolvedValueOnce([])
+    vi.mocked(loadThreads).mockResolvedValueOnce([])
+    vi.mocked(loadProjects).mockResolvedValueOnce([])
+    vi.mocked(toArchivedTasks).mockReturnValueOnce([])
+    await useTaskStore.getState().loadTasks()
+    // Running task must survive — messages intact
+    const preserved = useTaskStore.getState().tasks['active-1']
+    expect(preserved).toBeDefined()
+    expect(preserved.status).toBe('running')
+    expect(preserved.messages).toHaveLength(2)
+  })
+
+  it('preserves paused tasks in store when loadTasks is called', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const { loadThreads, loadProjects, toArchivedTasks } = await import('@/lib/history-store')
+    const pausedTask = makeTask({ id: 'paused-1', status: 'paused', workspace: '/ws',
+      messages: [{ role: 'user', content: 'test', timestamp: '' }],
+    })
+    useTaskStore.getState().upsertTask(pausedTask)
+    vi.mocked(ipc.listTasks).mockResolvedValueOnce([])
+    vi.mocked(loadThreads).mockResolvedValueOnce([])
+    vi.mocked(loadProjects).mockResolvedValueOnce([])
+    vi.mocked(toArchivedTasks).mockReturnValueOnce([])
+    await useTaskStore.getState().loadTasks()
+    expect(useTaskStore.getState().tasks['paused-1']?.status).toBe('paused')
+  })
+
   it('restores project display names from history', async () => {
     const { ipc } = await import('@/lib/ipc')
     const { loadThreads, loadProjects, toArchivedTasks } = await import('@/lib/history-store')
@@ -633,14 +962,16 @@ describe('loadTasks', () => {
 
   it('falls back to history-only when backend fails', async () => {
     const { ipc } = await import('@/lib/ipc')
-    const { loadThreads, loadProjects, toArchivedTasks } = await import('@/lib/history-store')
+    const { loadThreads, loadProjects } = await import('@/lib/history-store')
     vi.mocked(ipc.listTasks).mockRejectedValueOnce(new Error('backend down'))
-    const archivedTask = makeTask({ id: 'archived-1', workspace: '/ws', isArchived: true })
-    vi.mocked(loadThreads).mockResolvedValueOnce([])
+    vi.mocked(loadThreads).mockResolvedValueOnce([
+      { id: 'archived-1', name: 'Test Task', workspace: '/ws', createdAt: '2026-01-01T00:00:00Z', messages: [] },
+    ])
     vi.mocked(loadProjects).mockResolvedValueOnce([{ workspace: '/ws', threadIds: ['archived-1'] }])
-    vi.mocked(toArchivedTasks).mockReturnValueOnce([archivedTask])
     await useTaskStore.getState().loadTasks()
-    expect(useTaskStore.getState().tasks['archived-1']).toBeDefined()
+    // Archived threads land in `archivedMeta` (lazy), not `tasks`, until the user opens one.
+    expect(useTaskStore.getState().archivedMeta['archived-1']).toBeDefined()
+    expect(useTaskStore.getState().tasks['archived-1']).toBeUndefined()
     expect(useTaskStore.getState().connected).toBe(false)
   })
 
@@ -665,22 +996,21 @@ describe('loadTasks', () => {
 
   it('merges worktree metadata from archived onto live tasks', async () => {
     const { ipc } = await import('@/lib/ipc')
-    const { loadThreads, loadProjects, toArchivedTasks } = await import('@/lib/history-store')
+    const { loadThreads, loadProjects } = await import('@/lib/history-store')
     const liveTask = makeTask({ id: 'wt-1', workspace: '/project/.klaudex/worktrees/feat', status: 'running' })
-    const archivedTask = makeTask({
+    vi.mocked(ipc.listTasks).mockResolvedValueOnce([liveTask])
+    vi.mocked(loadThreads).mockResolvedValueOnce([{
       id: 'wt-1',
+      name: 'Test Task',
       workspace: '/project/.klaudex/worktrees/feat',
-      status: 'completed',
-      isArchived: true,
+      createdAt: '2026-01-01T00:00:00Z',
+      messages: [],
       worktreePath: '/project/.klaudex/worktrees/feat',
       originalWorkspace: '/project',
       projectId: 'uuid-123',
       parentTaskId: 'parent-1',
-    })
-    vi.mocked(ipc.listTasks).mockResolvedValueOnce([liveTask])
-    vi.mocked(loadThreads).mockResolvedValueOnce([])
+    }])
     vi.mocked(loadProjects).mockResolvedValueOnce([{ workspace: '/project', projectId: 'uuid-123', threadIds: ['wt-1'] }])
-    vi.mocked(toArchivedTasks).mockReturnValueOnce([archivedTask])
     await useTaskStore.getState().loadTasks()
     const task = useTaskStore.getState().tasks['wt-1']
     expect(task.status).toBe('running')
@@ -721,23 +1051,93 @@ describe('loadTasks', () => {
 
   it('excludes worktree paths from projects array after merge', async () => {
     const { ipc } = await import('@/lib/ipc')
-    const { loadThreads, loadProjects, toArchivedTasks } = await import('@/lib/history-store')
+    const { loadThreads, loadProjects } = await import('@/lib/history-store')
     const liveTask = makeTask({ id: 'wt-3', workspace: '/project/.klaudex/worktrees/feat', status: 'running' })
-    const archivedTask = makeTask({
+    vi.mocked(ipc.listTasks).mockResolvedValueOnce([liveTask])
+    vi.mocked(loadThreads).mockResolvedValueOnce([{
       id: 'wt-3',
+      name: 'Test Task',
       workspace: '/project/.klaudex/worktrees/feat',
-      isArchived: true,
+      createdAt: '2026-01-01T00:00:00Z',
+      messages: [],
       worktreePath: '/project/.klaudex/worktrees/feat',
       originalWorkspace: '/project',
       projectId: 'uuid-456',
-    })
-    vi.mocked(ipc.listTasks).mockResolvedValueOnce([liveTask])
-    vi.mocked(loadThreads).mockResolvedValueOnce([])
+    }])
     vi.mocked(loadProjects).mockResolvedValueOnce([{ workspace: '/project', projectId: 'uuid-456', threadIds: ['wt-3'] }])
-    vi.mocked(toArchivedTasks).mockReturnValueOnce([archivedTask])
     await useTaskStore.getState().loadTasks()
     expect(useTaskStore.getState().projects).toContain('/project')
     expect(useTaskStore.getState().projects).not.toContain('/project/.klaudex/worktrees/feat')
+  })
+
+  it('restores missing threads from backup', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const { loadThreads, loadProjects, loadBackup } = await import('@/lib/history-store')
+    vi.mocked(ipc.listTasks).mockResolvedValueOnce([])
+    vi.mocked(loadThreads).mockResolvedValueOnce([])
+    vi.mocked(loadProjects).mockResolvedValueOnce([])
+    vi.mocked(loadBackup).mockResolvedValueOnce({
+      threads: [{
+        id: 'backup-1',
+        name: 'Restored Thread',
+        workspace: '/ws',
+        createdAt: '',
+        messages: [],
+        worktreePath: '/ws/.klaudex/worktrees/feat',
+        originalWorkspace: '/ws',
+        parentTaskId: 'parent-1',
+        projectId: '/ws',
+      }],
+      projects: [{ workspace: '/ws', displayName: 'My Project', projectId: 'uuid-1', threadIds: ['backup-1'] }],
+      softDeleted: [],
+    })
+    await useTaskStore.getState().loadTasks()
+    // Backup threads are restored as archived metadata (not inflated until opened).
+    expect(useTaskStore.getState().archivedMeta['backup-1']).toBeDefined()
+    expect(useTaskStore.getState().archivedMeta['backup-1'].name).toBe('Restored Thread')
+    expect(useTaskStore.getState().archivedMeta['backup-1'].worktreePath).toBe('/ws/.klaudex/worktrees/feat')
+    expect(useTaskStore.getState().projectNames['/ws']).toBe('My Project')
+  })
+
+  it('does not overwrite primary threads with backup', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const { loadThreads, loadProjects, toArchivedTasks, loadBackup } = await import('@/lib/history-store')
+    const primaryTask = makeTask({ id: 'shared', name: 'Primary Name', workspace: '/ws' })
+    vi.mocked(ipc.listTasks).mockResolvedValueOnce([primaryTask])
+    vi.mocked(loadThreads).mockResolvedValueOnce([])
+    vi.mocked(loadProjects).mockResolvedValueOnce([])
+    vi.mocked(toArchivedTasks).mockReturnValueOnce([])
+    const backupTask = makeTask({ id: 'shared', name: 'Backup Name', workspace: '/ws', isArchived: true })
+    vi.mocked(loadBackup).mockResolvedValueOnce({
+      threads: [{ id: 'shared', name: 'Backup Name', workspace: '/ws', createdAt: '', messages: [] }],
+      projects: [], softDeleted: [],
+    })
+    vi.mocked(toArchivedTasks).mockReturnValueOnce([backupTask])
+    await useTaskStore.getState().loadTasks()
+    expect(useTaskStore.getState().tasks['shared'].name).toBe('Primary Name')
+  })
+
+  it('does not restore soft-deleted threads from backup as active', async () => {
+    const { ipc } = await import('@/lib/ipc')
+    const { loadThreads, loadProjects, loadSoftDeleted, toArchivedTasks, loadBackup } = await import('@/lib/history-store')
+    vi.mocked(ipc.listTasks).mockResolvedValueOnce([])
+    vi.mocked(loadThreads).mockResolvedValueOnce([])
+    vi.mocked(loadProjects).mockResolvedValueOnce([])
+    vi.mocked(loadSoftDeleted).mockResolvedValueOnce([{
+      task: makeTask({ id: 'del-1', workspace: '/ws' }),
+      deletedAt: '2026-01-01',
+    }])
+    vi.mocked(toArchivedTasks).mockReturnValueOnce([])
+    const backupTask = makeTask({ id: 'del-1', name: 'Should Stay Deleted', workspace: '/ws', isArchived: true })
+    vi.mocked(loadBackup).mockResolvedValueOnce({
+      threads: [{ id: 'del-1', name: 'Should Stay Deleted', workspace: '/ws', createdAt: '', messages: [] }],
+      projects: [], softDeleted: [],
+    })
+    vi.mocked(toArchivedTasks).mockReturnValueOnce([backupTask])
+    await useTaskStore.getState().loadTasks()
+    // Should remain in softDeleted, not in active tasks
+    expect(useTaskStore.getState().tasks['del-1']).toBeUndefined()
+    expect(useTaskStore.getState().softDeleted['del-1']).toBeDefined()
   })
 })
 
@@ -766,6 +1166,9 @@ describe('persistHistory', () => {
       expect.objectContaining({ 'task-1': expect.any(Object) }),
       expect.objectContaining({ '/ws': 'My Project' }),
       expect.any(Object),
+      expect.any(Array),
+      expect.any(Object),
+      expect.any(Set),
     )
   })
 })
@@ -841,6 +1244,26 @@ describe('removeProject', () => {
     useTaskStore.setState({ selectedTaskId: 't1', view: 'chat' })
     useTaskStore.getState().removeProject('/ws')
     expect(useTaskStore.getState().view).toBe('dashboard')
+  })
+
+  it('removes orphaned tasks when called with a UUID projectId as cwd', () => {
+    const orphanUuid = crypto.randomUUID()
+    useTaskStore.setState({
+      tasks: {
+        't1': makeTask({ id: 't1', workspace: '/old-project', projectId: orphanUuid }),
+        't2': makeTask({ id: 't2', workspace: '/other', projectId: 'other-pid' }),
+      },
+      projects: ['/other'],
+      projectIds: { '/old-project': orphanUuid },
+    })
+    useTaskStore.getState().removeProject(orphanUuid)
+    // t1 should be soft-deleted
+    expect(useTaskStore.getState().tasks['t1']).toBeUndefined()
+    expect(useTaskStore.getState().softDeleted['t1']).toBeDefined()
+    // t2 should be untouched
+    expect(useTaskStore.getState().tasks['t2']).toBeDefined()
+    // projectIds entry pointing to the orphan UUID should be cleaned up
+    expect(Object.values(useTaskStore.getState().projectIds)).not.toContain(orphanUuid)
   })
 })
 
@@ -1525,5 +1948,671 @@ describe('btw (tangent) mode', () => {
     }))
     // Checkpoint should still have the original
     expect(useTaskStore.getState().btwCheckpoint!.messages).toHaveLength(1)
+  })
+})
+
+describe('multi-turn message preservation', () => {
+  it('preserves messages when task_update arrives with empty messages (simulates backend strip)', () => {
+    const msgs = [
+      { role: 'user' as const, content: 'hello', timestamp: '1' },
+      { role: 'assistant' as const, content: 'hi there', timestamp: '2' },
+    ]
+    useTaskStore.getState().upsertTask(makeTask({ messages: msgs }))
+    // Simulate backend task_update with messages stripped (as listener does)
+    useTaskStore.getState().upsertTask(makeTask({ status: 'running', messages: [] }))
+    expect(useTaskStore.getState().tasks['task-1'].messages).toHaveLength(2)
+    expect(useTaskStore.getState().tasks['task-1'].messages).toBe(msgs)
+  })
+
+  it('preserves messages across multiple consecutive task_updates with empty messages', () => {
+    const msgs = [
+      { role: 'user' as const, content: 'q1', timestamp: '1' },
+      { role: 'assistant' as const, content: 'a1', timestamp: '2' },
+      { role: 'user' as const, content: 'q2', timestamp: '3' },
+      { role: 'assistant' as const, content: 'a2', timestamp: '4' },
+    ]
+    useTaskStore.getState().upsertTask(makeTask({ messages: msgs }))
+    // Multiple rapid task_updates (status changes during a turn)
+    useTaskStore.getState().upsertTask(makeTask({ status: 'running', messages: [] }))
+    useTaskStore.getState().upsertTask(makeTask({ status: 'pending_permission', messages: [] }))
+    useTaskStore.getState().upsertTask(makeTask({ status: 'running', messages: [] }))
+    expect(useTaskStore.getState().tasks['task-1'].messages).toHaveLength(4)
+  })
+
+  it('applyTurnEnd preserves existing messages and appends assistant message', () => {
+    const existingMsgs = [
+      { role: 'user' as const, content: 'first question', timestamp: '1' },
+      { role: 'assistant' as const, content: 'first answer', timestamp: '2' },
+      { role: 'user' as const, content: 'second question', timestamp: '3' },
+    ]
+    const state = {
+      tasks: { 't1': makeTask({ id: 't1', status: 'running', messages: existingMsgs }) },
+      streamingChunks: { t1: 'second answer' } as Record<string, string>,
+      thinkingChunks: {} as Record<string, string>,
+      liveToolCalls: {} as Record<string, import('@/types').ToolCall[]>,
+      liveToolSplits: {} as Record<string, import('@/types').ToolCallSplit[]>,
+    }
+    const result = applyTurnEnd(state, 't1', 'end_turn')
+    const messages = result.tasks?.['t1'].messages ?? []
+    expect(messages).toHaveLength(4)
+    expect(messages[0].content).toBe('first question')
+    expect(messages[1].content).toBe('first answer')
+    expect(messages[2].content).toBe('second question')
+    expect(messages[3].content).toBe('second answer')
+    expect(messages[3].role).toBe('assistant')
+  })
+
+  it('full multi-turn cycle: send → stream → turnEnd → task_update → send again', () => {
+    // Turn 1: user sends message
+    const userMsg1 = { role: 'user' as const, content: 'hello', timestamp: '1' }
+    useTaskStore.getState().upsertTask(makeTask({ status: 'running', messages: [userMsg1] }))
+
+    // Turn 1: streaming completes, applyTurnEnd
+    useTaskStore.setState((s) => ({
+      streamingChunks: { ...s.streamingChunks, 'task-1': 'hi there' },
+    }))
+    useTaskStore.setState((s) => applyTurnEnd(s, 'task-1', 'end_turn'))
+    expect(useTaskStore.getState().tasks['task-1'].messages).toHaveLength(2)
+
+    // Backend task_update arrives with empty messages (status change)
+    useTaskStore.getState().upsertTask(makeTask({ status: 'paused', messages: [] }))
+    expect(useTaskStore.getState().tasks['task-1'].messages).toHaveLength(2)
+
+    // Turn 2: user sends another message
+    const task = useTaskStore.getState().tasks['task-1']
+    const userMsg2 = { role: 'user' as const, content: 'follow up', timestamp: '3' }
+    useTaskStore.getState().upsertTask({
+      ...task,
+      status: 'running',
+      messages: [...task.messages, userMsg2],
+    })
+    expect(useTaskStore.getState().tasks['task-1'].messages).toHaveLength(3)
+
+    // Another backend task_update with empty messages
+    useTaskStore.getState().upsertTask(makeTask({ status: 'running', messages: [] }))
+    expect(useTaskStore.getState().tasks['task-1'].messages).toHaveLength(3)
+
+    // Turn 2: streaming completes
+    useTaskStore.setState((s) => ({
+      streamingChunks: { ...s.streamingChunks, 'task-1': 'follow up answer' },
+    }))
+    useTaskStore.setState((s) => applyTurnEnd(s, 'task-1', 'end_turn'))
+    expect(useTaskStore.getState().tasks['task-1'].messages).toHaveLength(4)
+    expect(useTaskStore.getState().tasks['task-1'].messages[3].content).toBe('follow up answer')
+  })
+
+  it('messages survive when task_update arrives between applyTurnEnd and next user message', () => {
+    // Setup: task with 2 messages after first turn
+    const msgs = [
+      { role: 'user' as const, content: 'q1', timestamp: '1' },
+      { role: 'assistant' as const, content: 'a1', timestamp: '2' },
+    ]
+    useTaskStore.getState().upsertTask(makeTask({ status: 'paused', messages: msgs }))
+
+    // Backend task_update with empty messages arrives
+    useTaskStore.getState().upsertTask(makeTask({ status: 'paused', messages: [] }))
+    expect(useTaskStore.getState().tasks['task-1'].messages).toHaveLength(2)
+
+    // User sends next message
+    const task = useTaskStore.getState().tasks['task-1']
+    useTaskStore.getState().upsertTask({
+      ...task,
+      status: 'running',
+      messages: [...task.messages, { role: 'user' as const, content: 'q2', timestamp: '3' }],
+    })
+    expect(useTaskStore.getState().tasks['task-1'].messages).toHaveLength(3)
+    expect(useTaskStore.getState().tasks['task-1'].messages[2].content).toBe('q2')
+  })
+
+  it('upsertTask accepts messages when incoming has more than existing', () => {
+    const msgs1 = [{ role: 'user' as const, content: 'q1', timestamp: '1' }]
+    useTaskStore.getState().upsertTask(makeTask({ messages: msgs1 }))
+
+    const msgs2 = [
+      { role: 'user' as const, content: 'q1', timestamp: '1' },
+      { role: 'assistant' as const, content: 'a1', timestamp: '2' },
+    ]
+    useTaskStore.getState().upsertTask(makeTask({ messages: msgs2 }))
+    expect(useTaskStore.getState().tasks['task-1'].messages).toHaveLength(2)
+  })
+
+  it('upsertTask preserves name across task_update events', () => {
+    useTaskStore.getState().upsertTask(makeTask({ name: 'Original Name' }))
+    useTaskStore.getState().renameTask('task-1', 'Renamed')
+    // Backend task_update carries stale name
+    useTaskStore.getState().upsertTask(makeTask({ name: 'Original Name', status: 'running', messages: [] }))
+    expect(useTaskStore.getState().tasks['task-1'].name).toBe('Renamed')
+  })
+
+  it('preserves parentTaskId when backend update lacks it', () => {
+    useTaskStore.getState().upsertTask(makeTask({ parentTaskId: 'parent-1' }))
+    useTaskStore.getState().upsertTask(makeTask({ status: 'running', messages: [] }))
+    expect(useTaskStore.getState().tasks['task-1'].parentTaskId).toBe('parent-1')
+  })
+
+  it('bail-out guard prevents unnecessary re-renders when nothing changed', () => {
+    const msgs = [{ role: 'user' as const, content: 'hi', timestamp: '1' }]
+    useTaskStore.getState().upsertTask(makeTask({ messages: msgs }))
+    const tasksBefore = useTaskStore.getState().tasks
+
+    // Same task_update with empty messages — should bail out (messages preserved by reference)
+    useTaskStore.getState().upsertTask(makeTask({ messages: [] }))
+    const tasksAfter = useTaskStore.getState().tasks
+
+    // Since messages are preserved by reference and status hasn't changed,
+    // the bail-out guard should prevent a state update
+    expect(tasksBefore).toBe(tasksAfter)
+  })
+})
+
+describe('createSplitView', () => {
+  it('creates a split view and activates it', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 'left-1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 'right-1' }))
+    const id = useTaskStore.getState().createSplitView('left-1', 'right-1')
+    const state = useTaskStore.getState()
+    expect(state.splitViews).toHaveLength(1)
+    expect(state.splitViews[0]).toEqual({ id, left: 'left-1', right: 'right-1', ratio: 0.5 })
+    expect(state.activeSplitId).toBe(id)
+    expect(state.selectedTaskId).toBe('left-1')
+    expect(state.focusedPanel).toBe('left')
+  })
+
+  it('returns a UUID', () => {
+    const id = useTaskStore.getState().createSplitView('a', 'b')
+    expect(id).toMatch(/^[0-9a-f-]{36}$/)
+  })
+
+  it('allows multiple split views', () => {
+    useTaskStore.getState().createSplitView('a', 'b')
+    const id2 = useTaskStore.getState().createSplitView('c', 'd')
+    expect(useTaskStore.getState().splitViews).toHaveLength(2)
+    // Second one becomes active
+    expect(useTaskStore.getState().activeSplitId).toBe(id2)
+  })
+})
+
+describe('removeSplitView', () => {
+  it('removes a split view by id', () => {
+    const id = useTaskStore.getState().createSplitView('a', 'b')
+    useTaskStore.getState().removeSplitView(id)
+    expect(useTaskStore.getState().splitViews).toHaveLength(0)
+  })
+
+  it('clears activeSplitId if the removed view was active', () => {
+    const id = useTaskStore.getState().createSplitView('a', 'b')
+    expect(useTaskStore.getState().activeSplitId).toBe(id)
+    useTaskStore.getState().removeSplitView(id)
+    expect(useTaskStore.getState().activeSplitId).toBeNull()
+  })
+
+  it('preserves activeSplitId if a different view is removed', () => {
+    const id1 = useTaskStore.getState().createSplitView('a', 'b')
+    const id2 = useTaskStore.getState().createSplitView('c', 'd')
+    // id2 is active
+    useTaskStore.getState().removeSplitView(id1)
+    expect(useTaskStore.getState().activeSplitId).toBe(id2)
+    expect(useTaskStore.getState().splitViews).toHaveLength(1)
+  })
+
+  it('no-ops for unknown id', () => {
+    useTaskStore.getState().createSplitView('a', 'b')
+    useTaskStore.getState().removeSplitView('nonexistent')
+    expect(useTaskStore.getState().splitViews).toHaveLength(1)
+  })
+})
+
+describe('setActiveSplit', () => {
+  it('activates a split view and sets selectedTaskId to left', () => {
+    const id = useTaskStore.getState().createSplitView('left-1', 'right-1')
+    useTaskStore.getState().setActiveSplit(null)
+    expect(useTaskStore.getState().activeSplitId).toBeNull()
+    useTaskStore.getState().setActiveSplit(id)
+    expect(useTaskStore.getState().activeSplitId).toBe(id)
+    expect(useTaskStore.getState().selectedTaskId).toBe('left-1')
+  })
+
+  it('deactivates when called with null', () => {
+    useTaskStore.getState().createSplitView('a', 'b')
+    useTaskStore.getState().setActiveSplit(null)
+    expect(useTaskStore.getState().activeSplitId).toBeNull()
+  })
+
+  it('no-ops when already set to the same id', () => {
+    const id = useTaskStore.getState().createSplitView('a', 'b')
+    const before = useTaskStore.getState()
+    useTaskStore.getState().setActiveSplit(id)
+    // Should be same reference (bail-out guard)
+    expect(useTaskStore.getState().activeSplitId).toBe(before.activeSplitId)
+  })
+})
+
+describe('setSplitRatio', () => {
+  it('updates the active split view ratio', () => {
+    const id = useTaskStore.getState().createSplitView('a', 'b')
+    useTaskStore.getState().setSplitRatio(0.7)
+    const sv = useTaskStore.getState().splitViews.find((v) => v.id === id)
+    expect(sv?.ratio).toBe(0.7)
+  })
+
+  it('clamps ratio to 0.2–0.8', () => {
+    useTaskStore.getState().createSplitView('a', 'b')
+    useTaskStore.getState().setSplitRatio(0.1)
+    expect(useTaskStore.getState().splitViews[0].ratio).toBe(0.2)
+    useTaskStore.getState().setSplitRatio(0.95)
+    expect(useTaskStore.getState().splitViews[0].ratio).toBe(0.8)
+  })
+
+  it('no-ops when no active split', () => {
+    useTaskStore.getState().createSplitView('a', 'b')
+    useTaskStore.getState().setActiveSplit(null)
+    const before = useTaskStore.getState().splitViews
+    useTaskStore.getState().setSplitRatio(0.7)
+    expect(useTaskStore.getState().splitViews).toBe(before)
+  })
+
+  it('only updates the active split view, not others', () => {
+    useTaskStore.getState().createSplitView('a', 'b')
+    const id2 = useTaskStore.getState().createSplitView('c', 'd')
+    // id2 is active
+    useTaskStore.getState().setSplitRatio(0.3)
+    const sv1 = useTaskStore.getState().splitViews[0]
+    const sv2 = useTaskStore.getState().splitViews.find((v) => v.id === id2)
+    expect(sv1.ratio).toBe(0.5) // unchanged
+    expect(sv2?.ratio).toBe(0.3)
+  })
+})
+
+describe('closeSplit', () => {
+  it('deactivates the active split without removing it', () => {
+    const id = useTaskStore.getState().createSplitView('a', 'b')
+    useTaskStore.getState().closeSplit()
+    expect(useTaskStore.getState().activeSplitId).toBeNull()
+    // Split view still exists
+    expect(useTaskStore.getState().splitViews).toHaveLength(1)
+    expect(useTaskStore.getState().splitViews[0].id).toBe(id)
+  })
+
+  it('no-ops when no active split', () => {
+    const before = useTaskStore.getState()
+    useTaskStore.getState().closeSplit()
+    expect(useTaskStore.getState().activeSplitId).toBe(before.activeSplitId)
+  })
+})
+
+describe('saveScrollPosition', () => {
+  it('saves scroll position for a task', () => {
+    useTaskStore.getState().saveScrollPosition('t1', 250)
+    expect(useTaskStore.getState().scrollPositions['t1']).toBe(250)
+  })
+
+  it('updates existing scroll position', () => {
+    useTaskStore.getState().saveScrollPosition('t1', 100)
+    useTaskStore.getState().saveScrollPosition('t1', 500)
+    expect(useTaskStore.getState().scrollPositions['t1']).toBe(500)
+  })
+
+  it('no-ops when value unchanged', () => {
+    useTaskStore.getState().saveScrollPosition('t1', 100)
+    const before = useTaskStore.getState().scrollPositions
+    useTaskStore.getState().saveScrollPosition('t1', 100)
+    expect(useTaskStore.getState().scrollPositions).toBe(before)
+  })
+
+  it('stores positions for multiple tasks independently', () => {
+    useTaskStore.getState().saveScrollPosition('t1', 100)
+    useTaskStore.getState().saveScrollPosition('t2', 200)
+    expect(useTaskStore.getState().scrollPositions['t1']).toBe(100)
+    expect(useTaskStore.getState().scrollPositions['t2']).toBe(200)
+  })
+})
+
+describe('setSelectedTask deactivates split', () => {
+  it('keeps split active when selecting a thread that is part of the split', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().createSplitView('t1', 't2')
+    expect(useTaskStore.getState().activeSplitId).not.toBeNull()
+    useTaskStore.getState().setSelectedTask('t1')
+    expect(useTaskStore.getState().activeSplitId).not.toBeNull()
+    expect(useTaskStore.getState().selectedTaskId).toBe('t1')
+    expect(useTaskStore.getState().focusedPanel).toBe('left')
+  })
+
+  it('focuses right panel when selecting the right split thread', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().createSplitView('t1', 't2')
+    useTaskStore.getState().setSelectedTask('t2')
+    expect(useTaskStore.getState().activeSplitId).not.toBeNull()
+    expect(useTaskStore.getState().selectedTaskId).toBe('t2')
+    expect(useTaskStore.getState().focusedPanel).toBe('right')
+  })
+
+  it('deactivates split when selecting a thread outside the split', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't3' }))
+    useTaskStore.getState().createSplitView('t1', 't2')
+    expect(useTaskStore.getState().activeSplitId).not.toBeNull()
+    useTaskStore.getState().setSelectedTask('t3')
+    expect(useTaskStore.getState().activeSplitId).toBeNull()
+    expect(useTaskStore.getState().selectedTaskId).toBe('t3')
+  })
+
+  it('deactivates split when selecting null', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().createSplitView('t1', 't2')
+    useTaskStore.getState().setSelectedTask(null)
+    expect(useTaskStore.getState().activeSplitId).toBeNull()
+  })
+
+  it('preserves split views list when deactivating via setSelectedTask', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't3' }))
+    const id = useTaskStore.getState().createSplitView('t1', 't2')
+    useTaskStore.getState().setSelectedTask('t3')
+    // Split view still saved, just not active
+    expect(useTaskStore.getState().splitViews).toHaveLength(1)
+    expect(useTaskStore.getState().splitViews[0].id).toBe(id)
+  })
+})
+
+describe('removeTask cleans up split views', () => {
+  it('removes split views referencing the deleted task as left', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().createSplitView('t1', 't2')
+    useTaskStore.getState().removeTask('t1')
+    expect(useTaskStore.getState().splitViews).toHaveLength(0)
+  })
+
+  it('removes split views referencing the deleted task as right', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().createSplitView('t1', 't2')
+    useTaskStore.getState().removeTask('t2')
+    expect(useTaskStore.getState().splitViews).toHaveLength(0)
+  })
+
+  it('clears activeSplitId when the active split is removed', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().createSplitView('t1', 't2')
+    expect(useTaskStore.getState().activeSplitId).not.toBeNull()
+    useTaskStore.getState().removeTask('t1')
+    expect(useTaskStore.getState().activeSplitId).toBeNull()
+  })
+
+  it('preserves unrelated split views when a task is removed', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't3' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't4' }))
+    useTaskStore.getState().createSplitView('t1', 't2')
+    const id2 = useTaskStore.getState().createSplitView('t3', 't4')
+    useTaskStore.getState().removeTask('t1')
+    expect(useTaskStore.getState().splitViews).toHaveLength(1)
+    expect(useTaskStore.getState().splitViews[0].id).toBe(id2)
+  })
+})
+
+describe('createDraftThread deactivates split', () => {
+  it('clears activeSplitId when creating a new draft', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().createSplitView('t1', 't2')
+    expect(useTaskStore.getState().activeSplitId).not.toBeNull()
+    useTaskStore.getState().createDraftThread('/ws')
+    expect(useTaskStore.getState().activeSplitId).toBeNull()
+  })
+})
+
+describe('setPendingWorkspace deactivates split', () => {
+  it('clears activeSplitId when switching to pending workspace', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().createSplitView('t1', 't2')
+    useTaskStore.getState().setPendingWorkspace('/new-ws')
+    expect(useTaskStore.getState().activeSplitId).toBeNull()
+  })
+})
+
+// ── Pin thread ────────────────────────────────────────────────
+
+describe('pinThread', () => {
+  it('adds a thread id to pinnedThreadIds', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().pinThread('t1')
+    expect(useTaskStore.getState().pinnedThreadIds).toEqual(['t1'])
+  })
+
+  it('does not duplicate if already pinned', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().pinThread('t1')
+    useTaskStore.getState().pinThread('t1')
+    expect(useTaskStore.getState().pinnedThreadIds).toEqual(['t1'])
+  })
+
+  it('supports multiple pinned threads', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().pinThread('t1')
+    useTaskStore.getState().pinThread('t2')
+    expect(useTaskStore.getState().pinnedThreadIds).toEqual(['t1', 't2'])
+  })
+})
+
+describe('unpinThread', () => {
+  it('removes a thread id from pinnedThreadIds', () => {
+    useTaskStore.getState().pinThread('t1')
+    useTaskStore.getState().unpinThread('t1')
+    expect(useTaskStore.getState().pinnedThreadIds).toEqual([])
+  })
+
+  it('no-ops if thread is not pinned', () => {
+    useTaskStore.getState().pinThread('t1')
+    useTaskStore.getState().unpinThread('t2')
+    expect(useTaskStore.getState().pinnedThreadIds).toEqual(['t1'])
+  })
+
+  it('preserves other pinned threads', () => {
+    useTaskStore.getState().pinThread('t1')
+    useTaskStore.getState().pinThread('t2')
+    useTaskStore.getState().pinThread('t3')
+    useTaskStore.getState().unpinThread('t2')
+    expect(useTaskStore.getState().pinnedThreadIds).toEqual(['t1', 't3'])
+  })
+})
+
+describe('pin cleanup on thread deletion', () => {
+  it('removes pinned thread id when thread is soft-deleted', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().pinThread('t1')
+    expect(useTaskStore.getState().pinnedThreadIds).toContain('t1')
+    useTaskStore.getState().softDeleteTask('t1')
+    expect(useTaskStore.getState().pinnedThreadIds).not.toContain('t1')
+  })
+
+  it('preserves other pins when one thread is deleted', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 't1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 't2' }))
+    useTaskStore.getState().pinThread('t1')
+    useTaskStore.getState().pinThread('t2')
+    useTaskStore.getState().softDeleteTask('t1')
+    expect(useTaskStore.getState().pinnedThreadIds).toEqual(['t2'])
+  })
+})
+
+// ── Split view focus isolation ────────────────────────────────
+
+describe('split view focus isolation', () => {
+  it('setFocusedPanel switches focus between left and right', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 'left-1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 'right-1' }))
+    useTaskStore.getState().createSplitView('left-1', 'right-1')
+    expect(useTaskStore.getState().focusedPanel).toBe('left')
+    useTaskStore.getState().setFocusedPanel('right')
+    expect(useTaskStore.getState().focusedPanel).toBe('right')
+  })
+
+  it('selectedTaskId can be updated without deactivating split via direct setState', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 'left-1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 'right-1' }))
+    useTaskStore.getState().createSplitView('left-1', 'right-1')
+    expect(useTaskStore.getState().selectedTaskId).toBe('left-1')
+    // Simulate what SplitChatLayout does on focus change
+    useTaskStore.setState({ selectedTaskId: 'right-1' })
+    expect(useTaskStore.getState().selectedTaskId).toBe('right-1')
+    // Split should still be active
+    expect(useTaskStore.getState().activeSplitId).not.toBeNull()
+  })
+
+  it('setSelectedTask focuses panel for split thread instead of deactivating', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 'left-1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 'right-1' }))
+    useTaskStore.getState().createSplitView('left-1', 'right-1')
+    expect(useTaskStore.getState().activeSplitId).not.toBeNull()
+    useTaskStore.getState().setSelectedTask('left-1')
+    expect(useTaskStore.getState().activeSplitId).not.toBeNull()
+    expect(useTaskStore.getState().focusedPanel).toBe('left')
+  })
+
+  it('each panel has independent messages scoped to its own task', () => {
+    const leftTask = makeTask({
+      id: 'left-1',
+      messages: [
+        { role: 'user', content: 'left message 1', timestamp: '2026-01-01T00:00:00Z' },
+        { role: 'assistant', content: 'left reply', timestamp: '2026-01-01T00:01:00Z' },
+      ],
+    })
+    const rightTask = makeTask({
+      id: 'right-1',
+      messages: [
+        { role: 'user', content: 'right message 1', timestamp: '2026-01-01T00:00:00Z' },
+        { role: 'assistant', content: 'right reply', timestamp: '2026-01-01T00:01:00Z' },
+      ],
+    })
+    useTaskStore.getState().upsertTask(leftTask)
+    useTaskStore.getState().upsertTask(rightTask)
+    useTaskStore.getState().createSplitView('left-1', 'right-1')
+    // Left panel messages
+    const leftMessages = useTaskStore.getState().tasks['left-1'].messages
+    expect(leftMessages).toHaveLength(2)
+    expect(leftMessages[0].content).toBe('left message 1')
+    // Right panel messages
+    const rightMessages = useTaskStore.getState().tasks['right-1'].messages
+    expect(rightMessages).toHaveLength(2)
+    expect(rightMessages[0].content).toBe('right message 1')
+    // They are independent
+    expect(leftMessages[0].content).not.toBe(rightMessages[0].content)
+  })
+
+  it('message history cycling reads from the correct task (not selectedTaskId)', () => {
+    const leftTask = makeTask({
+      id: 'left-1',
+      messages: [
+        { role: 'user', content: 'left user msg', timestamp: '2026-01-01T00:00:00Z' },
+      ],
+    })
+    const rightTask = makeTask({
+      id: 'right-1',
+      messages: [
+        { role: 'user', content: 'right user msg', timestamp: '2026-01-01T00:00:00Z' },
+      ],
+    })
+    useTaskStore.getState().upsertTask(leftTask)
+    useTaskStore.getState().upsertTask(rightTask)
+    useTaskStore.getState().createSplitView('left-1', 'right-1')
+    // selectedTaskId is left-1 by default
+    expect(useTaskStore.getState().selectedTaskId).toBe('left-1')
+    // Simulate right panel reading its own task for history
+    const rightTaskFromStore = useTaskStore.getState().tasks['right-1']
+    const rightUserMsgs = rightTaskFromStore.messages.filter((m) => m.role === 'user')
+    expect(rightUserMsgs).toHaveLength(1)
+    expect(rightUserMsgs[0].content).toBe('right user msg')
+    // Verify it's NOT the left panel's messages
+    const leftTaskFromStore = useTaskStore.getState().tasks['left-1']
+    const leftUserMsgs = leftTaskFromStore.messages.filter((m) => m.role === 'user')
+    expect(leftUserMsgs[0].content).toBe('left user msg')
+    expect(leftUserMsgs[0].content).not.toBe(rightUserMsgs[0].content)
+  })
+
+  it('streaming chunks are scoped per task in split view', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 'left-1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 'right-1' }))
+    useTaskStore.getState().createSplitView('left-1', 'right-1')
+    useTaskStore.getState().appendChunk('left-1', 'left chunk')
+    useTaskStore.getState().appendChunk('right-1', 'right chunk')
+    expect(useTaskStore.getState().streamingChunks['left-1']).toBe('left chunk')
+    expect(useTaskStore.getState().streamingChunks['right-1']).toBe('right chunk')
+  })
+
+  it('queued messages are scoped per task in split view', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 'left-1', status: 'running' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 'right-1', status: 'running' }))
+    useTaskStore.getState().createSplitView('left-1', 'right-1')
+    useTaskStore.getState().enqueueMessage('left-1', 'queued for left')
+    useTaskStore.getState().enqueueMessage('right-1', 'queued for right')
+    expect(useTaskStore.getState().queuedMessages['left-1']).toHaveLength(1)
+    expect(useTaskStore.getState().queuedMessages['left-1'][0].text).toBe('queued for left')
+    expect(useTaskStore.getState().queuedMessages['right-1']).toHaveLength(1)
+    expect(useTaskStore.getState().queuedMessages['right-1'][0].text).toBe('queued for right')
+  })
+
+  it('clearTurn only affects the specified task', () => {
+    useTaskStore.getState().upsertTask(makeTask({ id: 'left-1' }))
+    useTaskStore.getState().upsertTask(makeTask({ id: 'right-1' }))
+    useTaskStore.getState().createSplitView('left-1', 'right-1')
+    useTaskStore.getState().appendChunk('left-1', 'left data')
+    useTaskStore.getState().appendChunk('right-1', 'right data')
+    useTaskStore.getState().clearTurn('left-1')
+    expect(useTaskStore.getState().streamingChunks['left-1']).toBe('')
+    expect(useTaskStore.getState().streamingChunks['right-1']).toBe('right data')
+  })
+
+  it('split view threads belong to their respective projects', () => {
+    const leftTask = makeTask({ id: 'left-1', workspace: '/project-a' })
+    const rightTask = makeTask({ id: 'right-1', workspace: '/project-b' })
+    useTaskStore.getState().upsertTask(leftTask)
+    useTaskStore.getState().upsertTask(rightTask)
+    useTaskStore.getState().createSplitView('left-1', 'right-1')
+    expect(useTaskStore.getState().tasks['left-1'].workspace).toBe('/project-a')
+    expect(useTaskStore.getState().tasks['right-1'].workspace).toBe('/project-b')
+  })
+})
+
+describe('rekeyDispatchSnapshot', () => {
+  it('atomically moves the snapshot to the new task id and rewrites taskId', () => {
+    useTaskStore.getState().setDispatchSnapshot('draft-1', {
+      startedAt: 1, taskStatus: 'paused', messageCount: 0, wasStreaming: false, taskId: 'draft-1',
+    })
+    useTaskStore.getState().rekeyDispatchSnapshot('draft-1', 'real-1')
+    const snapshots = useTaskStore.getState().dispatchSnapshots
+    expect(snapshots['draft-1']).toBeUndefined()
+    expect(snapshots['real-1']?.taskId).toBe('real-1')
+  })
+
+  it('drops the source snapshot when the destination already has one (turn_end raced ahead)', () => {
+    // Simulates `turn_end` firing for the new id while we were re-keying:
+    // the newer destination snapshot wins, the stale draft is discarded.
+    useTaskStore.getState().setDispatchSnapshot('draft-1', {
+      startedAt: 1, taskStatus: 'paused', messageCount: 0, wasStreaming: false, taskId: 'draft-1',
+    })
+    useTaskStore.getState().setDispatchSnapshot('real-1', {
+      startedAt: 2, taskStatus: 'running', messageCount: 1, wasStreaming: true, taskId: 'real-1',
+    })
+    useTaskStore.getState().rekeyDispatchSnapshot('draft-1', 'real-1')
+    const snapshots = useTaskStore.getState().dispatchSnapshots
+    expect(snapshots['draft-1']).toBeUndefined()
+    expect(snapshots['real-1']?.startedAt).toBe(2) // newer snapshot survived
+  })
+
+  it('is a no-op when the source has no snapshot', () => {
+    const before = useTaskStore.getState().dispatchSnapshots
+    useTaskStore.getState().rekeyDispatchSnapshot('missing', 'real-1')
+    expect(useTaskStore.getState().dispatchSnapshots).toBe(before)
   })
 })

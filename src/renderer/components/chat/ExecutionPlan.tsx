@@ -67,7 +67,7 @@ export const ExecutionPlan = memo(function ExecutionPlan({ steps }: ExecutionPla
       {expanded && (
         <ol className="px-3 py-2 space-y-1" role="list">
           {steps.map((step, i) => (
-            <li key={i} className="flex items-start gap-2 text-xs">
+            <li key={`step-${i}-${step.status}`} className="flex items-start gap-2 text-xs">
               {stepIcons[step.status] ?? stepIcons.pending}
               <span className={cn(
                 'flex-1 leading-relaxed',

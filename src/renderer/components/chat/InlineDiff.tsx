@@ -24,27 +24,27 @@ export const InlineDiff = memo(function InlineDiff({ diffText }: { diffText: str
           }
           if (line.startsWith('@@')) {
             return (
-              <div key={i} className="px-3 py-0.5 text-[11px] text-blue-600/60 dark:text-blue-400/60 bg-blue-500/5">
+              <div key={`hunk-${i}`} className="px-3 py-0.5 text-[11px] text-blue-600/60 dark:text-blue-400/60 bg-blue-500/5">
                 {line}
               </div>
             )
           }
           if (line.startsWith('+')) {
             return (
-              <div key={i} className="px-3 bg-emerald-500/8 text-emerald-600/80 dark:text-emerald-400/80">
+              <div key={`add-${i}`} className="px-3 bg-emerald-500/8 text-emerald-600/80 dark:text-emerald-400/80">
                 {line}
               </div>
             )
           }
           if (line.startsWith('-')) {
             return (
-              <div key={i} className="px-3 bg-red-500/8 text-red-600/80 dark:text-red-400/80">
+              <div key={`del-${i}`} className="px-3 bg-red-500/8 text-red-600/80 dark:text-red-400/80">
                 {line}
               </div>
             )
           }
           return (
-            <div key={i} className="px-3 text-muted-foreground">
+            <div key={`ctx-${i}`} className="px-3 text-muted-foreground">
               {line || ' '}
             </div>
           )

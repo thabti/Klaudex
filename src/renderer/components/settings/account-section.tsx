@@ -1,44 +1,70 @@
+import { memo, useCallback } from 'react'
 import { IconLogin, IconLogout } from '@tabler/icons-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { SectionHeader, SettingsCard, SettingRow } from './settings-shared'
+import { SectionHeader, SettingsCard, SettingRow, SettingsGrid } from './settings-shared'
 
-export const AccountSection = () => {
-  const { claudeAuth, logout, openLogin } = useSettingsStore()
+export const AccountSection = memo(function AccountSection() {
+  const claudeAuth = useSettingsStore((s) => s.claudeAuth)
+  const logout = useSettingsStore((s) => s.logout)
+  const openLogin = useSettingsStore((s) => s.openLogin)
+
+  const handleLogout = useCallback(() => {
+    logout()
+  }, [logout])
+
+  const handleLogin = useCallback(() => {
+    openLogin()
+  }, [openLogin])
 
   return (
     <>
       <SectionHeader section="account" />
-      <SettingsCard>
-        {claudeAuth ? (
-          <SettingRow
-            label={claudeAuth.email ?? 'Authenticated'}
-            description={`${claudeAuth.authMethod}${claudeAuth.subscriptionType ? ` · ${claudeAuth.subscriptionType}` : ''}`}
-          >
-            <button
-              type="button"
-              onClick={logout}
-              className="flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+      <SettingsGrid label="Authentication" description="Kiro account status">
+        <SettingsCard>
+          {claudeAuth ? (
+            <SettingRow
+              label={claudeAuth.email ?? 'Authenticated'}
+              description={`${claudeAuth.authMethod}${claudeAuth.subscriptionType ? ` · ${claudeAuth.subscriptionType}` : ''}`}
             >
-              <IconLogout className="size-3" />
-              Sign out
-            </button>
-          </SettingRow>
-        ) : (
-          <SettingRow
-            label="Not signed in"
-            description="Sign in to access Claude features and sync your preferences."
-          >
-            <button
-              type="button"
-              onClick={openLogin}
-              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    aria-label="Sign out of Kiro account"
+                    className="flex items-center gap-1.5 rounded-md border border-destructive/30 px-2.5 py-1 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive/10"
+                  >
+                    <IconLogout className="size-3" />
+                    Sign out
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Sign out</TooltipContent>
+              </Tooltip>
+            </SettingRow>
+          ) : (
+            <SettingRow
+              label="Not signed in"
+              description="Sign in to access Kiro features."
             >
-              <IconLogin className="size-3" />
-              Sign in
-            </button>
-          </SettingRow>
-        )}
-      </SettingsCard>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleLogin}
+                    aria-label="Sign in to Kiro"
+                    className="flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    <IconLogin className="size-3" />
+                    Sign in
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Sign in to your Kiro account</TooltipContent>
+              </Tooltip>
+            </SettingRow>
+          )}
+        </SettingsCard>
+      </SettingsGrid>
     </>
   )
-}
+})

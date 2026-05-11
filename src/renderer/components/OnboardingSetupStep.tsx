@@ -60,13 +60,13 @@ export const OnboardingSetupStep = ({ themeChoice, isAnalyticsEnabled, onAnalyti
       <div className="flex flex-col items-center gap-2 pt-2">
         {isAuthenticated && isCliReady ? (
           <button type="button" onClick={finish}
-            className="flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-8 py-3 text-[15px] font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+            className="flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-8 py-3 text-[15px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
             Launch Klaudex <IconArrowRight size={18} />
           </button>
         ) : isCliReady ? (
           <button type="button" onClick={finish}
-            className="text-[13px] text-muted-foreground transition-colors hover:text-foreground/70">
-            Skip sign-in for now
+            className="text-[13px] text-muted-foreground transition-colors hover:text-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-md px-2 py-1">
+            Skip for now
           </button>
         ) : null}
       </div>

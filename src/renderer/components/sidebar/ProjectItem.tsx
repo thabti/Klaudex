@@ -1,8 +1,9 @@
 import { memo, useState, useRef, useEffect } from 'react'
-import { IconChevronRight, IconChevronDown, IconEdit, IconTrash, IconArchive, IconMessagePlus, IconFolderOpen, IconPalette, IconMessage } from '@tabler/icons-react'
+import { IconEdit, IconTrash, IconArchive, IconMessagePlus, IconFolderOpen, IconPalette, IconMessage, IconCopy, IconArrowUp, IconArrowDown } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
+import { useTaskStore } from '@/stores/taskStore'
 import { ThreadItem } from './ThreadItem'
 import { ProjectIcon } from './ProjectIcon'
 import { useProjectIcon, setProjectIconOverride } from '@/hooks/useProjectIcon'
@@ -14,30 +15,42 @@ interface ProjectItemProps {
   cwd: string
   tasks: readonly SidebarTask[]
   selectedTaskId: string | null
-  isDragOver: boolean
+  isActiveProject: boolean
+  canMoveUp: boolean
+  canMoveDown: boolean
+  autoFocus?: boolean
+  jumpLabel?: string | null
+  isMetaHeld?: boolean
+  isCustomSort?: boolean
   onSelectTask: (id: string) => void
   onNewThread: () => void
   onDeleteTask: (id: string) => void
   onRenameTask: (id: string, name: string) => void
   onRemoveProject: () => void
   onArchiveThreads: () => void
-  onDragStart: () => void
-  onDragOver: (e: React.DragEvent) => void
-  onDrop: () => void
-  onDragEnd: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
+  onMoveThread: (from: number, to: number) => void
 }
 
 export const ProjectItem = memo(function ProjectItem({
-  name, cwd, tasks, selectedTaskId, isDragOver,
+  name, cwd, tasks, selectedTaskId, isActiveProject, canMoveUp, canMoveDown, autoFocus, jumpLabel, isMetaHeld, isCustomSort,
   onSelectTask, onNewThread, onDeleteTask, onRenameTask,
   onRemoveProject, onArchiveThreads,
-  onDragStart, onDragOver, onDrop, onDragEnd,
+  onMoveUp, onMoveDown, onMoveThread,
 }: ProjectItemProps) {
   const [expanded, setExpanded] = useState(true)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
   const [iconPickerOpen, setIconPickerOpen] = useState(false)
   const ctxRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
   const projectIcon = useProjectIcon(cwd)
+
+  useEffect(() => {
+    if (!autoFocus) return
+    buttonRef.current?.focus()
+    useTaskStore.getState().clearLastAddedProject()
+  }, [autoFocus])
 
   useEffect(() => {
     if (!ctxMenu) return
@@ -52,20 +65,12 @@ export const ProjectItem = memo(function ProjectItem({
     <li
       className={cn(
         'group/menu-item relative min-w-0 rounded-md transition-colors',
-        isDragOver && 'ring-1 ring-primary/40 bg-primary/5',
+        isActiveProject && 'bg-muted/50',
       )}
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.effectAllowed = 'move'
-        e.dataTransfer.setData('text/plain', cwd)
-        onDragStart()
-      }}
-      onDragOver={onDragOver}
-      onDrop={(e) => { e.preventDefault(); onDrop() }}
-      onDragEnd={onDragEnd}
     >
-      <div className="relative">
+      <div className="relative flex items-center">
         <button
+          ref={buttonRef}
           type="button"
           onClick={() => setExpanded((v) => !v)}
           onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setCtxMenu({ x: e.clientX, y: e.clientY }) }}
@@ -75,12 +80,13 @@ export const ProjectItem = memo(function ProjectItem({
             'hover:bg-accent hover:text-foreground transition-colors',
           )}
         >
-          {expanded
-            ? <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground/70" aria-hidden />
-            : <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" aria-hidden />
-          }
           <ProjectIcon icon={projectIcon} />
-          <span className="flex-1 truncate text-[13px] font-normal text-foreground/85">{name}</span>
+          <span className={cn('flex-1 truncate text-[13px] text-foreground/85', isActiveProject ? 'font-medium' : 'font-normal')}>{name}</span>
+          {jumpLabel && (
+            <kbd className="pointer-events-none ml-auto mr-1 inline-flex h-4 shrink-0 items-center rounded-sm bg-muted px-1 font-mono text-[10px] font-medium text-muted-foreground select-none">
+              {jumpLabel}
+            </kbd>
+          )}
         </button>
 
         {/* Always-visible action buttons with gradient fade */}
@@ -130,6 +136,10 @@ export const ProjectItem = memo(function ProjectItem({
             <IconFolderOpen className="size-3.5" /> Open in Finder
           </button>
           <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+            onClick={() => { void navigator.clipboard.writeText(cwd); setCtxMenu(null) }}>
+            <IconCopy className="size-3.5" /> Copy Path
+          </button>
+          <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
             aria-label="Change project icon"
             onClick={() => { setIconPickerOpen(true); setCtxMenu(null) }}>
             <IconPalette className="size-3.5" /> Change Icon
@@ -138,6 +148,25 @@ export const ProjectItem = memo(function ProjectItem({
             onClick={() => { onArchiveThreads(); setCtxMenu(null) }}>
             <IconArchive className="size-3.5" /> Archive Threads
           </button>
+          {(canMoveUp || canMoveDown) && (
+            <>
+              <div className="my-1 border-t border-border/50" />
+              {canMoveUp && (
+                <button type="button"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                  onClick={() => { onMoveUp(); setCtxMenu(null) }}>
+                  <IconArrowUp className="size-3.5" /> Move Up
+                </button>
+              )}
+              {canMoveDown && (
+                <button type="button"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                  onClick={() => { onMoveDown(); setCtxMenu(null) }}>
+                  <IconArrowDown className="size-3.5" /> Move Down
+                </button>
+              )}
+            </>
+          )}
           <div className="my-1 border-t border-border/50" />
           <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-destructive transition-colors hover:bg-destructive/10"
             onClick={() => { onRemoveProject(); setCtxMenu(null) }}>
@@ -156,16 +185,24 @@ export const ProjectItem = memo(function ProjectItem({
 
       {expanded && tasks.length > 0 && (
         <ul className="flex min-w-0 flex-col overflow-hidden border-l mx-1 my-0 gap-0 px-1.5 py-0" style={{ borderColor: 'var(--border)' }}>
-          {tasks.map((task) => (
-            <ThreadItem
-              key={task.id}
-              task={task}
-              isActive={selectedTaskId === task.id}
-              onSelect={() => onSelectTask(task.id)}
-              onDelete={() => onDeleteTask(task.id)}
-              onRename={(n) => onRenameTask(task.id, n)}
-            />
-          ))}
+          {tasks.map((task, i) => {
+            const threadJumpLabel = isMetaHeld && i < 9 ? `${i + 1}` : null
+            return (
+              <ThreadItem
+                key={task.id}
+                task={task}
+                isActive={selectedTaskId === task.id}
+                jumpLabel={threadJumpLabel}
+                canMoveUp={isCustomSort && i > 0 && !task.isDraft}
+                canMoveDown={isCustomSort && i < tasks.length - 1 && !task.isDraft}
+                onSelect={() => onSelectTask(task.id)}
+                onDelete={() => onDeleteTask(task.id)}
+                onRename={(n) => onRenameTask(task.id, n)}
+                onMoveUp={() => onMoveThread(i, i - 1)}
+                onMoveDown={() => onMoveThread(i, i + 1)}
+              />
+            )
+          })}
         </ul>
       )}
 

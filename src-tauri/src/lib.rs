@@ -4,10 +4,50 @@
 #[macro_use]
 extern crate objc;
 
-mod commands;
+pub mod commands;
 
-use commands::{acp, analytics, claude_config, claude_watcher, fs_ops, git, pty, settings, statusline};
-use tauri::{Emitter, Manager};
+use commands::{acp, analytics, branch_ai, checkpoint, diff_parse, fs_ops, fuzzy, git, git_ai, git_history, git_pr, git_stack, highlight, claude_config, claude_watcher, markdown, pattern_extract, pr_ai, process_diagnostics, project_watcher, pty, settings, streaming_diff, thread_db, thread_title, tracing as app_tracing, transport, vcs_status};
+use std::sync::atomic::{AtomicBool, Ordering};
+use tauri::Manager;
+use tauri::Emitter;
+use tauri::Listener;
+
+/// Flag set by the frontend before calling `relaunch()` so the
+/// `CloseRequested` handler skips the quit confirmation dialog.
+struct RelaunchFlag(AtomicBool);
+
+impl Default for RelaunchFlag {
+    fn default() -> Self {
+        Self(AtomicBool::new(false))
+    }
+}
+
+#[tauri::command]
+fn set_relaunch_flag(flag: tauri::State<'_, RelaunchFlag>) {
+    flag.0.store(true, Ordering::Release);
+}
+
+#[tauri::command]
+fn rebuild_recent_menu(app: tauri::AppHandle) {
+    if let Err(e) = settings::rebuild_menu(app) {
+        log::warn!("rebuild_recent_menu failed: {e}");
+    }
+}
+
+#[tauri::command]
+fn reset_app_data(app: tauri::AppHandle) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    if dir.exists() {
+        for entry in std::fs::read_dir(&dir).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let path = entry.path();
+            if path.is_file() {
+                let _ = std::fs::remove_file(&path);
+            }
+        }
+    }
+    Ok(())
+}
 
 /// Install a global panic hook that logs the panic message and backtrace.
 /// This catches panics on *any* thread (background ACP, probe, PTY reader)
@@ -88,14 +128,30 @@ fn shutdown_app(app: &tauri::AppHandle) {
     // Kill all PTY sessions
     if let Some(pty_state) = app.try_state::<pty::PtyState>() {
         let mut ptys = pty_state.0.lock();
-        let count = ptys.len();
-        ptys.clear(); // Drop impl kills child processes and waits
-        if count > 0 {
-            log::info!("Killed {} PTY session(s)", count);
+        let total: usize = ptys.values().map(|m| m.len()).sum();
+        ptys.clear(); // Drop impl on each PtyInstance kills its child and waits
+        if total > 0 {
+            log::info!("Killed {} PTY session(s)", total);
         }
     }
 
+    // Stop all file watchers
+    claude_watcher::stop_all(app);
+    project_watcher::stop_all_project_watchers(app);
+
     log::info!("Shutdown completed in {:?}", start.elapsed());
+}
+
+/// Kill every PTY belonging to a single window. Called when a non-last
+/// window closes so its terminals don't leak until app exit (and so that
+/// closing one window doesn't bleed into another window's PTYs).
+fn kill_window_ptys(app: &tauri::AppHandle, window_label: &str) {
+    if let Some(pty_state) = app.try_state::<pty::PtyState>() {
+        let killed = pty_state.kill_window(window_label);
+        if killed > 0 {
+            log::info!("Killed {} PTY session(s) for window '{}'", killed, window_label);
+        }
+    }
 }
 
 /// Re-position the macOS traffic light buttons (close, minimize, zoom) to match
@@ -134,6 +190,129 @@ fn reposition_traffic_lights(ns_window: cocoa::base::id) {
     }
 }
 
+/// Create a new Klaudex window with the same configuration as the main window.
+fn create_new_window(app: &tauri::AppHandle) {
+    let label = format!("window-{}", uuid::Uuid::new_v4().simple());
+    let url = tauri::WebviewUrl::App("index.html".into());
+    let builder = tauri::WebviewWindowBuilder::new(app, &label, url)
+        .title("Klaudex")
+        .inner_size(1400.0, 900.0)
+        .min_inner_size(800.0, 600.0)
+        .decorations(true)
+        .zoom_hotkeys_enabled(true);
+
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true)
+        .traffic_light_position(tauri::Position::Logical(tauri::LogicalPosition::new(14.0, 22.0)));
+
+    match builder.build() {
+        Ok(_new_window) => {
+            log::info!("Created new window: {}", label);
+            #[cfg(target_os = "macos")]
+            #[allow(deprecated)]
+            {
+                use cocoa::appkit::NSWindow;
+                use cocoa::base::id;
+                use objc::msg_send;
+                use objc::sel;
+                use objc::sel_impl;
+                if let Ok(ns_win) = _new_window.ns_window() {
+                    let ns_win = ns_win as id;
+                    unsafe {
+                        let content_view: id = ns_win.contentView();
+                        let _: () = msg_send![content_view, setWantsLayer: true];
+                        let layer: id = msg_send![content_view, layer];
+                        let _: () = msg_send![layer, setCornerRadius: 12.0_f64];
+                        let _: () = msg_send![layer, setMasksToBounds: true];
+                    }
+                    reposition_traffic_lights(ns_win);
+                }
+            }
+        }
+        Err(e) => log::error!("Failed to create new window: {e}"),
+    }
+}
+
+/// Build the native application menu with custom File items.
+fn build_app_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+
+    let new_window = MenuItemBuilder::new("New Window")
+        .id("new_window")
+        .accelerator("CmdOrCtrl+Shift+N")
+        .build(app)?;
+    let new_thread = MenuItemBuilder::new("New Thread")
+        .id("new_thread")
+        .accelerator("CmdOrCtrl+N")
+        .build(app)?;
+    let new_project = MenuItemBuilder::new("New Project…")
+        .id("new_project")
+        .accelerator("CmdOrCtrl+O")
+        .build(app)?;
+    let clone_from_github = MenuItemBuilder::new("Clone from GitHub…")
+        .id("clone_from_github")
+        .accelerator("CmdOrCtrl+Shift+O")
+        .build(app)?;
+
+    let app_submenu = SubmenuBuilder::new(app, "Klaudex")
+        .about(None)
+        .separator()
+        .services()
+        .separator()
+        .hide()
+        .hide_others()
+        .show_all()
+        .separator()
+        .quit()
+        .build()?;
+
+    let file_submenu = SubmenuBuilder::new(app, "File")
+        .item(&new_window)
+        .item(&new_thread)
+        .item(&new_project)
+        .item(&clone_from_github)
+        .separator()
+        .close_window()
+        .build()?;
+
+    let edit_submenu = SubmenuBuilder::new(app, "Edit")
+        .undo()
+        .redo()
+        .separator()
+        .cut()
+        .copy()
+        .paste()
+        .select_all()
+        .build()?;
+
+    let view_submenu = SubmenuBuilder::new(app, "View")
+        .fullscreen()
+        .build()?;
+
+    let window_submenu = SubmenuBuilder::new(app, "Window")
+        .minimize()
+        .maximize()
+        .separator()
+        .close_window()
+        .build()?;
+
+    let help_submenu = SubmenuBuilder::new(app, "Help")
+        .build()?;
+
+    MenuBuilder::new(app)
+        .items(&[
+            &app_submenu,
+            &file_submenu,
+            &edit_submenu,
+            &view_submenu,
+            &window_submenu,
+            &help_submenu,
+        ])
+        .build()
+}
+
 pub fn run() {
     install_panic_hook();
 
@@ -160,58 +339,56 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init())
         .manage(settings::SettingsState::default())
+        .manage(analytics::AnalyticsState::default())
         .manage(acp::AcpState::default())
         .manage(pty::PtyState::default())
-        .manage(analytics::AnalyticsState::default())
         .manage(claude_watcher::ClaudeWatcherState::default())
+        .manage(RelaunchFlag::default())
+        .manage(project_watcher::ProjectWatcherState::default())
+        .manage(thread_db::ThreadDbState {
+            db: thread_db::ThreadDatabase::open(),
+        })
+        .manage(highlight::HighlightState::default())
+        .manage(fuzzy::FuzzyState::default())
+        .manage(app_tracing::TraceState::default())
         .setup(|app| {
             let _window = app.get_webview_window("main")
                 .ok_or_else(|| "main window not found".to_string())?;
 
-            // Build and install the native menu (File → Open Recent etc.).
-            // Must run after `.manage(SettingsState)` so the recent-projects
-            // submenu can read the persisted list.
-            match settings::build_app_menu(app.handle()) {
-                Ok(menu) => {
-                    if let Err(e) = app.set_menu(menu) {
-                        log::error!("set_menu failed: {e}");
-                    }
-                }
-                Err(e) => log::error!("build_app_menu failed: {e}"),
-            }
+            // Build and set the custom native menu
+            let menu = build_app_menu(app)?;
+            app.set_menu(menu)?;
 
-            // Dispatch native menu clicks back to the renderer.
+            // Handle custom menu item clicks
             app.on_menu_event(|app_handle, event| {
-                let id = event.id().0.as_str();
-                match id {
+                match event.id().0.as_str() {
+                    "new_window" => create_new_window(app_handle),
+                    "new_thread" => {
+                        let _ = app_handle.emit("menu-new-thread", ());
+                    }
+                    "new_project" => {
+                        let _ = app_handle.emit("menu-new-project", ());
+                    }
+                    "clone_from_github" => {
+                        let _ = app_handle.emit("menu-clone-from-github", ());
+                    }
                     "clear_recent" => {
                         if let Some(state) = app_handle.try_state::<settings::SettingsState>() {
-                            {
-                                let mut store = state.0.lock();
-                                store.settings.recent_projects.clear();
-                                let _ = settings::persist_store(&store);
-                            }
-                            if let Ok(menu) = settings::build_app_menu(app_handle) {
-                                let _ = app_handle.set_menu(menu);
-                            }
+                            let mut store = state.0.lock();
+                            store.settings.recent_projects.clear();
+                            let _ = settings::persist_store(&store);
                         }
+                        rebuild_recent_menu(app_handle.clone());
                     }
-                    _ if id.starts_with("recent:") => {
+                    id if id.starts_with("recent:") => {
                         let path = &id["recent:".len()..];
                         if !path.is_empty() {
-                            let _ = app_handle.emit("open-recent-project", path.to_string());
+                            let _ = app_handle.emit("menu-open-recent-project", path);
                         }
                     }
-                    other => {
-                        // Generic fallback so the renderer can listen for any
-                        // menu item we haven't bound a specific handler for.
-                        let _ = app_handle.emit("menu-action", other.to_string());
-                    }
+                    _ => {}
                 }
             });
-
-            // Start watching the global ~/.claude directory.
-            claude_watcher::watch_global_claude(app.handle());
 
             #[cfg(desktop)]
             app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
@@ -219,11 +396,19 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             #[allow(deprecated)]
             {
-                use cocoa::appkit::NSWindow;
+                use cocoa::appkit::{NSApplication, NSApplicationActivationPolicy, NSWindow};
                 use cocoa::base::id;
                 use objc::msg_send;
                 use objc::sel;
                 use objc::sel_impl;
+
+                // Ensure the app has Regular activation policy so NSOpenPanel works.
+                // Without this, objc2-app-kit 0.3+ panics with NULL from +[NSOpenPanel openPanel].
+                unsafe {
+                    let ns_app = cocoa::appkit::NSApp();
+                    ns_app.setActivationPolicy_(NSApplicationActivationPolicy::NSApplicationActivationPolicyRegular);
+                }
+
                 let ns_window = _window.ns_window().unwrap() as id;
                 unsafe {
                     let content_view: id = ns_window.contentView();
@@ -240,14 +425,58 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             match event {
-                tauri::WindowEvent::CloseRequested { .. } => {
-                    shutdown_app(window.app_handle());
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    let app = window.app_handle();
+
+                    // If a relaunch is in progress, skip the confirmation dialog
+                    // and let the close proceed so `relaunch()` can restart the app.
+                    if let Some(flag) = app.try_state::<RelaunchFlag>() {
+                        if flag.0.load(Ordering::Acquire) {
+                            // The frontend already flushed state in prepareForRelaunch()
+                            // before calling relaunch(). Skip the flush-before-quit/ack
+                            // cycle — the webview is being torn down and can't respond.
+                            log::info!("Relaunch flag set — skipping flush, shutting down immediately");
+                            shutdown_app(&app);
+                            return;
+                        }
+                    }
+
+                    let window_count = app.webview_windows().len();
+                    // Secondary windows close without confirmation, but their
+                    // PTYs must die with them — otherwise terminals from the
+                    // closed window stay in our map and the reader threads
+                    // keep emitting to a dead webview.
+                    if window_count > 1 {
+                        kill_window_ptys(&app, window.label());
+                        return;
+                    }
+                    // Last window — show quit confirmation
+                    api.prevent_close();
+                    let app = app.clone();
+                    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
+                    app.dialog()
+                        .message("Are you sure you want to quit Klaudex?")
+                        .title("Quit Klaudex")
+                        .buttons(MessageDialogButtons::OkCancelCustom("Quit".to_string(), "Cancel".to_string()))
+                        .show(move |confirmed| {
+                            if confirmed {
+                                // Tell the frontend to flush persisted state to disk
+                                let _ = app.emit("app://flush-before-quit", ());
+                                // Wait for the frontend to ack the flush, with a 2s timeout
+                                let (tx, rx) = std::sync::mpsc::channel::<()>();
+                                let app_clone = app.clone();
+                                let _listener_id = app_clone.listen("app://flush-ack", move |_| {
+                                    let _ = tx.send(());
+                                });
+                                let _ = rx.recv_timeout(std::time::Duration::from_secs(2));
+                                shutdown_app(&app);
+                                app.exit(0);
+                            }
+                        });
                 }
                 #[cfg(target_os = "macos")]
                 tauri::WindowEvent::Focused(_) => {
-                    // Re-position traffic lights on every focus/blur event.
-                    // macOS resets their position when the window resigns/becomes key,
-                    // causing them to be clipped by the content view's corner radius mask.
+                    // Re-position traffic lights on every focus/blur event for all windows.
                     #[allow(deprecated)]
                     if let Ok(ns_window) = window.ns_window() {
                         reposition_traffic_lights(ns_window as cocoa::base::id);
@@ -266,12 +495,16 @@ pub fn run() {
             settings::recent_projects_clear,
             settings::rebuild_menu,
             settings::set_dock_icon_visible,
+            settings::set_dock_icon,
+            settings::reset_dock_icon,
             settings::request_relaunch,
             // File ops
             fs_ops::detect_claude_cli,
             fs_ops::read_text_file,
             fs_ops::read_file_base64,
+            fs_ops::is_directory,
             fs_ops::pick_folder,
+            fs_ops::pick_image,
             fs_ops::open_in_editor,
             fs_ops::open_url,
             fs_ops::detect_editors,
@@ -285,6 +518,8 @@ pub fn run() {
             fs_ops::list_small_images,
             // Git
             git::git_detect,
+            git::git_init,
+            git::git_clone,
             git::git_list_branches,
             git::git_checkout,
             git::git_create_branch,
@@ -296,11 +531,18 @@ pub fn run() {
             git::git_stage,
             git::git_revert,
             git::task_diff,
+            git::task_diff_stats,
             git::git_diff,
             git::git_diff_file,
             git::git_diff_stats,
             git::git_staged_stats,
             git::git_remote_url,
+            git_ai::git_generate_commit_message,
+            git::git_changed_files,
+            git::git_stage_files,
+            git::git_commit_files,
+            git::git_create_and_checkout_branch,
+            git::git_add_remote,
             git::git_worktree_create,
             git::git_worktree_remove,
             git::git_worktree_has_changes,
@@ -321,6 +563,7 @@ pub fn run() {
             acp::task_rollback,
             acp::task_respond_user_input,
             acp::set_mode,
+            acp::set_model,
             acp::list_models,
             acp::probe_capabilities,
             // PTY
@@ -328,20 +571,118 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_kill,
+            pty::pty_count,
             // Claude config
             claude_config::get_claude_config,
+            claude_config::save_mcp_server_config,
+            claude_config::mcp_add_server,
+            claude_config::mcp_remove_server,
             // Claude watcher
             claude_watcher::watch_claude_path,
             claude_watcher::unwatch_claude_path,
+            // Project watcher & file operations
+            project_watcher::watch_project_tree,
+            project_watcher::unwatch_project_tree,
+            project_watcher::scan_directory,
+            project_watcher::scan_root,
+            project_watcher::create_file,
+            project_watcher::create_directory,
+            project_watcher::delete_entry,
+            project_watcher::rename_entry,
+            project_watcher::copy_entry,
+            project_watcher::duplicate_entry,
+            project_watcher::copy_entry_path,
+            project_watcher::reveal_in_finder,
+            project_watcher::open_in_default_app,
+            project_watcher::open_terminal_at,
+            project_watcher::add_to_gitignore,
+            project_watcher::open_finder_search,
             // Analytics
             analytics::analytics_save,
             analytics::analytics_load,
             analytics::analytics_clear,
             analytics::analytics_db_size,
-            // Statusline (TASK-115)
-            statusline::run_statusline_command,
-            // Permissions import (TASK-116)
-            settings::read_claude_settings_permissions,
+            analytics::analytics_coding_hours_by_day,
+            analytics::analytics_messages_by_day,
+            analytics::analytics_tokens_by_day,
+            analytics::analytics_diff_stats_by_day,
+            analytics::analytics_model_popularity,
+            analytics::analytics_tool_call_breakdown,
+            analytics::analytics_mode_usage,
+            analytics::analytics_project_stats,
+            analytics::analytics_totals,
+            // Streaming Diff
+            streaming_diff::compute_diff,
+            streaming_diff::compute_line_diff,
+            // Structured diff parsing
+            diff_parse::task_diff_structured,
+            diff_parse::git_diff_structured,
+            // Markdown parsing
+            markdown::parse_markdown,
+            // Syntax highlighting
+            highlight::highlight_code,
+            highlight::highlight_supported_languages,
+            // Fuzzy match
+            fuzzy::fuzzy_match,
+            // MCP Transport
+            transport::mcp_transport_test,
+            // Thread title generation
+            thread_title::generate_thread_title,
+            branch_ai::generate_branch_name,
+            branch_ai::rename_worktree_branch,
+            pr_ai::generate_pr_content,
+            vcs_status::git_vcs_status,
+            git_stack::git_list_stack,
+            git_stack::git_stacked_push,
+            process_diagnostics::list_child_processes,
+            process_diagnostics::signal_process,
+            // Checkpoint
+            checkpoint::checkpoint_create,
+            checkpoint::checkpoint_list,
+            checkpoint::checkpoint_diff,
+            checkpoint::checkpoint_revert,
+            checkpoint::checkpoint_cleanup,
+            // Git History
+            git_history::git_commit_history,
+            git_history::git_commit_diff,
+            git_history::git_commit_stats,
+            git_history::git_stash_list,
+            git_history::git_stash_pop,
+            git_history::git_stash_drop,
+            git_history::git_stash_save,
+            // Thread Database
+            thread_db::thread_db_list,
+            thread_db::thread_db_load,
+            thread_db::thread_db_save,
+            thread_db::thread_db_delete,
+            thread_db::thread_db_messages,
+            thread_db::thread_db_save_message,
+            thread_db::thread_db_search,
+            thread_db::thread_db_stats,
+            thread_db::thread_db_clear_all,
+            thread_db::thread_db_auto_archive,
+            // Relaunch
+            set_relaunch_flag,
+            // Reset
+            reset_app_data,
+            // Recent projects
+            settings::recent_projects_get,
+            settings::recent_projects_add,
+            settings::recent_projects_remove,
+            settings::recent_projects_clear,
+            rebuild_recent_menu,
+            // PR / MR creation (GitHub + GitLab)
+            git_pr::git_detect_provider,
+            git_pr::git_create_pr,
+            git_pr::git_pr_status,
+            git_pr::git_pr_open_in_browser,
+            // Pattern extraction (code signatures for agent context)
+            pattern_extract::extract_patterns,
+            pattern_extract::extract_patterns_batch,
+            // Structured tracing (NDJSON debug traces)
+            app_tracing::trace_read_recent,
+            app_tracing::trace_file_location,
+            app_tracing::trace_clear,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

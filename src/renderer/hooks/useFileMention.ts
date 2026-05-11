@@ -5,12 +5,13 @@ interface UseFileMentionOptions {
   textareaRef: RefObject<HTMLTextAreaElement | null>
   value: string
   setValue: (v: string | ((prev: string) => string)) => void
+  initialMentionedFiles?: ProjectFile[]
 }
 
-export function useFileMention({ textareaRef, value, setValue }: UseFileMentionOptions) {
+export function useFileMention({ textareaRef, value, setValue, initialMentionedFiles }: UseFileMentionOptions) {
   const [mentionTrigger, setMentionTrigger] = useState<{ start: number; query: string } | null>(null)
   const [mentionIndex, setMentionIndex] = useState(0)
-  const [mentionedFiles, setMentionedFiles] = useState<ProjectFile[]>([])
+  const [mentionedFiles, setMentionedFiles] = useState<ProjectFile[]>(initialMentionedFiles ?? [])
 
   const detectMentionTrigger = useCallback((text: string, cursorPos: number) => {
     let i = cursorPos - 1
@@ -56,6 +57,12 @@ export function useFileMention({ textareaRef, value, setValue }: UseFileMentionO
     setMentionedFiles([])
   }, [])
 
+  const addMentionedFile = useCallback((file: ProjectFile) => {
+    setMentionedFiles((prev) =>
+      prev.some((f) => f.path === file.path) ? prev : [...prev, file]
+    )
+  }, [])
+
   const dismissMention = useCallback(() => setMentionTrigger(null), [])
 
   const incrementMentionIndex = useCallback(() => setMentionIndex((i) => i + 1), [])
@@ -68,6 +75,7 @@ export function useFileMention({ textareaRef, value, setValue }: UseFileMentionO
     detectMentionTrigger,
     handleSelectFile,
     handleRemoveMention,
+    addMentionedFile,
     clearMentions,
     dismissMention,
     incrementMentionIndex,

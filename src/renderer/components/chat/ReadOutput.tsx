@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { IconFileText } from '@tabler/icons-react'
+import { IconFileText, IconFolder } from '@tabler/icons-react'
 
 interface ReadOperation {
   readonly path: string
@@ -68,6 +68,7 @@ export const ReadOutput = memo(function ReadOutput({ rawInput, rawOutput }: Read
   const lines = parseReadOutput(rawOutput)
   if (!ops || !lines) return null
   const offset = ops[0].offset
+  const isDirectory = ops[0].mode === 'Directory'
   const summary = formatReadSummary(ops)
   // Remove trailing empty line from split
   const displayLines = lines.length > 0 && lines[lines.length - 1] === '' ? lines.slice(0, -1) : lines
@@ -76,7 +77,7 @@ export const ReadOutput = memo(function ReadOutput({ rawInput, rawOutput }: Read
   return (
     <div className="ml-6 mr-2 mb-1.5 mt-1 rounded-md border border-border/60 overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30 text-[11px] text-muted-foreground">
-        <IconFileText className="size-3" />
+        {isDirectory ? <IconFolder className="size-3" /> : <IconFileText className="size-3" />}
         <span>{summary}</span>
         <span className="flex-1" />
         <span>{displayLines.length} lines</span>
@@ -85,7 +86,7 @@ export const ReadOutput = memo(function ReadOutput({ rawInput, rawOutput }: Read
         {displayLines.map((line, i) => {
           const lineNum = offset + i + 1
           return (
-            <div key={i} className="flex">
+            <div key={`line-${lineNum}`} className="flex">
               <span
                 className="shrink-0 select-none text-right text-muted-foreground pr-3 pl-2"
                 style={{ minWidth: `${gutterWidth + 2}ch` }}

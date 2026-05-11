@@ -58,8 +58,13 @@ const defaultSettings: AppSettings = {
   claudeBin: 'claude',
   agentProfiles: [],
   fontSize: 14,
+  chatFontSize: 15,
   sidebarPosition: 'left',
   analyticsEnabled: true,
+  // Default to true — new users get inline tool calls by default.
+  // Existing users who never explicitly set this will also get the new default.
+  // The toggle checks `!== false` so only an explicit `false` disables it.
+  inlineToolCalls: true,
 }
 
 const FALLBACK_MODELS: ModelOption[] = [
@@ -87,10 +92,27 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   loadSettings: async () => {
     try {
       const settings = await ipc.getSettings()
-      logStoreAction('settingsStore', 'loadSettings', { loaded: true })
-      set({ settings: { ...defaultSettings, ...settings }, isLoaded: true })
-    } catch (err) {
-      logError('settingsStore.loadSettings', err)
+      const merged = { ...defaultSettings, ...settings }
+      // If settings look like defaults (user was onboarded but confy lost data),
+      // restore from backup to recover projectPrefs, iconOverrides, etc.
+      if (!merged.hasOnboardedV2) {
+        try {
+          const { loadBackup } = await import('@/lib/history-store')
+          const backup = await loadBackup()
+          if (backup.settings?.hasOnboardedV2) {
+            const restored = { ...merged, ...backup.settings }
+            // Seed transient currentModelId from the persisted default so the
+            // picker shows the right value before any session_init lands.
+            const seedModel = restored.defaultModel ?? null
+            set({ settings: restored, isLoaded: true, currentModelId: seedModel })
+            ipc.saveSettings(restored).catch(() => {})
+            return
+          }
+        } catch { /* backup load is best-effort */ }
+      }
+      const seedModel = merged.defaultModel ?? null
+      set({ settings: merged, isLoaded: true, currentModelId: seedModel })
+    } catch {
       set({ isLoaded: true })
     }
   },
@@ -106,7 +128,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     const keys: Array<keyof AppSettings> = [
       'claudeBin', 'defaultModel', 'autoApprove', 'respectGitignore',
       'coAuthor', 'coAuthorJsonReport', 'notifications', 'fontSize',
-      'sidebarPosition', 'analyticsEnabled', 'theme',
+      'chatFontSize',
+      'sidebarPosition', 'analyticsEnabled', 'theme', 'customAppIcon',
     ]
     for (const k of keys) {
       if (prev[k] !== settings[k]) track('settings_changed', { key: String(k) })
@@ -134,7 +157,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     const { settings, currentModelId } = get()
     if (!workspace) { set({ activeWorkspace: null, operationalWorkspace: null }); return }
     const prefs = settings.projectPrefs?.[workspace]
-    const newModelId = prefs?.modelId !== undefined ? prefs.modelId : currentModelId
+    // Resolution order: project pref → existing currentModelId → global default.
+    // Falling back to defaultModel keeps the picker stable when a user opens a
+    // project that has no per-project pref yet.
+    const fallback = currentModelId ?? settings.defaultModel ?? null
+    const newModelId = prefs?.modelId !== undefined ? prefs.modelId : fallback
     const opWs = operationalWs ?? workspace
     // Only update if something actually changed
     const current = get()
@@ -240,3 +267,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     }
   },
 }))
+
+/**
+ * Resolve the chat font size with fallback to the global UI font size.
+ * Use everywhere chat content (markdown, assistant text, user bubble, chat textarea) is rendered
+ * so that users on existing settings (no chatFontSize key) keep current behavior.
+ */
+export const selectChatFontSize = (s: { settings: AppSettings }): number =>
+  s.settings.chatFontSize ?? s.settings.fontSize ?? 15

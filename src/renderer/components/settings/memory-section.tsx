@@ -1,40 +1,27 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { memo, useEffect, useMemo, useState, useCallback } from 'react'
 import {
-  IconRefresh, IconTrash, IconTerminal2, IconMessage, IconTool,
-  IconPlayerPlay, IconStack2, IconArchive, IconNote, IconBug,
-  IconCpu, IconFlame, IconChevronRight, IconDatabase,
+  IconRefresh, IconTrash, IconAlertTriangle, IconTerminal2,
+  IconMessage, IconTool, IconPlayerPlay, IconStack2, IconArchive,
+  IconNote, IconBug, IconCpu, IconFlame, IconChevronRight,
 } from '@tabler/icons-react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useDebugStore } from '@/stores/debugStore'
+import { useJsDebugStore } from '@/stores/jsDebugStore'
 import { measureMemory, formatBytes, type MemoryReport, type ThreadMemoryBreakdown } from '@/lib/thread-memory'
 import { ipc } from '@/lib/ipc'
 import { cn } from '@/lib/utils'
 import type { AppSettings } from '@/types'
 import { Switch } from '@/components/ui/switch'
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
-import { SettingsCard, SettingRow, Divider } from './settings-shared'
+import { SectionHeader, SettingsCard, SettingsGrid, SettingRow, Divider, ConfirmDialog } from './settings-shared'
 
 const REFRESH_INTERVAL_MS = 2000
 const HOT_THREAD_BYTES = 5 * 1024 * 1024
 const HOT_TOTAL_BYTES = 100 * 1024 * 1024
 const BYTES_PER_SCROLLBACK_LINE = 80 * 16
-const DEFAULT_SCROLLBACK = 5000
+const DEFAULT_SCROLLBACK = 2000
 const MIN_SCROLLBACK = 200
 const MAX_SCROLLBACK = 20000
 const DEFAULT_IDLE_MINS = 30
-
-/**
- * Klaudex's `AppSettings` does not yet declare the terminal memory fields the
- * Rust backend already persists (TASK-011). Read/write through this extended
- * shape so this component compiles without touching `types/index.ts`.
- */
-type TerminalSettingsPatch = Partial<{
-  terminalScrollback: number
-  terminalIdleCloseMins: number
-}>
-type AppSettingsWithTerminal = AppSettings & TerminalSettingsPatch
 
 /* ── Stat card for the overview grid ─────────────────────────────── */
 
@@ -192,10 +179,7 @@ interface MemorySectionProps {
   readonly updateDraft: (patch: Partial<AppSettings>) => void
 }
 
-const MemorySection = ({ draft, updateDraft }: MemorySectionProps) => {
-  const draftWithTerminal = draft as AppSettingsWithTerminal
-  const updateTerminalDraft = updateDraft as (patch: TerminalSettingsPatch) => void
-
+export const MemorySection = memo(function MemorySection({ draft, updateDraft }: MemorySectionProps) {
   const [report, setReport] = useState<MemoryReport | null>(null)
   const [heap, setHeap] = useState<{ used: number; total: number } | null>(null)
   const [ptyCount, setPtyCount] = useState<number | null>(null)
@@ -203,8 +187,9 @@ const MemorySection = ({ draft, updateDraft }: MemorySectionProps) => {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [isPurgeOpen, setIsPurgeOpen] = useState(false)
 
-  const permanentlyDeleteTask = useTaskStore((s) => s.permanentlyDeleteTask)
+  const purgeAllSoftDeletes = useTaskStore((s) => s.purgeAllSoftDeletes)
   const clearDebugLog = useDebugStore((s) => s.clear)
+  const clearJsDebugLog = useJsDebugStore((s) => s.clear)
 
   useEffect(() => {
     if (!autoRefresh) return
@@ -213,7 +198,11 @@ const MemorySection = ({ draft, updateDraft }: MemorySectionProps) => {
   }, [autoRefresh])
 
   useEffect(() => {
-    const next = measureMemory(useTaskStore.getState(), useDebugStore.getState())
+    const next = measureMemory(
+      useTaskStore.getState(),
+      useDebugStore.getState(),
+      useJsDebugStore.getState(),
+    )
     setReport(next)
     setHeap(readHeap())
     let cancelled = false
@@ -225,153 +214,143 @@ const MemorySection = ({ draft, updateDraft }: MemorySectionProps) => {
 
   const handleManualRefresh = useCallback(() => setTick((n) => n + 1), [])
 
-  /**
-   * Klaudex's task store exposes only `purgeExpiredSoftDeletes()` (which honors
-   * the 48-hour grace period). For the explicit "Purge now" action we walk the
-   * soft-deleted map and permanently delete every entry.
-   */
   const handlePurgeSoft = useCallback(() => {
-    const ids = Object.keys(useTaskStore.getState().softDeleted)
-    for (const id of ids) permanentlyDeleteTask(id)
+    purgeAllSoftDeletes()
     setTick((n) => n + 1)
-  }, [permanentlyDeleteTask])
+  }, [purgeAllSoftDeletes])
 
   const handleClearDebug = useCallback(() => {
     clearDebugLog()
+    clearJsDebugLog()
     setTick((n) => n + 1)
-  }, [clearDebugLog])
+  }, [clearDebugLog, clearJsDebugLog])
 
   const top = useMemo(() => report?.threads.slice(0, 25) ?? [], [report])
   const remaining = (report?.threads.length ?? 0) - top.length
   const isHot = report ? report.grandTotal >= HOT_TOTAL_BYTES : false
   const debugLogTotal = report ? report.debugLog + report.jsDebugLog : 0
 
-  const scrollback = clampScrollback(draftWithTerminal.terminalScrollback ?? DEFAULT_SCROLLBACK)
-  const idleMinsRaw = draftWithTerminal.terminalIdleCloseMins ?? 0
-  const idleEnabled = idleMinsRaw > 0
+  const scrollback = clampScrollback(draft.terminalScrollback ?? DEFAULT_SCROLLBACK)
+  const idleMins = draft.terminalAutoCloseIdleMins ?? null
+  const idleEnabled = idleMins !== null
   const ptyScrollbackEstimate = ptyCount !== null
     ? ptyCount * scrollback * BYTES_PER_SCROLLBACK_LINE
     : 0
 
-  const ptyHasNone = ptyCount === 0
-
   return (
     <>
-      <div className="mb-6">
-        <div className="flex items-center gap-2.5">
-          <IconDatabase className="size-5 text-primary" />
-          <h3 className="text-[17px] font-semibold text-foreground">Memory</h3>
-        </div>
-        <p className="mt-1 text-[12.5px] text-muted-foreground">
-          Live memory readout, per-thread breakdown, and terminal scrollback tuning.
-        </p>
-      </div>
+      <SectionHeader section="memory" />
 
       {/* ── Overview ──────────────────────────────────────────────── */}
-      <div className="mb-4">
-        <SettingsCard className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 py-1">
-            <div className={cn(
-              'flex size-11 items-center justify-center rounded-xl',
-              isHot ? 'bg-amber-500/15' : 'bg-primary/10',
-            )}>
-              <IconCpu className={cn('size-5', isHot ? 'text-amber-400' : 'text-primary')} />
-            </div>
-            <div>
-              <p className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Tracked total</p>
-              <p className={cn(
-                'font-mono text-[24px] font-bold tabular-nums leading-tight',
-                isHot ? 'text-amber-400' : 'text-foreground',
+      <SettingsGrid label="Overview" description="Live snapshot of renderer-side memory">
+        <div className="space-y-3">
+          {/* Hero total + controls */}
+          <SettingsCard className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 py-1">
+              <div className={cn(
+                'flex size-11 items-center justify-center rounded-xl',
+                isHot ? 'bg-amber-500/15' : 'bg-primary/10',
               )}>
-                {report ? formatBytes(report.grandTotal) : '—'}
-              </p>
+                <IconCpu className={cn('size-5', isHot ? 'text-amber-400' : 'text-primary')} />
+              </div>
+              <div>
+                <p className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Tracked total</p>
+                <p className={cn(
+                  'font-mono text-[24px] font-bold tabular-nums leading-tight',
+                  isHot ? 'text-amber-400' : 'text-foreground',
+                )}>
+                  {report ? formatBytes(report.grandTotal) : '—'}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground select-none">
-              <input
-                type="checkbox"
-                checked={autoRefresh}
-                onChange={(e) => setAutoRefresh(e.target.checked)}
-                className="size-3 cursor-pointer accent-primary"
-              />
-              Auto-refresh
-            </label>
-            <button
-              type="button"
-              onClick={handleManualRefresh}
-              className="flex items-center gap-1.5 rounded-lg border border-border/50 px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              aria-label="Refresh memory report"
-            >
-              <IconRefresh className="size-3" />
-              Refresh
-            </button>
-          </div>
-        </SettingsCard>
-      </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground select-none">
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                  className="size-3 cursor-pointer accent-primary"
+                />
+                Auto-refresh
+              </label>
+              <button
+                type="button"
+                onClick={handleManualRefresh}
+                className="flex items-center gap-1.5 rounded-lg border border-border/50 px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                aria-label="Refresh memory report"
+              >
+                <IconRefresh className="size-3" />
+                Refresh
+              </button>
+            </div>
+          </SettingsCard>
 
-      {isHot && (
-        <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
-          <IconFlame className="mt-0.5 size-4 shrink-0 text-amber-400" />
-          <div>
-            <p className="text-[12px] font-medium text-amber-300">High memory usage</p>
-            <p className="mt-0.5 text-[11px] leading-relaxed text-amber-200/70">
-              Klaudex is holding {report ? formatBytes(report.grandTotal) : ''} across threads, drafts, and debug buffers.
-              Purge soft-deleted threads or clear debug buffers below.
-            </p>
+          {/* Hot warning */}
+          {isHot && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
+              <IconFlame className="mt-0.5 size-4 shrink-0 text-amber-400" />
+              <div>
+                <p className="text-[12px] font-medium text-amber-300">High memory usage</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-amber-200/70">
+                  Renderer is holding {report ? formatBytes(report.grandTotal) : ''} across threads, drafts, and debug buffers.
+                  Purge soft-deleted threads or clear debug buffers below.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Stat cards grid */}
+          <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
+            <StatCard
+              label="Live threads"
+              value={report ? `${report.threads.length}` : '—'}
+              hint={report ? `${formatBytes(report.threadsTotal)} held` : undefined}
+              icon={IconMessage}
+              accentClass="bg-primary"
+            />
+            <StatCard
+              label="Archived"
+              value={report ? `${report.archivedMetaCount}` : '—'}
+              hint={report
+                ? report.archivedMetaCount > 0
+                  ? `${formatBytes(report.archivedMeta)} metadata`
+                  : 'none'
+                : undefined}
+              icon={IconArchive}
+              accentClass="bg-violet-500"
+            />
+            <StatCard
+              label="Soft-deleted"
+              value={report ? `${report.softDeletedCount}` : '—'}
+              hint={report ? `${formatBytes(report.softDeleted)} pending purge` : undefined}
+              icon={IconTrash}
+              accentClass="bg-amber-500"
+            />
+            <StatCard
+              label="Open PTYs"
+              value={ptyCount === null ? '—' : `${ptyCount}`}
+              hint={ptyCount !== null && ptyCount > 0
+                ? `~${formatBytes(ptyScrollbackEstimate)} scrollback`
+                : 'this window'}
+              icon={IconTerminal2}
+              accentClass="bg-emerald-500"
+            />
+            {heap && (
+              <StatCard
+                label="JS heap"
+                value={formatBytes(heap.used)}
+                hint={`of ${formatBytes(heap.total)} allocated`}
+                icon={IconCpu}
+                accentClass="bg-sky-500"
+              />
+            )}
           </div>
         </div>
-      )}
-
-      <div className="mb-6 grid grid-cols-2 gap-2 xl:grid-cols-3">
-        <StatCard
-          label="Live threads"
-          value={report ? `${report.threads.length}` : '—'}
-          hint={report ? `${formatBytes(report.threadsTotal)} held` : undefined}
-          icon={IconMessage}
-          accentClass="bg-primary"
-        />
-        <StatCard
-          label="Archived"
-          value={report ? `${report.archivedMetaCount}` : '—'}
-          hint={report
-            ? report.archivedMetaCount > 0
-              ? `${formatBytes(report.archivedMeta)} metadata`
-              : 'none'
-            : undefined}
-          icon={IconArchive}
-          accentClass="bg-violet-500"
-        />
-        <StatCard
-          label="Soft-deleted"
-          value={report ? `${report.softDeletedCount}` : '—'}
-          hint={report ? `${formatBytes(report.softDeleted)} pending purge` : undefined}
-          icon={IconTrash}
-          accentClass="bg-amber-500"
-        />
-        <StatCard
-          label="Open PTYs"
-          value={ptyCount === null ? '—' : `${ptyCount}`}
-          hint={ptyCount !== null && ptyCount > 0
-            ? `~${formatBytes(ptyScrollbackEstimate)} scrollback`
-            : 'No active terminals'}
-          icon={IconTerminal2}
-          accentClass="bg-emerald-500"
-        />
-        {heap && (
-          <StatCard
-            label="JS heap"
-            value={formatBytes(heap.used)}
-            hint={`of ${formatBytes(heap.total)} allocated`}
-            icon={IconCpu}
-            accentClass="bg-sky-500"
-          />
-        )}
-      </div>
+      </SettingsGrid>
 
       {/* ── Breakdown ─────────────────────────────────────────────── */}
       {report && report.grandTotal > 0 && (
-        <div className="mb-6">
+        <SettingsGrid label="Breakdown" description="Where memory goes">
           <SettingsCard>
             <div className="space-y-0.5 py-1">
               <CategoryRow
@@ -425,12 +404,11 @@ const MemorySection = ({ draft, updateDraft }: MemorySectionProps) => {
               />
             </div>
           </SettingsCard>
-        </div>
+        </SettingsGrid>
       )}
 
       {/* ── Per-thread ────────────────────────────────────────────── */}
-      <div className="mb-6">
-        <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Per-thread</p>
+      <SettingsGrid label="Per-thread" description="Click a row to open">
         <SettingsCard>
           {!report || report.threads.length === 0 ? (
             <div className="flex flex-col items-center gap-1.5 py-6 text-center">
@@ -450,17 +428,11 @@ const MemorySection = ({ draft, updateDraft }: MemorySectionProps) => {
             </div>
           )}
         </SettingsCard>
-      </div>
+      </SettingsGrid>
 
       {/* ── Terminal ──────────────────────────────────────────────── */}
-      <div className="mb-6">
-        <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Terminal</p>
+      <SettingsGrid label="Terminal" description="Tune memory held by terminal tabs">
         <SettingsCard>
-          {ptyHasNone && (
-            <p className="px-1 py-2 text-[11px] text-muted-foreground/70">
-              No active terminals — settings below take effect when you open one.
-            </p>
-          )}
           <SettingRow
             label="Scrollback lines"
             description={
@@ -470,34 +442,29 @@ const MemorySection = ({ draft, updateDraft }: MemorySectionProps) => {
             }
           >
             <input
-              type="range"
+              type="number"
               min={MIN_SCROLLBACK}
               max={MAX_SCROLLBACK}
-              step={100}
+              step={500}
               value={scrollback}
-              onChange={(e) => updateTerminalDraft({
-                terminalScrollback: clampScrollback(Number(e.target.value) || DEFAULT_SCROLLBACK),
-              })}
-              className="w-32 cursor-pointer accent-primary"
+              onChange={(e) => updateDraft({ terminalScrollback: clampScrollback(Number(e.target.value) || DEFAULT_SCROLLBACK) })}
+              className="w-24 rounded-lg border border-input bg-transparent px-2.5 py-1 text-xs tabular-nums text-foreground outline-none focus:ring-1 focus:ring-ring"
               aria-label="Terminal scrollback lines"
             />
-            <span className="ml-2 inline-block w-16 text-right font-mono text-[11.5px] tabular-nums text-foreground/80">
-              {scrollback}
-            </span>
           </SettingRow>
           <Divider />
           <SettingRow
             label="Auto-close idle background tabs"
             description={
               idleEnabled
-                ? `Closes background terminal tabs after ${idleMinsRaw} minute${idleMinsRaw === 1 ? '' : 's'} of no PTY activity. The active tab is never closed.`
+                ? `Closes background terminal tabs after ${idleMins} minute${idleMins === 1 ? '' : 's'} of no PTY activity. The active tab is never closed.`
                 : 'When enabled, frees memory from terminal tabs you have stopped using. Running processes in those tabs are terminated.'
             }
           >
             <Switch
               checked={idleEnabled}
               onCheckedChange={(checked) =>
-                updateTerminalDraft({ terminalIdleCloseMins: checked ? DEFAULT_IDLE_MINS : 0 })
+                updateDraft({ terminalAutoCloseIdleMins: checked ? DEFAULT_IDLE_MINS : null })
               }
               aria-label="Toggle idle terminal auto-close"
             />
@@ -506,18 +473,18 @@ const MemorySection = ({ draft, updateDraft }: MemorySectionProps) => {
             <>
               <Divider />
               <SettingRow
-                label="Idle threshold (minutes)"
-                description="Minutes of no terminal output before a background tab is auto-closed. 0 disables auto-close."
+                label="Idle threshold"
+                description="Minutes of no terminal output before a background tab is auto-closed."
               >
                 <input
                   type="number"
-                  min={0}
-                  max={120}
-                  step={1}
-                  value={idleMinsRaw}
+                  min={1}
+                  max={1440}
+                  step={5}
+                  value={idleMins ?? DEFAULT_IDLE_MINS}
                   onChange={(e) => {
-                    const n = Math.max(0, Math.min(120, Number(e.target.value) || 0))
-                    updateTerminalDraft({ terminalIdleCloseMins: n })
+                    const n = Math.max(1, Math.min(1440, Number(e.target.value) || DEFAULT_IDLE_MINS))
+                    updateDraft({ terminalAutoCloseIdleMins: n })
                   }}
                   className="w-20 rounded-lg border border-input bg-transparent px-2.5 py-1 text-xs tabular-nums text-foreground outline-none focus:ring-1 focus:ring-ring"
                   aria-label="Idle threshold in minutes"
@@ -526,11 +493,10 @@ const MemorySection = ({ draft, updateDraft }: MemorySectionProps) => {
             </>
           )}
         </SettingsCard>
-      </div>
+      </SettingsGrid>
 
       {/* ── Reclaim ───────────────────────────────────────────────── */}
-      <div className="mb-2">
-        <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Reclaim</p>
+      <SettingsGrid label="Reclaim" description="Free held memory">
         <SettingsCard>
           <SettingRow
             label="Purge soft-deleted threads"
@@ -553,16 +519,16 @@ const MemorySection = ({ draft, updateDraft }: MemorySectionProps) => {
           </SettingRow>
           <Divider />
           <SettingRow
-            label="Clear debug log buffer"
+            label="Clear debug log buffers"
             description={
               report
-                ? `${report.debugLogCount} captured entries (${formatBytes(report.debugLog)}).`
-                : 'Drops the in-memory ACP and JS console capture buffer.'
+                ? `${report.debugLogCount + report.jsDebugLogCount} captured entries (${formatBytes(debugLogTotal)}).`
+                : 'Drops the in-memory ACP and JS console capture buffers.'
             }
           >
             <button
               type="button"
-              disabled={!report || report.debugLogCount === 0}
+              disabled={!report || (report.debugLogCount === 0 && report.jsDebugLogCount === 0)}
               onClick={handleClearDebug}
               className="flex items-center gap-1.5 rounded-lg border border-input px-3 py-1.5 text-[11px] font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Clear debug log buffers"
@@ -572,42 +538,21 @@ const MemorySection = ({ draft, updateDraft }: MemorySectionProps) => {
             </button>
           </SettingRow>
         </SettingsCard>
-      </div>
+      </SettingsGrid>
 
       <p className="flex items-start gap-1.5 px-1 pt-1 text-[10.5px] leading-relaxed text-muted-foreground/50">
         <IconTerminal2 className="mt-0.5 size-3 shrink-0" aria-hidden />
         Scrollback estimates assume ~80 cols × 16 B per cell × the line cap. Real WASM heap usage varies.
       </p>
 
-      <Dialog open={isPurgeOpen} onOpenChange={setIsPurgeOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Purge soft-deleted threads?</DialogTitle>
-            <DialogDescription>
-              Permanently removes every soft-deleted thread immediately. Restoration from the
-              Archives section will no longer be possible.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <button
-              type="button"
-              onClick={() => setIsPurgeOpen(false)}
-              className="rounded-lg border border-border/50 px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => { handlePurgeSoft(); setIsPurgeOpen(false) }}
-              className="rounded-lg bg-destructive px-3 py-1.5 text-[12px] font-medium text-destructive-foreground transition-colors hover:bg-destructive/90"
-            >
-              Purge now
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={isPurgeOpen}
+        onOpenChange={setIsPurgeOpen}
+        title="Purge soft-deleted threads?"
+        description="Permanently removes every soft-deleted thread immediately. Restoration from the Archives section will no longer be possible."
+        confirmLabel="Purge now"
+        onConfirm={handlePurgeSoft}
+      />
     </>
   )
-}
-
-export default MemorySection
+})

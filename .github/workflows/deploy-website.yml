@@ -42,9 +42,9 @@ jobs:
 
       - name: Inject base href for GitHub Pages
         run: |
-          sed -i 's|<!-- base href injected by CI for GitHub Pages -->|<base href="/kirodex/">|' _site/index.html
-          sed -i 's|<!-- base href injected by CI for GitHub Pages -->|<base href="/kirodex/">|' _site/changelog.html
-          sed -i 's|<!-- base href injected by CI for GitHub Pages -->|<base href="/kirodex/">|' _site/features.html
+          sed -i 's|<!-- base href injected by CI for GitHub Pages -->|<base href="/klaudex/">|' _site/index.html
+          sed -i 's|<!-- base href injected by CI for GitHub Pages -->|<base href="/klaudex/">|' _site/changelog.html
+          sed -i 's|<!-- base href injected by CI for GitHub Pages -->|<base href="/klaudex/">|' _site/features.html
 
       - name: Use production (blue) icon
         run: cp src-tauri/icons/prod/icon.png _site/assets/icon.png

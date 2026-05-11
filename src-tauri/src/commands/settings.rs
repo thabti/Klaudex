@@ -66,6 +66,23 @@ pub struct Permissions {
     pub deny: Vec<String>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct TextGenerationPolicy {
+    /// Custom instructions appended to commit message prompts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit_instructions: Option<String>,
+    /// Custom instructions appended to branch name generation prompts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch_instructions: Option<String>,
+    /// Custom instructions appended to thread title generation prompts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_title_instructions: Option<String>,
+    /// Custom instructions appended to PR content generation prompts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pr_instructions: Option<String>,
+}
+
 #[derive(Serialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectPrefs {
@@ -89,6 +106,13 @@ pub struct ProjectPrefs {
     pub symlink_directories: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tight_sandbox: Option<bool>,
+    /// Icon override set by the user (framework, file, or emoji).
+    /// Stored as opaque JSON to avoid replicating the TypeScript union type.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon_override: Option<serde_json::Value>,
+    /// Per-project text generation policy (custom instructions for AI features).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_generation_policy: Option<TextGenerationPolicy>,
 }
 
 // ---------------------------------------------------------------------------
@@ -121,6 +145,10 @@ struct ProjectPrefsRaw {
     symlink_directories: Option<Vec<String>>,
     #[serde(default)]
     tight_sandbox: Option<bool>,
+    #[serde(default)]
+    icon_override: Option<serde_json::Value>,
+    #[serde(default)]
+    text_generation_policy: Option<TextGenerationPolicy>,
 }
 
 impl From<ProjectPrefsRaw> for ProjectPrefs {
@@ -146,6 +174,8 @@ impl From<ProjectPrefsRaw> for ProjectPrefs {
             worktree_enabled: raw.worktree_enabled,
             symlink_directories: raw.symlink_directories,
             tight_sandbox: raw.tight_sandbox,
+            icon_override: raw.icon_override,
+            text_generation_policy: raw.text_generation_policy,
         }
     }
 }
@@ -170,6 +200,10 @@ pub struct AppSettings {
     pub agent_profiles: Vec<AgentProfile>,
     #[serde(default = "default_font_size")]
     pub font_size: u32,
+    /// Chat content font size in px. Falls back to {@link font_size} on the
+    /// frontend when missing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chat_font_size: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_model: Option<String>,
     /// Legacy boolean retained for backward-compat. Superseded by
@@ -209,16 +243,46 @@ pub struct AppSettings {
     /// Theme mode: "dark", "light", or "system". Default: "dark" (Claude orange-on-dark).
     #[serde(default = "default_theme")]
     pub theme: String,
-    /// Most-recently-opened project workspaces, newest-first. Capped at
-    /// [`MAX_RECENT_PROJECTS`]. Mutated via the `recent_projects_*` commands.
+    /// Sidebar placement: "left" or "right". Default: "left".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sidebar_position: Option<String>,
+    /// Base64 data URL for a user-supplied app icon (About dialog + dock).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub custom_app_icon: Option<String>,
+    /// Last app version whose changelog the user has seen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_seen_changelog_version: Option<String>,
+    /// Max character limit for /btw side questions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub btw_max_chars: Option<u32>,
+    /// Terminal scrollback line cap.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_scrollback: Option<u32>,
+    /// Auto-close background terminal tabs after this many idle minutes.
+    /// `None` disables auto-close.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_auto_close_idle_mins: Option<u32>,
+    /// When true, render tool calls inline within the assistant prose at the
+    /// point where the agent invoked them. When false (default), tool calls
+    /// collapse into a single grouped card.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inline_tool_calls: Option<bool>,
+    /// When true, render an AI sparkle button next to the commit input.
+    #[serde(default = "default_true")]
+    pub ai_commit_messages: bool,
+    /// Auto-archive threads older than this many days of inactivity.
+    /// `None` or 0 disables auto-archiving.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_archive_days: Option<u32>,
+    /// Recently-opened project workspaces, newest first. Capped at
+    /// [`MAX_RECENT_PROJECTS`].
     #[serde(default)]
     pub recent_projects: Vec<RecentProject>,
-    /// xterm scrollback ring-buffer size. Default 5000 lines (TASK-011).
-    #[serde(default = "default_terminal_scrollback")]
-    pub terminal_scrollback: u32,
-    /// Minutes of idle time after which a PTY auto-closes. `0` = disabled.
-    #[serde(default)]
-    pub terminal_idle_close_mins: u32,
+    /// Idle-close cap for terminal tabs in minutes. Carried by the migration
+    /// path so older config files keep their explicit numeric value;
+    /// `None`/`0` is treated as "disabled" by the renderer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_idle_close_mins: Option<u32>,
 }
 
 fn default_claude_bin() -> String {
@@ -243,6 +307,7 @@ impl Default for AppSettings {
             claude_bin: default_claude_bin(),
             agent_profiles: vec![],
             font_size: default_font_size(),
+            chat_font_size: None,
             default_model: None,
             auto_approve: false,
             permissions: Permissions::default(),
@@ -256,9 +321,17 @@ impl Default for AppSettings {
             analytics_enabled: true,
             analytics_anon_id: None,
             theme: default_theme(),
+            sidebar_position: None,
+            custom_app_icon: None,
+            last_seen_changelog_version: None,
+            btw_max_chars: None,
+            terminal_scrollback: None,
+            terminal_auto_close_idle_mins: None,
+            inline_tool_calls: None,
+            ai_commit_messages: true,
+            auto_archive_days: None,
             recent_projects: Vec::new(),
-            terminal_scrollback: default_terminal_scrollback(),
-            terminal_idle_close_mins: 0,
+            terminal_idle_close_mins: None,
         }
     }
 }
@@ -319,6 +392,8 @@ struct AppSettingsRaw {
     terminal_scrollback: u32,
     #[serde(default)]
     terminal_idle_close_mins: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    custom_app_icon: Option<String>,
 }
 
 impl From<AppSettingsRaw> for AppSettings {
@@ -336,6 +411,7 @@ impl From<AppSettingsRaw> for AppSettings {
             claude_bin: raw.claude_bin,
             agent_profiles: raw.agent_profiles,
             font_size: raw.font_size,
+            chat_font_size: None,
             default_model: raw.default_model,
             auto_approve: raw.auto_approve,
             permissions,
@@ -349,9 +425,21 @@ impl From<AppSettingsRaw> for AppSettings {
             analytics_enabled: raw.analytics_enabled,
             analytics_anon_id: raw.analytics_anon_id,
             theme: raw.theme,
+            sidebar_position: None,
+            custom_app_icon: raw.custom_app_icon,
+            last_seen_changelog_version: None,
+            btw_max_chars: None,
+            terminal_scrollback: Some(raw.terminal_scrollback),
+            terminal_auto_close_idle_mins: None,
+            inline_tool_calls: None,
+            ai_commit_messages: true,
+            auto_archive_days: None,
             recent_projects: raw.recent_projects,
-            terminal_scrollback: raw.terminal_scrollback,
-            terminal_idle_close_mins: raw.terminal_idle_close_mins,
+            terminal_idle_close_mins: if raw.terminal_idle_close_mins > 0 {
+                Some(raw.terminal_idle_close_mins)
+            } else {
+                None
+            },
         }
     }
 }
@@ -582,6 +670,57 @@ pub fn set_dock_icon_visible(_app: tauri::AppHandle, visible: bool) -> Result<()
     Ok(())
 }
 
+/// Set the macOS dock / app icon at runtime from a base64-encoded PNG.
+/// On non-macOS platforms this is a no-op.
+#[tauri::command]
+pub fn set_dock_icon(icon_base64: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use base64::Engine;
+        use cocoa::base::{id, nil};
+        use objc::{msg_send, sel, sel_impl, class};
+
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(&icon_base64)
+            .map_err(|e| format!("Invalid base64: {e}"))?;
+
+        unsafe {
+            let ns_data: id = msg_send![class!(NSData), alloc];
+            let ns_data: id = msg_send![ns_data, initWithBytes:bytes.as_ptr() length:bytes.len()];
+            if ns_data == nil {
+                return Err("Failed to create NSData".into());
+            }
+            let ns_image: id = msg_send![class!(NSImage), alloc];
+            let ns_image: id = msg_send![ns_image, initWithData:ns_data];
+            if ns_image == nil {
+                let _: () = msg_send![ns_data, release];
+                return Err("Failed to create NSImage from data".into());
+            }
+            let app: id = msg_send![class!(NSApplication), sharedApplication];
+            let _: () = msg_send![app, setApplicationIconImage:ns_image];
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = icon_base64;
+    Ok(())
+}
+
+/// Reset the macOS dock / app icon to the default bundle icon.
+#[tauri::command]
+pub fn reset_dock_icon() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use cocoa::base::{id, nil};
+        use objc::{msg_send, sel, sel_impl, class};
+
+        unsafe {
+            let app: id = msg_send![class!(NSApplication), sharedApplication];
+            let _: () = msg_send![app, setApplicationIconImage:nil];
+        }
+    }
+    Ok(())
+}
+
 /// Write a relaunch marker file under the platform app-data dir, then ask the
 /// process plugin to restart the binary. The marker lets the next startup know
 /// to skip the splash and resume the prior session.
@@ -760,6 +899,7 @@ mod tests {
                 worktree_enabled: Some(true),
                 symlink_directories: Some(vec!["node_modules".to_string(), ".next".to_string()]),
                 tight_sandbox: Some(true),
+                icon_override: Some(serde_json::json!({"type": "emoji", "emoji": "🚀"})),
                 ..Default::default()
             },
         );
@@ -786,13 +926,29 @@ mod tests {
         assert_eq!(pp["proj"].worktree_enabled, Some(true));
         assert_eq!(pp["proj"].symlink_directories.as_deref(), Some(vec!["node_modules".to_string(), ".next".to_string()]).as_deref());
         assert_eq!(pp["proj"].tight_sandbox, Some(true));
+        assert_eq!(pp["proj"].icon_override, Some(serde_json::json!({"type": "emoji", "emoji": "🚀"})));
     }
 
     #[test]
-    fn backward_compat_kiro_bin_alias() {
-        let json = r#"{"kiroBin": "/usr/local/bin/kiro-cli"}"#;
+    fn icon_override_roundtrips_all_variants() {
+        let framework = serde_json::json!({"type": "framework", "id": "react"});
+        let prefs = ProjectPrefs { icon_override: Some(framework.clone()), ..Default::default() };
+        let json = serde_json::to_string(&prefs).unwrap();
+        let restored: ProjectPrefs = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.icon_override, Some(framework));
+    }
+
+    #[test]
+    fn icon_override_defaults_to_none_when_missing() {
+        let prefs: ProjectPrefs = serde_json::from_str(r#"{}"#).unwrap();
+        assert!(prefs.icon_override.is_none());
+    }
+
+    #[test]
+    fn backward_compat_claude_bin_alias() {
+        let json = r#"{"kiroBin": "/usr/local/bin/claude"}"#;
         let settings: AppSettings = serde_json::from_str(json).unwrap();
-        assert_eq!(settings.claude_bin, "/usr/local/bin/kiro-cli");
+        assert_eq!(settings.claude_bin, "/usr/local/bin/claude");
     }
 
     #[test]
@@ -1015,8 +1171,8 @@ mod tests {
     fn app_settings_default_includes_wave1_fields() {
         let s = AppSettings::default();
         assert!(s.recent_projects.is_empty());
-        assert_eq!(s.terminal_scrollback, 5000);
-        assert_eq!(s.terminal_idle_close_mins, 0);
+        assert_eq!(s.terminal_scrollback, None);
+        assert_eq!(s.terminal_idle_close_mins, None);
     }
 
     #[test]
@@ -1025,8 +1181,8 @@ mod tests {
         // via `default_terminal_scrollback` and `terminal_idle_close_mins = 0`.
         let json = r#"{"claudeBin": "/bin/claude"}"#;
         let s: AppSettings = serde_json::from_str(json).unwrap();
-        assert_eq!(s.terminal_scrollback, 5000);
-        assert_eq!(s.terminal_idle_close_mins, 0);
+        assert_eq!(s.terminal_scrollback, Some(5000));
+        assert_eq!(s.terminal_idle_close_mins, None);
         assert!(s.recent_projects.is_empty());
     }
 

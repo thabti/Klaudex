@@ -125,15 +125,38 @@ export const BranchSelector = memo(function BranchSelector({ workspace, isWorktr
     if (!workspace || checkingOut) return
     const normalizedSlug = slugify(slug.trim())
     if (!normalizedSlug) return
-    const task = useTaskStore.getState().selectedTaskId ? useTaskStore.getState().tasks[useTaskStore.getState().selectedTaskId!] : null
+    const taskState = useTaskStore.getState()
+    const task = taskState.selectedTaskId ? taskState.tasks[taskState.selectedTaskId] : null
     const projectRoot = task?.originalWorkspace ?? workspace
-    setCheckingOut(true)
+    setCheckingOut(true); setError(null)
     try {
-      await ipc.gitWorktreeCreate(projectRoot, normalizedSlug)
+      const symlinkDirs = ['node_modules']
+      const wtResult = await ipc.gitWorktreeCreate(projectRoot, normalizedSlug)
+      try {
+        await ipc.gitWorktreeSetup(projectRoot, wtResult.worktreePath, symlinkDirs)
+      } catch (setupErr) {
+        void ipc.gitWorktreeRemove(projectRoot, wtResult.worktreePath).catch(() => {})
+        throw setupErr
+      }
+      // Pre-create a deferred-spawn thread inside the new worktree so the user
+      // sees the worktree listed in the sidebar and can start a conversation.
+      // The connection spawns lazily on the first message.
+      const created = await ipc.createTask({ name: normalizedSlug, workspace: wtResult.worktreePath, prompt: '', deferSpawn: true })
+      const store = useTaskStore.getState()
+      store.upsertTask({
+        ...created,
+        worktreePath: wtResult.worktreePath,
+        originalWorkspace: projectRoot,
+        projectId: store.getProjectId(projectRoot),
+        messages: [{ role: 'system', content: `Working in worktree \`${wtResult.worktreePath}\` on branch \`${wtResult.branch}\``, timestamp: new Date().toISOString() }],
+      })
+      store.setSelectedTask(created.id)
       await fetchBranches()
+      setOpen(false)
     } catch (err) {
-      console.error('[branch-selector] worktree create failed:', err)
-    } finally { setCheckingOut(false); setOpen(false) }
+      const raw = err instanceof Error ? err.message : String(err)
+      setError(friendlyGitError(raw).message)
+    } finally { setCheckingOut(false) }
   }, [workspace, checkingOut, fetchBranches])
 
   const handleInlineSubmit = useCallback(() => {
@@ -166,12 +189,12 @@ export const BranchSelector = memo(function BranchSelector({ workspace, isWorktr
         type="button"
         data-testid="branch-selector-button"
         onClick={() => setOpen((v) => !v)}
-        className={cn('flex items-center gap-1 rounded-lg px-1.5 py-1 text-[14px] font-medium transition-colors', 'text-muted-foreground hover:text-foreground/80', open && 'text-foreground/80')}
+        className={cn('flex items-center gap-1 rounded-lg px-1.5 py-1 text-[12px] font-medium transition-colors', 'text-muted-foreground hover:text-foreground/80', open && 'text-foreground/80')}
       >
         <IconGitBranch className="size-3" />
-        <span className="max-w-[120px] truncate">{currentBranch ?? 'branch'}</span>
+        <span className="hidden max-w-[120px] truncate @[480px]/toolbar:inline">{currentBranch ?? 'branch'}</span>
         {isWorktree && <span className="rounded bg-violet-500/15 px-1 py-0.5 text-[9px] font-medium text-violet-500 dark:text-violet-400">WT</span>}
-        <IconChevronDown className={cn('size-3 opacity-50 transition-transform', open && 'rotate-180')} />
+        <IconChevronDown className={cn('hidden size-3 opacity-50 transition-transform @[480px]/toolbar:block', open && 'rotate-180')} />
       </button>
       {open && (
         <div data-testid="branch-selector-popup" className="absolute bottom-full right-0 z-[9999] mb-2 w-80 overflow-hidden rounded-xl border border-border bg-popover shadow-xl">

@@ -1,106 +1,53 @@
 import { useMemo } from 'react'
-import { useAnalyticsStore } from '@/stores/analyticsStore'
-import type { AnalyticsEvent } from '@/lib/ipc'
-import { ChartCard } from './ChartCard'
-import { HorizontalBarSection } from './HorizontalBarSection'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import type { AnalyticsEvent } from '@/types/analytics'
+import { computeSlashCommandUsage } from '@/lib/analytics-aggregators'
+import { ChartCard, EmptyChart } from './ChartCard'
 
-/**
- * TASK-033 — Slash command usage by mode.
- *
- * Ports `kirodex/src/renderer/components/analytics/SlashCommandChart.tsx`.
- * Klaudex differences vs kirodex source:
- *  - Reads `kind === 'slash_cmd'` events from `useAnalyticsStore` directly
- *    instead of taking pre-filtered events as props.
- *  - Renders rows of `<HorizontalBarSection>` instead of a recharts stacked
- *    bar (no chart library in deps). Each row shows the total count for the
- *    command; the mode split (command vs plan) is rendered as inline pills
- *    underneath since the primitive only supports a single value/total pair.
- */
+export const SlashCommandChart = ({ events }: { events: AnalyticsEvent[] }) => {
+  const { byMode } = useMemo(() => computeSlashCommandUsage(events), [events])
 
-interface SlashRow {
-  readonly name: string
-  readonly command: number
-  readonly plan: number
-  readonly total: number
-}
+  const sorted = useMemo(() => {
+    return Object.entries(byMode)
+      .map(([name, counts]) => ({
+        name,
+        command: counts.command,
+        plan: counts.plan,
+        total: counts.command + counts.plan,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10)
+  }, [byMode])
 
-/** Parse slash_cmd detail field. New format: "name:mode", legacy: "name". */
-const parseSlashDetail = (detail: string): { name: string; mode: 'plan' | 'command' | 'unknown' } => {
-  const idx = detail.lastIndexOf(':')
-  if (idx > 0) {
-    const tail = detail.slice(idx + 1)
-    if (tail === 'plan' || tail === 'command') {
-      return { name: detail.slice(0, idx), mode: tail }
-    }
-  }
-  return { name: detail, mode: 'unknown' }
-}
-
-const computeSlashCommandUsage = (events: AnalyticsEvent[]): SlashRow[] => {
-  const byMode: Record<string, { command: number; plan: number }> = {}
-  for (const e of events) {
-    if (e.kind !== 'slash_cmd') continue
-    const { name, mode } = parseSlashDetail(e.detail ?? 'unknown')
-    if (!byMode[name]) byMode[name] = { command: 0, plan: 0 }
-    if (mode === 'plan') byMode[name].plan += 1
-    else byMode[name].command += 1
-  }
-  return Object.entries(byMode)
-    .map<SlashRow>(([name, counts]) => ({
-      name,
-      command: counts.command,
-      plan: counts.plan,
-      total: counts.command + counts.plan,
-    }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 10)
-}
-
-export const SlashCommandChart = () => {
-  const events = useAnalyticsStore((s) => s.events)
-  const rows = useMemo(() => computeSlashCommandUsage(events), [events])
-
-  const maxTotal = useMemo(() => {
-    let m = 0
-    for (const r of rows) if (r.total > m) m = r.total
-    return m
-  }, [rows])
-
-  if (rows.length === 0) {
+  if (sorted.length === 0) {
     return (
       <ChartCard title="Slash commands by mode">
-        <div className="flex items-center justify-center py-8 text-xs text-muted-foreground/60">
-          No slash command data yet
-        </div>
+        <EmptyChart message="No slash command data yet" />
       </ChartCard>
     )
   }
 
   return (
     <ChartCard title="Slash commands by mode">
-      <ul className="flex flex-col gap-3">
-        {rows.map((row) => (
-          <li key={row.name} className="flex flex-col gap-1">
-            <HorizontalBarSection
-              label={row.name}
-              value={row.total}
-              total={Math.max(maxTotal, 1)}
-            />
-            <div className="flex items-center gap-2 pl-0.5 text-[10px] text-muted-foreground/70">
-              {row.command > 0 ? (
-                <span className="rounded-full bg-orange-500/15 px-1.5 py-0.5 text-orange-300">
-                  command {row.command}
-                </span>
-              ) : null}
-              {row.plan > 0 ? (
-                <span className="rounded-full bg-violet-500/15 px-1.5 py-0.5 text-violet-300">
-                  plan {row.plan}
-                </span>
-              ) : null}
-            </div>
-          </li>
-        ))}
-      </ul>
+      <ResponsiveContainer width="100%" height={Math.max(100, sorted.length * 28 + 40)}>
+        <BarChart data={sorted} layout="vertical" margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <XAxis type="number" tick={{ fontSize: 10 }} />
+          <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={90} />
+          <Tooltip
+            contentStyle={{
+              fontSize: 11,
+              background: 'var(--color-card)',
+              border: '1px solid var(--color-border)',
+            }}
+          />
+          <Legend
+            wrapperStyle={{ fontSize: 10 }}
+            iconSize={8}
+          />
+          <Bar dataKey="command" name="Command" stackId="mode" fill="#f97316" radius={[0, 0, 0, 0]} />
+          <Bar dataKey="plan" name="Plan" stackId="mode" fill="#8b5cf6" radius={[0, 3, 3, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
     </ChartCard>
   )
 }

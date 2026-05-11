@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { IconDownload, IconRefresh, IconLoader2 } from '@tabler/icons-react'
 import { useUpdateStore } from '@/stores/updateStore'
+import { useTaskStore } from '@/stores/taskStore'
 import { SettingRow } from './settings-shared'
 
 export const UpdatesCard = () => {
-  const { status, updateInfo, progress, error } = useUpdateStore()
+  const { status, updateInfo, progress, error, triggerDownload, triggerRestart } = useUpdateStore()
   const [isChecking, setIsChecking] = useState(false)
 
   const handleCheck = async () => {
@@ -31,32 +32,21 @@ export const UpdatesCard = () => {
     }
   }
 
-  const handleDownload = async () => {
-    const { check } = await import('@tauri-apps/plugin-updater')
-    const update = await check()
-    if (!update) return
-    useUpdateStore.getState().setStatus('downloading')
-    useUpdateStore.getState().setProgress({ downloaded: 0, total: null })
-    try {
-      let totalBytes: number | null = null
-      let downloadedBytes = 0
-      await update.downloadAndInstall((event) => {
-        if (event.event === 'Started') {
-          totalBytes = (event.data as { contentLength?: number }).contentLength ?? null
-        } else if (event.event === 'Progress') {
-          downloadedBytes += (event.data as { chunkLength: number }).chunkLength
-          useUpdateStore.getState().setProgress({ downloaded: downloadedBytes, total: totalBytes })
-        }
-      })
-      useUpdateStore.getState().setStatus('ready')
-    } catch (err) {
-      useUpdateStore.getState().setError(err instanceof Error ? err.message : 'Download failed')
-    }
+  const handleDownload = () => {
+    if (!triggerDownload) return
+    // Close settings so the UpdateAvailableDialog can show above everything
+    useTaskStore.getState().setSettingsOpen(false)
+    triggerDownload()
   }
 
   const handleRestart = async () => {
-    const { relaunch } = await import('@tauri-apps/plugin-process')
-    await relaunch()
+    if (!triggerRestart) return
+    try {
+      await triggerRestart()
+    } catch (err) {
+      console.error('[updater] restart failed:', err)
+      useUpdateStore.getState().setError(err instanceof Error ? err.message : 'Restart failed')
+    }
   }
 
   const isCheckingState = isChecking || status === 'checking'
@@ -78,7 +68,8 @@ export const UpdatesCard = () => {
           <button
             type="button"
             onClick={handleDownload}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            disabled={!triggerDownload}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           >
             <IconDownload className="size-3" />
             Update now
@@ -88,7 +79,8 @@ export const UpdatesCard = () => {
           <button
             type="button"
             onClick={handleRestart}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            disabled={!triggerRestart}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
           >
             <IconRefresh className="size-3" />
             Restart

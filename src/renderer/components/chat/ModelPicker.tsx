@@ -1,15 +1,44 @@
 import { memo, useState, useRef, useEffect } from 'react'
-import { IconChevronDown } from '@tabler/icons-react'
+import { IconChevronDown, IconRefresh } from '@tabler/icons-react'
 import { useSettingsStore, type ModelOption } from '@/stores/settingsStore'
+import { useTaskStore } from '@/stores/taskStore'
+import { usePanelResolvedTaskId } from './PanelContext'
+import { ipc } from '@/lib/ipc'
 import { cn } from '@/lib/utils'
 import { getModelIcon } from '@/lib/model-icons'
 
+const RETRY_DELAY_MS = 10_000
+
 export const ModelPicker = memo(function ModelPicker() {
+  const resolvedTaskId = usePanelResolvedTaskId()
   const rawModels = useSettingsStore((s) => s.availableModels)
   const models = Array.isArray(rawModels) ? rawModels : []
-  const currentId = useSettingsStore((s) => s.currentModelId)
+  const globalModelId = useSettingsStore((s) => s.currentModelId)
+  const taskModelId = useTaskStore((s) => resolvedTaskId ? s.taskModels[resolvedTaskId] ?? null : null)
+  const currentId = taskModelId ?? globalModelId
+  const modelsError = useSettingsStore((s) => s.modelsError)
   const [open, setOpen] = useState(false)
+  const [isTimedOut, setIsTimedOut] = useState(false)
+  const [isShaking, setIsShaking] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (models.length > 0) {
+      setIsTimedOut(false)
+      if (timerRef.current) clearTimeout(timerRef.current)
+      return
+    }
+    timerRef.current = setTimeout(() => setIsTimedOut(true), RETRY_DELAY_MS)
+    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
+  }, [models.length])
+
+  useEffect(() => {
+    if (!modelsError) return
+    setIsShaking(true)
+    const id = setTimeout(() => setIsShaking(false), 400)
+    return () => clearTimeout(id)
+  }, [modelsError])
 
   useEffect(() => {
     if (!open) return
@@ -20,26 +49,46 @@ export const ModelPicker = memo(function ModelPicker() {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
+  const handleRetry = () => {
+    setIsTimedOut(false)
+    ipc.probeCapabilities().catch(() => {})
+    timerRef.current = setTimeout(() => setIsTimedOut(true), RETRY_DELAY_MS)
+  }
+
   const current = models.find((m) => m.modelId === currentId)
   const label = current?.name ?? currentId ?? 'Model'
   const triggerIconKey = current?.modelId ?? current?.name ?? currentId ?? ''
 
-  if (models.length === 0) return (
-    <div className="flex items-center gap-1.5 px-1.5 py-1">
-      <div className="h-2.5 w-16 animate-pulse rounded bg-muted-foreground/15" />
-    </div>
-  )
+  if (models.length === 0) {
+    if (modelsError || isTimedOut) return (
+      <button
+        type="button"
+        onClick={handleRetry}
+        style={isShaking ? { animation: 'var(--animate-shake)' } : undefined}
+        className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[12px] text-destructive/80 transition-colors hover:text-destructive"
+        aria-label="Retry loading models"
+      >
+        <IconRefresh className="size-3" />
+        <span>Retry</span>
+      </button>
+    )
+    return (
+      <div className="flex items-center gap-1.5 px-1.5 py-1">
+        <div className="h-2.5 w-16 animate-pulse rounded bg-muted-foreground/15" />
+      </div>
+    )
+  }
 
   return (
-    <div ref={ref} data-testid="model-picker" className="relative">
+    <div ref={ref} data-testid="model-picker" className="relative min-w-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[14px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="flex min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
         <span className="shrink-0">{getModelIcon(triggerIconKey, { size: 13 })}</span>
-        <span className="max-w-[8rem] truncate">{label}</span>
-        <IconChevronDown className="size-3 shrink-0 opacity-50" aria-hidden />
+        <span className="hidden min-w-0 max-w-[8rem] truncate @[480px]/toolbar:inline">{label}</span>
+        <IconChevronDown className="hidden size-3 shrink-0 opacity-50 @[480px]/toolbar:block" aria-hidden />
       </button>
 
       {open && (
@@ -50,11 +99,24 @@ export const ModelPicker = memo(function ModelPicker() {
               type="button"
               onMouseDown={(e) => {
                 e.stopPropagation()
-                const { activeWorkspace, setProjectPref } = useSettingsStore.getState()
+                const { activeWorkspace, setProjectPref, settings, saveSettings } = useSettingsStore.getState()
                 if (activeWorkspace) {
                   setProjectPref(activeWorkspace, { modelId: m.modelId })
                 } else {
+                  // No active workspace: persist as the user's global default
+                  // so the choice survives a restart instead of being held
+                  // only in transient zustand state.
                   useSettingsStore.setState({ currentModelId: m.modelId })
+                  if (settings.defaultModel !== m.modelId) {
+                    saveSettings({ ...settings, defaultModel: m.modelId }).catch(() => {})
+                  }
+                }
+                // Store per-task model so split panels stay independent
+                if (resolvedTaskId) {
+                  useTaskStore.getState().setTaskModel(resolvedTaskId, m.modelId)
+                  // Push the selection to the live ACP session so claude
+                  // actually starts using the new model on the next prompt.
+                  ipc.setModel(resolvedTaskId, m.modelId).catch(() => {})
                 }
                 setOpen(false)
               }}

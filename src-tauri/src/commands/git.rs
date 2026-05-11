@@ -1,4 +1,4 @@
-use git2::{BranchType, Cred, DiffOptions, RemoteCallbacks, Repository};
+use git2::{BranchType, DiffOptions, Repository};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::Path;
@@ -8,72 +8,22 @@ use super::acp::AcpState;
 use super::error::AppError;
 use super::settings::SettingsState;
 
-/// Build `git2` remote callbacks with full credential support.
+/// Run a git CLI command and return stdout on success or an `AppError` on failure.
 ///
-/// Handles all common transport types:
-/// - **SSH** (`git@`, `ssh://`): tries the SSH agent first, then falls back to
-///   common key files (`~/.ssh/id_ed25519`, `id_rsa`, `id_ecdsa`).
-/// - **HTTPS**: delegates to the system git credential helper (macOS Keychain
-///   via `osxkeychain`, Windows Credential Manager, etc.).
-/// - **git://**: uses default (anonymous) credentials.
-fn make_remote_callbacks<'a>() -> RemoteCallbacks<'a> {
-    let mut cbs = RemoteCallbacks::new();
-    let mut attempts = 0;
-    cbs.credentials(move |url, username_from_url, allowed_types| {
-        attempts += 1;
-        // Bail after a few rounds to avoid infinite auth loops
-        if attempts > 6 {
-            return Err(git2::Error::from_str(
-                "authentication failed after multiple attempts — check your SSH keys or git credentials",
-            ));
-        }
-
-        let user = username_from_url.unwrap_or("git");
-
-        // ── SSH transport ────────────────────────────────────────────
-        if allowed_types.contains(git2::CredentialType::SSH_KEY) {
-            // Attempt 1: SSH agent (macOS Keychain agent, 1Password SSH agent, etc.)
-            if attempts <= 1 {
-                if let Ok(cred) = Cred::ssh_key_from_agent(user) {
-                    return Ok(cred);
-                }
-            }
-            // Attempt 2+: try common key files on disk
-            let home = dirs::home_dir().unwrap_or_default();
-            let ssh_dir = home.join(".ssh");
-            let key_names = ["id_ed25519", "id_ecdsa", "id_rsa"];
-            let key_idx = (attempts as usize).saturating_sub(2);
-            if key_idx < key_names.len() {
-                let private_key = ssh_dir.join(key_names[key_idx]);
-                if private_key.exists() {
-                    return Cred::ssh_key(user, None, &private_key, None);
-                }
-            }
-            // All key files exhausted — one more agent attempt in case of timing
-            return Cred::ssh_key_from_agent(user);
-        }
-
-        // ── HTTPS transport ──────────────────────────────────────────
-        if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
-            // Delegate to the system git credential helper (osxkeychain, manager, etc.)
-            if let Ok(config) = git2::Config::open_default() {
-                if let Ok(cred) = Cred::credential_helper(&config, url, username_from_url) {
-                    return Ok(cred);
-                }
-            }
-            return Err(git2::Error::from_str(
-                "no HTTPS credentials found — run `git credential approve` or log in via your git credential manager",
-            ));
-        }
-
-        // ── Anonymous / default (git:// protocol) ────────────────────
-        if allowed_types.contains(git2::CredentialType::DEFAULT) {
-            return Cred::default();
-        }
-
-        Err(git2::Error::from_str("unsupported credential type requested"))
-    });
-    cbs
+/// Uses the system `git` binary, which inherits the user's full SSH agent,
+/// credential helpers, and Keychain integration — avoiding the passphrase and
+/// credential issues that plague `libssh2` / `git2` for network operations.
+fn run_git(cwd: &str, args: &[&str]) -> Result<String, AppError> {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .output()?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(AppError::Other(format!("git {} failed: {stderr}", args.join(" "))))
+    }
 }
 
 #[derive(Serialize, Clone)]
@@ -120,8 +70,38 @@ pub fn git_detect(path: String) -> bool {
 }
 
 #[tauri::command]
+pub fn git_init(path: String) -> Result<(), AppError> {
+    Repository::init(&path)?;
+    Ok(())
+}
+
+/// Clone a remote repository into `target_dir`.
+///
+/// Uses the system `git` binary (not git2) so SSH agent, credential helpers,
+/// and Keychain integration work out of the box.
+#[tauri::command]
+pub async fn git_clone(url: String, target_dir: String) -> Result<String, AppError> {
+    let result = tokio::task::spawn_blocking(move || {
+        let output = Command::new("git")
+            .args(["clone", "--progress", &url, &target_dir])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .output()?;
+        if output.status.success() {
+            Ok(target_dir)
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            Err(AppError::Other(format!("git clone failed: {stderr}")))
+        }
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("clone task panicked: {e}")))?;
+    result
+}
+
+#[tauri::command]
 pub fn git_list_branches(cwd: String) -> Result<BranchInfo, AppError> {
-    let repo = Repository::open(&cwd)?;
+    let repo = Repository::discover(&cwd)?;
     let head = repo.head().ok();
     let current = head
         .as_ref()
@@ -177,7 +157,7 @@ pub fn git_list_branches(cwd: String) -> Result<BranchInfo, AppError> {
 
 #[tauri::command]
 pub fn git_checkout(cwd: String, branch: String, force: Option<bool>) -> Result<BranchResult, AppError> {
-    let repo = Repository::open(&cwd)?;
+    let repo = Repository::discover(&cwd)?;
     let (object, reference) = repo.revparse_ext(&branch)?;
     let mut opts = git2::build::CheckoutBuilder::new();
     if force.unwrap_or(false) {
@@ -194,7 +174,7 @@ pub fn git_checkout(cwd: String, branch: String, force: Option<bool>) -> Result<
 
 #[tauri::command]
 pub fn git_create_branch(cwd: String, branch: String) -> Result<BranchResult, AppError> {
-    let repo = Repository::open(&cwd)?;
+    let repo = Repository::discover(&cwd)?;
     let head = repo.head()?;
     let commit = head.peel_to_commit()?;
     repo.branch(&branch, &commit, false)?;
@@ -207,7 +187,7 @@ pub fn git_create_branch(cwd: String, branch: String) -> Result<BranchResult, Ap
 
 #[tauri::command]
 pub fn git_delete_branch(cwd: String, branch: String) -> Result<BranchResult, AppError> {
-    let repo = Repository::open(&cwd)?;
+    let repo = Repository::discover(&cwd)?;
     let mut local_branch = repo.find_branch(&branch, git2::BranchType::Local)?;
     if local_branch.is_head() {
         return Err(AppError::Git(git2::Error::from_str("Cannot delete the currently checked-out branch")));
@@ -222,7 +202,7 @@ pub fn git_commit(
     cwd: String,
     message: String,
 ) -> Result<String, AppError> {
-    let repo = Repository::open(&cwd)?;
+    let repo = Repository::discover(&cwd)?;
     let mut index = repo.index()?;
     index.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)?;
     index.write()?;
@@ -242,51 +222,28 @@ pub fn git_commit(
 
 #[tauri::command]
 pub fn git_push(cwd: String) -> Result<String, AppError> {
-    let repo = Repository::open(&cwd)?;
+    let repo = Repository::discover(&cwd)?;
     let head = repo.head()?;
-    let branch_name = head.shorthand().unwrap_or("main");
-    let refspec = format!("refs/heads/{branch_name}:refs/heads/{branch_name}");
-    let mut remote = repo.find_remote("origin")?;
-    let mut opts = git2::PushOptions::new();
-    opts.remote_callbacks(make_remote_callbacks());
-    remote.push(&[&refspec], Some(&mut opts))?;
+    let branch_name = head.shorthand().unwrap_or("main").to_string();
+    run_git(&cwd, &["push", "-u", "origin", &branch_name])?;
     Ok(format!("Pushed {branch_name}"))
 }
 
 #[tauri::command]
 pub fn git_pull(cwd: String) -> Result<String, AppError> {
-    let repo = Repository::open(&cwd)?;
+    let repo = Repository::discover(&cwd)?;
     let head = repo.head()?;
     let branch_name = head.shorthand().unwrap_or("main").to_string();
-    let mut remote = repo.find_remote("origin")?;
-    let fetch_refspec = format!("refs/heads/{branch_name}:refs/remotes/origin/{branch_name}");
-    let mut fetch_opts = git2::FetchOptions::new();
-    fetch_opts.remote_callbacks(make_remote_callbacks());
-    remote.fetch(&[&fetch_refspec], Some(&mut fetch_opts), None)?;
-    let fetch_head = repo.find_reference("FETCH_HEAD")?;
-    let fetch_commit = repo.reference_to_annotated_commit(&fetch_head)?;
-    let (analysis, _) = repo.merge_analysis(&[&fetch_commit])?;
-    if analysis.is_fast_forward() {
-        let target = fetch_commit.id();
-        let mut reference = repo.find_reference(&format!("refs/heads/{branch_name}"))?;
-        reference.set_target(target, &format!("pull: fast-forward {branch_name}"))?;
-        repo.set_head(&format!("refs/heads/{branch_name}"))?;
-        repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
-        Ok(format!("Pulled {branch_name} (fast-forward)"))
-    } else if analysis.is_up_to_date() {
-        Ok("Already up to date".to_string())
-    } else {
-        Err(AppError::Other("Cannot fast-forward; merge required".to_string()))
+    let output = run_git(&cwd, &["pull", "--ff-only", "origin", &branch_name])?;
+    if output.contains("Already up to date") {
+        return Ok("Already up to date".to_string());
     }
+    Ok(format!("Pulled {branch_name}"))
 }
 
 #[tauri::command]
 pub fn git_fetch(cwd: String) -> Result<String, AppError> {
-    let repo = Repository::open(&cwd)?;
-    let mut remote = repo.find_remote("origin")?;
-    let mut fetch_opts = git2::FetchOptions::new();
-    fetch_opts.remote_callbacks(make_remote_callbacks());
-    remote.fetch::<&str>(&[], Some(&mut fetch_opts), None)?;
+    run_git(&cwd, &["fetch", "origin"])?;
     Ok("Fetched origin".to_string())
 }
 
@@ -350,10 +307,18 @@ pub fn task_diff(state: tauri::State<'_, AcpState>, task_id: String) -> Result<S
     let staged = repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut diff_opts))?;
     staged.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
         let origin = line.origin();
-        if matches!(origin, '+' | '-' | ' ') {
-            output.push(origin);
+        match origin {
+            'H' | 'F' => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            '+' | '-' | ' ' => {
+                output.push(origin);
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            _ => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
         }
-        output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
         true
     })?;
 
@@ -361,10 +326,18 @@ pub fn task_diff(state: tauri::State<'_, AcpState>, task_id: String) -> Result<S
     let unstaged = repo.diff_index_to_workdir(None, Some(&mut diff_opts))?;
     unstaged.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
         let origin = line.origin();
-        if matches!(origin, '+' | '-' | ' ') {
-            output.push(origin);
+        match origin {
+            'H' | 'F' => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            '+' | '-' | ' ' => {
+                output.push(origin);
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            _ => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
         }
-        output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
         true
     })?;
 
@@ -374,26 +347,42 @@ pub fn task_diff(state: tauri::State<'_, AcpState>, task_id: String) -> Result<S
 /// Full diff patch by workspace path (no task required).
 #[tauri::command]
 pub fn git_diff(cwd: String) -> Result<String, AppError> {
-    let repo = Repository::open(&cwd)?;
+    let repo = Repository::discover(&cwd)?;
     let mut diff_opts = DiffOptions::new();
     let mut output = String::new();
     let head_tree = repo.head().ok().and_then(|h| h.peel_to_tree().ok());
     let staged = repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut diff_opts))?;
     staged.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
         let origin = line.origin();
-        if matches!(origin, '+' | '-' | ' ') {
-            output.push(origin);
+        match origin {
+            'H' | 'F' => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            '+' | '-' | ' ' => {
+                output.push(origin);
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            _ => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
         }
-        output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
         true
     })?;
     let unstaged = repo.diff_index_to_workdir(None, Some(&mut diff_opts))?;
     unstaged.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
         let origin = line.origin();
-        if matches!(origin, '+' | '-' | ' ') {
-            output.push(origin);
+        match origin {
+            'H' | 'F' => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            '+' | '-' | ' ' => {
+                output.push(origin);
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
+            _ => {
+                output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
+            }
         }
-        output.push_str(std::str::from_utf8(line.content()).unwrap_or(""));
         true
     })?;
     Ok(output)
@@ -410,7 +399,7 @@ pub struct GitDiffStats {
 
 #[tauri::command]
 pub fn git_diff_stats(cwd: String) -> Result<GitDiffStats, AppError> {
-    let repo = Repository::open(&cwd)?;
+    let repo = Repository::discover(&cwd)?;
     let head_tree = repo.head().ok().and_then(|h| h.peel_to_tree().ok());
     // Merge staged + unstaged into one diff so files appearing in both are
     // counted once, matching the combined patch the diff panel displays.
@@ -429,7 +418,7 @@ pub fn git_diff_stats(cwd: String) -> Result<GitDiffStats, AppError> {
 /// Stats for staged changes only (index vs HEAD).
 #[tauri::command]
 pub fn git_staged_stats(cwd: String) -> Result<GitDiffStats, AppError> {
-    let repo = Repository::open(&cwd)?;
+    let repo = Repository::discover(&cwd)?;
     let head_tree = repo.head().ok().and_then(|h| h.peel_to_tree().ok());
     let mut stats = GitDiffStats { additions: 0, deletions: 0, file_count: 0 };
     if let Ok(staged) = repo.diff_tree_to_index(head_tree.as_ref(), None, None) {
@@ -442,11 +431,205 @@ pub fn git_staged_stats(cwd: String) -> Result<GitDiffStats, AppError> {
     Ok(stats)
 }
 
+/// Combined diff stats (staged + unstaged) for a task. Lets the renderer
+/// fetch stats by `taskId` instead of having to know the workspace path,
+/// avoiding a duplicate string-parse pass over the diff body.
+#[tauri::command]
+pub fn task_diff_stats(
+    state: tauri::State<'_, AcpState>,
+    task_id: String,
+) -> Result<GitDiffStats, AppError> {
+    let cwd = resolve_workspace(&state, &task_id)?;
+    git_diff_stats(cwd)
+}
+
 /// Get unified diff for a single file (relative path) within a task's workspace.
 /// Returns empty string if the file has no changes.
+// ── Changed files list (for commit dialog) ──────────────────────
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangedFile {
+    pub path: String,
+    pub insertions: u32,
+    pub deletions: u32,
+    /// "M" modified, "A" added, "D" deleted, "R" renamed
+    pub status: String,
+}
+
+/// Returns the list of changed files (staged + unstaged) with per-file
+/// insertion/deletion counts. Used by the commit dialog to show the file list.
+#[tauri::command]
+pub fn git_changed_files(cwd: String) -> Result<Vec<ChangedFile>, AppError> {
+    let repo = Repository::discover(&cwd)?;
+    let head_tree = repo.head().ok().and_then(|h| h.peel_to_tree().ok());
+
+    // Merge staged + unstaged (including untracked files)
+    let mut diff_opts = DiffOptions::new();
+    diff_opts.include_untracked(true);
+    diff_opts.recurse_untracked_dirs(true);
+
+    let mut combined = repo.diff_tree_to_index(head_tree.as_ref(), None, None)?;
+    let unstaged = repo.diff_index_to_workdir(None, Some(&mut diff_opts))?;
+    combined.merge(&unstaged)?;
+
+    let mut files: Vec<ChangedFile> = Vec::new();
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for (idx, delta) in combined.deltas().enumerate() {
+        let path = delta.new_file().path()
+            .or_else(|| delta.old_file().path())
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        if path.is_empty() || seen.contains(&path) {
+            continue;
+        }
+        seen.insert(path.clone());
+
+        let status = match delta.status() {
+            git2::Delta::Added => "A",
+            git2::Delta::Deleted => "D",
+            git2::Delta::Modified => "M",
+            git2::Delta::Renamed => "R",
+            git2::Delta::Copied => "A",
+            _ => "M",
+        };
+
+        // Get per-file line stats via patch
+        let (insertions, deletions) = if let Ok(patch) = git2::Patch::from_diff(&combined, idx) {
+            if let Some(p) = patch {
+                let (_, adds, dels) = p.line_stats().unwrap_or((0, 0, 0));
+                (adds as u32, dels as u32)
+            } else {
+                (0, 0)
+            }
+        } else {
+            (0, 0)
+        };
+
+        files.push(ChangedFile {
+            path,
+            insertions,
+            deletions,
+            status: status.to_string(),
+        });
+    }
+
+    Ok(files)
+}
+
+/// Stage a list of file paths into the given index, validating each path
+/// stays within the repository root. Shared by `git_stage_files` and
+/// `git_commit_files` to avoid duplicating the traversal-check logic.
+fn stage_paths(
+    index: &mut git2::Index,
+    cwd: &str,
+    canonical_cwd: &Path,
+    file_paths: &[String],
+) -> Result<(), AppError> {
+    for path in file_paths {
+        let file_path = Path::new(path);
+        // Reject paths with traversal components before any filesystem access
+        if file_path.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+            return Err(AppError::Other(format!("Path contains traversal component: {path}")));
+        }
+        let full_path = Path::new(cwd).join(file_path);
+        if full_path.exists() {
+            // File exists — canonicalize and verify it's within the repo
+            let canonical_full = full_path.canonicalize()
+                .map_err(|e| AppError::Other(format!("Cannot resolve path {path}: {e}")))?;
+            if !canonical_full.starts_with(canonical_cwd) {
+                return Err(AppError::Other(format!("Path escapes repository root: {path}")));
+            }
+            index.add_path(file_path)?;
+        } else {
+            // File was deleted — for removals, verify the relative path doesn't escape
+            // by checking that joining it doesn't produce a path outside the repo
+            let normalized = canonical_cwd.join(file_path);
+            if !normalized.starts_with(canonical_cwd) {
+                return Err(AppError::Other(format!("Path escapes repository root: {path}")));
+            }
+            index.remove_path(file_path)?;
+        }
+    }
+    Ok(())
+}
+
+/// Stage specific files without committing. Used by the commit dialog to
+/// stage selected files before AI commit message generation, so the generated
+/// message accurately reflects only the files that will be committed.
+#[tauri::command]
+pub fn git_stage_files(
+    cwd: String,
+    file_paths: Vec<String>,
+) -> Result<(), AppError> {
+    let repo = Repository::discover(&cwd)?;
+    let mut index = repo.index()?;
+    let canonical_cwd = Path::new(&cwd).canonicalize().unwrap_or_else(|_| Path::new(&cwd).to_path_buf());
+    stage_paths(&mut index, &cwd, &canonical_cwd, &file_paths)?;
+    index.write()?;
+    Ok(())
+}
+
+/// Commit only specific files (selective commit for the commit dialog).
+/// Stages only the given file paths, then commits.
+#[tauri::command]
+pub fn git_commit_files(
+    settings_state: tauri::State<'_, SettingsState>,
+    cwd: String,
+    message: String,
+    file_paths: Vec<String>,
+) -> Result<String, AppError> {
+    let repo = Repository::discover(&cwd)?;
+    let mut index = repo.index()?;
+    let canonical_cwd = Path::new(&cwd).canonicalize().unwrap_or_else(|_| Path::new(&cwd).to_path_buf());
+    stage_paths(&mut index, &cwd, &canonical_cwd, &file_paths)?;
+    index.write()?;
+
+    let tree_oid = index.write_tree()?;
+    let tree = repo.find_tree(tree_oid)?;
+    let sig = repo.signature()?;
+    let parent = repo.head()?.peel_to_commit()?;
+    let co_author = settings_state.0.lock().settings.co_author;
+    let message = if co_author {
+        format!("{message}\n\nCo-authored-by: Klaudex <274876363+klaudex@users.noreply.github.com>")
+    } else {
+        message
+    };
+    let oid = repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[&parent])?;
+    Ok(oid.to_string())
+}
+
+/// Create a new branch from the current HEAD and switch to it.
+#[tauri::command]
+pub fn git_create_and_checkout_branch(cwd: String, branch: String) -> Result<BranchResult, AppError> {
+    let repo = Repository::discover(&cwd)?;
+    let head = repo.head()?.peel_to_commit()?;
+    repo.branch(&branch, &head, false)?;
+    let refname = format!("refs/heads/{branch}");
+    repo.set_head(&refname)?;
+    repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
+    Ok(BranchResult { branch })
+}
+
+/// Add a remote to the repository.
+#[tauri::command]
+pub fn git_add_remote(cwd: String, name: String, url: String) -> Result<(), AppError> {
+    let repo = Repository::discover(&cwd)?;
+    // Check if remote already exists
+    if repo.find_remote(&name).is_ok() {
+        // Update existing remote URL
+        repo.remote_set_url(&name, &url)?;
+    } else {
+        repo.remote(&name, &url)?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn git_remote_url(cwd: String) -> Result<String, AppError> {
-    let repo = Repository::open(&cwd)?;
+    let repo = Repository::discover(&cwd)?;
     let remote = repo.find_remote("origin")?;
     let url = remote.url().unwrap_or("").to_string();
     // Convert SSH URLs to HTTPS: git@github.com:user/repo.git → https://github.com/user/repo
@@ -536,11 +719,17 @@ pub struct WorktreeResult {
 pub fn git_worktree_create(cwd: String, slug: String) -> Result<WorktreeResult, AppError> {
     validate_worktree_slug(&slug)?;
     let cwd_path = Path::new(&cwd);
-    // Reject creating a worktree from inside another worktree
-    if cwd.contains("/.klaudex/worktrees/") {
+    // Reject creating a worktree from inside another worktree (check first, before fs access)
+    if cwd.contains("/.kiro/worktrees/") {
         return Err(AppError::Other("Cannot create a worktree from inside another worktree. Use the project root.".to_string()));
     }
-    let worktree_dir = cwd_path.join(".klaudex").join("worktrees").join(&slug);
+    // Validate cwd is a real directory
+    if !cwd_path.is_dir() {
+        return Err(AppError::Other(format!("Workspace is not a directory: {cwd}")));
+    }
+    // Validate cwd is a git repository
+    Repository::discover(&cwd).map_err(|_| AppError::Other(format!("Not a git repository: {cwd}")))?;
+    let worktree_dir = cwd_path.join(".kiro").join("worktrees").join(&slug);
     let worktree_path = worktree_dir.to_string_lossy().to_string();
     let branch = format!("worktree-{slug}");
     let output = Command::new("git")
@@ -556,6 +745,20 @@ pub fn git_worktree_create(cwd: String, slug: String) -> Result<WorktreeResult, 
 
 #[tauri::command]
 pub fn git_worktree_remove(cwd: String, worktree_path: String) -> Result<(), AppError> {
+    // Validate cwd is a real directory and a git repository
+    if !Path::new(&cwd).is_dir() {
+        return Err(AppError::Other(format!("Workspace is not a directory: {cwd}")));
+    }
+    Repository::discover(&cwd).map_err(|_| AppError::Other(format!("Not a git repository: {cwd}")))?;
+    // Validate worktree_path is under the cwd's .kiro/worktrees/ directory
+    if let (Ok(canonical_cwd), Ok(canonical_wt)) = (
+        Path::new(&cwd).canonicalize(),
+        Path::new(&worktree_path).canonicalize(),
+    ) {
+        if !canonical_wt.starts_with(&canonical_cwd) {
+            return Err(AppError::Other("Worktree path must be within the workspace".to_string()));
+        }
+    }
     let output = Command::new("git")
         .args(["worktree", "remove", "--force", &worktree_path])
         .current_dir(&cwd)
@@ -569,7 +772,7 @@ pub fn git_worktree_remove(cwd: String, worktree_path: String) -> Result<(), App
 
 #[tauri::command]
 pub fn git_worktree_has_changes(worktree_path: String) -> Result<bool, AppError> {
-    let repo = Repository::open(&worktree_path)?;
+    let repo = Repository::discover(&worktree_path)?;
     let head_tree = repo.head().ok().and_then(|h| h.peel_to_tree().ok());
     // Use num_deltas() instead of stats() — avoids computing line-level insertions/deletions
     if let Ok(staged) = repo.diff_tree_to_index(head_tree.as_ref(), None, None) {
@@ -600,6 +803,14 @@ pub fn git_worktree_setup(
 ) -> Result<WorktreeSetupResult, AppError> {
     let cwd_path = Path::new(&cwd).canonicalize()?;
     let wt_path = Path::new(&worktree_path);
+    // Validate cwd is a git repository
+    let repo = Repository::discover(&cwd)?;
+    // Validate worktree_path is under cwd
+    if let Ok(canonical_wt) = wt_path.canonicalize() {
+        if !canonical_wt.starts_with(&cwd_path) {
+            return Err(AppError::Other("Worktree path must be within the workspace".to_string()));
+        }
+    }
     let mut symlink_count: u32 = 0;
     let mut copied_files: Vec<String> = Vec::new();
     // Symlink directories
@@ -638,16 +849,18 @@ pub fn git_worktree_setup(
             .filter(|l| !l.is_empty() && !l.starts_with('#'))
             .collect();
         if !patterns.is_empty() {
-            // Use git ls-files to find ignored files
-            let output = Command::new("git")
-                .args(["ls-files", "--others", "--ignored", "--exclude-standard"])
-                .current_dir(&cwd_path)
-                .output()?;
-            if output.status.success() {
-                let files = String::from_utf8_lossy(&output.stdout);
-                for file in files.lines() {
+            // Use git2 status API to find ignored files instead of shelling out to `git ls-files`
+            let mut status_opts = git2::StatusOptions::new();
+            status_opts.include_ignored(true)
+                .include_untracked(true)
+                .recurse_untracked_dirs(true);
+            if let Ok(statuses) = repo.statuses(Some(&mut status_opts)) {
+                for entry in statuses.iter() {
+                    if !entry.status().intersects(git2::Status::IGNORED) {
+                        continue;
+                    }
+                    let Some(file) = entry.path() else { continue };
                     let matches = patterns.iter().any(|pat| {
-                        // Simple glob: exact match or fnmatch-style
                         file == *pat || file.starts_with(pat.trim_end_matches('*'))
                             || Path::new(file).file_name()
                                 .map(|n| n.to_string_lossy() == *pat)
@@ -835,7 +1048,7 @@ mod tests {
     #[test]
     fn worktree_create_rejects_worktree_path_as_cwd() {
         let result = git_worktree_create(
-            "/project/.klaudex/worktrees/feat".to_string(),
+            "/project/.kiro/worktrees/feat".to_string(),
             "new-branch".to_string(),
         );
         assert!(result.is_err());

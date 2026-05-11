@@ -25,24 +25,96 @@ pub fn detect_claude_cli() -> Option<String> {
         .map(|p| p.to_string_lossy().to_string())
 }
 
-#[tauri::command]
-pub fn read_text_file(path: String) -> Option<String> {
-    std::fs::read_to_string(path).ok()
+/// Paths that should never be readable from the frontend, regardless of workspace.
+const SENSITIVE_PATH_PREFIXES: &[&str] = &[
+    ".ssh/", ".gnupg/", ".aws/", ".config/gh/", ".netrc",
+];
+
+/// Returns true if the path points to a known sensitive location under the user's home.
+fn is_sensitive_path(path: &str) -> bool {
+    let home = dirs::home_dir().map(|h| h.to_string_lossy().to_string()).unwrap_or_default();
+    if home.is_empty() { return false; }
+    // Canonicalize to resolve symlinks and .. traversal
+    let resolved = std::fs::canonicalize(path)
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| path.replace('\\', "/"));
+    let home_prefix = format!("{}/", home.trim_end_matches('/'));
+    if let Some(relative) = resolved.strip_prefix(&home_prefix) {
+        return SENSITIVE_PATH_PREFIXES.iter().any(|prefix| relative.starts_with(prefix));
+    }
+    false
 }
 
 #[tauri::command]
-pub fn read_file_base64(path: String) -> Option<String> {
+pub async fn read_text_file(path: String) -> Option<String> {
+    log::info!("[fs] read_text_file called with path: {}", path);
+    if is_sensitive_path(&path) {
+        log::warn!("[fs] read_text_file blocked sensitive path: {}", path);
+        return None;
+    }
+    match tokio::fs::read_to_string(&path).await {
+        Ok(content) => Some(content),
+        Err(e) => {
+            log::warn!("[fs] read_text_file failed for '{}': {}", path, e);
+            None
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn read_file_base64(path: String) -> Option<String> {
+    log::info!("[fs] read_file_base64 called with path: {}", path);
+    if is_sensitive_path(&path) {
+        log::warn!("[fs] read_file_base64 blocked sensitive path: {}", path);
+        return None;
+    }
     use base64::Engine;
-    let bytes = std::fs::read(path).ok()?;
-    Some(base64::engine::general_purpose::STANDARD.encode(&bytes))
+    match tokio::fs::read(&path).await {
+        Ok(bytes) => Some(base64::engine::general_purpose::STANDARD.encode(&bytes)),
+        Err(e) => {
+            log::warn!("[fs] read_file_base64 failed for '{}': {}", path, e);
+            None
+        }
+    }
+}
+
+#[tauri::command]
+pub fn is_directory(path: String) -> bool {
+    Path::new(&path).is_dir()
 }
 
 #[tauri::command]
 pub async fn pick_folder(app: tauri::AppHandle) -> Option<String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    app.dialog().file().pick_folder(move |folder| {
-        let _ = tx.send(folder.map(|f| f.to_string()));
-    });
+    // Wrap in catch_unwind: objc2-app-kit 0.3+ panics if NSOpenPanel returns NULL
+    // (can happen during HMR or before NSApplication is fully initialized).
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        app.dialog().file().pick_folder(move |folder| {
+            let _ = tx.send(folder.map(|f| f.to_string()));
+        });
+    }));
+    if result.is_err() {
+        log::warn!("[fs] pick_folder panicked (NSOpenPanel NULL) — returning None");
+        return None;
+    }
+    rx.await.ok().flatten()
+}
+
+#[tauri::command]
+pub async fn pick_image(app: tauri::AppHandle) -> Option<String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        app.dialog()
+            .file()
+            .add_filter("Images", &["png", "jpg", "jpeg", "webp"])
+            .pick_file(move |file| {
+                let _ = tx.send(file.map(|f| f.to_string()));
+            });
+    }));
+    if result.is_err() {
+        log::warn!("[fs] pick_image panicked (NSOpenPanel NULL) — returning None");
+        return None;
+    }
     rx.await.ok().flatten()
 }
 
@@ -67,19 +139,19 @@ pub fn open_in_editor(path: String, editor: String) -> Result<(), AppError> {
     if TERMINAL_EDITORS.iter().any(|&e| editor == e) {
         #[cfg(target_os = "macos")]
         {
-            let escaped = path.replace('\\', "\\\\").replace('\'', "'\\''").replace('"', "\\\"");
+            // Use AppleScript's `system attribute` to read the env var set on the osascript process,
+            // then `quoted form of` to safely escape it for shell use.
+            let script = "tell application \"Terminal\"\n  activate\n  do script (\"cd \" & quoted form of (system attribute \"KLAUDEX_CD_PATH\"))\nend tell";
             std::process::Command::new("osascript")
                 .arg("-e")
-                .arg(format!(
-                    "tell application \"Terminal\"\n  activate\n  do script \"cd '{escaped}'\"\nend tell"
-                ))
+                .arg(script)
+                .env("KLAUDEX_CD_PATH", &path)
                 .output()
                 .map_err(|e| AppError::Other(format!("Failed to open Terminal: {e}")))?;
         }
         #[cfg(not(target_os = "macos"))]
         std::process::Command::new("xterm")
-            .arg("-e").arg("sh").arg("-c")
-            .arg(format!("cd '{}' && {}", path.replace('\'', "'\\''"), editor))
+            .arg("-e").arg(&editor).arg(&path)
             .spawn()
             .map_err(|e| AppError::Other(format!("Failed to open {editor}: {e}")))?;
         return Ok(());
@@ -157,12 +229,12 @@ pub fn open_in_editor(path: String, editor: String) -> Result<(), AppError> {
             let attach_cmd = format!("tmux attach -t {session}");
             #[cfg(target_os = "macos")]
             {
-                let escaped = attach_cmd.replace('"', "\\\"");
+                // Use environment variable to pass the command safely
+                let script = "tell application \"Terminal\"\n  activate\n  do script (system attribute \"KLAUDEX_CMD\")\nend tell";
                 std::process::Command::new("osascript")
                     .arg("-e")
-                    .arg(format!(
-                        "tell application \"Terminal\"\n  activate\n  do script \"{escaped}\"\nend tell"
-                    ))
+                    .arg(script)
+                    .env("KLAUDEX_CMD", &attach_cmd)
                     .output()
                     .map_err(|e| AppError::Other(format!("Failed to open tmux: {e}")))?;
             }
@@ -528,7 +600,7 @@ fn list_via_git2(root: &Path) -> Option<Vec<ProjectFile>> {
     opts.include_untracked(true)
         .recurse_untracked_dirs(true)
         .include_unmodified(true)
-        .exclude_submodules(true);
+        .exclude_submodules(false);
     let statuses = repo.statuses(Some(&mut opts)).ok()?;
 
     // Collect per-file line deltas from diffs
@@ -574,6 +646,23 @@ fn list_via_git2(root: &Path) -> Option<Vec<ProjectFile>> {
         let Some(path_str) = entry.path() else { continue };
         let rel = Path::new(path_str);
 
+        // Check if this entry is actually a directory on disk (e.g., submodule)
+        let full_path = root.join(path_str);
+        if full_path.is_dir() {
+            if !seen_dirs.insert(path_str.to_string()) { continue; }
+            let name = rel.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+            if is_ignored_dir(&name) { continue; }
+            let dir = rel.parent().map(|p| p.to_string_lossy().replace('\\', "/")).unwrap_or_default();
+            add_ancestors(rel, &mut files, &mut seen_dirs, root);
+            let mtime = file_mtime(&full_path);
+            seen_files.insert(path_str.to_string());
+            files.push(ProjectFile {
+                path: path_str.to_string(), name, dir, is_dir: true, ext: String::new(),
+                git_status: String::new(), lines_added: 0, lines_deleted: 0, modified_at: mtime,
+            });
+            continue;
+        }
+
         add_ancestors(rel, &mut files, &mut seen_dirs, root);
 
         let name = rel.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
@@ -584,7 +673,7 @@ fn list_via_git2(root: &Path) -> Option<Vec<ProjectFile>> {
         let delta = line_deltas.get(path_str).copied().unwrap_or_default();
         // Only call file_mtime for changed files — clean files get 0 (saves a syscall per file)
         let is_changed = !git_status.is_empty();
-        let mtime = if is_changed { file_mtime(&root.join(path_str)) } else { 0 };
+        let mtime = if is_changed { file_mtime(&full_path) } else { 0 };
 
         seen_files.insert(path_str.to_string());
         files.push(ProjectFile {
@@ -603,20 +692,93 @@ fn list_via_git2(root: &Path) -> Option<Vec<ProjectFile>> {
             let name = rel.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
             let dir = rel.parent().map(|p| p.to_string_lossy().replace('\\', "/")).unwrap_or_default();
             if dir.split('/').any(|part| is_ignored_dir(part)) { continue; }
-            let ext = rel.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default();
 
-            add_ancestors(rel, &mut files, &mut seen_dirs, root);
+            // Detect submodules (mode 0o160000) or entries that are directories on disk
+            let is_submodule = entry.mode == 0o160000;
+            let full_path = root.join(&path_str);
+            let is_dir = is_submodule || full_path.is_dir();
 
-            // These are tracked but clean — check status_map just in case
-            let git_status = status_map.get(&path_str).map(|s| git_status_label(*s)).unwrap_or_default();
-            let delta = line_deltas.get(&path_str).copied().unwrap_or_default();
-            // Skip mtime for clean index entries (no git status change)
-            let mtime = if !git_status.is_empty() { file_mtime(&root.join(&path_str)) } else { 0 };
-            seen_files.insert(path_str.clone());
+            if is_dir {
+                // Treat as a directory entry
+                if !seen_dirs.insert(path_str.clone()) { continue; }
+                if is_ignored_dir(&name) { continue; }
+                add_ancestors(rel, &mut files, &mut seen_dirs, root);
+                let mtime = file_mtime(&full_path);
+                seen_files.insert(path_str.clone());
+                files.push(ProjectFile {
+                    path: path_str, name, dir, is_dir: true, ext: String::new(),
+                    git_status: String::new(), lines_added: 0, lines_deleted: 0, modified_at: mtime,
+                });
+            } else {
+                let ext = rel.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default();
+                add_ancestors(rel, &mut files, &mut seen_dirs, root);
+
+                // These are tracked but clean — check status_map just in case
+                let git_status = status_map.get(&path_str).map(|s| git_status_label(*s)).unwrap_or_default();
+                let delta = line_deltas.get(&path_str).copied().unwrap_or_default();
+                // Skip mtime for clean index entries (no git status change)
+                let mtime = if !git_status.is_empty() { file_mtime(&full_path) } else { 0 };
+                seen_files.insert(path_str.clone());
+                files.push(ProjectFile {
+                    path: path_str, name, dir, is_dir: false, ext, git_status,
+                    lines_added: delta.added, lines_deleted: delta.deleted, modified_at: mtime,
+                });
+            }
+        }
+    }
+
+    // Third pass: recurse into directories that have no children listed.
+    // This handles submodules, nested git repos, and any directory the parent
+    // repo's index doesn't track into (e.g., gitignored dirs with content).
+    // Cap at 5 submodule recursions and 1000 files per submodule to avoid
+    // expensive traversals of large submodules.
+    const MAX_SUBMODULE_RECURSIONS: usize = 5;
+    const MAX_FILES_PER_SUBMODULE: usize = 1000;
+    let dirs_with_children: std::collections::HashSet<String> = files.iter()
+        .filter(|f| !f.dir.is_empty())
+        .map(|f| f.dir.clone())
+        .collect();
+    let empty_dirs: Vec<String> = files.iter()
+        .filter(|f| f.is_dir && !dirs_with_children.contains(&f.path))
+        .map(|f| f.path.clone())
+        .collect();
+    let mut recursion_count = 0;
+    for sub_dir in empty_dirs {
+        if files.len() >= MAX_FILES { break; }
+        if recursion_count >= MAX_SUBMODULE_RECURSIONS { break; }
+        let sub_root = root.join(&sub_dir);
+        if !sub_root.is_dir() { continue; }
+        recursion_count += 1;
+        let sub_files = list_via_walk(&sub_root, true);
+        let mut sub_file_count = 0;
+        for sf in sub_files {
+            if files.len() >= MAX_FILES { break; }
+            if sub_file_count >= MAX_FILES_PER_SUBMODULE { break; }
+            // Prefix the sub-relative path with the directory
+            let prefixed_path = format!("{}/{}", sub_dir, sf.path);
+            let prefixed_dir = if sf.dir.is_empty() {
+                sub_dir.clone()
+            } else {
+                format!("{}/{}", sub_dir, sf.dir)
+            };
+            if sf.is_dir {
+                if !seen_dirs.insert(prefixed_path.clone()) { continue; }
+            } else {
+                if seen_files.contains(&prefixed_path) { continue; }
+                seen_files.insert(prefixed_path.clone());
+            }
             files.push(ProjectFile {
-                path: path_str, name, dir, is_dir: false, ext, git_status,
-                lines_added: delta.added, lines_deleted: delta.deleted, modified_at: mtime,
+                path: prefixed_path,
+                name: sf.name,
+                dir: prefixed_dir,
+                is_dir: sf.is_dir,
+                ext: sf.ext,
+                git_status: sf.git_status,
+                lines_added: sf.lines_added,
+                lines_deleted: sf.lines_deleted,
+                modified_at: sf.modified_at,
             });
+            sub_file_count += 1;
         }
     }
 
@@ -699,7 +861,7 @@ pub struct ClaudeAuthStatus {
 pub fn claude_whoami(claude_bin: Option<String>) -> Result<ClaudeAuthStatus, AppError> {
     let bin = claude_bin.unwrap_or_else(|| "claude".to_string());
     log::info!("[auth] claude_whoami called with bin: {}", bin);
-    let output = std::process::Command::new(&bin)
+    let output = match std::process::Command::new(&bin)
         .args(["auth", "status"])
         .env(
             "PATH",
@@ -709,10 +871,29 @@ pub fn claude_whoami(claude_bin: Option<String>) -> Result<ClaudeAuthStatus, App
             ),
         )
         .output()
-        .map_err(|e| {
-            log::error!("[auth] Failed to spawn {}: {}", bin, e);
-            AppError::Other(format!("Failed to run {}: {}", bin, e))
-        })?;
+    {
+        Ok(o) => o,
+        Err(e) => {
+            log::warn!("[auth] Failed to spawn '{}': {} — trying detect_claude_cli fallback", bin, e);
+            let resolved = detect_claude_cli()
+                .ok_or_else(|| AppError::Other(format!("claude not found (tried '{}' and known paths)", bin)))?;
+            log::info!("[auth] Fallback resolved to: {}", resolved);
+            std::process::Command::new(&resolved)
+                .args(["auth", "status"])
+                .env(
+                    "PATH",
+                    format!(
+                        "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}",
+                        std::env::var("PATH").unwrap_or_default()
+                    ),
+                )
+                .output()
+                .map_err(|e2| {
+                    log::error!("[auth] Fallback also failed: {}", e2);
+                    AppError::Other(format!("Failed to run {}: {}", resolved, e2))
+                })?
+        }
+    };
     log::info!("[auth] auth status exit code: {}", output.status);
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -826,14 +1007,22 @@ pub async fn claude_login(
 
 #[tauri::command]
 pub fn open_terminal_with_command(command: String) -> Result<(), AppError> {
+    // Only allow known safe commands to prevent arbitrary command injection
+    const ALLOWED_COMMANDS: &[&str] = &["claude /login", "claude /logout", "claude /status"];
+    let is_allowed = ALLOWED_COMMANDS.iter().any(|&allowed| {
+        command == allowed || command.starts_with(&format!("{} ", allowed))
+    });
+    if !is_allowed {
+        return Err(AppError::Other(format!("Command not in allowlist: {}", command)));
+    }
     #[cfg(target_os = "macos")]
     {
+        // Use AppleScript's `system attribute` to safely read the env var
+        let script = "tell application \"Terminal\"\nactivate\ndo script (system attribute \"KLAUDEX_CMD\")\nend tell";
         std::process::Command::new("osascript")
             .arg("-e")
-            .arg(format!(
-                "tell application \"Terminal\"\nactivate\ndo script \"{}\"\nend tell",
-                command.replace('\\', "\\\\").replace('"', "\\\"")
-            ))
+            .arg(script)
+            .env("KLAUDEX_CMD", &command)
             .spawn()
             .map_err(|e| AppError::Other(format!("Failed to open Terminal: {}", e)))?;
     }
@@ -874,12 +1063,22 @@ pub struct ProjectIconInfo {
 
 /// Search for a favicon file in the given directory, returning the first match.
 fn find_favicon_in(dir: &Path) -> Option<PathBuf> {
-    // Check favicon.ico first (most common)
+    // Check favicon.svg first (modern, vector format)
+    let svg = dir.join("favicon.svg");
+    if svg.is_file() { return Some(svg); }
+    // Check favicon.ico (most common)
     let ico = dir.join("favicon.ico");
     if ico.is_file() { return Some(ico); }
     // Check favicon.png
     let png = dir.join("favicon.png");
     if png.is_file() { return Some(png); }
+    // Check icon.svg / icon.png / icon.ico (Next.js App Router convention)
+    let icon_svg = dir.join("icon.svg");
+    if icon_svg.is_file() { return Some(icon_svg); }
+    let icon_png = dir.join("icon.png");
+    if icon_png.is_file() { return Some(icon_png); }
+    let icon_ico = dir.join("icon.ico");
+    if icon_ico.is_file() { return Some(icon_ico); }
     // Check any .ico file
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
@@ -892,6 +1091,89 @@ fn find_favicon_in(dir: &Path) -> Option<PathBuf> {
         }
     }
     None
+}
+
+/// Extract an icon path from an HTML file by parsing `<link rel="icon" href="...">`.
+/// Returns the resolved absolute path if the referenced file exists.
+fn extract_icon_from_html(project_root: &Path, html_path: &Path) -> Option<PathBuf> {
+    let content = std::fs::read_to_string(html_path).ok()?;
+    // Quick bail-out: if there's no <link tag at all, skip the scan.
+    let lower = content.to_lowercase();
+    if !lower.contains("<link") {
+        return None;
+    }
+    // Work entirely on the lowercased string for tag detection, but extract
+    // href values from the original content using the same byte offsets.
+    // This is safe because `to_lowercase()` preserves byte length for ASCII
+    // characters, and HTML tag syntax (<link, rel=, href=, >) is pure ASCII.
+    // Non-ASCII characters only appear in attribute values (like href paths),
+    // and we extract those from the original `content` using the same offsets.
+    let mut pos = 0;
+    while pos < lower.len() {
+        let tag_start = match lower[pos..].find("<link") {
+            Some(i) => pos + i,
+            None => break,
+        };
+        let tag_end = match lower[tag_start..].find('>') {
+            Some(i) => tag_start + i,
+            None => break,
+        };
+        // Verify the slice boundaries are valid UTF-8 char boundaries
+        if !lower.is_char_boundary(tag_start) || !lower.is_char_boundary(tag_end + 1) {
+            pos = tag_end + 1;
+            continue;
+        }
+        let tag = &lower[tag_start..=tag_end];
+        pos = tag_end + 1;
+
+        // Check if this link tag has rel="icon" or rel="shortcut icon"
+        let has_icon_rel = tag.contains("rel=\"icon\"")
+            || tag.contains("rel='icon'")
+            || tag.contains("rel=\"shortcut icon\"")
+            || tag.contains("rel='shortcut icon'");
+        if !has_icon_rel { continue; }
+
+        // Extract href value from the original (case-preserved) content
+        let orig_tag = &content[tag_start..=tag_end];
+        let href = match extract_href_value(orig_tag) {
+            Some(h) => h,
+            None => continue,
+        };
+
+        // Resolve the href to an absolute path
+        let clean_href = href.trim_start_matches('/');
+        // Try public/ first, then project root
+        let candidates = [
+            project_root.join("public").join(clean_href),
+            project_root.join(clean_href),
+        ];
+        for candidate in &candidates {
+            if candidate.is_file() {
+                // Security: ensure the path is within the project
+                if candidate.starts_with(project_root) {
+                    return Some(candidate.clone());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Extract the href attribute value from a tag string.
+fn extract_href_value(tag: &str) -> Option<String> {
+    // Find href=" or href='
+    let lower = tag.to_lowercase();
+    let href_pos = lower.find("href=")?;
+    let after_href = &tag[href_pos + 5..];
+    let quote = after_href.chars().next()?;
+    if quote != '"' && quote != '\'' { return None; }
+    let value_start = 1; // skip the opening quote
+    let value_end = after_href[value_start..].find(quote)?;
+    let value = &after_href[value_start..value_start + value_end];
+    // Strip query params
+    let clean = value.split('?').next().unwrap_or(value);
+    if clean.is_empty() { return None; }
+    Some(clean.to_string())
 }
 
 /// Detect the framework/language of a project from marker files.
@@ -944,13 +1226,14 @@ fn detect_framework(root: &Path) -> Option<&'static str> {
 pub fn detect_project_icon(cwd: String) -> Option<ProjectIconInfo> {
     let root = Path::new(&cwd);
     if !root.is_dir() { return None; }
-    // 1. Search for favicon files
+    // 1. Search for favicon files in well-known directories
     let favicon_dirs: Vec<PathBuf> = vec![
         root.to_path_buf(),
         root.join("public"),
         root.join("static"),
         root.join("assets"),
         root.join("src").join("app"),
+        root.join("app"),
     ];
     for dir in &favicon_dirs {
         if let Some(path) = find_favicon_in(dir) {
@@ -960,7 +1243,39 @@ pub fn detect_project_icon(cwd: String) -> Option<ProjectIconInfo> {
             });
         }
     }
-    // Monorepo: check apps/*/public and packages/*/public
+    // 1b. Check .idea/icon.svg (JetBrains project icon)
+    let idea_icon = root.join(".idea").join("icon.svg");
+    if idea_icon.is_file() {
+        return Some(ProjectIconInfo {
+            icon_type: "favicon".to_string(),
+            value: idea_icon.to_string_lossy().to_string(),
+        });
+    }
+    // 1c. Check assets/logo.svg and assets/logo.png
+    for name in &["logo.svg", "logo.png"] {
+        let logo = root.join("assets").join(name);
+        if logo.is_file() {
+            return Some(ProjectIconInfo {
+                icon_type: "favicon".to_string(),
+                value: logo.to_string_lossy().to_string(),
+            });
+        }
+    }
+    // 2. Parse HTML source files for <link rel="icon" href="...">
+    let html_sources = [
+        root.join("index.html"),
+        root.join("public").join("index.html"),
+        root.join("src").join("index.html"),
+    ];
+    for html_path in &html_sources {
+        if let Some(icon_path) = extract_icon_from_html(root, html_path) {
+            return Some(ProjectIconInfo {
+                icon_type: "favicon".to_string(),
+                value: icon_path.to_string_lossy().to_string(),
+            });
+        }
+    }
+    // 3. Monorepo: check apps/*/public and packages/*/public
     for subdir in &["apps", "packages"] {
         let parent = root.join(subdir);
         if let Ok(entries) = std::fs::read_dir(&parent) {
@@ -977,7 +1292,7 @@ pub fn detect_project_icon(cwd: String) -> Option<ProjectIconInfo> {
             }
         }
     }
-    // 2. Detect framework/language
+    // 4. Detect framework/language
     detect_framework(root).map(|id| ProjectIconInfo {
         icon_type: "framework".to_string(),
         value: id.to_string(),
@@ -1187,5 +1502,61 @@ mod tests {
         let info = result.unwrap();
         assert_eq!(info.icon_type, "framework");
         assert_eq!(info.value, "go");
+    }
+
+    #[test]
+    fn find_favicon_svg_preferred() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("favicon.svg"), "<svg></svg>").unwrap();
+        std::fs::write(dir.path().join("favicon.ico"), &[0u8; 4]).unwrap();
+        let result = find_favicon_in(dir.path());
+        assert!(result.is_some());
+        assert!(result.unwrap().ends_with("favicon.svg"));
+    }
+
+    #[test]
+    fn find_favicon_icon_svg_nextjs() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("icon.svg"), "<svg></svg>").unwrap();
+        let result = find_favicon_in(dir.path());
+        assert!(result.is_some());
+        assert!(result.unwrap().ends_with("icon.svg"));
+    }
+
+    #[test]
+    fn extract_icon_from_html_link_tag() {
+        let dir = tempfile::tempdir().unwrap();
+        let html = r#"<!DOCTYPE html><html><head><link rel="icon" href="/brand/logo.svg"></head></html>"#;
+        std::fs::write(dir.path().join("index.html"), html).unwrap();
+        std::fs::create_dir_all(dir.path().join("public").join("brand")).unwrap();
+        std::fs::write(dir.path().join("public").join("brand").join("logo.svg"), "<svg></svg>").unwrap();
+        let result = extract_icon_from_html(dir.path(), &dir.path().join("index.html"));
+        assert!(result.is_some());
+        assert!(result.unwrap().to_string_lossy().contains("logo.svg"));
+    }
+
+    #[test]
+    fn extract_href_value_double_quotes() {
+        assert_eq!(extract_href_value(r#"<link rel="icon" href="/icon.png">"#), Some("/icon.png".to_string()));
+    }
+
+    #[test]
+    fn extract_href_value_single_quotes() {
+        assert_eq!(extract_href_value("<link rel='icon' href='/icon.svg'>"), Some("/icon.svg".to_string()));
+    }
+
+    #[test]
+    fn extract_href_value_strips_query_params() {
+        assert_eq!(extract_href_value(r#"<link href="/icon.png?v=2" rel="icon">"#), Some("/icon.png".to_string()));
+    }
+
+    #[test]
+    fn detect_project_icon_idea_icon() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join(".idea")).unwrap();
+        std::fs::write(dir.path().join(".idea").join("icon.svg"), "<svg></svg>").unwrap();
+        let result = detect_project_icon(dir.path().to_string_lossy().to_string());
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().icon_type, "favicon");
     }
 }

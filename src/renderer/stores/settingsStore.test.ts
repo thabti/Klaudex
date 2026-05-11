@@ -16,6 +16,10 @@ vi.mock('@/lib/analytics', () => ({
   track: vi.fn(),
 }))
 
+vi.mock('@/lib/history-store', () => ({
+  loadBackup: vi.fn().mockResolvedValue({ threads: [], projects: [], softDeleted: [] }),
+}))
+
 import { useSettingsStore } from './settingsStore'
 import { ipc } from '@/lib/ipc'
 
@@ -55,6 +59,33 @@ describe('settingsStore', () => {
       vi.mocked(ipc.getSettings).mockRejectedValue(new Error('fail'))
       await useSettingsStore.getState().loadSettings()
       expect(useSettingsStore.getState().isLoaded).toBe(true)
+    })
+
+    it('restores settings from backup when they look like defaults', async () => {
+      vi.mocked(ipc.getSettings).mockResolvedValue({ hasOnboardedV2: false } as never)
+      const { loadBackup } = await import('@/lib/history-store')
+      vi.mocked(loadBackup).mockResolvedValueOnce({
+        threads: [], projects: [], softDeleted: [],
+        settings: { claudeBin: 'claude', agentProfiles: [], fontSize: 18, hasOnboardedV2: true, theme: 'light',
+          projectPrefs: { '/ws': { iconOverride: { type: 'emoji', emoji: '🚀' } } } } as never,
+      })
+      await useSettingsStore.getState().loadSettings()
+      expect(useSettingsStore.getState().settings.fontSize).toBe(18)
+      expect(useSettingsStore.getState().settings.hasOnboardedV2).toBe(true)
+      expect(useSettingsStore.getState().settings.projectPrefs?.['/ws']?.iconOverride).toEqual({ type: 'emoji', emoji: '🚀' })
+      expect(ipc.saveSettings).toHaveBeenCalled()
+    })
+
+    it('does not restore from backup when user has already onboarded', async () => {
+      vi.mocked(ipc.getSettings).mockResolvedValue({ hasOnboardedV2: true, fontSize: 14 } as never)
+      const { loadBackup } = await import('@/lib/history-store')
+      vi.mocked(loadBackup).mockResolvedValueOnce({
+        threads: [], projects: [], softDeleted: [],
+        settings: { fontSize: 20, hasOnboardedV2: true } as never,
+      })
+      await useSettingsStore.getState().loadSettings()
+      expect(useSettingsStore.getState().settings.fontSize).toBe(14)
+      expect(ipc.saveSettings).not.toHaveBeenCalled()
     })
   })
 

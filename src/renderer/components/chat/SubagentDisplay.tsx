@@ -1,7 +1,7 @@
-import { memo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import {
-  IconChevronDown, IconChevronRight, IconUsers, IconRobot,
-  IconCircleCheck, IconLoader2, IconClock,
+  IconChevronDown, IconChevronRight, IconRobot,
+  IconCircleCheck, IconLoader2, IconArrowRight,
 } from '@tabler/icons-react'
 import type { ToolCall } from '@/types'
 
@@ -85,6 +85,17 @@ const ROLE_LABELS: Record<string, string> = {
 const getRoleLabel = (role: string): string =>
   ROLE_LABELS[role] ?? role
 
+const MAX_DESCRIPTION_LENGTH = 200 as const
+
+/** Extract a readable one-liner from a prompt_template */
+const summarizePrompt = (prompt: string): string => {
+  const cleaned = prompt.replace(/\{task\}/g, '').trim()
+  const firstLine = cleaned.split('\n').find((line) => line.trim().length > 0) ?? cleaned
+  const trimmed = firstLine.trim()
+  if (trimmed.length <= MAX_DESCRIPTION_LENGTH) return trimmed
+  return `${trimmed.slice(0, MAX_DESCRIPTION_LENGTH).trimEnd()}…`
+}
+
 interface SubagentDisplayProps {
   readonly allToolCalls: ToolCall[]
 }
@@ -94,8 +105,14 @@ export const SubagentDisplay = memo(function SubagentDisplay({ allToolCalls }: S
   const { stages, task, description, isRunning, isCompleted } = aggregateSubagentData(allToolCalls)
   if (stages.length === 0) return null
   const summary = description ?? task ?? 'Parallel agents'
+  const hasTaskDescription = task && task !== summary
+  const stagesWithDescriptions = useMemo(() =>
+    stages.map((stage) => ({
+      ...stage,
+      description: summarizePrompt(stage.prompt_template),
+    })), [stages])
   return (
-    <div className="my-1 ml-1 rounded-lg border border-border/60 bg-card/60">
+    <div className="rounded-lg border border-border/60 bg-card/60">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
@@ -107,39 +124,52 @@ export const SubagentDisplay = memo(function SubagentDisplay({ allToolCalls }: S
         ) : (
           <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
         )}
-        <IconUsers className="size-3.5 shrink-0 text-violet-600 dark:text-violet-400" />
+        <IconRobot className="size-3.5 shrink-0 text-violet-600 dark:text-violet-400" aria-hidden="true" />
         <span className="flex-1 truncate text-[13px] font-medium text-muted-foreground">
           {summary}
         </span>
         <span className="flex items-center gap-1.5 text-[11px] tabular-nums text-muted-foreground">
           {isRunning && <IconLoader2 className="size-3 animate-spin text-primary" />}
           {isCompleted && !isRunning && <IconCircleCheck className="size-3 text-emerald-600 dark:text-emerald-400" />}
-          {stages.length} {stages.length === 1 ? 'agent' : 'agents'}
+          <span className="rounded-full bg-violet-600/15 px-1.5 py-0.5 font-semibold text-violet-600 dark:bg-violet-400/15 dark:text-violet-400">
+            {stages.length}
+          </span>
+          {stages.length === 1 ? 'agent' : 'agents'}
         </span>
       </button>
       {expanded && (
         <div className="border-t border-border/50 px-3 py-2">
-          {stages.map((stage) => (
-            <div key={stage.name} className="flex items-start gap-2 px-1.5 py-1">
-              <IconRobot className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/70" />
-              <div className="min-w-0 flex-1">
+          {hasTaskDescription && (
+            <p className="mb-2 px-1.5 text-[12px] leading-relaxed text-muted-foreground/70">
+              {task}
+            </p>
+          )}
+          <div className="flex flex-col gap-1">
+            {stagesWithDescriptions.map((stage) => (
+              <div key={stage.name} className="rounded-md bg-muted/30 px-2.5 py-2">
                 <div className="flex items-center gap-1.5">
+                  <IconRobot className="size-3.5 shrink-0 text-violet-600/70 dark:text-violet-400/70" aria-hidden="true" />
                   <span className="text-[13px] font-medium leading-[1.6] text-foreground/85">
                     {stage.name}
                   </span>
-                  <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  <span className="rounded bg-muted/80 px-1.5 py-0.5 text-[10px] text-muted-foreground">
                     {getRoleLabel(stage.role)}
                   </span>
                 </div>
+                {stage.description && (
+                  <p className="mt-0.5 pl-5 text-[12px] leading-relaxed text-muted-foreground/70">
+                    {stage.description}
+                  </p>
+                )}
                 {stage.depends_on && stage.depends_on.length > 0 && (
-                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
-                    <IconClock className="size-2.5" />
-                    after {stage.depends_on.join(', ')}
+                  <span className="mt-0.5 flex items-center gap-1 pl-5 text-[11px] text-muted-foreground/50">
+                    <IconArrowRight className="size-2.5" />
+                    depends on {stage.depends_on.join(', ')}
                   </span>
                 )}
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>

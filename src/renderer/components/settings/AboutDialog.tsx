@@ -8,7 +8,9 @@ import {
 } from '@/components/ui/dialog'
 import { useUpdateStore } from '@/stores/updateStore'
 import { cn } from '@/lib/utils'
-import appIcon from '../../../../src-tauri/icons/prod/icon.png'
+import { handleExternalLinkClick, handleExternalLinkKeyDown } from '@/lib/open-external'
+import { useSettingsStore } from '@/stores/settingsStore'
+import defaultAppIcon from '../../../../src-tauri/icons/prod/icon.png'
 
 interface AboutDialogProps {
   open: boolean
@@ -17,7 +19,9 @@ interface AboutDialogProps {
 
 export const AboutDialog = ({ open, onOpenChange }: AboutDialogProps) => {
   const [appVersion, setAppVersion] = useState('')
-  const { status, updateInfo, progress, error, triggerDownload } = useUpdateStore()
+  const { status, updateInfo, progress, error, triggerDownload, triggerRestart } = useUpdateStore()
+  const customAppIcon = useSettingsStore((s) => s.settings.customAppIcon)
+  const displayIcon = customAppIcon || defaultAppIcon
 
   useEffect(() => {
     if (open) getVersion().then(setAppVersion).catch(() => {})
@@ -45,13 +49,19 @@ export const AboutDialog = ({ open, onOpenChange }: AboutDialogProps) => {
   }, [])
 
   const handleDownload = useCallback(() => {
+    onOpenChange(false)
     triggerDownload?.()
-  }, [triggerDownload])
+  }, [triggerDownload, onOpenChange])
 
   const handleRestart = useCallback(async () => {
-    const { relaunch } = await import('@tauri-apps/plugin-process')
-    await relaunch()
-  }, [])
+    if (!triggerRestart) return
+    try {
+      await triggerRestart()
+    } catch (err) {
+      console.error('[updater] restart failed:', err)
+      useUpdateStore.getState().setError(err instanceof Error ? err.message : 'Restart failed')
+    }
+  }, [triggerRestart])
 
   const isChecking = status === 'checking'
   const isAvailable = status === 'available'
@@ -65,7 +75,7 @@ export const AboutDialog = ({ open, onOpenChange }: AboutDialogProps) => {
       <DialogContent className="max-w-xs gap-0 p-0" showCloseButton={false}>
         <div className="flex flex-col items-center px-6 pt-8 pb-6">
           <img
-            src={appIcon}
+            src={displayIcon}
             alt="Klaudex"
             className="size-20 rounded-2xl shadow-lg"
             draggable={false}
@@ -134,8 +144,8 @@ export const AboutDialog = ({ open, onOpenChange }: AboutDialogProps) => {
           </span>
           <a
             href="https://github.com/thabti/klaudex"
-            target="_blank"
-            rel="noopener noreferrer"
+            onClick={handleExternalLinkClick}
+            onKeyDown={handleExternalLinkKeyDown}
             aria-label="Klaudex on GitHub"
             tabIndex={0}
             className={cn(
