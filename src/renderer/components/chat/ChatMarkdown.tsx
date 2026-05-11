@@ -20,6 +20,7 @@ import {
 import { hasQuestionBlocks, stripQuestionBlocks } from "@/lib/question-parser";
 import { useDiffStore } from "@/stores/diffStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { handleExternalLinkClick, handleExternalLinkKeyDown } from "@/lib/open-external";
 
 interface ChatMarkdownProps {
   text: string;
@@ -247,8 +248,10 @@ function ChatMarkdown({ text, isStreaming = false, questionsAnswered = false }: 
         return (
           <a
             href={href}
-            target="_blank"
-            rel="noopener noreferrer"
+            onClick={handleExternalLinkClick}
+            onKeyDown={handleExternalLinkKeyDown}
+            tabIndex={0}
+            role="link"
             className="text-primary underline decoration-primary/30 underline-offset-2 transition-colors hover:decoration-primary/60"
             {...props}
           />

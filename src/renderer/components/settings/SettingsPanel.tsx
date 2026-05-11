@@ -5,6 +5,7 @@ import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { handleExternalLinkClick, handleExternalLinkKeyDown } from '@/lib/open-external'
 import type { AppSettings } from '@/types'
 import { applyTheme, persistTheme } from '@/lib/theme'
 import { AboutDialog } from './AboutDialog'
@@ -224,7 +225,7 @@ export const SettingsPanel = () => {
               <button type="button" onClick={() => setIsAboutOpen(true)} className="text-left transition-colors hover:text-foreground">
                 <p className="text-[10px] text-muted-foreground">Klaudex {appVersion ? `v${appVersion}` : ''}</p>
               </button>
-              <a href="https://github.com/thabti/klaudex" target="_blank" rel="noopener noreferrer" aria-label="Klaudex on GitHub" tabIndex={0} className="text-muted-foreground transition-colors hover:text-foreground">
+              <a href="https://github.com/thabti/klaudex" onClick={handleExternalLinkClick} onKeyDown={handleExternalLinkKeyDown} aria-label="Klaudex on GitHub" tabIndex={0} className="text-muted-foreground transition-colors hover:text-foreground">
                 <IconBrandGithub className="size-3.5" />
               </a>
             </div>

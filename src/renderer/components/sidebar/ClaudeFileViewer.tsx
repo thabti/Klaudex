@@ -6,6 +6,7 @@ import { ipc } from '@/lib/ipc'
 import { getPreferredEditor } from '@/components/OpenInEditorGroup'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { handleExternalLinkClick, handleExternalLinkKeyDown } from '@/lib/open-external'
 
 interface ClaudeFileViewerProps {
   filePath: string
@@ -97,7 +98,14 @@ export const ClaudeFileViewer = memo(function ClaudeFileViewer({ filePath, title
               [&_table]:text-xs [&_th]:font-semibold [&_th]:text-left [&_th]:pb-1
               [&_td]:py-0.5 [&_tr]:border-b [&_tr]:border-border/60
             ">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  a({ node, ...props }) {
+                    return <a {...props} onClick={handleExternalLinkClick} onKeyDown={handleExternalLinkKeyDown} tabIndex={0} role="link" />
+                  },
+                }}
+              >{content}</ReactMarkdown>
             </div>
           )}
         </div>

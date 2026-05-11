@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog'
 import { useUpdateStore } from '@/stores/updateStore'
 import { cn } from '@/lib/utils'
+import { handleExternalLinkClick, handleExternalLinkKeyDown } from '@/lib/open-external'
 import appIcon from '../../../../src-tauri/icons/prod/icon.png'
 
 interface AboutDialogProps {
@@ -136,8 +137,8 @@ export const AboutDialog = ({ open, onOpenChange }: AboutDialogProps) => {
           </span>
           <a
             href="https://github.com/thabti/klaudex"
-            target="_blank"
-            rel="noopener noreferrer"
+            onClick={handleExternalLinkClick}
+            onKeyDown={handleExternalLinkKeyDown}
             aria-label="Klaudex on GitHub"
             tabIndex={0}
             className={cn(

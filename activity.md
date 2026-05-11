@@ -1,3 +1,9 @@
+## 2026-05-11 06:22 GST (Dubai)
+### UI: Open external links in OS default browser
+Ported upstream commit e5fc335a from kirodex. Added shared `open-external.ts` helper using Tauri's `open_url` command. Applied to chat markdown, settings, about dialog, onboarding, and claude file viewer so links open in the user's default browser instead of failing silently.
+
+**Modified:** `src/renderer/lib/open-external.ts` (new), `src/renderer/components/chat/ChatMarkdown.tsx`, `src/renderer/components/settings/SettingsPanel.tsx`, `src/renderer/components/settings/AboutDialog.tsx`, `src/renderer/components/OnboardingCliSection.tsx`, `src/renderer/components/sidebar/ClaudeFileViewer.tsx`
+
 ## 2026-05-11 06:13 GST (Dubai)
 ### TaskStore: Restore soft-deleted threads when re-importing project
 Ported upstream commit 7f7350be from kirodex. The `addProject()` method now checks `softDeleted` for threads matching the workspace and restores them, removing their IDs from the `deletedTaskIds` blocklist so old threads reappear in the sidebar.
