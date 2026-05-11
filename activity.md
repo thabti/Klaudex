@@ -1,3 +1,9 @@
+## 2026-05-11 08:17 GST (Dubai)
+### ModelPicker: add error state with shake animation and retry button
+Ported error state handling for ModelPicker and ModelPickerPanel. Shows shake animation on error, destructive-colored Retry button after 10s timeout or on modelsError, calling probeCapabilities on retry.
+
+**Modified:** `src/renderer/components/chat/ModelPicker.tsx`, `src/renderer/components/chat/ModelPickerPanel.tsx`
+
 ## 2026-05-11 08:15 GST (Dubai)
 ### CSS: add shake animation keyframes
 Ported shake keyframe animation and `--animate-shake` CSS variable from kirodex for error feedback on interactive elements.

@@ -1,4 +1,5 @@
-import { memo, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { IconRefresh } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 import { fuzzyScore } from '@/lib/fuzzy-search'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -10,8 +11,17 @@ export const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { 
   const rawModels = useSettingsStore((s) => s.availableModels)
   const models = Array.isArray(rawModels) ? rawModels : []
   const currentId = useSettingsStore((s) => s.currentModelId)
+  const modelsError = useSettingsStore((s) => s.modelsError)
   const [query, setQuery] = useState('')
+  const [isShaking, setIsShaking] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!modelsError) return
+    setIsShaking(true)
+    const id = setTimeout(() => setIsShaking(false), 400)
+    return () => clearTimeout(id)
+  }, [modelsError])
 
   const filtered = useMemo(() => {
     if (!query.trim()) return models
@@ -42,9 +52,29 @@ export const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { 
     onDismiss()
   }
 
+  const handleRetry = () => {
+    ipc.probeCapabilities().catch(() => {})
+  }
+
   if (models.length === 0) return (
     <PanelShell onDismiss={onDismiss}>
-      <p className="px-3 py-3 text-xs text-muted-foreground">No models available</p>
+      <div
+        className="flex items-center justify-between px-3 py-3"
+        style={isShaking ? { animation: 'var(--animate-shake)' } : undefined}
+      >
+        <p className={cn('text-xs', modelsError ? 'text-destructive/80' : 'text-muted-foreground')}>
+          {modelsError ?? 'No models available'}
+        </p>
+        <button
+          type="button"
+          onClick={handleRetry}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          aria-label="Retry loading models"
+        >
+          <IconRefresh className="size-3" />
+          Retry
+        </button>
+      </div>
     </PanelShell>
   )
 
