@@ -1,4 +1,10 @@
 ## 2026-05-11 08:15 GST (Dubai)
+### CSS: add shake animation keyframes
+Ported shake keyframe animation and `--animate-shake` CSS variable from kirodex for error feedback on interactive elements.
+
+**Modified:** `src/tailwind.css`
+
+## 2026-05-11 08:15 GST (Dubai)
 ### Kbd: upgrade with KbdGroup and tooltip-aware styling
 Cherry-picked 766d1b8 from kirodex. Switched Kbd props from HTMLAttributes to React.ComponentProps<'kbd'>, added KbdGroup component for multi-key combinations, added tooltip-content-aware styling, and tightened visual appearance with rounded-sm and w-fit.
 
