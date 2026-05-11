@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { useTaskStore } from '@/stores/taskStore'
-import { useDiffStore } from '@/stores/diffStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useDiffStore } from '@/stores/diffStore'
+import { useDebugStore } from '@/stores/debugStore'
 import { ipc } from '@/lib/ipc'
 import type { AppSettings } from '@/types'
 
@@ -155,6 +156,33 @@ export function useKeyboardShortcuts() {
         return
       }
 
+      // ── Cmd+\ → Toggle split view ─────────────────────────
+      if ((key === '\\' || e.code === 'Backslash') && !e.shiftKey) {
+        e.preventDefault()
+        const state = useTaskStore.getState()
+        if (state.splitTaskId) {
+          state.closeSplit()
+        } else if (state.selectedTaskId) {
+          const current = state.selectedTaskId
+          const candidate = Object.values(state.tasks)
+            .filter((t) => t.id !== current && !t.isArchived && t.messages.length > 0)
+            .sort((a, b) => {
+              const aTime = a.messages[a.messages.length - 1]?.timestamp ?? a.createdAt
+              const bTime = b.messages[b.messages.length - 1]?.timestamp ?? b.createdAt
+              return bTime.localeCompare(aTime)
+            })[0]
+          if (candidate) state.setSplitTask(candidate.id)
+        }
+        return
+      }
+
+      // ── Cmd+Shift+D → Toggle debug panel ───────────────────
+      if (key === 'd' && e.shiftKey) {
+        e.preventDefault()
+        useDebugStore.getState().toggleOpen()
+        return
+      }
+
       // ── Cmd+W → Close thread/project ──────────────────────────
       if (key === 'w' && !e.shiftKey) {
         e.preventDefault()
@@ -199,21 +227,22 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // ── Cmd+1 through Cmd+9 → Jump to project ─────────────
+      // ── Cmd+1 through Cmd+9 → Jump to thread in active project ──
       if (!e.shiftKey && key >= '1' && key <= '9') {
         e.preventDefault()
         const state = useTaskStore.getState()
+        // Determine the active project workspace
+        const activeWorkspace = state.selectedTaskId
+          ? (state.tasks[state.selectedTaskId]?.originalWorkspace ?? state.tasks[state.selectedTaskId]?.workspace)
+          : state.pendingWorkspace
+        if (!activeWorkspace) return
+        // Get threads in this project, sorted by creation time (matches sidebar default)
+        const threads = Object.values(state.tasks)
+          .filter((t) => (t.originalWorkspace ?? t.workspace) === activeWorkspace)
+          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
         const jumpIdx = parseInt(key, 10) - 1
-        if (jumpIdx >= state.projects.length) return
-        const workspace = state.projects[jumpIdx]
-        // Find the most recent thread in this project
-        const thread = Object.values(state.tasks)
-          .filter((t) => (t.originalWorkspace ?? t.workspace) === workspace)
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
-        if (thread) {
-          state.setSelectedTask(thread.id)
-        } else {
-          state.setPendingWorkspace(workspace)
+        if (jumpIdx < threads.length) {
+          state.setSelectedTask(threads[jumpIdx].id)
         }
         return
       }

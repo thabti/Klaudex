@@ -1,3 +1,9 @@
+## 2026-05-11 09:02 GST (Dubai)
+### Shortcuts: add Cmd+\ split toggle, Cmd+Shift+D debug, Cmd+1-9 thread jump
+Ported upstream commit 0a58f05. Added Cmd+\ to toggle split view (opens most recent other thread or closes if already split). Added Cmd+Shift+D to toggle debug panel. Changed Cmd+1-9 to jump to the Nth thread within the active project sorted by creation time instead of switching between projects.
+
+**Modified:** `src/renderer/hooks/useKeyboardShortcuts.ts`
+
 ## 2026-05-11 09:00 GST (Dubai)
 ### Chat: add container queries for compact toolbar and polish spacing
 Ported upstream commit 0efd666. Added @container/toolbar query to ChatToolbar so PlanToggle, ModelPicker, AutoApproveToggle, and BranchSelector hide text labels below 480px. Made AutoApproveToggle dropdown compact. Fixed ContextRing overlapping textarea with bg-card and pr-8 padding. Increased virtualizer row height estimates. Show Cmd+Enter hint only when meta key is held.
