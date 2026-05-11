@@ -113,7 +113,7 @@ export const TaskListDisplay = memo(function TaskListDisplay({ allToolCalls }: T
   const completed = tasks.filter((t) => t.completed).length
 
   return (
-    <div className="my-1 ml-1 rounded-lg border border-border/60 bg-card/60">
+    <div className="rounded-lg border border-border/60 bg-card/60">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}

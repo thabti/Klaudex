@@ -1,3 +1,9 @@
+## 2026-05-11 08:20 GST (Dubai)
+### Chat: fix ToolCallDisplay layout for nested TaskList/Subagent cards
+Ported upstream fix that wraps TaskListDisplay and SubagentDisplay in a container div with proper padding so they don't overlap the parent ToolCallDisplay border when collapsed. Added border-t separator when tool list is collapsed. Removed my-1 ml-1 from child components since the parent wrapper now handles spacing.
+
+**Modified:** `src/renderer/components/chat/ToolCallDisplay.tsx`, `src/renderer/components/chat/TaskListDisplay.tsx`, `src/renderer/components/chat/SubagentDisplay.tsx`
+
 ## 2026-05-11 08:18 GST (Dubai)
 ### Chat: consistent kbd styling across chat components
 Ported consistent kbd element styling from kirodex. Standardized to rounded-sm bg-muted pattern across BtwOverlay, ChatToolbar, EmptyThreadSplash, QuestionCards, and App.tsx EmptyState.
