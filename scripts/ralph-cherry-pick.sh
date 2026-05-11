@@ -141,8 +141,25 @@ PY
     fi
 
     if head -1 "$DONE_PATH" | grep -q '^PORTED'; then
+      # Coverage validation: every non-protected file upstream touched must
+      # appear in the local HEAD commit (klaudex may rename/rewrite content
+      # but must still touch the same files, modulo protected paths).
+      VALIDATION_NOTE="$(python3 "$REPO_ROOT/scripts/ralph-validate-coverage.py" \
+        --sha "$SHA" \
+        --diff "$DIFF_PATH" 2>&1)" || VALIDATION_FAIL=1
+      if [[ "${VALIDATION_FAIL:-0}" -eq 1 ]]; then
+        echo "[ralph] validation failed: $VALIDATION_NOTE"
+        echo "[ralph] reverting commit + retrying"
+        git reset --soft HEAD~1 >/dev/null 2>&1 || true
+        git reset HEAD -- . >/dev/null 2>&1 || true
+        git checkout -- . >/dev/null 2>&1 || true
+        git clean -fd >/dev/null 2>&1 || true
+        rm -f "$DONE_PATH"
+        VALIDATION_FAIL=0
+        continue
+      fi
       STATUS="ported"
-      NOTE="$(head -1 "$DONE_PATH")"
+      NOTE="$(head -1 "$DONE_PATH") | validated"
       break
     fi
 

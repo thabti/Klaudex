@@ -20,3 +20,5 @@ website/dist
 .ralph/processed.log
 .ralph/last_sha
 .ralph/commits.txt
+.ralph/watcher.log
+.ralph/watcher.lock

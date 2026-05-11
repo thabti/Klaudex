@@ -64,7 +64,11 @@ PROCEDURE
 6. Run validation:
    - `bun run check:ts`
    - Fix any new TS errors caused by the port (do not "fix" unrelated pre-existing errors)
-7. Commit with the ORIGINAL upstream subject + body, plus trailers:
+7. Prepend a port entry to activity.md (per CLAUDE.md convention) at the TOP
+   of the file. Then `git add activity.md` so it lands in the same commit.
+   The orchestrator REQUIRES the worktree to be clean after your commit —
+   if you leave activity.md unstaged the next iteration will refuse to start.
+8. Commit with the ORIGINAL upstream subject + body, plus trailers:
    ```
    git commit -m "<original subject>" \
               -m "<original body>" \
@@ -73,9 +77,9 @@ PROCEDURE
    ```
    Use a heredoc to preserve the original message faithfully. Do NOT add
    AI-generated commentary to the commit message.
-8. Append a one-line entry to activity.md (per CLAUDE.md convention) at the
-   TOP of the file, summarising what was ported.
-9. Write {{DONE_PATH}} with body:
+9. Run `git status` — it MUST report "nothing to commit, working tree clean".
+   If anything is unstaged, `git add` it and `git commit --amend --no-edit`.
+10. Write {{DONE_PATH}} with body:
    ```
    PORTED <new local sha>
    <one-paragraph summary>
