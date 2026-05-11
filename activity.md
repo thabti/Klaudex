@@ -1,3 +1,9 @@
+## 2026-05-11 09:05 GST (Dubai)
+### Store: add reorder and custom sort tests
+Ported upstream commit 7cdea39. Added four reorderProject tests (no-op, adjacent swap forward/backward, last-to-first) and four useSidebarTasks custom sort tests (preserves store order, recent sort, custom sort no reorder, task order within project).
+
+**Modified:** `src/renderer/stores/taskStore.test.ts`, `src/renderer/hooks/useSidebarTasks.test.ts`
+
 ## 2026-05-11 09:02 GST (Dubai)
 ### Shortcuts: add Cmd+\ split toggle, Cmd+Shift+D debug, Cmd+1-9 thread jump
 Ported upstream commit 0a58f05. Added Cmd+\ to toggle split view (opens most recent other thread or closes if already split). Added Cmd+Shift+D to toggle debug panel. Changed Cmd+1-9 to jump to the Nth thread within the active project sorted by creation time instead of switching between projects.
