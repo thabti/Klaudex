@@ -14,3 +14,9 @@ coverage
 .kiro/worktrees/
 website/node_modules
 website/dist
+
+# ralph cherry-pick loop — runtime state, not source of truth
+.ralph/current/
+.ralph/processed.log
+.ralph/last_sha
+.ralph/commits.txt

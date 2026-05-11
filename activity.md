@@ -1,3 +1,11 @@
+## 2026-05-11 GST (Dubai)
+
+### Tooling: kiro-cli ralph cherry-pick loop
+
+Added a ralph-pattern orchestrator that hands one upstream `kirodex` commit at a time to `kiro-cli` for cherry-picking into klaudex while preserving klaudex's identity, branding, and Claude-Code-driver divergences. `scripts/ralph-cherry-pick.sh` reads a filtered list of upstream SHAs from `.ralph/commits.txt`, renders `.ralph/prompt.md` (which encodes klaudex's protected paths, divergence-aware porting rules, and the `PORTED` / `SKIP:` DONE-marker contract) into `.ralph/current/prompt.txt`, then invokes `kiro-cli chat --no-interactive --trust-all-tools` per commit with up to 3 attempts. `scripts/ralph-loop.sh` is the more generic feature-parity variant for arbitrary source/target repo pairs. Runtime state (`.ralph/current/`, `processed.log`, `last_sha`, `commits.txt`) is gitignored; only the prompt template and the scripts are committed.
+
+**Modified:** `scripts/ralph-cherry-pick.sh` (new), `scripts/ralph-loop.sh` (new), `.ralph/prompt.md` (new), `.gitignore`
+
 ## 2026-05-10 06:15 GST (Dubai)
 
 ### Settings: TASK-114 — hooks viewer section
