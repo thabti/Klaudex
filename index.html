@@ -6,7 +6,9 @@
         <title>Klaudex</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet" />
+        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" media="print" onload="this.media='all'" />
+        <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" /></noscript>
         <script>
             // Apply theme before first paint to prevent flash
             (function(){
@@ -36,18 +38,18 @@
                 font-size: 42px;
                 font-weight: 700;
                 letter-spacing: 12px;
-                color: #7c6aef;
+                color: #f97316;
                 user-select: none;
                 text-shadow:
-                    0 0 10px rgba(124, 106, 239, 0.6),
-                    0 0 30px rgba(124, 106, 239, 0.4),
-                    0 0 60px rgba(124, 106, 239, 0.2);
+                    0 0 10px rgba(249, 115, 22, 0.6),
+                    0 0 30px rgba(249, 115, 22, 0.4),
+                    0 0 60px rgba(249, 115, 22, 0.2);
                 animation: glow 2s ease-in-out infinite alternate;
-            ">KLAUDEX</span>
+            ">Klaudex</span>
             <style>
                 @keyframes glow {
-                    from { text-shadow: 0 0 10px rgba(124,106,239,0.6), 0 0 30px rgba(124,106,239,0.4), 0 0 60px rgba(124,106,239,0.2); }
-                    to   { text-shadow: 0 0 15px rgba(124,106,239,0.8), 0 0 40px rgba(124,106,239,0.6), 0 0 80px rgba(124,106,239,0.35), 0 0 120px rgba(124,106,239,0.15); }
+                    from { text-shadow: 0 0 10px rgba(249,115,22,0.6), 0 0 30px rgba(249,115,22,0.4), 0 0 60px rgba(249,115,22,0.2); }
+                    to   { text-shadow: 0 0 15px rgba(249,115,22,0.8), 0 0 40px rgba(249,115,22,0.6), 0 0 80px rgba(249,115,22,0.35), 0 0 120px rgba(249,115,22,0.15); }
                 }
             </style>
         </div>
