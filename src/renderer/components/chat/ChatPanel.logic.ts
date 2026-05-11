@@ -4,8 +4,6 @@
  * This file contains all derivation functions, state helpers, and pure
  * computations used by the ChatPanel component. Each function is independently
  * testable without React or DOM dependencies.
- *
- * Pattern inspired by T3 Code's *.logic.ts convention.
  */
 
 import type { AgentTask, TaskMessage, ToolCall, ToolCallSplit } from '@/types'
@@ -35,8 +33,8 @@ export const EMPTY_QUEUE: QueuedMessage[] = []
  * instead of the full task — that lets `ChatPanel` subscribe to those two
  * fields individually and avoid re-rendering on every other task mutation.
  *
- * Archived (resumed-from-history) threads are NOT disabled. They behave like
- * Zed's stateless resumption: the user can type, and on send a fresh ACP
+ * Archived (resumed-from-history) threads are NOT disabled. They use
+ * stateless resumption: the user can type, and on send a fresh ACP
  * connection is spawned with the historical transcript replayed as context.
  */
 export function deriveInputState(

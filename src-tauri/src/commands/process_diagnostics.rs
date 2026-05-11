@@ -1,4 +1,4 @@
-//! Process diagnostics — ported from t3code.
+//! Process diagnostics.
 //!
 //! Provides process tree inspection for debugging stuck agent processes.
 //! Queries the OS process table and returns child processes with CPU/memory usage.

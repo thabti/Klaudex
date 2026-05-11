@@ -1,6 +1,6 @@
 //! Code syntax highlighting via `syntect` (TextMate/Sublime grammars).
 //!
-//! Inspired by Zed's `crates/language/src/syntax_map.rs` pipeline:
+//! Pipeline:
 //! - Highlighting happens on the backend, never in the renderer.
 //! - Results are cached on disk by `blake3(text) + lang + theme` so repeated
 //!   renders (e.g. scrolling a long chat thread) hit the cache.
@@ -9,8 +9,8 @@
 //! Why syntect over tree-sitter for klaudex:
 //! - Zero grammar wrangling: ~200 syntaxes ship in `default-fancy`.
 //! - No build.rs work, no `tree-sitter-cli`, no per-language crate hunting.
-//! - Tree-sitter is the right choice when you need an editable AST (Zed's
-//!   incremental reparse). For *display* of a code block in chat, a TextMate
+//! - Tree-sitter is the right choice when you need an editable AST (incremental
+//!   reparse). For *display* of a code block in chat, a TextMate
 //!   grammar gives equivalent visual quality at far less complexity.
 //!
 //! For the streaming code-block case (LLM typing out code), the cache is keyed

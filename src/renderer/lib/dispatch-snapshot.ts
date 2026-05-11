@@ -1,10 +1,10 @@
 /**
  * Local Dispatch Snapshots — Optimistic UI acknowledgment tracking.
  *
- * Inspired by T3 Code's LocalDispatchSnapshot pattern. When the user sends
- * a message, we capture a snapshot of the current task state. We then compare
- * incoming state updates against this snapshot to detect when the backend has
- * actually acknowledged and started processing the request.
+ * When the user sends a message, we capture a snapshot of the current task
+ * state. We then compare incoming state updates against this snapshot to
+ * detect when the backend has actually acknowledged and started processing
+ * the request.
  *
  * This eliminates the "dead zone" between sending a message and seeing the
  * first streaming token, giving the user clear feedback:

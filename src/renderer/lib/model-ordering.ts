@@ -1,5 +1,5 @@
 /**
- * Model ordering & favorites — ported from t3code.
+ * Model ordering & favorites.
  *
  * Sorts models by favorite status and custom order.
  * Persists favorites in localStorage for cross-session persistence.

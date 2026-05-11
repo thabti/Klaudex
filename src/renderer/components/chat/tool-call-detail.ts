@@ -4,7 +4,6 @@ import type { ToolCall } from '@/types'
  * Extracts a compact detail/preview string for any tool call.
  * Shown as a secondary label next to the tool title in the row.
  *
- * Inspired by T3Code's `extractToolDetail` and Zed's title enrichment.
  * Each tool kind gets a tailored extraction strategy.
  */
 

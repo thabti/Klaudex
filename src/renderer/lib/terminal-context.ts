@@ -1,5 +1,5 @@
 /**
- * Terminal context management — ported from t3code.
+ * Terminal context management.
  *
  * Allows users to select text from terminal output and attach it as context
  * to their next message. The selection gets formatted as <terminal_context>

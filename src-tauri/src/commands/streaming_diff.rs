@@ -1,4 +1,4 @@
-//! Streaming diff algorithm — adapted from Zed's `streaming_diff` crate.
+//! Streaming diff algorithm.
 //!
 //! Computes character-level diffs incrementally as new text arrives (e.g. from
 //! an LLM streaming response). Instead of waiting for the full output and then

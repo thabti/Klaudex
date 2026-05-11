@@ -2,17 +2,12 @@
  * SQLite-backed thread persistence layer.
  *
  * Replaces the JSON-based history-store as the primary persistence mechanism.
- * Inspired by:
- * - **Zed**: Single SQLite table with zstd-compressed blob per thread, UPSERT
- *   semantics, background writer thread, WAL mode.
- * - **t3code**: Event-sourced SQLite with per-message rows, turn tracking,
- *   session state, and projection pipeline for recovery.
  *
- * Our approach combines the best of both:
- * - Per-message rows (like t3code) for granular persistence — each message is
+ * Design:
+ * - Per-message rows for granular persistence — each message is
  *   saved individually as it arrives, so a crash mid-turn only loses the
  *   in-flight streaming chunk, not the entire conversation.
- * - Simple schema (like Zed) without event-sourcing complexity.
+ * - Simple schema without event-sourcing complexity.
  * - Thread metadata in a separate row for fast sidebar listing.
  * - Full-text search via FTS5 (already in our Rust backend).
  * - The JSON history-store is retained as a fallback/backup layer.

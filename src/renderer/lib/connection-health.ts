@@ -1,9 +1,8 @@
 /**
  * Connection health monitoring for the ACP backend subprocess.
  *
- * Inspired by T3 Code's WsTransport heartbeat pattern. While Tauri IPC
- * doesn't have network-level disconnections, the claude subprocess can
- * crash or become unresponsive. This module provides:
+ * While Tauri IPC doesn't have network-level disconnections, the kiro-cli
+ * subprocess can crash or become unresponsive. This module provides:
  *
  * - Periodic health checks via a lightweight IPC probe
  * - Automatic reconnection attempts with exponential backoff

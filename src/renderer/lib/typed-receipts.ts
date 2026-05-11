@@ -1,9 +1,8 @@
 /**
  * Typed Receipts — Structured signals for async operation completion.
  *
- * Inspired by T3 Code's RuntimeReceiptBus. Instead of polling or guessing
- * when async operations complete, the backend emits typed receipts that
- * the frontend subscribes to. This enables:
+ * Instead of polling or guessing when async operations complete, the backend
+ * emits typed receipts that the frontend subscribes to. This enables:
  *   - Deterministic UI updates (update only when work is done)
  *   - Clean separation between "work happened" and "UI should update"
  *   - Testable async coordination without timers

@@ -4,9 +4,9 @@
  * These selectors provide fine-grained access to store data, preventing
  * unnecessary re-renders by selecting only the fields a component needs.
  *
- * Inspired by T3 Code's normalized store pattern where sidebar data,
- * session state, and message content are separate concerns that don't
- * trigger each other's re-renders.
+ * Uses a normalized store pattern where sidebar data, session state, and
+ * message content are separate concerns that don't trigger each other's
+ * re-renders.
  */
 
 import type { TaskStore } from './task-store-types'

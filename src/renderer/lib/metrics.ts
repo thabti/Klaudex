@@ -1,5 +1,5 @@
 /**
- * Observability metrics — ported from t3code.
+ * Observability metrics.
  *
  * Lightweight metric collection for performance monitoring and debugging.
  * Tracks durations, counts, and gauges for key operations.

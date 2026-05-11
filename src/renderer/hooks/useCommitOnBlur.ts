@@ -1,5 +1,5 @@
 /**
- * useCommitOnBlur — Input buffering hook ported from t3code.
+ * useCommitOnBlur — Input buffering hook.
  *
  * Buffers text input locally and commits changes on blur or Enter key.
  * Prevents re-renders on every keystroke by keeping a local ref that

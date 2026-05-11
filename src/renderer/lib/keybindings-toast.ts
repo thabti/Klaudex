@@ -1,5 +1,5 @@
 /**
- * Keybindings toast notifications — ported from t3code.
+ * Keybindings toast notifications.
  *
  * Shows toast notifications when keybinding configuration files are updated
  * or contain errors. Coalesces rapid consecutive updates.

@@ -2,9 +2,8 @@
  * Syntax highlighting types returned by `highlight_code`. Mirrors the Rust
  * types in `src-tauri/src/commands/highlight.rs`.
  *
- * Inspired by Zed's `crates/language/src/syntax_map.rs`: the renderer receives
- * a flat `Vec<HighlightSpan>` and styles them — no Shiki WASM, no client-side
- * grammar, no main-thread tree-sitter parse.
+ * The renderer receives a flat `Vec<HighlightSpan>` and styles them — no Shiki
+ * WASM, no client-side grammar, no main-thread tree-sitter parse.
  */
 
 export interface HighlightSpan {

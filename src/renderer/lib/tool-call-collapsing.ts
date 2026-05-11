@@ -1,7 +1,6 @@
 /**
  * Tool call collapsing logic.
  *
- * Inspired by T3 Code's `collapseDerivedWorkLogEntries` pattern.
  * Consecutive tool calls with the same identity (same tool, same file target)
  * are collapsed into a single entry to reduce visual noise in the timeline.
  *

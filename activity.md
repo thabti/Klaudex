@@ -1,3 +1,9 @@
+## 2026-05-11 11:39 GST (Dubai)
+### Port: Remove T3 Code/Zed attribution comments (kirodex@0221ed3)
+Ported upstream commit that removes T3 Code and Zed attribution comments from the codebase. Also brings in new modules: checkpoint.rs (per-turn git ref snapshots), git_pr.rs (GitHub/GitLab PR creation), pattern_extract.rs (code signature extraction), tracing.rs (NDJSON structured tracing), thread_db auto-archive, and new IPC bindings for all of the above.
+
+**Modified:** 59 files across src-tauri/src/commands/ and src/renderer/ (comment cleanup + new modules)
+
 ## 2026-05-11 11:35 GST (Dubai)
 ### Port: Address code review issues (kirodex@da0a737)
 Ported upstream commit da0a7378. Restricts signal_process to only allow signalling descendant PIDs, makes rename_worktree_branch async, makes collect_pr_context async with parallel diff stat/patch fetching via tokio::join!, and extracts shared git_utils module with run_git_cmd and run_git_cmd_async helpers.

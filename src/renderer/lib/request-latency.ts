@@ -1,9 +1,9 @@
 /**
  * Request Latency Tracking — Surface slow IPC operations to the user.
  *
- * Inspired by T3 Code's requestLatencyState. Tracks IPC requests that exceed
- * a configurable threshold and surfaces them for UI indicators. Bounded to
- * prevent memory leaks, auto-clears on reconnection.
+ * Tracks IPC requests that exceed a configurable threshold and surfaces them
+ * for UI indicators. Bounded to prevent memory leaks, auto-clears on
+ * reconnection.
  *
  * Usage:
  *   const tracker = createLatencyTracker()

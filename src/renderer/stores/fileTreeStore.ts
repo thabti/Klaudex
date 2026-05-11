@@ -105,7 +105,7 @@ export const useFileTreeStore = create<FileTreeStore>((set, get) => ({
       // The backend respects gitignore when `respectGitignore=true` and emits
       // unfiltered entries when it's `false`. Mapping our `showIgnored` flag
       // straight to the inverse keeps a single source of truth and removes
-      // the renderer-side post-filter (matches Zed's worktree pattern).
+      // the renderer-side post-filter.
       const respectGitignore = !get().showIgnored
       const entries: TreeEntry[] = await ipc.scanRoot(workspace, respectGitignore)
       set({

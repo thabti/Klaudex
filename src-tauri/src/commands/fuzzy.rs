@@ -1,5 +1,5 @@
 //! Fuzzy string matching backed by `nucleo-matcher` (the same matcher Helix
-//! and Zed use). Inspired by Zed's `crates/fuzzy/` and `crates/fuzzy_nucleo/`.
+//! and Zed use).
 //!
 //! The renderer's `fuzzy-search.ts` does this work in JS today. Moving it
 //! across the IPC boundary lets us:

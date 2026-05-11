@@ -5,7 +5,6 @@ const HEIGHT_TRANSITION_FALLBACK_MS = 250
 /**
  * Smooth height transitions for expanding/collapsing content.
  * Uses ResizeObserver to track content height changes and animates between them.
- * Ported from t3code.
  */
 export function AnimatedHeight({ children }: { readonly children: ReactNode }) {
   const contentRef = useRef<HTMLDivElement>(null)

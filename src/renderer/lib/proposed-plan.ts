@@ -1,5 +1,5 @@
 /**
- * Proposed plan utilities — ported from t3code.
+ * Proposed plan utilities.
  *
  * Provides plan title extraction, markdown formatting, preview generation,
  * and implementation prompt building for the plan sidebar.

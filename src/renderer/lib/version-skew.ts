@@ -1,5 +1,5 @@
 /**
- * Version skew detection — ported from t3code.
+ * Version skew detection.
  *
  * Detects mismatches between the klaudex app version and the claude version.
  * Shows a dismissible warning when versions are incompatible.

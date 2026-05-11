@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 
 /**
  * Clipboard API wrapper with "Copied!" feedback timeout.
- * Ported from t3code — provides visual feedback when text is copied.
+ * Provides visual feedback when text is copied.
  */
 export function useCopyToClipboard(options?: {
   timeout?: number
