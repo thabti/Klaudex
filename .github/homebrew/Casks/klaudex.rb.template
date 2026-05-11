@@ -1,19 +1,19 @@
-cask "kirodex" do
+cask "klaudex" do
   version "{{VERSION}}"
   sha256 "{{SHA256_ARM}}"
 
-  url "https://github.com/thabti/kirodex/releases/download/v{{VERSION}}/Kirodex_{{VERSION}}_aarch64.dmg"
-  name "Kirodex"
+  url "https://github.com/thabti/klaudex/releases/download/v{{VERSION}}/Klaudex_{{VERSION}}_aarch64.dmg"
+  name "Klaudex"
   desc "AI coding agents on your desktop"
-  homepage "https://github.com/thabti/kirodex"
+  homepage "https://github.com/thabti/klaudex"
 
   depends_on arch: :arm64
 
-  app "Kirodex.app"
+  app "Klaudex.app"
 
   zap trash: [
-    "~/Library/Application Support/com.kirodex.app",
-    "~/Library/Caches/com.kirodex.app",
-    "~/Library/Preferences/com.kirodex.app.plist",
+    "~/Library/Application Support/com.klaudex.app",
+    "~/Library/Caches/com.klaudex.app",
+    "~/Library/Preferences/com.klaudex.app.plist",
   ]
 end
