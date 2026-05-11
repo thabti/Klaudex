@@ -1,3 +1,9 @@
+## 2026-05-11 07:48 GST (Dubai)
+### Timeline: show working indicator during long tool calls (port from kirodex@8798d6b)
+Ported upstream fix so the "Crafting…" working row appears during long-running tool calls and subagents. Changed suppression condition from any live activity to only streaming text/thinking. Reordered live rows so indicator renders below tool call displays. Added tests.
+
+**Modified:** src/renderer/lib/timeline.ts, src/renderer/lib/timeline.test.ts
+
 ## 2026-05-11 07:46 GST (Dubai)
 ### Git2: Remove openssl dynamic linking dependency (port from kirodex@7e8c4de)
 Ported upstream fix that drops ssh and https features from git2 crate, eliminating openssl-sys and libssh2-sys transitive deps that cause launch crashes on machines without Homebrew OpenSSL 3.
