@@ -1,3 +1,9 @@
+## 2026-05-11 07:46 GST (Dubai)
+### Git2: Remove openssl dynamic linking dependency (port from kirodex@7e8c4de)
+Ported upstream fix that drops ssh and https features from git2 crate, eliminating openssl-sys and libssh2-sys transitive deps that cause launch crashes on machines without Homebrew OpenSSL 3.
+
+**Modified:** src-tauri/Cargo.toml, src-tauri/Cargo.lock
+
 ## 2026-05-11 07:44 GST (Dubai)
 ### Release: Reduce bundle targets from "all" to specific list (port from kirodex@aabb3ce)
 Ported upstream change to `src-tauri/tauri.conf.json` that replaces `"targets": "all"` with an explicit list `["app", "dmg", "deb", "appimage", "nsis"]`, dropping MSI and RPM bundle targets. Protected paths (README, .github/**, activity.md) were reverted.
