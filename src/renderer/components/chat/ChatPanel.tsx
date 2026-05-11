@@ -39,21 +39,24 @@ const formatCost = (cost: number): string => {
  * Owns the streaming selectors so ChatPanel doesn't re-render on every token.
  */
 const StreamingMessageList = memo(function StreamingMessageList({
+  taskId: taskIdProp,
   isRunning,
   searchMatchIds,
   activeMatchId,
   onTimelineRows,
 }: {
+  taskId?: string | null
   isRunning: boolean
   searchMatchIds?: string[]
   activeMatchId?: string | null
   onTimelineRows?: (rows: TimelineRow[]) => void
 }) {
-  const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
-  const messages = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.messages ?? EMPTY_MESSAGES : EMPTY_MESSAGES)
-  const streamingChunk = useTaskStore((s) => s.btwCheckpoint ? '' : selectedTaskId ? s.streamingChunks[selectedTaskId] ?? '' : '')
-  const liveToolCalls = useTaskStore((s) => s.btwCheckpoint ? EMPTY_TOOL_CALLS : selectedTaskId ? s.liveToolCalls[selectedTaskId] ?? EMPTY_TOOL_CALLS : EMPTY_TOOL_CALLS)
-  const liveThinking = useTaskStore((s) => s.btwCheckpoint ? '' : selectedTaskId ? s.thinkingChunks[selectedTaskId] ?? '' : '')
+  const storeSelectedId = useTaskStore((s) => s.selectedTaskId)
+  const resolvedId = taskIdProp ?? storeSelectedId
+  const messages = useTaskStore((s) => resolvedId ? s.tasks[resolvedId]?.messages ?? EMPTY_MESSAGES : EMPTY_MESSAGES)
+  const streamingChunk = useTaskStore((s) => s.btwCheckpoint ? '' : resolvedId ? s.streamingChunks[resolvedId] ?? '' : '')
+  const liveToolCalls = useTaskStore((s) => s.btwCheckpoint ? EMPTY_TOOL_CALLS : resolvedId ? s.liveToolCalls[resolvedId] ?? EMPTY_TOOL_CALLS : EMPTY_TOOL_CALLS)
+  const liveThinking = useTaskStore((s) => s.btwCheckpoint ? '' : resolvedId ? s.thinkingChunks[resolvedId] ?? '' : '')
 
   return (
     <MessageList
@@ -69,11 +72,10 @@ const StreamingMessageList = memo(function StreamingMessageList({
   )
 })
 
-/** Send a message directly to the backend (shared by initial send and queue drain). */
-async function sendMessageDirect(msg: string, attachments?: IpcAttachment[]): Promise<void> {
+/** Send a message directly to the backend for a specific task. */
+async function sendMessageDirect(targetTaskId: string, msg: string, attachments?: IpcAttachment[]): Promise<void> {
   const state = useTaskStore.getState()
-  const id = state.selectedTaskId
-  const task = id ? state.tasks[id] : null
+  const task = state.tasks[targetTaskId]
   if (!task) return
   const isDraft = task.messages.length === 0 && task.status === 'paused'
   const needsNewConnection = task.needsNewConnection === true
@@ -82,7 +84,6 @@ async function sendMessageDirect(msg: string, attachments?: IpcAttachment[]): Pr
   state.upsertTask({ ...task, status: 'running', messages: [...task.messages, userMsg] })
   state.clearTurn(task.id)
 
-  // Analytics: record user message with input word count
   const proj = (task.originalWorkspace ?? task.workspace).replace(/\\/g, '/').split('/').pop() ?? ''
   record('message_sent', { project: proj, thread: task.id, value: msg.split(/\s+/).filter(Boolean).length })
 
@@ -110,16 +111,13 @@ async function sendMessageDirect(msg: string, attachments?: IpcAttachment[]): Pr
 const ArchivedBanner = memo(function ArchivedBanner() {
   return (
     <div className="relative flex items-center justify-center py-4 px-6 select-none" data-testid="chat-archived-banner">
-      {/* Zigzag line left */}
       <svg className="flex-1 h-3 text-blue-600/30 dark:text-blue-400/30" preserveAspectRatio="none" viewBox="0 0 120 12">
         <path d="M0,6 L5,0 L10,6 L15,0 L20,6 L25,0 L30,6 L35,0 L40,6 L45,0 L50,6 L55,0 L60,6 L65,0 L70,6 L75,0 L80,6 L85,0 L90,6 L95,0 L100,6 L105,0 L110,6 L115,0 L120,6" fill="none" stroke="currentColor" strokeWidth="1" />
       </svg>
-      {/* Label */}
       <div className="flex shrink-0 items-center gap-1.5 mx-3 rounded-full border border-blue-400/20 bg-card px-3 py-1">
         <IconHistory className="size-3 text-blue-600/50 dark:text-blue-400/50" />
         <span className="text-[11px] font-medium text-blue-500/60 dark:text-blue-300/50">Previous conversation — view only</span>
       </div>
-      {/* Zigzag line right */}
       <svg className="flex-1 h-3 text-blue-600/30 dark:text-blue-400/30" preserveAspectRatio="none" viewBox="0 0 120 12">
         <path d="M0,6 L5,0 L10,6 L15,0 L20,6 L25,0 L30,6 L35,0 L40,6 L45,0 L50,6 L55,0 L60,6 L65,0 L70,6 L75,0 L80,6 L85,0 L90,6 L95,0 L100,6 L105,0 L110,6 L115,0 L120,6" fill="none" stroke="currentColor" strokeWidth="1" />
       </svg>
@@ -127,29 +125,33 @@ const ArchivedBanner = memo(function ArchivedBanner() {
   )
 })
 
-export const ChatPanel = memo(function ChatPanel() {
-  const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
-  const taskStatus = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.status : null)
-  const isArchived = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.isArchived === true : false)
-  const taskPlan = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.plan : null)
-  const pendingPermission = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.pendingPermission : null)
-  const contextUsage = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.contextUsage : null)
-  const isPlanMode = useSettingsStore((s) => s.currentModeId === 'plan')
-  const taskWorkspace = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.workspace : null)
-  const isWorktree = useTaskStore((s) => selectedTaskId ? !!s.tasks[selectedTaskId]?.worktreePath : false)
-  const messageCount = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.messages?.length ?? 0 : 0)
-  const terminalOpen = useTaskStore((s) => selectedTaskId ? s.terminalOpenTasks.has(selectedTaskId) : false)
-  const toggleTerminal = useTaskStore((s) => s.toggleTerminal)
-  const queuedMessages = useTaskStore((s) => selectedTaskId ? s.queuedMessages[selectedTaskId] ?? EMPTY_QUEUE : EMPTY_QUEUE)
-  const isBtwMode = useTaskStore((s) => s.btwCheckpoint !== null)
-  const totalCost = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.totalCost : undefined)
-  const pendingUserInput = useTaskStore((s) => selectedTaskId ? s.pendingUserInputs[selectedTaskId] : undefined)
+interface ChatPanelProps {
+  /** Override the task ID to display. When omitted, uses selectedTaskId from the store. */
+  taskId?: string | null
+}
 
-  // Search state — timeline rows are pushed up from MessageList via callback
+export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPanelProps) {
+  const storeSelectedId = useTaskStore((s) => s.selectedTaskId)
+  const resolvedTaskId = taskIdProp ?? storeSelectedId
+  const taskStatus = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.status : null)
+  const isArchived = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.isArchived === true : false)
+  const taskPlan = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.plan : null)
+  const pendingPermission = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.pendingPermission : null)
+  const contextUsage = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.contextUsage : null)
+  const isPlanMode = useSettingsStore((s) => s.currentModeId === 'kiro_planner')
+  const taskWorkspace = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.workspace : null)
+  const isWorktree = useTaskStore((s) => resolvedTaskId ? !!s.tasks[resolvedTaskId]?.worktreePath : false)
+  const messageCount = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.messages?.length ?? 0 : 0)
+  const terminalOpen = useTaskStore((s) => resolvedTaskId ? s.terminalOpenTasks.has(resolvedTaskId) : false)
+  const toggleTerminal = useTaskStore((s) => s.toggleTerminal)
+  const queuedMessages = useTaskStore((s) => resolvedTaskId ? s.queuedMessages[resolvedTaskId] ?? EMPTY_QUEUE : EMPTY_QUEUE)
+  const isBtwMode = useTaskStore((s) => s.btwCheckpoint !== null)
+  const totalCost = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.totalCost : undefined)
+  const pendingUserInput = useTaskStore((s) => resolvedTaskId ? (s as any).pendingUserInputs?.[resolvedTaskId] : undefined)
+
   const timelineRowsRef = useRef<TimelineRow[]>([])
   const [timelineRows, setTimelineRows] = useState<TimelineRow[]>([])
   const handleTimelineRows = useCallback((rows: TimelineRow[]) => {
-    // Only update state when the row array identity changes (memo'd in MessageList)
     if (rows !== timelineRowsRef.current) {
       timelineRowsRef.current = rows
       setTimelineRows(rows)
@@ -158,16 +160,14 @@ export const ChatPanel = memo(function ChatPanel() {
 
   const search = useMessageSearch(timelineRows)
 
-  // Close search when switching threads
-  const prevTaskIdRef = useRef(selectedTaskId)
+  const prevTaskIdRef = useRef(resolvedTaskId)
   useEffect(() => {
-    if (prevTaskIdRef.current !== selectedTaskId && search.isOpen) {
+    if (prevTaskIdRef.current !== resolvedTaskId && search.isOpen) {
       search.close()
     }
-    prevTaskIdRef.current = selectedTaskId
-  }, [selectedTaskId, search])
+    prevTaskIdRef.current = resolvedTaskId
+  }, [resolvedTaskId, search])
 
-  // Cmd+F / Ctrl+F shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
@@ -185,63 +185,52 @@ export const ChatPanel = memo(function ChatPanel() {
 
   const handleSendMessage = useCallback(async (msg: string, attachments?: IpcAttachment[]) => {
     const state = useTaskStore.getState()
-    const id = state.selectedTaskId
+    const id = resolvedTaskId
     const task = id ? state.tasks[id] : null
-    if (!task) return
+    if (!task || !id) return
 
-    // If the agent is running, queue the message instead of sending directly
-    // Exception: btw mode messages should always send immediately
     if (task.status === 'running' && !state.btwCheckpoint) {
       state.enqueueMessage(task.id, msg, attachments)
       return
     }
 
-    await sendMessageDirect(msg, attachments)
-  }, [])
+    await sendMessageDirect(id, msg, attachments)
+  }, [resolvedTaskId])
 
   const handleRemoveQueued = useCallback((index: number) => {
-    const id = useTaskStore.getState().selectedTaskId
-    if (id) useTaskStore.getState().removeQueuedMessage(id, index)
-  }, [])
+    if (resolvedTaskId) useTaskStore.getState().removeQueuedMessage(resolvedTaskId, index)
+  }, [resolvedTaskId])
 
   const handleSteer = useCallback(async (index: number) => {
     const state = useTaskStore.getState()
-    const id = state.selectedTaskId
+    const id = resolvedTaskId
     if (!id) return
     const queued = state.queuedMessages[id]?.[index]
     if (!queued) return
-    // Pause the agent first
     await ipc.pauseTask(id)
-    // Remove from queue
     state.removeQueuedMessage(id, index)
-    // Persist the interrupted turn's live state (streaming text + tool calls)
-    // before starting the new turn, so nothing is lost. The turn_end event
-    // may arrive late (after the new turn starts), so we handle it here.
     useTaskStore.setState((s) => applyTurnEnd(s, id))
-    // Send the message (will resume the agent with new direction)
-    await sendMessageDirect(queued.text, queued.attachments ? [...queued.attachments] : undefined)
-  }, [])
+    await sendMessageDirect(id, queued.text, queued.attachments ? [...queued.attachments] : undefined)
+  }, [resolvedTaskId])
 
   const handleReorderQueued = useCallback((from: number, to: number) => {
-    const id = useTaskStore.getState().selectedTaskId
-    if (id) useTaskStore.getState().reorderQueuedMessage(id, from, to)
-  }, [])
+    if (resolvedTaskId) useTaskStore.getState().reorderQueuedMessage(resolvedTaskId, from, to)
+  }, [resolvedTaskId])
 
   const [isInputCollapsed, setIsInputCollapsed] = useState(false)
   const handleToggleCollapse = useCallback(() => setIsInputCollapsed((v) => !v), [])
 
   const handlePermissionSelect = useCallback((optionId: string) => {
     const state = useTaskStore.getState()
-    const id = state.selectedTaskId
-    const task = id ? state.tasks[id] : null
+    const task = resolvedTaskId ? state.tasks[resolvedTaskId] : null
     if (task?.pendingPermission) {
       ipc.selectPermissionOption(task.id, task.pendingPermission.requestId, optionId).catch(() => {})
     }
-  }, [])
+  }, [resolvedTaskId])
 
   const handlePause = useCallback(() => {
-    if (selectedTaskId) ipc.pauseTask(selectedTaskId)
-  }, [selectedTaskId])
+    if (resolvedTaskId) ipc.pauseTask(resolvedTaskId)
+  }, [resolvedTaskId])
 
   if (!taskStatus) {
     return (
@@ -285,6 +274,7 @@ export const ChatPanel = memo(function ChatPanel() {
 
         <SearchQueryContext.Provider value={searchQuery}>
           <StreamingMessageList
+            taskId={resolvedTaskId}
             isRunning={isRunning && !isBtwMode}
             searchMatchIds={search.isOpen ? search.matchIds : undefined}
             activeMatchId={search.isOpen ? search.activeMatchId : undefined}
@@ -294,9 +284,9 @@ export const ChatPanel = memo(function ChatPanel() {
 
         {isArchived && <ArchivedBanner />}
 
-        {!isArchived && pendingPermission && selectedTaskId && (
+        {!isArchived && pendingPermission && resolvedTaskId && (
           <PermissionBanner
-            taskId={selectedTaskId}
+            taskId={resolvedTaskId}
             toolName={pendingPermission.toolName}
             description={pendingPermission.description}
             options={pendingPermission.options ?? EMPTY_OPTIONS}
@@ -304,10 +294,10 @@ export const ChatPanel = memo(function ChatPanel() {
           />
         )}
 
-        {!isArchived && pendingUserInput && selectedTaskId && (
+        {!isArchived && pendingUserInput && resolvedTaskId && (
           <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 lg:max-w-4xl xl:max-w-5xl">
             <UserInputCard
-              taskId={selectedTaskId}
+              taskId={resolvedTaskId}
               requestId={pendingUserInput.requestId}
               fields={pendingUserInput.fields}
             />
@@ -358,8 +348,8 @@ export const ChatPanel = memo(function ChatPanel() {
         )}
         <Statusline />
       </div>
-      {terminalOpen && taskWorkspace && selectedTaskId && (
-        <TerminalDrawer key={selectedTaskId} cwd={taskWorkspace} onClose={() => toggleTerminal(selectedTaskId)} />
+      {terminalOpen && taskWorkspace && resolvedTaskId && (
+        <TerminalDrawer key={resolvedTaskId} cwd={taskWorkspace} onClose={() => toggleTerminal(resolvedTaskId)} />
       )}
     </div>
   )

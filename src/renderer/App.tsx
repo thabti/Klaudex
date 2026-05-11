@@ -8,6 +8,9 @@ import { TaskSidebar } from "@/components/sidebar/TaskSidebar";
 const ChatPanel = lazy(() =>
   import("@/components/chat/ChatPanel").then((m) => ({ default: m.ChatPanel })),
 );
+const SplitChatLayout = lazy(() =>
+  import("@/components/chat/SplitChatLayout").then((m) => ({ default: m.SplitChatLayout })),
+);
 import { PendingChat } from "@/components/chat/PendingChat";
 import { NewProjectSheet } from "@/components/task/NewProjectSheet";
 import { ipc } from "@/lib/ipc";
@@ -198,11 +201,12 @@ const navigateToNotifiedTask = (taskId: string): void => {
 }
 
 export function App() {
-  const { view, selectedTaskId, pendingWorkspace } = useTaskStore(
+  const { view, selectedTaskId, pendingWorkspace, splitTaskId } = useTaskStore(
     useShallow((s) => ({
       view: s.view,
       selectedTaskId: s.selectedTaskId,
       pendingWorkspace: s.pendingWorkspace,
+      splitTaskId: s.splitTaskId,
     })),
   );
   const debugOpen = useDebugStore((s) => s.isOpen);
@@ -261,6 +265,27 @@ export function App() {
     const cleanupClaude = initClaudeConfigListeners();
     useTaskStore.getState().loadTasks().then(() => {
       useTaskStore.getState().purgeExpiredSoftDeletes();
+      // Restore persisted UI state (selected thread, view, panels)
+      import('@/lib/history-store').then(({ loadUiState }) => {
+        loadUiState().then((ui) => {
+          if (!ui) return
+          const tasks = useTaskStore.getState().tasks
+          if (ui.selectedTaskId && tasks[ui.selectedTaskId]) {
+            useTaskStore.getState().setSelectedTask(ui.selectedTaskId)
+            const validViews = ['chat', 'dashboard', 'analytics'] as const
+            if (validViews.includes(ui.view as typeof validViews[number])) {
+              useTaskStore.getState().setView(ui.view as typeof validViews[number])
+            }
+          }
+          setSidePanelOpen(ui.sidePanelOpen ?? false)
+          setIsSidebarCollapsed(ui.sidebarCollapsed ?? false)
+          // Restore split-screen state
+          if (ui.splitTaskId && tasks[ui.splitTaskId]) {
+            useTaskStore.getState().setSplitTask(ui.splitTaskId)
+            if (ui.splitRatio) useTaskStore.getState().setSplitRatio(ui.splitRatio)
+          }
+        }).catch(() => {})
+      })
     });
     useSettingsStore.getState().loadSettings().then(() => {
       useSettingsStore.getState().checkAuth();
@@ -304,12 +329,14 @@ export function App() {
       listen('app://flush-before-quit', () => {
         useTaskStore.getState().persistHistory()
         import('@/lib/history-store').then((hs) => {
-          const { selectedTaskId, view } = useTaskStore.getState()
+          const { selectedTaskId, view, splitTaskId, splitRatio } = useTaskStore.getState()
           hs.saveUiState({
             selectedTaskId,
             view,
             sidePanelOpen,
             sidebarCollapsed: isSidebarCollapsed,
+            splitTaskId,
+            splitRatio,
           }).catch(() => {})
           hs.flush().then(() => {
             // Ack the flush so Rust can proceed with shutdown
@@ -455,10 +482,15 @@ export function App() {
           </ErrorBoundary>
           <main data-testid="main-content" className={cn('flex min-h-0 min-w-0 flex-1 overflow-hidden', isRightSidebar && 'order-first')}>
             <ErrorBoundary>
-              <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl" style={{ fontSize: 'var(--app-font-size, 14px)' }}>
+              <div
+                className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl"
+                style={{ fontSize: 'var(--app-font-size, 14px)' }}
+              >
                 <Suspense>
                   {view === 'analytics' ? (
                     <AnalyticsDashboard />
+                  ) : selectedTaskId && splitTaskId ? (
+                    <SplitChatLayout />
                   ) : selectedTaskId ? (
                     <ChatPanel />
                   ) : pendingWorkspace ? (
@@ -469,7 +501,7 @@ export function App() {
                 </Suspense>
               </div>
             </ErrorBoundary>
-            {sidePanelOpen && (selectedTaskId || pendingWorkspace) && (
+            {sidePanelOpen && !splitTaskId && (selectedTaskId || pendingWorkspace) && (
               <ErrorBoundary>
                 <Suspense>
                   <CodePanel onClose={closeSidePanel} workspace={pendingWorkspace ?? undefined} />

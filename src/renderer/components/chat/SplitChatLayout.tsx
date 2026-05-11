@@ -1,105 +1,90 @@
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useRef, useState, useEffect } from 'react'
+import { useTaskStore } from '@/stores/taskStore'
 import { ChatPanel } from './ChatPanel'
-import { SplitDivider } from './SplitDivider'
 import { SplitPanelHeader } from './SplitPanelHeader'
-import { usePanelContext, type PanelKey } from './PanelContext'
+import { SplitDivider } from './SplitDivider'
 
-/**
- * SplitChatLayout — orchestrates the two-pane chat container.
- *
- * Reads panel bindings, the active panel, and the split ratio from
- * `PanelContext`. In single-panel mode (right panel has no thread bound) it
- * renders `<ChatPanel />` full-width with no divider or split header so the
- * UI is visually identical to the pre-split Klaudex behavior. In split mode,
- * it renders a left panel + `<SplitDivider />` + right panel; each panel has
- * its own `<SplitPanelHeader />` and an independently scrollable chat region.
- *
- * NOTE on per-panel task scoping:
- * Klaudex's `<ChatPanel />` currently reads the active task from the global
- * `useTaskStore.selectedTaskId` selector and does not accept a `taskId` prop.
- * In split mode both panel subtrees therefore render the same selected task
- * until ChatPanel is refactored to accept a `taskId` prop (or wrapped in a
- * panel-scoped task store). Wiring that up is intentionally deferred: it
- * spans ChatPanel + every child that reads `selectedTaskId` and is out of
- * scope for TASK-042.
- *
- * TODO(TASK-043): plumb `panels[panel].threadId` into ChatPanel so each
- * split panel renders its own bound thread independently.
- */
-
-interface PanelSubtreeProps {
-  readonly panel: PanelKey
-  readonly showHeader: boolean
-}
-
-/**
- * Wraps a single panel column: optional header + an independently scrolling
- * ChatPanel container. Clicking anywhere in the column makes this the active
- * panel so keyboard / focus traversal lands here.
- */
-const PanelSubtree = memo(function PanelSubtree({ panel, showHeader }: PanelSubtreeProps) {
-  const { setActivePanel } = usePanelContext()
-  const handleFocus = useCallback(() => {
-    setActivePanel(panel)
-  }, [panel, setActivePanel])
-
-  return (
-    <div
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-      onMouseDownCapture={handleFocus}
-      role="region"
-      aria-label={panel === 'left' ? 'Left chat panel' : 'Right chat panel'}
-    >
-      {showHeader && <SplitPanelHeader panel={panel} />}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-        <ChatPanel />
-      </div>
-    </div>
-  )
-})
+const MIN_PANEL_PX = 400
 
 export const SplitChatLayout = memo(function SplitChatLayout() {
-  const { panels, ratio, setRatio } = usePanelContext()
-  const isSplit = panels.left.threadId !== null && panels.right.threadId !== null
+  const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
+  const splitTaskId = useTaskStore((s) => s.splitTaskId)
+  const splitRatio = useTaskStore((s) => s.splitRatio)
+  const focusedPanel = useTaskStore((s) => s.focusedPanel)
+  const setSplitRatio = useTaskStore((s) => s.setSplitRatio)
+  const setFocusedPanel = useTaskStore((s) => s.setFocusedPanel)
+  const closeSplit = useTaskStore((s) => s.closeSplit)
 
-  const handleResetRatio = useCallback(() => {
-    setRatio(0.5)
-  }, [setRatio])
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState(0)
 
-  // Single-panel mode: render ChatPanel full-width with no split chrome so
-  // the layout is byte-identical to the pre-split Klaudex experience.
-  if (!isSplit) {
-    return (
-      <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
-        <ChatPanel />
-      </div>
-    )
-  }
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0
+      setContainerWidth(width)
+      if (width > 0 && width < MIN_PANEL_PX * 2) closeSplit()
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [closeSplit])
 
-  // Split mode: left | divider | right. Each side gets a flex-basis derived
-  // from the persisted ratio so the divider drag updates layout in real time.
-  // Using flex (not grid) matches the SplitDivider implementation, which
-  // measures `dividerRef.current.parentElement.getBoundingClientRect()` to
-  // compute the new ratio on drag — that requires a flex container.
-  const leftWidth = `${ratio * 100}%`
-  const rightWidth = `${(1 - ratio) * 100}%`
+  const handleReset = useCallback(() => setSplitRatio(0.6), [setSplitRatio])
+
+  // Use onMouseDown instead of onClick to set focus before any child handlers fire.
+  // Bail-out guard: only call set if the panel isn't already focused.
+  const handleFocusLeft = useCallback(() => {
+    if (useTaskStore.getState().focusedPanel !== 'left') setFocusedPanel('left')
+  }, [setFocusedPanel])
+  const handleFocusRight = useCallback(() => {
+    if (useTaskStore.getState().focusedPanel !== 'right') setFocusedPanel('right')
+  }, [setFocusedPanel])
+
+  if (!selectedTaskId || !splitTaskId) return null
+
+  const leftWidth = `${splitRatio * 100}%`
+  const rightWidth = `${(1 - splitRatio) * 100}%`
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 overflow-hidden">
+    <div ref={containerRef} className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <div
         className="flex min-h-0 min-w-0 flex-col overflow-hidden"
         style={{ flexBasis: leftWidth, maxWidth: leftWidth }}
+        onMouseDown={handleFocusLeft}
+        role="region"
+        aria-label="Left chat panel"
       >
-        <PanelSubtree panel="left" showHeader />
+        <SplitPanelHeader
+          taskId={selectedTaskId}
+          isFocused={focusedPanel === 'left'}
+          onClose={closeSplit}
+          onFocus={handleFocusLeft}
+        />
+        <ChatPanel taskId={selectedTaskId} />
       </div>
 
-      <SplitDivider ratio={ratio} onRatioChange={setRatio} onReset={handleResetRatio} />
+      <SplitDivider
+        containerWidth={containerWidth}
+        ratio={splitRatio}
+        onRatioChange={setSplitRatio}
+        onReset={handleReset}
+      />
 
       <div
         className="flex min-h-0 min-w-0 flex-col overflow-hidden"
         style={{ flexBasis: rightWidth, maxWidth: rightWidth }}
+        onMouseDown={handleFocusRight}
+        role="region"
+        aria-label="Right chat panel"
       >
-        <PanelSubtree panel="right" showHeader />
+        <SplitPanelHeader
+          taskId={splitTaskId}
+          isFocused={focusedPanel === 'right'}
+          onClose={closeSplit}
+          onFocus={handleFocusRight}
+        />
+        <ChatPanel taskId={splitTaskId} />
       </div>
     </div>
   )

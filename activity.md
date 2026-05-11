@@ -1,3 +1,9 @@
+## 2026-05-11 08:53 GST (Dubai)
+### Split-screen: add split-screen core with store state, ChatPanel refactor, and layout components
+Ported upstream commit b5f3f50 adding split-screen functionality. Added splitTaskId, splitRatio, focusedPanel, and lastSplitPair to task store with persistence in history-store. Refactored ChatPanel to accept optional taskId prop. Created SplitChatLayout, SplitDivider, and SplitPanelHeader components. Wired split routing in App.tsx.
+
+**Modified:** `src/renderer/App.tsx`, `src/renderer/components/chat/ChatPanel.tsx`, `src/renderer/components/chat/SplitChatLayout.tsx` (new), `src/renderer/components/chat/SplitDivider.tsx` (new), `src/renderer/components/chat/SplitPanelHeader.tsx` (new), `src/renderer/lib/history-store.ts`, `src/renderer/stores/task-store-types.ts`, `src/renderer/stores/taskStore.ts`
+
 ## 2026-05-11 08:51 GST (Dubai)
 ### QueuedMessages: improve queue reorder chevron UX
 Ported upstream commit improving move up/down chevron buttons: increased icon size (3→3.5), added hover background, replaced invisible disabled state with dimmed + cursor-not-allowed, wrapped buttons in tooltips, improved aria-labels with message text snippet, and added tabIndex management.
