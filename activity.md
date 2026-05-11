@@ -1,3 +1,9 @@
+## 2026-05-11 09:00 GST (Dubai)
+### Chat: add container queries for compact toolbar and polish spacing
+Ported upstream commit 0efd666. Added @container/toolbar query to ChatToolbar so PlanToggle, ModelPicker, AutoApproveToggle, and BranchSelector hide text labels below 480px. Made AutoApproveToggle dropdown compact. Fixed ContextRing overlapping textarea with bg-card and pr-8 padding. Increased virtualizer row height estimates. Show Cmd+Enter hint only when meta key is held.
+
+**Modified:** `src/renderer/components/chat/AssistantTextRow.tsx`, `src/renderer/components/chat/AutoApproveToggle.tsx`, `src/renderer/components/chat/BranchSelector.tsx`, `src/renderer/components/chat/ChatInput.tsx`, `src/renderer/components/chat/ChatTextarea.tsx`, `src/renderer/components/chat/ChatToolbar.tsx`, `src/renderer/components/chat/ContextRing.tsx`, `src/renderer/components/chat/MessageList.tsx`, `src/renderer/components/chat/ModelPicker.tsx`, `src/renderer/components/chat/PlanToggle.tsx`, `src/renderer/components/chat/WorkGroupRow.tsx`
+
 ## 2026-05-11 08:58 GST (Dubai)
 ### Sidebar: replace drag-to-reorder with Move Up/Down context menu
 Ported upstream commit d31906e. Removed all pointer-based drag code from TaskSidebar and ProjectItem. Added Move Up/Down options to project context menu with boundary guards. Thread jump labels (1-9) shown when Cmd is held. Keyboard shortcut hints in SidebarFooter. Fixed useSidebarTasks to preserve store order for custom sort.
