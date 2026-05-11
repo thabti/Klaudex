@@ -61,7 +61,7 @@ const SplitToggleButton = memo(function SplitToggleButton() {
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          {isSplit ? "Close split view" : "Split view · compare two threads"}
+          {isSplit ? "Close split view" : "Split view · work side-by-side"}
         </TooltipContent>
       </Tooltip>
       {pickerPos && selectedTaskId && (
@@ -90,8 +90,15 @@ export const HeaderToolbar = memo(function HeaderToolbar({
   const taskStatus = useTaskStore((s) =>
     selectedTaskId ? s.tasks[selectedTaskId]?.status : null,
   ) as TaskStatus | null
+  // In split view, resolve the focused panel's taskId for terminal toggle
+  const focusedTaskId = useTaskStore((s) => {
+    if (!s.activeSplitId) return s.selectedTaskId
+    const sv = s.splitViews.find((v) => v.id === s.activeSplitId)
+    if (!sv) return s.selectedTaskId
+    return s.focusedPanel === 'left' ? sv.left : sv.right
+  })
   const terminalOpen = useTaskStore((s) =>
-    selectedTaskId ? s.terminalOpenTasks.has(selectedTaskId) : false,
+    focusedTaskId ? s.terminalOpenTasks.has(focusedTaskId) : false,
   )
   const toggleTerminal = useTaskStore((s) => s.toggleTerminal)
 
@@ -176,7 +183,7 @@ export const HeaderToolbar = memo(function HeaderToolbar({
         </ErrorBoundary>
       </div>
 
-      {selectedTaskId && (
+      {focusedTaskId && (
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -184,7 +191,7 @@ export const HeaderToolbar = memo(function HeaderToolbar({
               data-testid="toggle-terminal-button"
               aria-label="Toggle terminal"
               aria-pressed={terminalOpen}
-              onClick={() => toggleTerminal(selectedTaskId)}
+              onClick={() => toggleTerminal(focusedTaskId)}
               className={cn(
                 "inline-flex h-6 items-center rounded-md border border-input px-1.5 text-xs shadow-xs/5 transition-colors",
                 terminalOpen

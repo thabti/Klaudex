@@ -31,6 +31,8 @@ function makePlaceholder(id: number, lines: number, chars: number): string {
 interface UseChatInputOptions {
   disabled?: boolean
   isRunning?: boolean
+  isActive?: boolean
+  taskId?: string | null
   initialValue?: string
   initialAttachments?: Attachment[]
   initialFolderPaths?: string[]
@@ -45,14 +47,14 @@ interface UseChatInputOptions {
   onMentionedFilesChange?: (files: ProjectFile[]) => void
 }
 
-export function useChatInput({ disabled, isRunning, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange }: UseChatInputOptions) {
+export function useChatInput({ disabled, isRunning, isActive, taskId: taskIdProp, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange }: UseChatInputOptions) {
   const [value, setValue] = useState(initialValue ?? '')
   const [slashIndex, setSlashIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const backendCommands = useSettingsStore((s) => s.availableCommands)
   const { panel, dismissPanel, execute, executeFullInput } = useSlashAction()
 
-  const attachmentsBag = useAttachments(initialAttachments, initialFolderPaths)
+  const attachmentsBag = useAttachments(initialAttachments, initialFolderPaths, isActive)
   const mentionBag = useFileMention({ textareaRef, value, setValue, initialMentionedFiles })
 
   // ── Track Shift key for raw paste (Cmd+Shift+V) ────────────────
@@ -385,7 +387,8 @@ export function useChatInput({ disabled, isRunning, initialValue, initialAttachm
     // ArrowDown while browsing history → cycle forward, back to draft
     if (!showPicker && !showFilePicker && !panel) {
       const s = useTaskStore.getState()
-      const task = s.selectedTaskId ? s.tasks[s.selectedTaskId] : null
+      const resolvedId = taskIdProp ?? s.selectedTaskId
+      const task = resolvedId ? s.tasks[resolvedId] : null
       const msgs = task ? task.messages.filter((m) => m.role === 'user').map((m) => m.content) : []
       if (msgs.length > 0) {
         const el = textareaRef.current

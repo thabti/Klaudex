@@ -21,11 +21,13 @@ import { hasQuestionBlocks, stripQuestionBlocks } from "@/lib/question-parser";
 import { useDiffStore } from "@/stores/diffStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { handleExternalLinkClick, handleExternalLinkKeyDown } from "@/lib/open-external";
+import { useMessageListTaskId } from "./MessageList";
 
 interface ChatMarkdownProps {
   text: string;
   isStreaming?: boolean;
   questionsAnswered?: boolean;
+  taskId?: string | null;
 }
 
 function nodeToPlainText(node: ReactNode): string {
@@ -134,7 +136,9 @@ function wrapChildrenWithHighlight(children: ReactNode): ReactNode {
   });
 }
 
-function ChatMarkdown({ text, isStreaming = false, questionsAnswered = false }: ChatMarkdownProps) {
+function ChatMarkdown({ text, isStreaming = false, questionsAnswered = false, taskId: taskIdProp }: ChatMarkdownProps) {
+  const contextTaskId = useMessageListTaskId()
+  const resolvedTaskId = taskIdProp ?? contextTaskId
   const displayText = useMemo(
     () => (isStreaming ? stabilizeStreamingMarkdown(text) : text),
     [text, isStreaming],
@@ -265,7 +269,7 @@ function ChatMarkdown({ text, isStreaming = false, questionsAnswered = false }: 
 
   return (
     <div className={cn(PROSE_CLASSES, isStreaming && 'streaming-cursor')} style={{ fontSize: chatFontSize }}>
-      {showQuestions && <QuestionCards text={displayText} />}
+      {showQuestions && <QuestionCards text={displayText} taskId={resolvedTaskId} />}
       <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
         {markdownText}
       </ReactMarkdown>

@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react'
-import { IconPlus, IconArrowsUpDown, IconCheck, IconLayoutSidebarLeftCollapse, IconLayoutSidebarRightCollapse, IconFolderOpen, IconLayoutColumns, IconX } from '@tabler/icons-react'
+import { IconPlus, IconArrowsUpDown, IconCheck, IconLayoutSidebarLeftCollapse, IconLayoutSidebarRightCollapse, IconFolderOpen, IconLayoutColumns, IconX, IconPin } from '@tabler/icons-react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useShallow } from 'zustand/react/shallow'
@@ -128,6 +128,66 @@ const SplitViewsList = memo(function SplitViewsList() {
   )
 })
 
+/** Sidebar section showing pinned threads */
+const PinnedThreadsList = memo(function PinnedThreadsList({ selectedTaskId, onSelect }: { selectedTaskId: string | null; onSelect: (id: string) => void }) {
+  const pinnedThreadIds = useTaskStore((s) => s.pinnedThreadIds)
+  const tasks = useTaskStore((s) => s.tasks)
+  const unpinThread = useTaskStore((s) => s.unpinThread)
+
+  const pinnedTasks = pinnedThreadIds.map((id) => tasks[id]).filter(Boolean)
+  if (pinnedTasks.length === 0) return null
+
+  return (
+    <div className="px-2 pb-1">
+      <div className="flex items-center gap-1.5 px-2 pb-1.5 pt-1">
+        <IconPin className="size-3 text-amber-500/60" />
+        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">Pinned</span>
+      </div>
+      <ul className="flex flex-col gap-0.5">
+        {pinnedTasks.map((task) => {
+          const isActive = task.id === selectedTaskId
+          return (
+            <li key={task.id} className="group/pin relative">
+              <button
+                type="button"
+                onClick={() => onSelect(task.id)}
+                className={cn(
+                  'flex min-w-0 h-7 w-full items-center gap-1.5 rounded-lg px-2 text-[12px] select-none transition-colors',
+                  isActive
+                    ? 'bg-accent/85 dark:bg-accent/55 text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+              >
+                <span className="min-w-0 truncate">{task.name}</span>
+              </button>
+              <button
+                type="button"
+                aria-label="Unpin thread"
+                onClick={(e) => { e.stopPropagation(); unpinThread(task.id) }}
+                className="absolute right-1 top-1/2 -translate-y-1/2 hidden size-4 items-center justify-center rounded text-muted-foreground/50 hover:bg-accent hover:text-foreground group-hover/pin:flex"
+              >
+                <IconX className="size-2.5" />
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+})
+
+/** Thin separator shown when split views or pinned threads exist above the project list */
+const SidebarDivider = memo(function SidebarDivider() {
+  const hasSplits = useTaskStore((s) => s.splitViews.length > 0)
+  const hasPins = useTaskStore((s) => s.pinnedThreadIds.length > 0)
+  if (!hasSplits && !hasPins) return null
+  return (
+    <div className="flex justify-center py-1">
+      <div className="h-px w-8 bg-border/40" />
+    </div>
+  )
+})
+
 export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position = 'left' }: TaskSidebarProps) {
   const isRight = position === 'right'
   const [sort, setSort] = useState<SortKey>('created')
@@ -186,7 +246,18 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
     if (id.startsWith('draft:')) {
       useTaskStore.getState().setPendingWorkspace(id.slice(6))
     } else {
-      setSelectedTask(id); setView('chat')
+      // If this thread is part of a split view, activate that split instead
+      const state = useTaskStore.getState()
+      const sv = state.splitViews.find((v) => v.left === id || v.right === id)
+      if (sv) {
+        state.setActiveSplit(sv.id)
+        const panel = sv.left === id ? 'left' : 'right'
+        state.setFocusedPanel(panel)
+        useTaskStore.setState({ selectedTaskId: id })
+        setView('chat')
+      } else {
+        setSelectedTask(id); setView('chat')
+      }
     }
   }, [setSelectedTask, setView])
   const handleDeleteTask = useCallback((id: string) => {
@@ -247,6 +318,8 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
         </div>
       </div>
       <SplitViewsList />
+      <PinnedThreadsList selectedTaskId={selectedTaskId ?? (pendingWorkspace ? `draft:${pendingWorkspace}` : null)} onSelect={handleSelectTask} />
+      <SidebarDivider />
       <ScrollArea className="min-h-0 flex-1 overflow-hidden px-2">
         <div className="min-w-0 pb-2">
           <div className="relative flex min-w-0 flex-col">

@@ -33,10 +33,24 @@ export const SplitChatLayout = memo(function SplitChatLayout() {
 
   const handleReset = useCallback(() => setSplitRatio(0.5), [setSplitRatio])
   const handleFocusLeft = useCallback(() => {
-    if (useTaskStore.getState().focusedPanel !== 'left') setFocusedPanel('left')
+    const state = useTaskStore.getState()
+    if (state.focusedPanel !== 'left') {
+      setFocusedPanel('left')
+      const sv = state.splitViews.find((v) => v.id === state.activeSplitId)
+      if (sv && state.selectedTaskId !== sv.left) {
+        useTaskStore.setState({ selectedTaskId: sv.left })
+      }
+    }
   }, [setFocusedPanel])
   const handleFocusRight = useCallback(() => {
-    if (useTaskStore.getState().focusedPanel !== 'right') setFocusedPanel('right')
+    const state = useTaskStore.getState()
+    if (state.focusedPanel !== 'right') {
+      setFocusedPanel('right')
+      const sv = state.splitViews.find((v) => v.id === state.activeSplitId)
+      if (sv && state.selectedTaskId !== sv.right) {
+        useTaskStore.setState({ selectedTaskId: sv.right })
+      }
+    }
   }, [setFocusedPanel])
 
   if (!activeSplit) return null

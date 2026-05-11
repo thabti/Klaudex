@@ -62,6 +62,8 @@ export interface TaskStore {
   lastAddedProject: string | null
   /** Pending worktree cleanup — set when a worktree thread is being deleted/archived */
   worktreeCleanupPending: { taskId: string; worktreePath: string; branch: string; originalWorkspace: string; action: 'archive' | 'delete'; hasChanges: boolean | null } | null
+  /** Thread IDs pinned to the top of the sidebar */
+  pinnedThreadIds: string[]
   /** Saved split view pairings */
   splitViews: Array<{ id: string; left: string; right: string; ratio: number }>
   /** Currently active split view ID (null = single panel mode) */
@@ -127,6 +129,10 @@ export interface TaskStore {
   createSplitView: (left: string, right: string) => string
   /** Remove a saved split view */
   removeSplitView: (id: string) => void
+  /** Pin a thread to the top of the sidebar */
+  pinThread: (id: string) => void
+  /** Unpin a thread from the sidebar */
+  unpinThread: (id: string) => void
   /** Activate a saved split view (null to deactivate) */
   setActiveSplit: (id: string | null) => void
   /** Update the active split view's ratio */

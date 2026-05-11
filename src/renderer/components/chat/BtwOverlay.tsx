@@ -28,13 +28,14 @@ const BtwReportPill = memo(function BtwReportPill({ status, summary }: { status:
  * Shows the question and streams the response without polluting the main conversation.
  * Dismiss with Escape to discard, or click "Keep" to preserve the Q&A (tail mode).
  */
-export const BtwOverlay = memo(function BtwOverlay() {
+export const BtwOverlay = memo(function BtwOverlay({ taskId: taskIdProp }: { taskId?: string | null }) {
   const checkpoint = useTaskStore((s) => s.btwCheckpoint)
-  const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
-  const messages = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.messages ?? EMPTY_MESSAGES : EMPTY_MESSAGES)
-  const streamingChunk = useTaskStore((s) => selectedTaskId ? s.streamingChunks[selectedTaskId] ?? '' : '')
+  const storeSelectedId = useTaskStore((s) => s.selectedTaskId)
+  const resolvedTaskId = taskIdProp ?? storeSelectedId
+  const messages = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.messages ?? EMPTY_MESSAGES : EMPTY_MESSAGES)
+  const streamingChunk = useTaskStore((s) => resolvedTaskId ? s.streamingChunks[resolvedTaskId] ?? '' : '')
   const exitBtwMode = useTaskStore((s) => s.exitBtwMode)
-  const pendingPermission = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.pendingPermission : null)
+  const pendingPermission = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.pendingPermission : null)
   const overlayRef = useRef<HTMLDivElement>(null)
 
   // Find the assistant response added after the checkpoint
@@ -50,9 +51,9 @@ export const BtwOverlay = memo(function BtwOverlay() {
   const handleDismiss = useCallback(() => exitBtwMode(false), [exitBtwMode])
 
   const handlePermissionSelect = useCallback((optionId: string) => {
-    if (!selectedTaskId || !pendingPermission) return
-    ipc.selectPermissionOption(selectedTaskId, pendingPermission.requestId, optionId).catch(() => {})
-  }, [selectedTaskId, pendingPermission])
+    if (!resolvedTaskId || !pendingPermission) return
+    ipc.selectPermissionOption(resolvedTaskId, pendingPermission.requestId, optionId).catch(() => {})
+  }, [resolvedTaskId, pendingPermission])
 
   // Escape key dismisses
   useEffect(() => {
@@ -127,10 +128,10 @@ export const BtwOverlay = memo(function BtwOverlay() {
         </div>
 
         {/* Permission request (rendered inside overlay so user can respond) */}
-        {pendingPermission && selectedTaskId && (
+        {pendingPermission && resolvedTaskId && (
           <div className="shrink-0 border-t border-border/30">
             <PermissionBanner
-              taskId={selectedTaskId}
+              taskId={resolvedTaskId}
               toolName={pendingPermission.toolName}
               description={pendingPermission.description}
               options={pendingPermission.options ?? EMPTY_OPTIONS}

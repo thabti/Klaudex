@@ -147,8 +147,14 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
   const toggleTerminal = useTaskStore((s) => s.toggleTerminal)
   const queuedMessages = useTaskStore((s) => resolvedTaskId ? s.queuedMessages[resolvedTaskId] ?? EMPTY_QUEUE : EMPTY_QUEUE)
   const isBtwMode = useTaskStore((s) => s.btwCheckpoint !== null)
-  const totalCost = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.totalCost : undefined)
-  const pendingUserInput = useTaskStore((s) => resolvedTaskId ? (s as any).pendingUserInputs?.[resolvedTaskId] : undefined)
+  // In split view, determine if this panel is the focused one (for drag/drop scoping)
+  const isFocusedPanel = useTaskStore((s) => {
+    if (!s.activeSplitId || !taskIdProp) return true // not in split view = always active
+    const sv = s.splitViews.find((v) => v.id === s.activeSplitId)
+    if (!sv) return true
+    const focusedTaskId = s.focusedPanel === 'left' ? sv.left : sv.right
+    return focusedTaskId === taskIdProp
+  })
 
   const timelineRowsRef = useRef<TimelineRow[]>([])
   const [timelineRows, setTimelineRows] = useState<TimelineRow[]>([])
@@ -208,8 +214,10 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
     if (!id) return
     const queued = state.queuedMessages[id]?.[index]
     if (!queued) return
-    await ipc.pauseTask(id)
+    // Remove from queue BEFORE pausing — the onTurnEnd handler auto-sends
+    // the first queued message, so it must be gone before the pause completes.
     state.removeQueuedMessage(id, index)
+    await ipc.pauseTask(id)
     useTaskStore.setState((s) => applyTurnEnd(s, id))
     await sendMessageDirect(id, queued.text, queued.attachments ? [...queued.attachments] : undefined)
   }, [resolvedTaskId])
@@ -251,7 +259,7 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
 
   return (
     <div data-testid="chat-panel" className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col">
-      {isBtwMode && <BtwOverlay />}
+      {isBtwMode && <BtwOverlay taskId={resolvedTaskId} />}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {taskPlan && taskPlan.length > 0 && (
           <div className="shrink-0 px-4 pt-2">
@@ -338,6 +346,8 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
             contextUsage={contextUsage}
             messageCount={messageCount}
             isRunning={isRunning}
+            isActive={isFocusedPanel}
+            taskId={resolvedTaskId}
             hasQueuedMessages={queuedMessages.length > 0}
             onSendMessage={handleSendMessage}
             onPause={handlePause}

@@ -4,7 +4,7 @@ import { ipc } from '@/lib/ipc'
 import { processDroppedFile, processNativePath } from '@/components/chat/attachment-utils'
 import type { Attachment } from '@/types'
 
-export function useAttachments(initialAttachments?: Attachment[], initialFolderPaths?: string[]) {
+export function useAttachments(initialAttachments?: Attachment[], initialFolderPaths?: string[], isActive = true) {
   const [attachments, setAttachments] = useState<Attachment[]>(initialAttachments ?? [])
   const [folderPaths, setFolderPaths] = useState<string[]>(initialFolderPaths ?? [])
   const [isDragOver, setIsDragOver] = useState(false)
@@ -54,6 +54,10 @@ export function useAttachments(initialAttachments?: Attachment[], initialFolderP
     const appWindow = getCurrentWebviewWindow()
     const unlistenPromise = appWindow.onDragDropEvent(async (event) => {
       if (cancelled) return
+      if (!isActive) {
+        setIsDragOver(false)
+        return
+      }
       if (event.payload.type === 'over') {
         setIsDragOver(true)
       } else if (event.payload.type === 'drop') {
@@ -82,7 +86,7 @@ export function useAttachments(initialAttachments?: Attachment[], initialFolderP
       cancelled = true
       unlistenPromise.then((fn) => fn())
     }
-  }, [])
+  }, [isActive])
 
   return {
     attachments,

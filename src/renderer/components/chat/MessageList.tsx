@@ -5,6 +5,7 @@ import type { TaskMessage, ToolCall } from '@/types'
 import { deriveTimeline, type TimelineRow } from '@/lib/timeline'
 import { cn } from '@/lib/utils'
 import { useTaskStore } from '@/stores/taskStore'
+import { createContext, useContext } from 'react'
 import {
   UserMessageRow,
   SystemMessageRow,
@@ -13,6 +14,10 @@ import {
   WorkingRow,
   ChangedFilesSummary,
 } from './TimelineRows'
+
+/** Context to pass the current taskId down to deeply nested components (e.g. QuestionCards) */
+export const MessageListTaskIdContext = createContext<string | null>(null)
+export const useMessageListTaskId = (): string | null => useContext(MessageListTaskIdContext)
 
 const AUTO_SCROLL_THRESHOLD = 150
 
@@ -60,6 +65,8 @@ export const MessageList = memo(function MessageList({
   /** Guard so programmatic scrolls don't flip isNearBottomRef */
   const isProgrammaticScrollRef = useRef(false)
   const prevTaskIdRef = useRef(taskId)
+  /** True while we're waiting for the virtualizer to settle after a thread switch */
+  const pendingScrollRef = useRef<'bottom' | number | null>(null)
 
   // Save scroll position when switching away from a thread
   useEffect(() => {
@@ -70,6 +77,22 @@ export const MessageList = memo(function MessageList({
       useTaskStore.getState().saveScrollPosition(prevId, parentRef.current.scrollTop)
     }
     prevTaskIdRef.current = taskId
+    // Determine where to scroll in the new thread
+    if (!taskId) return
+    const saved = useTaskStore.getState().scrollPositions[taskId]
+    if (saved !== undefined) {
+      // Restore saved position — check if it was near bottom
+      const el = parentRef.current
+      if (el) {
+        const distFromBottom = el.scrollHeight - saved - el.clientHeight
+        isNearBottomRef.current = distFromBottom < AUTO_SCROLL_THRESHOLD
+      }
+      pendingScrollRef.current = saved
+    } else {
+      // No saved position — default to bottom
+      isNearBottomRef.current = true
+      pendingScrollRef.current = 'bottom'
+    }
   }, [taskId])
 
   // Save scroll position on unmount (e.g., switching to dashboard/analytics)
@@ -115,11 +138,18 @@ export const MessageList = memo(function MessageList({
     isNearBottomRef.current = true
     setShowScrollBtn(false)
     isProgrammaticScrollRef.current = true
-    el.scrollTop = el.scrollHeight
+    // Use scrollToIndex for accurate positioning with the virtualizer
+    if (timelineRows.length > 0) {
+      virtualizer.scrollToIndex(timelineRows.length - 1, { align: 'end' })
+    }
+    // Also set raw scrollTop as a fallback after virtualizer settles
     requestAnimationFrame(() => {
-      isProgrammaticScrollRef.current = false
+      el.scrollTop = el.scrollHeight
+      requestAnimationFrame(() => {
+        isProgrammaticScrollRef.current = false
+      })
     })
-  }, [])
+  }, [timelineRows.length, virtualizer])
 
   useEffect(() => {
     const el = parentRef.current
@@ -136,17 +166,47 @@ export const MessageList = memo(function MessageList({
     return () => el.removeEventListener('scroll', handleScroll)
   }, [])
 
+  // Execute pending scroll after the virtualizer has laid out the new content.
+  // We wait two frames: one for React to commit, one for the virtualizer to measure.
+  useEffect(() => {
+    if (pendingScrollRef.current === null) return
+    if (timelineRows.length === 0) return
+    const target = pendingScrollRef.current
+    pendingScrollRef.current = null
+    isProgrammaticScrollRef.current = true
+    // First frame: let virtualizer measure
+    requestAnimationFrame(() => {
+      const el = parentRef.current
+      if (!el) { isProgrammaticScrollRef.current = false; return }
+      if (target === 'bottom') {
+        virtualizer.scrollToIndex(timelineRows.length - 1, { align: 'end' })
+        // Second frame: ensure we're truly at the bottom after virtualizer settles
+        requestAnimationFrame(() => {
+          el.scrollTop = el.scrollHeight
+          isNearBottomRef.current = true
+          setShowScrollBtn(false)
+          requestAnimationFrame(() => { isProgrammaticScrollRef.current = false })
+        })
+      } else {
+        el.scrollTop = target
+        const distFromBottom = el.scrollHeight - target - el.clientHeight
+        isNearBottomRef.current = distFromBottom < AUTO_SCROLL_THRESHOLD
+        setShowScrollBtn(!isNearBottomRef.current)
+        requestAnimationFrame(() => { isProgrammaticScrollRef.current = false })
+      }
+    })
+  }, [taskId, timelineRows.length, virtualizer])
+
   // Auto-scroll when new content arrives and user is near bottom.
-  // Use raw scrollTop instead of scrollToIndex to avoid fighting
-  // the virtualizer's stale measurements during streaming.
   useEffect(() => {
     if (!isNearBottomRef.current) return
+    // Don't auto-scroll if we have a pending thread-switch scroll
+    if (pendingScrollRef.current !== null) return
     const el = parentRef.current
     if (!el) return
+    isProgrammaticScrollRef.current = true
     requestAnimationFrame(() => {
-      isProgrammaticScrollRef.current = true
       el.scrollTop = el.scrollHeight
-      // Reset the flag after the browser processes the scroll event
       requestAnimationFrame(() => {
         isProgrammaticScrollRef.current = false
       })
@@ -162,26 +222,6 @@ export const MessageList = memo(function MessageList({
     }
   }, [activeMatchId, timelineRows, virtualizer])
 
-  // Restore saved scroll position when switching to a thread
-  useEffect(() => {
-    if (!taskId) return
-    const el = parentRef.current
-    if (!el) return
-    const saved = useTaskStore.getState().scrollPositions[taskId]
-    if (saved === undefined) return
-    // Wait for the virtualizer to lay out the new content
-    isProgrammaticScrollRef.current = true
-    requestAnimationFrame(() => {
-      el.scrollTop = saved
-      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-      isNearBottomRef.current = distFromBottom < AUTO_SCROLL_THRESHOLD
-      setShowScrollBtn(!isNearBottomRef.current)
-      requestAnimationFrame(() => {
-        isProgrammaticScrollRef.current = false
-      })
-    })
-  }, [taskId])
-
   if (!timelineRows.length) {
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground">
@@ -193,6 +233,7 @@ export const MessageList = memo(function MessageList({
   const virtualItems = virtualizer.getVirtualItems()
 
   return (
+    <MessageListTaskIdContext.Provider value={taskId ?? null}>
     <div className="relative min-h-0 flex-1">
       <div
         ref={parentRef}
@@ -253,6 +294,7 @@ export const MessageList = memo(function MessageList({
         </button>
       )}
     </div>
+    </MessageListTaskIdContext.Provider>
   )
 })
 

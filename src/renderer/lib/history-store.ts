@@ -191,6 +191,7 @@ export interface PersistedUiState {
   sidebarCollapsed: boolean
   splitViews?: Array<{ id: string; left: string; right: string; ratio: number }>
   activeSplitId?: string | null
+  pinnedThreadIds?: string[]
 }
 
 /** Save the current UI state so it can be restored on next launch */

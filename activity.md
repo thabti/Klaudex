@@ -1,3 +1,9 @@
+## 2026-05-11 09:20 GST (Dubai)
+### Split view: pin threads, focus isolation, scroll fix, steer dedup
+Ported upstream commit 808b382. Added pin thread feature (right-click context menu, persistence, auto-cleanup on delete). Fixed split view focus isolation for drag overlay, question cards, history cycling, slash commands, mentions, and terminal. Rewrote MessageList scroll to default to bottom on thread switch with pendingScrollRef. Fixed steer duplicate message by reordering removeQueuedMessage before pauseTask. Header terminal button now uses focusedTaskId. Added sidebar divider between pinned/split sections and project list. Includes 16 new unit tests.
+
+**Modified:** `src/renderer/App.tsx`, `src/renderer/components/chat/BtwOverlay.tsx`, `src/renderer/components/chat/ChatInput.tsx`, `src/renderer/components/chat/ChatMarkdown.tsx`, `src/renderer/components/chat/ChatPanel.tsx`, `src/renderer/components/chat/MessageList.tsx`, `src/renderer/components/chat/QuestionCards.tsx`, `src/renderer/components/chat/SplitChatLayout.tsx`, `src/renderer/components/header-toolbar.tsx`, `src/renderer/components/sidebar/TaskSidebar.tsx`, `src/renderer/components/sidebar/ThreadItem.tsx`, `src/renderer/hooks/useAttachments.ts`, `src/renderer/hooks/useChatInput.ts`, `src/renderer/lib/history-store.ts`, `src/renderer/stores/task-store-types.ts`, `src/renderer/stores/taskStore.test.ts`, `src/renderer/stores/taskStore.ts`
+
 ## 2026-05-11 09:12 GST (Dubai)
 ### UpdateAvailableDialog: wire self-contained Radix Dialog modal in App.tsx
 Ported upstream commit 5ba095f. Removed the toast-based `UpdateNotifier` component and `RestartPromptDialog` from App.tsx, replacing them with the existing `UpdateAvailableDialog` Radix Dialog modal. Made the dialog's props optional so it works self-contained (auto-opens when an update is available and not snoozed).

@@ -8,8 +8,10 @@ export { hasQuestionBlocks, stripQuestionBlocks } from "@/lib/question-parser";
 
 export const QuestionCards = memo(function QuestionCards({
   text,
+  taskId: taskIdProp,
 }: {
   text: string;
+  taskId?: string | null;
 }) {
   const blocks = parseQuestions(text);
   const [page, setPage] = useState(0);
@@ -52,7 +54,7 @@ export const QuestionCards = memo(function QuestionCards({
     }
     if (!isAllAnswered) return;
     const state = useTaskStore.getState();
-    const id = state.selectedTaskId;
+    const id = taskIdProp ?? state.selectedTaskId;
     const task = id ? state.tasks[id] : null;
     if (!task || task.status === "running" || task.status === "cancelled")
       return;

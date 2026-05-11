@@ -46,6 +46,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   lastAddedProject: null,
   worktreeCleanupPending: null,
   splitViews: [],
+  pinnedThreadIds: [],
   activeSplitId: null,
   focusedPanel: 'left' as const,
   scrollPositions: {},
@@ -356,6 +357,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         selectedTaskId: state.selectedTaskId === id ? null : state.selectedTaskId,
         splitViews: state.splitViews.filter((sv) => sv.left !== id && sv.right !== id),
         activeSplitId: state.splitViews.some((sv) => (sv.left === id || sv.right === id) && sv.id === state.activeSplitId) ? null : state.activeSplitId,
+        pinnedThreadIds: state.pinnedThreadIds.filter((tid) => tid !== id),
       }
     })
     get().persistHistory()
@@ -1084,6 +1086,16 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       splitViews: s.splitViews.filter((sv) => sv.id !== id),
       activeSplitId: s.activeSplitId === id ? null : s.activeSplitId,
     }))
+  },
+  pinThread: (id) => {
+    if (get().pinnedThreadIds.includes(id)) return
+    set((s) => ({ pinnedThreadIds: [...s.pinnedThreadIds, id] }))
+    get().persistHistory()
+  },
+  unpinThread: (id) => {
+    if (!get().pinnedThreadIds.includes(id)) return
+    set((s) => ({ pinnedThreadIds: s.pinnedThreadIds.filter((tid) => tid !== id) }))
+    get().persistHistory()
   },
   setActiveSplit: (id) => {
     if (get().activeSplitId === id) return

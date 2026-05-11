@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useEffect, useCallback } from 'react'
-import { IconPencil, IconTrash, IconArchive, IconGitBranch, IconLayoutColumns, IconArrowsSplit } from '@tabler/icons-react'
+import { IconPencil, IconTrash, IconArchive, IconGitBranch, IconLayoutColumns, IconArrowsSplit, IconPin, IconPinnedOff } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTaskStore } from '@/stores/taskStore'
 import { SplitThreadPicker } from '@/components/chat/SplitThreadPicker'
@@ -95,6 +95,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
   const [splitPicker, setSplitPicker] = useState<{ x: number; y: number } | null>(null)
 
   const isInSplit = useTaskStore((s) => s.splitViews.some((sv) => sv.left === task.id || sv.right === task.id))
+  const isPinned = useTaskStore((s) => s.pinnedThreadIds.includes(task.id))
 
   const handleNewSplitView = useCallback(() => {
     setCtxMenu(null)
@@ -106,6 +107,16 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
     const state = useTaskStore.getState()
     const sv = state.splitViews.find((v) => v.left === task.id || v.right === task.id)
     if (sv) state.removeSplitView(sv.id)
+  }, [task.id])
+
+  const handleTogglePin = useCallback(() => {
+    setCtxMenu(null)
+    const state = useTaskStore.getState()
+    if (state.pinnedThreadIds.includes(task.id)) {
+      state.unpinThread(task.id)
+    } else {
+      state.pinThread(task.id)
+    }
   }, [task.id])
 
   return (
@@ -143,6 +154,9 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
         )}
         {isInSplit && (
           <IconLayoutColumns className="size-3 shrink-0 text-primary/60" aria-label="In split view" />
+        )}
+        {isPinned && !isInSplit && (
+          <IconPin className="size-3 shrink-0 text-amber-500/70" aria-label="Pinned" />
         )}
         {editing ? (
           <input
@@ -233,6 +247,14 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
                     onClick={handleRenameClick}
                   >
                     <IconPencil className="size-3.5" /> Rename
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                    onClick={handleTogglePin}
+                  >
+                    {isPinned ? <IconPinnedOff className="size-3.5" /> : <IconPin className="size-3.5" />}
+                    {isPinned ? 'Unpin' : 'Pin thread'}
                   </button>
                   <div className="my-1 border-t border-border/50" />
                   {isInSplit ? (
