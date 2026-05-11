@@ -1,3 +1,9 @@
+## 2026-05-11 12:21 GST (Dubai)
+### Port: Make sidebar full height, move header into content column (kirodex@8876435)
+Cherry-picked upstream layout refactor. Sidebar now spans full window height with pt-9 for macOS traffic light clearance. Header and content are nested in a flex column beside the sidebar. Added collapse button inside sidebar and header only shows expand button when collapsed. Removed HeaderUserMenu from AppHeader. Fixed missing Tooltip import and unclosed JSX expression from merge.
+
+**Modified:** src/renderer/App.tsx, src/renderer/components/AppHeader.tsx, src/renderer/components/header-breadcrumb.tsx, src/renderer/components/sidebar/TaskSidebar.tsx
+
 ## 2026-05-11 12:19 GST (Dubai)
 ### Port: Restyle toolbar as connected button group (kirodex@cde5ee2)
 Cherry-picked upstream styling commit that joins editor, terminal, file tree, and split buttons into a single rounded container with bg-muted/40 and thin vertical dividers. Git section moved to far right with emerald accent background. Resolved conflict where upstream had isGitRepo conditionals not present in klaudex.

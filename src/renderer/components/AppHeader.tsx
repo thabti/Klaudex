@@ -13,7 +13,6 @@ import { WindowsControls } from "@/components/unified-title-bar/WindowsControls"
 import { HeaderBreadcrumb } from "@/components/header-breadcrumb"
 import { HeaderToolbar } from "@/components/header-toolbar"
 import { HeaderGhostToolbar } from "@/components/header-ghost-toolbar"
-import { HeaderUserMenu } from "@/components/header-user-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { AppSettings } from "@/types"
@@ -262,49 +261,40 @@ const AppHeaderInner = memo(function AppHeaderInner({
   const workspace = taskWorkspace ?? pendingWorkspace
 
   return (
-    <>
-      <header
-        data-testid="app-header"
-        data-tauri-drag-region
-        onMouseDown={handleHeaderMouseDown}
-        className={cn(
-          "flex h-[38px] shrink-0 items-center gap-3 border-b border-border bg-background p-0 pt-1 select-none [-webkit-user-select:none]",
-          IS_MAC ? (isFullscreen ? "pl-2 pr-2" : "pl-[74px] pr-2") : "pl-2 pr-[138px]",
-        )}
-      >
-        {/* Breadcrumb left */}
-        <HeaderBreadcrumb
-          isSidebarCollapsed={isSidebarCollapsed}
-          onToggleSidebar={onToggleSidebar}
-          sidebarPosition={sidebarPosition}
-          isMac={IS_MAC}
+    <header
+      data-testid="app-header"
+      data-tauri-drag-region
+      onMouseDown={handleHeaderMouseDown}
+      className={cn(
+        "flex h-[38px] shrink-0 items-center gap-3 border-b border-border bg-background p-0 pt-1 select-none [-webkit-user-select:none]",
+        IS_MAC ? (isFullscreen ? "pl-2 pr-2" : isSidebarCollapsed ? "pl-[74px] pr-2" : "pl-2 pr-2") : "pl-2 pr-[138px]",
+      )}
+    >
+      {/* Breadcrumb left */}
+      <HeaderBreadcrumb
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebar={onToggleSidebar}
+        sidebarPosition={sidebarPosition}
+        isMac={IS_MAC}
+      />
+
+      {/* Actions right */}
+      {!workspace && <HeaderGhostToolbar />}
+      {workspace && (
+        <HeaderToolbar
+          workspace={workspace}
+          sidePanelOpen={sidePanelOpen}
+          onToggleSidePanel={onToggleSidePanel}
         />
+      )}
 
-        {/* Actions right */}
-        {!workspace && <HeaderGhostToolbar />}
-        {workspace && (
-          <HeaderToolbar
-            workspace={workspace}
-            sidePanelOpen={sidePanelOpen}
-            onToggleSidePanel={onToggleSidePanel}
-          />
-        )}
-
-        {/* Permission mode chip */}
-        <PermissionModeChip />
-
-        {/* User menu */}
-        <HeaderUserMenu />
-
-        {/* Window controls for Windows/Linux */}
-        {!IS_MAC && (
-          <div className="fixed top-0 right-0 z-50">
-            <WindowsControls />
-          </div>
-        )}
-      </header>
-      <BypassBanner />
-    </>
+      {/* Window controls for Windows/Linux */}
+      {!IS_MAC && (
+        <div className="fixed top-0 right-0 z-50">
+          <WindowsControls />
+        </div>
+      )}
+    </header>
   )
 })
 
