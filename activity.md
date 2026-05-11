@@ -1,3 +1,9 @@
+## 2026-05-11 12:16 GST (Dubai)
+### Port: Restyle sidebar footer with inline buttons and user menu (kirodex@03909be)
+Cherry-picked upstream refactor that changes the sidebar footer from a vertical stack to a horizontal row, makes the debug button icon-only, moves it to the right of settings, adds HeaderUserMenu to the footer, and defaults the ClaudeConfig panel to collapsed.
+
+**Modified:** src/renderer/components/sidebar/SidebarFooter.tsx
+
 ## 2026-05-11 12:06 GST (Dubai)
 ### Port: Fix clipped unmodified lines separator (kirodex@b51e6b4)
 Cherry-picked upstream fix adding `overflow: visible !important` overrides for `[data-separator-content]` and `[data-unmodified-lines]` in both DiffPanel and diff-viewer-utils UNSAFE_CSS to prevent @pierre/diffs separator text from being clipped.
