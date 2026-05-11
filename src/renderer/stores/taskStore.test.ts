@@ -937,6 +937,9 @@ describe('persistHistory', () => {
       expect.objectContaining({ 'task-1': expect.any(Object) }),
       expect.objectContaining({ '/ws': 'My Project' }),
       expect.any(Object),
+      expect.any(Array),
+      expect.any(Object),
+      expect.any(Set),
     )
   })
 })

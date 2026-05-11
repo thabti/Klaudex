@@ -5,6 +5,7 @@ vi.mock('@/lib/ipc', () => ({
     getClaudeConfig: vi.fn().mockResolvedValue({ agents: [], commands: [], memoryFiles: [], mcpServers: [] }),
     onMcpConnecting: vi.fn().mockReturnValue(() => {}),
     onMcpUpdate: vi.fn().mockReturnValue(() => {}),
+    onClaudeConfigChanged: vi.fn().mockReturnValue(() => {}),
   },
 }))
 

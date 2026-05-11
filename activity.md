@@ -1,3 +1,9 @@
+## 2026-05-11 10:26 GST (Dubai)
+### Tests: Fix mocks for claudeConfigStore, taskStore, and SidebarFooter tests
+Ported upstream commit 7452775. Added missing `onClaudeConfigChanged` to claudeConfigStore ipc mock. Updated `persistHistory` assertion to match 6-arg `saveThreads` signature. Added `jsDebugStore`, `useModifierKeys`, and `thread-memory` mocks to SidebarFooter test.
+
+**Modified:** `src/renderer/stores/claudeConfigStore.test.ts`, `src/renderer/stores/taskStore.test.ts`, `src/renderer/components/sidebar/SidebarFooter.test.tsx`
+
 ## 2026-05-11 10:05 GST (Dubai)
 ### Model Icons: Add GLM, Qwen, and MiniMax provider icons
 Ported upstream commit 82acfb1. Added three new model providers to `model-icons.tsx`: GLM/ChatGLM (Zhipu AI, #4268FA), Qwen (Alibaba, #615CED), and MiniMax (#F23F5D). Each gets a Provider type entry, regex detection pattern, branded SVG component, and ICON_MAP entry.
