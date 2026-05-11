@@ -1,3 +1,9 @@
+## 2026-05-11 07:17 GST (Dubai)
+### History: Fix state not persisting across restarts
+Ported upstream commit fb235c2 from kirodex. Added missing `store:allow-load` permission so LazyStore can load from disk. Removed `!isArchived` filter from saveThreads so archived threads survive persistence. Added `document.hasFocus()` guard to cross-window sync to prevent own-window writes from triggering reloads that overwrite live streaming state.
+
+**Modified:** `src-tauri/capabilities/default.json`, `src-tauri/gen/schemas/capabilities.json`, `src/renderer/App.tsx`, `src/renderer/lib/history-store.ts`
+
 ## 2026-05-11 07:15 GST (Dubai)
 ### Updater: Fix "Restart now" button silently failing
 Ported upstream commit 4a22d88 from kirodex. Made `triggerRestart` properly async, added try/catch with error surfacing to all three restart entry points (RestartPromptDialog, UpdatesCard, AboutDialog), added loading state + spinner to the restart dialog button, and prevented double-click/dismiss while restarting.
