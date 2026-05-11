@@ -78,7 +78,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const softDeleted = { ...s.softDeleted }
       const deletedTaskIds = new Set(s.deletedTaskIds)
       for (const tid of restoredIds) {
-        tasks[tid] = { ...softDeleted[tid].task, isArchived: true }
+        tasks[tid] = { ...softDeleted[tid].task, isArchived: true, projectId: id }
         delete softDeleted[tid]
         deletedTaskIds.delete(tid)
       }
@@ -103,12 +103,15 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   removeProject: (workspace) => set((s) => {
-    logStoreAction('taskStore', 'removeProject', { workspace })
-    const taskIds = Object.keys(s.tasks).filter((id) => {
+    let taskIds = Object.keys(s.tasks).filter((id) => {
       const t = s.tasks[id]
       const ws = t.originalWorkspace ?? t.workspace
       return ws === workspace
     })
+    // If no tasks matched by workspace, try matching by projectId (orphaned UUID entries)
+    if (taskIds.length === 0) {
+      taskIds = Object.keys(s.tasks).filter((id) => s.tasks[id].projectId === workspace)
+    }
     const tasks = { ...s.tasks }
     const softDeleted = { ...s.softDeleted }
     const now = new Date().toISOString()
@@ -124,8 +127,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const { [workspace]: _, ...drafts } = s.drafts
     const taskModes = { ...s.taskModes }
     taskIds.forEach((id) => { delete taskModes[id] })
+    // Clean up projectIds entries that point to this UUID
+    const projectIds = { ...s.projectIds }
+    for (const [ws, pid] of Object.entries(projectIds)) {
+      if (pid === workspace) delete projectIds[ws]
+    }
     return {
       projects: s.projects.filter((p) => p !== workspace),
+      projectIds,
       tasks,
       softDeleted,
       selectedTaskId,

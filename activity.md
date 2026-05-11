@@ -1,3 +1,9 @@
+## 2026-05-11 07:21 GST (Dubai)
+### Sidebar: Resolve orphaned UUID project entries on re-add
+Ported upstream commit 8612b64 from kirodex. When re-adding a previously removed project, restored soft-deleted threads now get the new UUID as projectId. removeProject falls back to matching by projectId for orphaned entries, and useSidebarTasks skips orphaned UUID entries with no workspace mapping. Added liveSubagents to applyTurnEnd test state for klaudex compatibility.
+
+**Modified:** `src/renderer/hooks/useSidebarTasks.test.ts`, `src/renderer/hooks/useSidebarTasks.ts`, `src/renderer/stores/taskStore.test.ts`, `src/renderer/stores/taskStore.ts`
+
 ## 2026-05-11 07:19 GST (Dubai)
 ### Tests: Align tests with history persistence changes
 Ported upstream commit f22deff from kirodex. Updated saveThreads test to expect archived tasks persist, added missing IPC mocks (addRecentProject, rebuildRecentMenu), and fixed applyTurnEnd test to verify running tasks get processed to paused status.
