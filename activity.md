@@ -1,3 +1,9 @@
+## 2026-05-11 09:11 GST (Dubai)
+### BtwOverlay: show permission requests inside btw overlay
+Ported upstream commit 4da6f3d. PermissionBanner was rendered behind the full-screen btw overlay, making it impossible to respond to ACP permission requests during side questions. Now renders the banner inside the overlay card.
+
+**Modified:** `src/renderer/components/chat/BtwOverlay.tsx`
+
 ## 2026-05-11 09:09 GST (Dubai)
 ### Split: deactivate split on thread click and set 50:50 ratio
 Ported upstream commit a2ce519. Fixed bail-out guard in setSelectedTask that prevented split deactivation when clicking the already-selected left thread. Added activeSplitId: null to setPendingWorkspace. Changed default split ratio from 60:40 to 50:50.

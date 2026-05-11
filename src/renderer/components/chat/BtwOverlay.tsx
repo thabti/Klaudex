@@ -1,11 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
 import { IconMessageCircleQuestion, IconX, IconCheck } from '@tabler/icons-react'
 import { useTaskStore } from '@/stores/taskStore'
+import { ipc } from '@/lib/ipc'
 import ChatMarkdown from './ChatMarkdown'
+import { PermissionBanner } from './PermissionBanner'
 import { parseReport, stripReport } from './TaskCompletionCard'
 import type { TaskMessage } from '@/types'
 
 const EMPTY_MESSAGES: TaskMessage[] = []
+const EMPTY_OPTIONS: Array<{ optionId: string; name: string; kind: string }> = []
 
 /**
  * Thin inline report pill for btw overlay.
@@ -31,6 +34,7 @@ export const BtwOverlay = memo(function BtwOverlay() {
   const messages = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.messages ?? EMPTY_MESSAGES : EMPTY_MESSAGES)
   const streamingChunk = useTaskStore((s) => selectedTaskId ? s.streamingChunks[selectedTaskId] ?? '' : '')
   const exitBtwMode = useTaskStore((s) => s.exitBtwMode)
+  const pendingPermission = useTaskStore((s) => selectedTaskId ? s.tasks[selectedTaskId]?.pendingPermission : null)
   const overlayRef = useRef<HTMLDivElement>(null)
 
   // Find the assistant response added after the checkpoint
@@ -44,6 +48,11 @@ export const BtwOverlay = memo(function BtwOverlay() {
   const strippedText = useMemo(() => (!isStreaming && responseText ? stripReport(responseText) : displayText), [isStreaming, responseText, displayText])
 
   const handleDismiss = useCallback(() => exitBtwMode(false), [exitBtwMode])
+
+  const handlePermissionSelect = useCallback((optionId: string) => {
+    if (!selectedTaskId || !pendingPermission) return
+    ipc.selectPermissionOption(selectedTaskId, pendingPermission.requestId, optionId).catch(() => {})
+  }, [selectedTaskId, pendingPermission])
 
   // Escape key dismisses
   useEffect(() => {
@@ -116,6 +125,19 @@ export const BtwOverlay = memo(function BtwOverlay() {
             </div>
           )}
         </div>
+
+        {/* Permission request (rendered inside overlay so user can respond) */}
+        {pendingPermission && selectedTaskId && (
+          <div className="shrink-0 border-t border-border/30">
+            <PermissionBanner
+              taskId={selectedTaskId}
+              toolName={pendingPermission.toolName}
+              description={pendingPermission.description}
+              options={pendingPermission.options ?? EMPTY_OPTIONS}
+              onSelect={handlePermissionSelect}
+            />
+          </div>
+        )}
 
         {/* Footer hint */}
         <div className="shrink-0 border-t border-border/30 px-4 py-1.5">
