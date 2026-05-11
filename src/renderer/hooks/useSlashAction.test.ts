@@ -116,18 +116,16 @@ describe('useSlashAction /plan toggle', () => {
 })
 
 describe('useSlashAction /usage toggle', () => {
-  it('/usage opens usage panel', () => {
+  it('/usage navigates to analytics view', () => {
     const { result } = renderHook(() => useSlashAction())
     act(() => { result.current.execute('/usage') })
-    expect(result.current.panel).toBe('usage')
+    expect(useTaskStore.getState().view).toBe('analytics')
   })
 
-  it('/usage toggles panel off when already open', () => {
+  it('/data navigates to analytics view', () => {
     const { result } = renderHook(() => useSlashAction())
-    act(() => { result.current.execute('/usage') })
-    expect(result.current.panel).toBe('usage')
-    act(() => { result.current.execute('/usage') })
-    expect(result.current.panel).toBeNull()
+    act(() => { result.current.execute('/data') })
+    expect(useTaskStore.getState().view).toBe('analytics')
   })
 
   it('execute returns true for /usage', () => {

@@ -24,6 +24,11 @@ const DebugPanel = lazy(() =>
     default: m.DebugPanel,
   })),
 );
+const AnalyticsDashboard = lazy(() =>
+  import("@/components/analytics/AnalyticsDashboard").then((m) => ({
+    default: m.AnalyticsDashboard,
+  })),
+);
 import { useTaskStore, initTaskListeners } from "@/stores/taskStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDebugStore } from "@/stores/debugStore";
@@ -31,6 +36,8 @@ import { useDiffStore } from "@/stores/diffStore";
 import { useClaudeConfigStore, initClaudeConfigListeners } from "@/stores/claudeConfigStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useUpdateChecker } from "@/hooks/useUpdateChecker";
+import { useSessionTracker } from "@/hooks/useSessionTracker";
+import { startAutoFlush, stopAutoFlush } from "@/lib/analytics-collector";
 import { RestartPromptDialog } from "@/components/sidebar/RestartPromptDialog";
 import { WorktreeCleanupDialog } from "@/components/sidebar/WorktreeCleanupDialog";
 import { getVersion } from "@tauri-apps/api/app";
@@ -215,6 +222,7 @@ export function App() {
   const sidebarPosition = useSettingsStore((s) => s.settings.sidebarPosition ?? 'left');
   const isRightSidebar = sidebarPosition === 'right';
   useKeyboardShortcuts();
+  useSessionTracker();
 
   // Apply font size from settings to the document root
   useEffect(() => {
@@ -261,11 +269,11 @@ export function App() {
     useTaskStore.getState().loadTasks().then(() => {
       useTaskStore.getState().purgeExpiredSoftDeletes();
     });
-    useSettingsStore.getState().loadSettings();
-    useSettingsStore.getState().checkAuth();
-    // Pre-warm ACP to get models/modes before user creates a thread.
-    // Delay slightly to ensure Tauri listen() promises have resolved.
-    setTimeout(() => { ipc.probeCapabilities().catch(() => {}) }, 50);
+    useSettingsStore.getState().loadSettings().then(() => {
+      useSettingsStore.getState().checkAuth();
+    });
+    // Pre-warm ACP to get models/modes before user creates a thread
+    ipc.probeCapabilities().catch(() => {});
     // Purge expired soft-deleted threads every hour
     const purgeInterval = setInterval(() => {
       useTaskStore.getState().purgeExpiredSoftDeletes();
@@ -287,9 +295,11 @@ export function App() {
       if (ids.length > 0) navigateToNotifiedTask(ids[ids.length - 1])
     };
     window.addEventListener("focus", handleWindowFocus);
+    startAutoFlush();
     return () => {
       window.removeEventListener("focus", handleWindowFocus);
       clearInterval(purgeInterval);
+      stopAutoFlush();
       cleanupTask();
       cleanupClaude();
     };
@@ -377,7 +387,9 @@ export function App() {
             <ErrorBoundary>
               <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl" style={{ fontSize: 'var(--app-font-size, 14px)' }}>
                 <Suspense>
-                  {selectedTaskId ? (
+                  {view === 'analytics' ? (
+                    <AnalyticsDashboard />
+                  ) : selectedTaskId ? (
                     <ChatPanel />
                   ) : pendingWorkspace ? (
                     <PendingChat key={pendingWorkspace} workspace={pendingWorkspace} />

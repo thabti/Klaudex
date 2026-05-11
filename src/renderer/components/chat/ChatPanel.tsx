@@ -17,6 +17,7 @@ import { BtwOverlay } from './BtwOverlay'
 import { UserInputCard } from './UserInputCard'
 import { useMessageSearch } from '@/hooks/useMessageSearch'
 import { ipc } from '@/lib/ipc'
+import { record } from '@/lib/analytics-collector'
 import type { TaskMessage, ToolCall, IpcAttachment } from '@/types'
 import type { TimelineRow } from '@/lib/timeline'
 
@@ -78,6 +79,10 @@ async function sendMessageDirect(msg: string, attachments?: IpcAttachment[]): Pr
   state.upsertTask({ ...task, status: 'running', messages: [...task.messages, userMsg] })
   state.clearTurn(task.id)
 
+  // Analytics: record user message with input word count
+  const proj = (task.originalWorkspace ?? task.workspace).replace(/\\/g, '/').split('/').pop() ?? ''
+  record('message_sent', { project: proj, thread: task.id, value: msg.split(/\s+/).filter(Boolean).length })
+
   if (isDraft) {
     const { settings, currentModeId } = useSettingsStore.getState()
     const projectRoot = task.originalWorkspace ?? task.workspace
@@ -88,7 +93,8 @@ async function sendMessageDirect(msg: string, attachments?: IpcAttachment[]): Pr
     const draft = useTaskStore.getState().tasks[task.id]
     const messages = draft?.messages.length ? draft.messages : [userMsg]
     state.upsertTask({ ...created, messages })
-    if (currentModeId && currentModeId !== 'default') {
+    record('thread_created', { project: proj, thread: created.id })
+    if (currentModeId && currentModeId !== 'kiro_default') {
       useTaskStore.getState().setTaskMode(created.id, currentModeId)
     }
     state.setSelectedTask(created.id)

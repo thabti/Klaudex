@@ -51,10 +51,9 @@ impl AnalyticsState {
         if let Some(p) = self.db_path.get() {
             return Ok(p.clone());
         }
-        let dir = app
-            .path()
+        let dir = app.path()
             .app_data_dir()
-            .map_err(|e| AppError::Analytics(format!("failed to resolve app_data_dir: {}", e)))?;
+            .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
         std::fs::create_dir_all(&dir)?;
         let path = dir.join("analytics.redb");
         let _ = self.db_path.set(path.clone());
@@ -68,16 +67,13 @@ impl AnalyticsState {
         }
         let path = self.resolve_path(app)?;
         let db = Database::create(&path)
-            .map_err(|e| AppError::Analytics(format!("failed to open analytics db: {}", e)))?;
+            .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
         // Ensure table exists
-        let txn = db
-            .begin_write()
-            .map_err(|e| AppError::Analytics(format!("begin_write failed: {}", e)))?;
-        {
-            let _ = txn.open_table(TABLE);
-        }
+        let txn = db.begin_write()
+            .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+        { let _ = txn.open_table(TABLE); }
         txn.commit()
-            .map_err(|e| AppError::Analytics(format!("commit failed: {}", e)))?;
+            .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
         *guard = Some(db);
         Ok(())
     }
@@ -88,9 +84,9 @@ impl AnalyticsState {
     {
         self.open_db(app)?;
         let guard = self.db.lock();
-        let db = guard
-            .as_ref()
-            .ok_or_else(|| AppError::Analytics("db not open".to_string()))?;
+        let db = guard.as_ref().ok_or_else(|| {
+            AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, "db not open"))
+        })?;
         f(db)
     }
 }
@@ -107,26 +103,23 @@ pub fn analytics_save(
         return Ok(());
     }
     state.with_db(&app, |db| {
-        let txn = db
-            .begin_write()
-            .map_err(|e| AppError::Analytics(format!("begin_write failed: {}", e)))?;
+        let txn = db.begin_write()
+            .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
         {
-            let mut table = txn
-                .open_table(TABLE)
-                .map_err(|e| AppError::Analytics(format!("open_table failed: {}", e)))?;
+            let mut table = txn.open_table(TABLE)
+                .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
             for event in &events {
                 let bytes = serde_json::to_vec(event)?;
                 // Combine timestamp with atomic counter for guaranteed unique keys.
                 // High 48 bits = ms timestamp, low 16 bits = counter.
                 let seq = state.counter.fetch_add(1, Ordering::Relaxed) & 0xFFFF;
                 let key = (event.ts << 16) | seq;
-                table
-                    .insert(key, bytes.as_slice())
-                    .map_err(|e| AppError::Analytics(format!("insert failed: {}", e)))?;
+                table.insert(key, bytes.as_slice())
+                    .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
             }
         }
         txn.commit()
-            .map_err(|e| AppError::Analytics(format!("commit failed: {}", e)))?;
+            .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
         Ok(())
     })
 }
@@ -138,25 +131,20 @@ pub fn analytics_load(
     since: Option<u64>,
 ) -> Result<Vec<AnalyticsEvent>, AppError> {
     state.with_db(&app, |db| {
-        let txn = db
-            .begin_read()
-            .map_err(|e| AppError::Analytics(format!("begin_read failed: {}", e)))?;
-        let table = txn
-            .open_table(TABLE)
-            .map_err(|e| AppError::Analytics(format!("open_table failed: {}", e)))?;
+        let txn = db.begin_read()
+            .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+        let table = txn.open_table(TABLE)
+            .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
         let mut results = Vec::new();
         let start_key = if let Some(start) = since { start << 16 } else { 0u64 };
-        let iter = table
-            .range(start_key..u64::MAX)
-            .map_err(|e| AppError::Analytics(format!("range failed: {}", e)))?;
+        let iter = table.range(start_key..u64::MAX)
+            .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
         for entry in iter {
             let (_, val) = entry
-                .map_err(|e| AppError::Analytics(format!("iter entry failed: {}", e)))?;
+                .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
             if let Ok(event) = serde_json::from_slice::<AnalyticsEvent>(val.value()) {
                 results.push(event);
-                if results.len() >= MAX_LOAD_EVENTS {
-                    break;
-                }
+                if results.len() >= MAX_LOAD_EVENTS { break; }
             }
         }
         Ok(results)

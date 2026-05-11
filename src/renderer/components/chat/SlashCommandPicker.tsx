@@ -16,6 +16,7 @@ const COMMAND_DESCRIPTIONS: Record<string, string> = {
   code: 'Initialize or manage code intelligence workspace',
   compact: 'Summarize conversation to free up context',
   context: 'Manage context files or view token usage',
+  data: 'Open the analytics dashboard with usage stats and charts',
   feedback: 'Submit feedback, request features, or report issues',
   help: 'Get help with Claude CLI features and commands',
   knowledge: 'Add, search, or manage your knowledge base',
@@ -26,7 +27,7 @@ const COMMAND_DESCRIPTIONS: Record<string, string> = {
   stats: 'Detailed session stats: turns, messages, tool calls, cache rate, cost breakdown',
   tangent: 'Ask a side question (alias for /btw)',
   tools: 'View or configure available tools',
-  usage: 'Show token and cost usage for this session',
+  usage: 'Open the analytics dashboard with usage stats and charts',
   worktree: 'Create a worktree and new thread for isolated work',
   undo: 'Roll back the last conversation turn',
 }
@@ -63,6 +64,11 @@ const COMMAND_ICONS: Record<string, () => React.ReactNode> = {
   code: () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
+    </svg>
+  ),
+  data: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 3v18h18" /><path d="M7 16V8" /><path d="M11 16V11" /><path d="M15 16V14" /><path d="M19 16V10" />
     </svg>
   ),
   compact: icon('M4 6h16M4 12h10M4 18h6'),

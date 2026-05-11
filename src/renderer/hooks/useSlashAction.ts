@@ -4,6 +4,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { ipc } from '@/lib/ipc'
 import { track } from '@/lib/analytics'
+import { record } from '@/lib/analytics-collector'
 import type { AppSettings } from '@/types'
 
 // ── TASK-107: /yolo permission-mode toggle ─────────────────
@@ -59,7 +60,7 @@ const toggleYoloMode = async (): Promise<PermissionMode> => {
   }
 }
 
-export type SlashPanel = 'model' | 'agent' | 'usage' | 'stats' | 'branch' | 'worktree' | null
+export type SlashPanel = 'model' | 'agent' | 'stats' | 'branch' | 'worktree' | null
 
 export interface SlashActionResult {
   panel: SlashPanel
@@ -88,6 +89,7 @@ const switchMode = (modeId: string, label: string): void => {
   useSettingsStore.setState({ currentModeId: modeId })
   addSystemMessage(`Switched to ${label} mode`)
   track('feature_used', { feature: 'mode_switch', detail: modeId })
+  record('mode_switch', { detail: modeId })
   const taskId = useTaskStore.getState().selectedTaskId
   if (taskId) {
     useTaskStore.getState().setTaskMode(taskId, modeId)
@@ -106,9 +108,10 @@ export const useSlashAction = (): SlashActionResult => {
     // Track every recognized slash command. The switch below rejects unknown
     // names by returning false, so we gate the track call on that path via
     // the `default` case.
-    const KNOWN = new Set(['clear', 'model', 'agent', 'settings', 'upload', 'plan', 'usage', 'stats', 'close', 'exit', 'branch', 'worktree', 'btw', 'tangent', 'fork', 'undo', 'yolo'])
+    const KNOWN = new Set(['clear', 'model', 'agent', 'settings', 'upload', 'plan', 'usage', 'data', 'stats', 'close', 'exit', 'branch', 'worktree', 'btw', 'tangent', 'fork', 'undo', 'yolo'])
     if (KNOWN.has(name)) {
       track('feature_used', { feature: 'slash_command', detail: name })
+      record('slash_cmd', { detail: name })
     }
     switch (name) {
       case 'clear': {
@@ -141,7 +144,9 @@ export const useSlashAction = (): SlashActionResult => {
         setPanel(null)
         return true
       case 'usage':
-        setPanel((p) => (p === 'usage' ? null : 'usage'))
+      case 'data':
+        useTaskStore.getState().setView('analytics')
+        setPanel(null)
         return true
       case 'stats':
         setPanel((p) => (p === 'stats' ? null : 'stats'))

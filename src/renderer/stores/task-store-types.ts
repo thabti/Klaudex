@@ -15,7 +15,7 @@ export interface TaskStore {
   softDeleted: Record<string, SoftDeletedThread>  // threads pending permanent deletion
   selectedTaskId: string | null
   pendingWorkspace: string | null  // workspace for a new thread not yet created
-  view: 'chat' | 'dashboard'
+  view: 'chat' | 'dashboard' | 'analytics'
   isNewProjectOpen: boolean
   isSettingsOpen: boolean
   settingsInitialSection: string | null
@@ -51,7 +51,7 @@ export interface TaskStore {
   /** Pending worktree cleanup — set when a worktree thread is being deleted/archived */
   worktreeCleanupPending: { taskId: string; worktreePath: string; branch: string; originalWorkspace: string; action: 'archive' | 'delete'; hasChanges: boolean | null } | null
   setSelectedTask: (id: string | null) => void
-  setView: (view: 'chat' | 'dashboard') => void
+  setView: (view: 'chat' | 'dashboard' | 'analytics') => void
   setNewProjectOpen: (open: boolean) => void
   setSettingsOpen: (open: boolean, section?: string | null) => void
   addProject: (workspace: string) => void

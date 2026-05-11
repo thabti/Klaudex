@@ -39,15 +39,8 @@ export interface ClaudeConfigChangedPayload {
  * One entry persisted in `analytics.redb` via `analytics_save`. Mirrors the
  * Rust `AnalyticsEvent` (camelCase via serde rename).
  */
-export interface AnalyticsEvent {
-  ts: number
-  kind: string
-  project?: string
-  thread?: string
-  detail?: string
-  value?: number
-  value2?: number
-}
+export type { AnalyticsEvent } from '@/types/analytics'
+import type { AnalyticsEvent } from '@/types/analytics'
 
 /**
  * Progress events emitted by `git_clone` while libgit2 fetches objects.
@@ -271,7 +264,7 @@ export const ipc = {
   claudeLogin: (claudeBin?: string): Promise<{ loggedIn?: boolean; authMethod?: string | null; email?: string | null; subscriptionType?: string | null }> =>
     tracedInvoke('claude_login', { claudeBin }),
   openTerminalWithCommand: (command: string): Promise<void> =>
-    tracedInvoke('open_terminal_with_command', { command }),
+    invoke('open_terminal_with_command', { command }),
   // Event listeners
   onTaskUpdate: (cb: (task: AgentTask) => void): UnsubscribeFn =>
     tauriListen<AgentTask>('task_update', (task) => { logEvent('task_update', { taskId: task.id, status: task.status }, task.id); cb(task) }),

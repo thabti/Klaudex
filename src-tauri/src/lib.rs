@@ -160,9 +160,9 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init())
         .manage(settings::SettingsState::default())
+        .manage(analytics::AnalyticsState::default())
         .manage(acp::AcpState::default())
         .manage(pty::PtyState::default())
-        .manage(analytics::AnalyticsState::default())
         .manage(claude_watcher::ClaudeWatcherState::default())
         .setup(|app| {
             let _window = app.get_webview_window("main")
@@ -240,8 +240,20 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             match event {
-                tauri::WindowEvent::CloseRequested { .. } => {
-                    shutdown_app(window.app_handle());
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    let app = window.app_handle().clone();
+                    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
+                    app.dialog()
+                        .message("Are you sure you want to quit Klaudex?")
+                        .title("Quit Klaudex")
+                        .buttons(MessageDialogButtons::OkCancelCustom("Quit".to_string(), "Cancel".to_string()))
+                        .show(move |confirmed| {
+                            if confirmed {
+                                shutdown_app(&app);
+                                app.exit(0);
+                            }
+                        });
                 }
                 #[cfg(target_os = "macos")]
                 tauri::WindowEvent::Focused(_) => {

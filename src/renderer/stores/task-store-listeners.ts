@@ -8,6 +8,13 @@ import { useClaudeConfigStore } from '@/stores/claudeConfigStore'
 import { useDiffStore } from '@/stores/diffStore'
 import { useTaskStore } from './taskStore'
 import type { TaskStore } from './task-store-types'
+import { record } from '@/lib/analytics-collector'
+
+/** Get the project basename from a workspace path (privacy: no full paths). */
+const projectName = (workspace: string): string => {
+  const parts = workspace.replace(/\\/g, '/').split('/')
+  return parts[parts.length - 1] || workspace
+}
 
 /** Pure state reducer for turn_end — exported for testing. */
 export const applyTurnEnd = (
@@ -159,14 +166,32 @@ export function initTaskListeners(): () => void {
     ) {
       useDiffStore.getState().fetchDiff(taskId)
     }
+    // Analytics: record completed tool calls
+    if (toolCall.status === 'completed') {
+      const task = useTaskStore.getState().tasks[taskId]
+      const proj = task ? projectName(task.originalWorkspace ?? task.workspace) : undefined
+      record('tool_call', { project: proj, thread: taskId, detail: toolCall.kind ?? 'other' })
+      if (toolCall.kind === 'edit' || toolCall.kind === 'delete' || toolCall.kind === 'move') {
+        const filePath = toolCall.locations?.[0]?.path
+        const fileName = filePath ? filePath.split('/').pop() ?? filePath : undefined
+        record('file_edited', { project: proj, thread: taskId, detail: fileName })
+      }
+    }
   })
 
   const unsub6 = ipc.onPlanUpdate(({ taskId, plan }) => {
     useTaskStore.getState().updatePlan(taskId, plan)
   })
 
-  const unsub7 = ipc.onUsageUpdate(({ taskId, used, size, cost, inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens }) => {
-    useTaskStore.getState().updateUsage(taskId, used, size, cost, { inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens })
+  const unsub7 = ipc.onUsageUpdate(({ taskId, used, size }) => {
+    useTaskStore.getState().updateUsage(taskId, used, size)
+    const task = useTaskStore.getState().tasks[taskId]
+    record('token_usage', {
+      project: task ? projectName(task.originalWorkspace ?? task.workspace) : undefined,
+      thread: taskId,
+      value: used,
+      value2: size,
+    })
   })
 
   // Track refusal retries per task — allows one automatic retry before giving up
@@ -239,6 +264,30 @@ export function initTaskListeners(): () => void {
 
     // Use a single setState to avoid stale reads between getState() calls
     useTaskStore.setState((s) => applyTurnEnd(s, taskId, stopReason))
+
+    // Analytics: record assistant output word count and diff stats
+    {
+      const t = useTaskStore.getState().tasks[taskId]
+      if (t) {
+        const proj = projectName(t.originalWorkspace ?? t.workspace)
+        const lastMsg = t.messages[t.messages.length - 1]
+        if (lastMsg?.role === 'assistant' && lastMsg.content) {
+          record('message_received', {
+            project: proj,
+            thread: taskId,
+            value: lastMsg.content.split(/\s+/).filter(Boolean).length,
+          })
+        }
+        const ws = t.worktreePath ?? t.workspace
+        ipc.gitDiffStats(ws).then((stats) => {
+          if (stats.additions > 0 || stats.deletions > 0) {
+            record('diff_stats', { project: proj, thread: taskId, value: stats.additions, value2: stats.deletions })
+          }
+        }).catch(() => {})
+        const model = useSettingsStore.getState().currentModelId
+        if (model) record('model_used', { project: proj, thread: taskId, detail: model })
+      }
+    }
 
     // Persist history after turn ends
     useTaskStore.getState().persistHistory()

@@ -1,9 +1,18 @@
-import { IconTrash, IconRefresh } from '@tabler/icons-react'
+import { IconTrash, IconRefresh, IconChartBar } from '@tabler/icons-react'
+import { useEffect, useState } from 'react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useAnalyticsStore } from '@/stores/analyticsStore'
 import { Switch } from '@/components/ui/switch'
 import type { AppSettings } from '@/types'
 import { SectionHeader, SectionLabel, SettingsCard, SettingRow, Divider } from './settings-shared'
+
+const formatBytes = (bytes: number): string => {
+  if (bytes === 0) return '0 B'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 
 interface AdvancedSectionProps {
   draft: AppSettings
@@ -11,7 +20,19 @@ interface AdvancedSectionProps {
   onClose: () => void
 }
 
-export const AdvancedSection = ({ draft, updateDraft, onClose }: AdvancedSectionProps) => (
+export const AdvancedSection = ({ draft, updateDraft, onClose }: AdvancedSectionProps) => {
+  const [analyticsSize, setAnalyticsSize] = useState<number>(0)
+  const refreshDbSize = useAnalyticsStore((s) => s.refreshDbSize)
+  const clearAnalytics = useAnalyticsStore((s) => s.clearData)
+  const dbSize = useAnalyticsStore((s) => s.dbSize)
+
+  useEffect(() => {
+    refreshDbSize()
+  }, [refreshDbSize])
+
+  useEffect(() => { setAnalyticsSize(dbSize) }, [dbSize])
+
+  return (
   <>
     <SectionHeader section="advanced" />
     <div>
@@ -83,6 +104,20 @@ export const AdvancedSection = ({ draft, updateDraft, onClose }: AdvancedSection
           </button>
         </SettingRow>
         <Divider />
+        <SettingRow
+          label="Analytics data"
+          description={`Local usage stats stored on disk (${formatBytes(analyticsSize)})`}
+        >
+          <button
+            type="button"
+            onClick={async () => { await clearAnalytics(); refreshDbSize() }}
+            className="flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <IconChartBar className="size-3" />
+            Clear analytics
+          </button>
+        </SettingRow>
+        <Divider />
         <SettingRow label="Replay onboarding" description="Run the setup wizard again">
           <button
             type="button"
@@ -100,4 +135,5 @@ export const AdvancedSection = ({ draft, updateDraft, onClose }: AdvancedSection
       </SettingsCard>
     </div>
   </>
-)
+  )
+}
