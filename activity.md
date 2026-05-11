@@ -1,3 +1,9 @@
+## 2026-05-11 08:15 GST (Dubai)
+### Kbd: upgrade with KbdGroup and tooltip-aware styling
+Cherry-picked 766d1b8 from kirodex. Switched Kbd props from HTMLAttributes to React.ComponentProps<'kbd'>, added KbdGroup component for multi-key combinations, added tooltip-content-aware styling, and tightened visual appearance with rounded-sm and w-fit.
+
+**Modified:** `src/renderer/components/ui/kbd.tsx`
+
 ## 2026-05-11 08:13 GST (Dubai)
 ### PlanToggle: replace toggle button with explicit mode dropdown
 Cherry-picked 26597f9 from kirodex. Replaced the ambiguous Plan toggle button (which showed "Plan" in both states) with a dropdown that displays the current mode name ("Code" or "Plan") with distinct icons (IconCode, IconListCheck) and a chevron indicator. Adapted mode IDs from kirodex's `kiro_default`/`kiro_planner` to klaudex's `default`/`plan`.
