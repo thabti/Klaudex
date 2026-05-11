@@ -1,3 +1,9 @@
+## 2026-05-11 08:03 GST (Dubai)
+### Icons: match dev and prod icon sizing and spacing
+Cherry-picked b727cc13 from kirodex. Replaced edge-to-edge icon.png files with properly-padded source versions that have macOS-style transparent padding. Regenerated .icns and .ico for both dev and prod variants. Removed orphaned root-level icon files.
+
+**Modified:** `src-tauri/icons/dev/icon.icns`, `src-tauri/icons/dev/icon.ico`, `src-tauri/icons/dev/icon.png`, `src-tauri/icons/prod/icon.icns`, `src-tauri/icons/prod/icon.ico`, `src-tauri/icons/prod/icon.png`, `src-tauri/icons/icon.icns` (deleted), `src-tauri/icons/icon.ico` (deleted), `src-tauri/icons/icon.png` (deleted)
+
 ## 2026-05-11 08:01 GST (Dubai)
 ### Port: wire folder drag-drop pills through ChatInput and PillsRow
 Cherry-picked f124d59c from kirodex. Passes folderPaths and handleRemoveFolder from useChatInput through ChatInput → ChatTextarea → PillsRow. Folder pills render with IconFolder, truncated name, and full-path tooltip. Updated PillsRow tests to include the new required props.
