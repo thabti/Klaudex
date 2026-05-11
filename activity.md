@@ -1,3 +1,9 @@
+## 2026-05-11 07:26 GST (Dubai)
+### History: Preserve live tasks when loadTasks is called mid-session
+Ported upstream commit 95d6958 from kirodex. loadTasks now checks the existing store for tasks with status running or paused and preserves them, preventing active ACP sessions from being overwritten by stale history data.
+
+**Modified:** `src/renderer/stores/taskStore.ts`
+
 ## 2026-05-11 07:25 GST (Dubai)
 ### History: Use live task check instead of document.hasFocus for sync guard
 Ported upstream commit c3f9eda from kirodex. Replaced `document.hasFocus()` guard in the cross-window history sync with a `hasLiveTasks()` check that looks for running/paused tasks. This prevents alt-tab from triggering loadTasks and overwriting active ACP sessions with archived history.
