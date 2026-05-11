@@ -1,3 +1,9 @@
+## 2026-05-11 08:01 GST (Dubai)
+### Port: wire folder drag-drop pills through ChatInput and PillsRow
+Cherry-picked f124d59c from kirodex. Passes folderPaths and handleRemoveFolder from useChatInput through ChatInput → ChatTextarea → PillsRow. Folder pills render with IconFolder, truncated name, and full-path tooltip. Updated PillsRow tests to include the new required props.
+
+**Modified:** `src/renderer/components/chat/ChatInput.tsx`, `src/renderer/components/chat/ChatTextarea.tsx`, `src/renderer/components/chat/PillsRow.tsx`, `src/renderer/components/chat/PillsRow.test.tsx`
+
 ## 2026-05-11 07:58 GST (Dubai)
 ### Port: folder drop support, working row streaming indicator, dev/prod icon split
 Cherry-picked 1d30a803 from kirodex. Added folder drag-and-drop support (new `is_directory` IPC command, `useAttachments` handles folders separately), WorkingRow shows pulse dot when streaming content is visible, split app icons into dev/prod directories, removed SVG icons.

@@ -38,7 +38,9 @@ describe('PillsRow', () => {
         pastedChunks={[]}
         onRemoveMention={noop}
         onRemoveAttachment={noop}
+        onRemoveFolder={noop}
         onRemoveChunk={noop}
+        folderPaths={[]}
       />,
     )
     expect(screen.getByTestId('mention-src/a.ts')).toBeInTheDocument()
@@ -57,7 +59,9 @@ describe('PillsRow', () => {
         pastedChunks={chunks}
         onRemoveMention={noop}
         onRemoveAttachment={noop}
+        onRemoveFolder={noop}
         onRemoveChunk={noop}
+        folderPaths={[]}
       />,
     )
     expect(screen.getByTestId('pills-expand-button')).toBeInTheDocument()
@@ -75,7 +79,9 @@ describe('PillsRow', () => {
         pastedChunks={[]}
         onRemoveMention={noop}
         onRemoveAttachment={noop}
+        onRemoveFolder={noop}
         onRemoveChunk={noop}
+        folderPaths={[]}
       />,
     )
     // Initially collapsed
@@ -98,7 +104,9 @@ describe('PillsRow', () => {
         pastedChunks={[]}
         onRemoveMention={noop}
         onRemoveAttachment={noop}
+        onRemoveFolder={noop}
         onRemoveChunk={noop}
+        folderPaths={[]}
       />,
     )
     // Expand
@@ -122,7 +130,9 @@ describe('PillsRow', () => {
         pastedChunks={chunks}
         onRemoveMention={noop}
         onRemoveAttachment={noop}
+        onRemoveFolder={noop}
         onRemoveChunk={noop}
+        folderPaths={[]}
       />,
     )
     expect(screen.getByText('1 file, 3 attachments, 1 pasted')).toBeInTheDocument()
@@ -137,7 +147,9 @@ describe('PillsRow', () => {
         pastedChunks={[]}
         onRemoveMention={noop}
         onRemoveAttachment={noop}
+        onRemoveFolder={noop}
         onRemoveChunk={noop}
+        folderPaths={[]}
       />,
     )
     // Should show all pills, no collapse button
