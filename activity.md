@@ -1,3 +1,9 @@
+## 2026-05-11 12:18 GST (Dubai)
+### Port: Remove chevron from ProjectItem (kirodex@5c51d88)
+Cherry-picked upstream refactor that removes the expand/collapse chevron icon from project items in the sidebar. Projects now toggle purely by clicking the row.
+
+**Modified:** src/renderer/components/sidebar/ProjectItem.tsx
+
 ## 2026-05-11 12:16 GST (Dubai)
 ### Port: Restyle sidebar footer with inline buttons and user menu (kirodex@03909be)
 Cherry-picked upstream refactor that changes the sidebar footer from a vertical stack to a horizontal row, makes the debug button icon-only, moves it to the right of settings, adds HeaderUserMenu to the footer, and defaults the ClaudeConfig panel to collapsed.
