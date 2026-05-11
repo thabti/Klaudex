@@ -1,3 +1,9 @@
+## 2026-05-11 11:57 GST (Dubai)
+### Port: Make commands module public and add generate_for_smoke (kirodex@db3fee8)
+Cherry-picked upstream build fix: made the `commands` module public in lib.rs and added `generate_for_smoke()` entry point in git_ai.rs so the git_ai_smoke example binary can access the commit generation logic. Adapted `run_kiro_oneshot` → `run_claude_oneshot` for klaudex.
+
+**Modified:** src-tauri/src/commands/git_ai.rs, src-tauri/src/lib.rs
+
 ## 2026-05-11 11:56 GST (Dubai)
 ### Port: Prevent PTY cwd bypass via unset HOME on Windows (kirodex@397d4f5)
 Cherry-picked upstream security fix: On Windows, use USERPROFILE with HOME fallback for PTY cwd validation. Default to a nonexistent path instead of "/" when env vars are unset, preventing the validation from accepting any path. Added Windows-specific allowed paths (C:\Users, D:\).
