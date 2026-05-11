@@ -29,9 +29,9 @@ const ClaudeConfigFooter = memo(function ClaudeConfigFooter() {
   })
 
   return (
-    <div className="flex min-h-0 flex-col border-b border-border">
-      <div className="flex items-center border-t border-border">
-        <div onMouseDown={handleDragStart} className="flex-1 h-1.5 cursor-row-resize hover:bg-primary/20 active:bg-primary/30 transition-colors" />
+    <div className="flex min-h-0 flex-col">
+      <div className="flex items-center">
+        <div onMouseDown={handleDragStart} className="flex-1 h-1.5 cursor-row-resize transition-colors" />
       </div>
       {collapsed ? (
         <div className="px-1 py-1">
