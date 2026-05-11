@@ -1,0 +1,18 @@
+{
+  "budgets": {
+    "vendor-shiki": 10000000,
+    "vendor-terminal": 700000,
+    "index": 700000,
+    "vendor-diffs": 550000,
+    "material-icons": 500000,
+    "ChartCard": 400000,
+    "vendor-react": 200000,
+    "vendor-analytics": 200000,
+    "vendor-markdown": 180000,
+    "ChatPanel": 150000,
+    "SettingsPanel": 100000,
+    "vendor-icons": 50000
+  },
+  "totalBudget": 14000000,
+  "description": "Bundle size budgets in bytes. CI fails if any chunk exceeds its budget."
+}
