@@ -290,3 +290,55 @@ describe('useSidebarTasks custom sort', () => {
     expect(result.current[0].tasks.map((t) => t.name)).toEqual(['Zebra', 'Apple'])
   })
 })
+
+describe('useSidebarTasks render stability (useShallow)', () => {
+  it('does not re-render when unrelated store fields change', () => {
+    useTaskStore.setState({
+      tasks: {
+        't1': makeTask({ id: 't1', workspace: '/project', projectId: '/project' }),
+      },
+      projects: ['/project'],
+      archivedMeta: {},
+      threadOrders: {},
+    })
+    let renderCount = 0
+    const { result } = renderHook(() => {
+      renderCount++
+      return useSidebarTasks('recent')
+    })
+    expect(result.current).toHaveLength(1)
+    const initialRenders = renderCount
+
+    // Mutate an unrelated field (streamingChunks) — should NOT trigger re-render
+    useTaskStore.setState({ streamingChunks: { 't1': 'hello' } })
+    expect(renderCount).toBe(initialRenders)
+  })
+
+  it('re-renders when tasks object changes', () => {
+    useTaskStore.setState({
+      tasks: {
+        't1': makeTask({ id: 't1', workspace: '/project', projectId: '/project' }),
+      },
+      projects: ['/project'],
+      archivedMeta: {},
+      threadOrders: {},
+    })
+    let renderCount = 0
+    const { result, rerender } = renderHook(() => {
+      renderCount++
+      return useSidebarTasks('recent')
+    })
+    expect(result.current).toHaveLength(1)
+    const initialRenders = renderCount
+
+    // Mutate tasks — SHOULD trigger re-render
+    useTaskStore.setState({
+      tasks: {
+        't1': makeTask({ id: 't1', workspace: '/project', projectId: '/project' }),
+        't2': makeTask({ id: 't2', workspace: '/project', projectId: '/project' }),
+      },
+    })
+    rerender()
+    expect(result.current[0].tasks).toHaveLength(2)
+  })
+})
