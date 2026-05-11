@@ -1,3 +1,9 @@
+## 2026-05-11 12:27 GST (Dubai)
+### Port: Add memo, useCallback, and tooltips to all settings sections (kirodex@308276e)
+Cherry-picked upstream refactor. Wraps all section components in memo, extracts inline handlers into useCallback, adds Tooltip wrappers to icon-only buttons, adds aria-labels, extracts FontSizeStepper sub-component, adds type="button" to prevent form submission. Fixed property name conflicts (kiroAuth→claudeAuth, kiroBin→claudeBin) for klaudex compatibility.
+
+**Modified:** src/renderer/components/settings/account-section.tsx, src/renderer/components/settings/advanced-section.tsx, src/renderer/components/settings/appearance-section.tsx, src/renderer/components/settings/archives-section.tsx, src/renderer/components/settings/general-section.tsx, src/renderer/components/settings/keymap-section.tsx, src/renderer/components/settings/memory-section.tsx
+
 ## 2026-05-11 12:25 GST (Dubai)
 ### Port: Restyle settings nav sidebar (kirodex@209b122)
 Cherry-picked upstream style commit. Applies bg-sidebar background, replaces primary/10 active state with accent/85, removes left-edge indicator bar, reduces font sizes and padding for compact appearance.

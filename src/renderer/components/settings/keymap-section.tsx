@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState, useCallback } from 'react'
 import { IconSearch } from '@tabler/icons-react'
 import { SectionHeader, SettingsCard, SettingsGrid } from './settings-shared'
 
@@ -25,10 +25,15 @@ const KEYMAP: KeymapEntry[] = [
   { group: 'Chat', command: 'Focus chat input', keys: `${MOD}+L` },
   { group: 'Chat', command: 'Search messages', keys: `${MOD}+F` },
   { group: 'Chat', command: 'Pause agent', keys: 'Escape (while running)' },
-]
+] as const
 
-export const KeymapSection = () => {
+export const KeymapSection = memo(function KeymapSection() {
   const [keymapFilter, setKeymapFilter] = useState('')
+
+  const handleFilterChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setKeymapFilter(e.target.value)
+  }, [])
+
   const q = keymapFilter.toLowerCase()
   const filtered = q
     ? KEYMAP.filter((e) => e.command.toLowerCase().includes(q) || e.keys.toLowerCase().includes(q) || e.group.toLowerCase().includes(q))
@@ -43,7 +48,7 @@ export const KeymapSection = () => {
         <IconSearch className="pointer-events-none absolute left-3 top-1/2 size-3 -translate-y-1/2 text-muted-foreground/60" />
         <input
           value={keymapFilter}
-          onChange={(e) => setKeymapFilter(e.target.value)}
+          onChange={handleFilterChange}
           placeholder="Search shortcuts…"
           aria-label="Search keyboard shortcuts"
           className="flex h-7 w-full rounded-md border border-input bg-background/50 pl-8 pr-3 text-[11px] placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -71,4 +76,4 @@ export const KeymapSection = () => {
       ))}
     </>
   )
-}
+})

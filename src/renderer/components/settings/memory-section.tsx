@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { memo, useEffect, useMemo, useState, useCallback } from 'react'
 import {
   IconRefresh, IconTrash, IconAlertTriangle, IconTerminal2,
   IconMessage, IconTool, IconPlayerPlay, IconStack2, IconArchive,
@@ -179,7 +179,7 @@ interface MemorySectionProps {
   readonly updateDraft: (patch: Partial<AppSettings>) => void
 }
 
-export const MemorySection = ({ draft, updateDraft }: MemorySectionProps) => {
+export const MemorySection = memo(function MemorySection({ draft, updateDraft }: MemorySectionProps) {
   const [report, setReport] = useState<MemoryReport | null>(null)
   const [heap, setHeap] = useState<{ used: number; total: number } | null>(null)
   const [ptyCount, setPtyCount] = useState<number | null>(null)
@@ -555,4 +555,4 @@ export const MemorySection = ({ draft, updateDraft }: MemorySectionProps) => {
       />
     </>
   )
-}
+})
