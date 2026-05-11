@@ -273,15 +273,65 @@ pub struct HttpTransport {
 }
 
 impl HttpTransport {
-    pub fn new(config: HttpConfig) -> Self {
+    pub fn new(config: HttpConfig) -> Result<Self, TransportError> {
+        validate_mcp_url(&config.url)?;
         let (response_tx, response_rx) = mpsc::unbounded_channel();
-        Self {
+        Ok(Self {
             config,
             response_rx: tokio::sync::Mutex::new(response_rx),
             response_tx,
             protocol_version: tokio::sync::Mutex::new(None),
+        })
+    }
+}
+
+/// Validate that an MCP server URL is safe to connect to.
+/// Rejects private/link-local IPs and non-HTTP(S) schemes to prevent SSRF.
+fn validate_mcp_url(url: &str) -> Result<(), TransportError> {
+    let parsed = url::Url::parse(url)
+        .map_err(|e| TransportError::Other(format!("Invalid URL: {e}")))?;
+    match parsed.scheme() {
+        "https" => {} // always allowed
+        "http" => {
+            // http only allowed for localhost
+            let host = parsed.host_str().unwrap_or("");
+            let is_localhost = host == "localhost"
+                || host == "127.0.0.1"
+                || host == "::1"
+                || host == "[::1]";
+            if !is_localhost {
+                return Err(TransportError::Other(
+                    "HTTP (non-TLS) is only allowed for localhost. Use HTTPS for remote servers.".to_string()
+                ));
+            }
+        }
+        other => {
+            return Err(TransportError::Other(
+                format!("Unsupported URL scheme: {other}. Only http and https are allowed.")
+            ));
         }
     }
+    // Reject known internal/metadata IP ranges
+    if let Some(host) = parsed.host_str() {
+        let is_private = host.starts_with("10.")
+            || host.starts_with("192.168.")
+            || host.starts_with("172.16.") || host.starts_with("172.17.")
+            || host.starts_with("172.18.") || host.starts_with("172.19.")
+            || host.starts_with("172.20.") || host.starts_with("172.21.")
+            || host.starts_with("172.22.") || host.starts_with("172.23.")
+            || host.starts_with("172.24.") || host.starts_with("172.25.")
+            || host.starts_with("172.26.") || host.starts_with("172.27.")
+            || host.starts_with("172.28.") || host.starts_with("172.29.")
+            || host.starts_with("172.30.") || host.starts_with("172.31.")
+            || host.starts_with("169.254.")  // link-local / cloud metadata
+            || host == "metadata.google.internal";
+        if is_private {
+            return Err(TransportError::Other(
+                format!("Refusing to connect to private/internal address: {host}")
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[async_trait]
@@ -420,7 +470,7 @@ pub async fn create_transport(
             Ok(Arc::new(transport))
         }
         TransportConfig::Http(http_config) => {
-            let transport = HttpTransport::new(http_config);
+            let transport = HttpTransport::new(http_config)?;
             Ok(Arc::new(transport))
         }
     }

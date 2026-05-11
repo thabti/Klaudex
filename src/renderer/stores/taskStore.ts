@@ -1037,7 +1037,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         // threads still show up).
         const savedOrder = savedProjects.map((sp) => sp.workspace)
         const projectsSet = new Set(savedOrder)
-        const projects = [...savedOrder]
+        const projects = [...projectsSet]
         for (const t of Object.values(tasks)) {
           const ws = t.originalWorkspace ?? t.workspace
           if (!projectsSet.has(ws)) { projectsSet.add(ws); projects.push(ws) }
@@ -1147,7 +1147,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           if (softDeletedIds.has(saved.id)) continue
           archivedMeta[saved.id] = projectMeta(saved)
         }
-        const projects = savedProjects.map((sp) => sp.workspace)
+        const projects = [...new Set(savedProjects.map((sp) => sp.workspace))]
         const projectNames: Record<string, string> = {}
         const projectIds: Record<string, string> = {}
         for (const sp of savedProjects) {

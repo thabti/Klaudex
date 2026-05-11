@@ -1,3 +1,9 @@
+## 2026-05-11 11:52 GST (Dubai)
+### Port: Path traversal, SSRF, AppleScript injection, and NSOpenPanel crash fixes (kirodex@4cf12cc)
+Cherry-picked upstream security commit: (S1) Added `validate_path_containment()` to all project_watcher file ops preventing `../` traversal. (S2) Replaced AppleScript string interpolation in `open_terminal_at` with env-var pattern (`KLAUDEX_CD_PATH`). (S3) Added URL validation to HttpTransport rejecting private IPs and requiring HTTPS for remote servers. (S4) Added dirty-check guard to `checkpoint_revert` refusing hard reset with uncommitted changes unless `force=true`. Fixed NSOpenPanel NULL panic with `catch_unwind` and `NSApplicationActivationPolicyRegular`. Fixed duplicate React keys in sidebar by deduplicating projects array.
+
+**Modified:** src-tauri/Cargo.toml, src-tauri/Cargo.lock, src-tauri/src/commands/project_watcher.rs, src-tauri/src/commands/transport.rs, src-tauri/src/commands/checkpoint.rs, src-tauri/src/commands/fs_ops.rs, src-tauri/src/lib.rs, src/renderer/components/diff/CheckpointTimeline.tsx, src/renderer/hooks/useSidebarTasks.ts, src/renderer/lib/ipc.ts, src/renderer/stores/taskStore.ts, docs/pr-review-hitesh-sisara-main.md, bun.lock
+
 ## 2026-05-11 11:48 GST (Dubai)
 ### Port: Robust JSON parsing for claude CLI warnings and improve persistence (kirodex@550471a)
 Cherry-picked upstream commit that refactors `extract_first_json_object` into an iterator (`iter_json_objects`) that skips invalid brace blocks like `{MCPSERVERNAME}` in CLI warnings, adds `extract_json_object_with_key` for schema-aware JSON extraction, fixes @mention regex to require leading whitespace, returns null from `loadFullThread` when thread has no messages, persists in-flight streaming chunks during hot-reload/crash recovery, supports `archivedMeta` in UI state restoration, and switches `save_thread`/`update_context_usage` from `INSERT OR REPLACE` to proper UPSERT to avoid cascade-deleting child rows.

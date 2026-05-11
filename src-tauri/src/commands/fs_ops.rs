@@ -86,21 +86,35 @@ pub fn is_directory(path: String) -> bool {
 #[tauri::command]
 pub async fn pick_folder(app: tauri::AppHandle) -> Option<String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    app.dialog().file().pick_folder(move |folder| {
-        let _ = tx.send(folder.map(|f| f.to_string()));
-    });
+    // Wrap in catch_unwind: objc2-app-kit 0.3+ panics if NSOpenPanel returns NULL
+    // (can happen during HMR or before NSApplication is fully initialized).
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        app.dialog().file().pick_folder(move |folder| {
+            let _ = tx.send(folder.map(|f| f.to_string()));
+        });
+    }));
+    if result.is_err() {
+        log::warn!("[fs] pick_folder panicked (NSOpenPanel NULL) — returning None");
+        return None;
+    }
     rx.await.ok().flatten()
 }
 
 #[tauri::command]
 pub async fn pick_image(app: tauri::AppHandle) -> Option<String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    app.dialog()
-        .file()
-        .add_filter("Images", &["png", "jpg", "jpeg", "webp"])
-        .pick_file(move |file| {
-            let _ = tx.send(file.map(|f| f.to_string()));
-        });
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        app.dialog()
+            .file()
+            .add_filter("Images", &["png", "jpg", "jpeg", "webp"])
+            .pick_file(move |file| {
+                let _ = tx.send(file.map(|f| f.to_string()));
+            });
+    }));
+    if result.is_err() {
+        log::warn!("[fs] pick_image panicked (NSOpenPanel NULL) — returning None");
+        return None;
+    }
     rx.await.ok().flatten()
 }
 

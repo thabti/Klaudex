@@ -589,8 +589,8 @@ export const ipc = {
     files: Array<{ path: string; additions: number; deletions: number; status: string }>;
   }> =>
     invoke('checkpoint_diff', { taskId, fromTurn, toTurn }),
-  checkpointRevert: (taskId: string, turn: number): Promise<void> =>
-    invoke('checkpoint_revert', { taskId, turn }),
+  checkpointRevert: (taskId: string, turn: number, force?: boolean): Promise<void> =>
+    invoke('checkpoint_revert', { taskId, turn, force }),
   checkpointCleanup: (taskId: string): Promise<number> =>
     invoke('checkpoint_cleanup', { taskId }),
 

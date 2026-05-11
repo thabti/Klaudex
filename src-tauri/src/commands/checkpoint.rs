@@ -229,14 +229,31 @@ pub fn checkpoint_diff(
 
 /// Revert the workspace to a specific checkpoint turn.
 /// This does a hard reset of the working tree to the checkpoint's commit.
+/// Refuses to revert if the working tree has uncommitted changes unless
+/// `force` is true — prevents accidental data loss.
 #[tauri::command]
 pub fn checkpoint_revert(
     state: tauri::State<'_, AcpState>,
     task_id: String,
     turn: u32,
+    force: Option<bool>,
 ) -> Result<(), AppError> {
     let cwd = resolve_workspace(&state, &task_id)?;
     let repo = Repository::discover(&cwd)?;
+
+    // Guard: refuse to hard-reset if there are uncommitted changes
+    if !force.unwrap_or(false) {
+        let statuses = repo.statuses(None)?;
+        let is_dirty = statuses.iter().any(|s| {
+            !s.status().is_empty() && s.status() != git2::Status::IGNORED
+        });
+        if is_dirty {
+            return Err(AppError::Other(
+                "Working tree has uncommitted changes. Pass force=true to discard them.".to_string()
+            ));
+        }
+    }
+
     let ref_name = format!("{REF_PREFIX}{task_id}/{turn}");
     let commit = repo.find_reference(&ref_name)?.peel_to_commit()?;
 
