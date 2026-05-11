@@ -1,3 +1,9 @@
+## 2026-05-11 10:48 GST (Dubai)
+### Port: Normalized selectors, dual-stream sidebar pattern, oxlint
+Ported upstream commit ab8dde3f from kirodex. Adds task-store-selectors.ts with fine-grained selectors (selectTaskShell, selectTaskStatus, selectStreamingChunk, selectRunningTaskCount, etc.) that prevent sidebar re-renders during streaming. Adds oxlint as a dev dependency with a lint script for fast Rust-based linting.
+
+**Modified:** `bun.lock`, `package.json`, `src/renderer/stores/task-store-selectors.ts`, `src/renderer/stores/task-store-selectors.test.ts`
+
 ## 2026-05-11 10:45 GST (Dubai)
 ### Port: Stable timeline rows, logic/UI separation, structural equality, tool call collapsing
 Ported upstream commit 8ed9320 from kirodex. Adds stable row identity for timeline rendering (prevents unnecessary virtualizer re-measurement during streaming), extracts pure business logic from ChatPanel and MessageList into testable .logic.ts modules, adds structural equality helpers for store bail-out guards, and implements tool call collapsing to reduce visual noise in timeline work rows.
