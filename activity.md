@@ -1,4 +1,10 @@
 ## 2026-05-11 10:05 GST (Dubai)
+### Model Icons: Add GLM, Qwen, and MiniMax provider icons
+Ported upstream commit 82acfb1. Added three new model providers to `model-icons.tsx`: GLM/ChatGLM (Zhipu AI, #4268FA), Qwen (Alibaba, #615CED), and MiniMax (#F23F5D). Each gets a Provider type entry, regex detection pattern, branded SVG component, and ICON_MAP entry.
+
+**Modified:** `src/renderer/lib/model-icons.tsx`
+
+## 2026-05-11 10:05 GST (Dubai)
 ### Port: Fix updater relaunch hang, MessageList scroll dedup, memory-section redesign
 Ported upstream commit 1b34c79. Skips redundant flush-before-quit/ack cycle when RelaunchFlag is set (fixes restart button hang). Also includes MessageList scroll retry dedup with generation-based cancellation, memory-section visual redesign with stat cards and category rows, SidebarFooter memory spike indicator, and taskStore addProject cleanup (no longer restores soft-deleted threads).
 
