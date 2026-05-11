@@ -51,10 +51,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   scrollPositions: {},
 
   setSelectedTask: (id) => {
-    if (get().selectedTaskId === id) return
+    const { selectedTaskId: currentId, activeSplitId } = get()
+    if (currentId === id && !activeSplitId) return
     const updates: Partial<import('./task-store-types').TaskStore> = { selectedTaskId: id }
     // Navigating to a thread deactivates split (but keeps the saved pairing)
-    if (get().activeSplitId) {
+    if (activeSplitId) {
       updates.activeSplitId = null
     }
     set(updates)
@@ -607,6 +608,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set({
       pendingWorkspace: workspace,
       selectedTaskId: null,
+      activeSplitId: null,
       view: 'chat' as const,
     })
     useSettingsStore.getState().setActiveWorkspace(workspace, workspace)
@@ -1070,7 +1072,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   createSplitView: (left, right) => {
     const id = crypto.randomUUID()
     set((s) => ({
-      splitViews: [...s.splitViews, { id, left, right, ratio: 0.6 }],
+      splitViews: [...s.splitViews, { id, left, right, ratio: 0.5 }],
       activeSplitId: id,
       selectedTaskId: left,
       focusedPanel: 'left',

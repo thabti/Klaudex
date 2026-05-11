@@ -31,7 +31,7 @@ export const SplitChatLayout = memo(function SplitChatLayout() {
     return () => observer.disconnect()
   }, [closeSplit])
 
-  const handleReset = useCallback(() => setSplitRatio(0.6), [setSplitRatio])
+  const handleReset = useCallback(() => setSplitRatio(0.5), [setSplitRatio])
   const handleFocusLeft = useCallback(() => {
     if (useTaskStore.getState().focusedPanel !== 'left') setFocusedPanel('left')
   }, [setFocusedPanel])

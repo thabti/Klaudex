@@ -1,3 +1,9 @@
+## 2026-05-11 09:09 GST (Dubai)
+### Split: deactivate split on thread click and set 50:50 ratio
+Ported upstream commit a2ce519. Fixed bail-out guard in setSelectedTask that prevented split deactivation when clicking the already-selected left thread. Added activeSplitId: null to setPendingWorkspace. Changed default split ratio from 60:40 to 50:50.
+
+**Modified:** `src/renderer/components/chat/SplitChatLayout.tsx`, `src/renderer/stores/taskStore.ts`
+
 ## 2026-05-11 09:06 GST (Dubai)
 ### Split-screen: persistent split views with sidebar entries and Cmd+\ shortcut
 Ported upstream commit a7e3b6d. Refactored split-screen from ephemeral `splitTaskId` to persistent `splitViews` array model. Split pairings survive thread creation and navigation. Added sidebar "Split Views" section, `createSplitView`/`removeSplitView`/`setActiveSplit` actions, Cmd+\ toggle, per-thread scroll position memory, and split state persistence via history-store.
