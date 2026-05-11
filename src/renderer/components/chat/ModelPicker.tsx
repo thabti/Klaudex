@@ -11,7 +11,8 @@ const RETRY_DELAY_MS = 10_000
 
 export const ModelPicker = memo(function ModelPicker() {
   const resolvedTaskId = usePanelResolvedTaskId()
-  const models = useSettingsStore((s) => s.availableModels)
+  const rawModels = useSettingsStore((s) => s.availableModels)
+  const models = Array.isArray(rawModels) ? rawModels : []
   const globalModelId = useSettingsStore((s) => s.currentModelId)
   const taskModelId = useTaskStore((s) => resolvedTaskId ? s.taskModels[resolvedTaskId] ?? null : null)
   const currentId = taskModelId ?? globalModelId

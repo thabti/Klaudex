@@ -17,7 +17,7 @@ const STATUS_DOT: Record<string, { cls: string; label: string }> = {
 }
 
 const BUILT_IN_AGENTS = [
-  { id: 'default', name: 'Default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-blue-600 dark:text-blue-400' },
+  { id: 'default', name: 'Default', description: 'Code, edit, and execute', icon: IconCode, color: 'text-brand' },
   { id: 'plan', name: 'Planner', description: 'Plan before coding', icon: IconListCheck, color: 'text-teal-600 dark:text-teal-400' },
 ] as const
 

@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils'
  * We deliberately shell out to the CLI rather than rewriting `mcp.json`
  * directly so the user gets the CLI's validation, registry-mode enforcement,
  * and any future side effects for free. Behavior mirrors the docs at
- * https://kiro.dev/docs/cli/mcp/configuration/
+ * https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/mcp
  */
 
 type Transport = 'stdio' | 'http'
@@ -32,7 +32,7 @@ type Scope = 'global' | 'workspace' | 'agent'
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Optional workspace path so workspace-scope adds end up in the right .kiro/. */
+  /** Optional workspace path so workspace-scope adds end up in the right .claude/. */
   workspace: string | null
 }
 
@@ -135,7 +135,7 @@ export function AddMcpServerDialog({ open, onOpenChange, workspace }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3 py-2">
+        <div className="flex flex-col gap-3 overflow-y-auto px-6 py-2">
           {/* Transport */}
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -184,12 +184,12 @@ export function AddMcpServerDialog({ open, onOpenChange, workspace }: Props) {
           <div className="flex flex-col gap-1">
             <label className="text-[11px] font-medium text-muted-foreground">Scope</label>
             <div className="grid grid-cols-3 gap-1.5">
-              <ScopeButton active={scope === 'global'} onClick={() => setScope('global')} label="Global" hint="~/.kiro/settings/mcp.json" />
+              <ScopeButton active={scope === 'global'} onClick={() => setScope('global')} label="Global" hint="~/.claude/settings/mcp.json" />
               <ScopeButton
                 active={scope === 'workspace'}
                 onClick={() => setScope('workspace')}
                 label="Workspace"
-                hint=".kiro/settings/mcp.json"
+                hint=".claude/settings/mcp.json"
                 disabled={!workspace}
               />
               <ScopeButton

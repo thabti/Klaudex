@@ -89,8 +89,8 @@ const SplitViewsList = memo(function SplitViewsList() {
   return (
     <div className="px-2 pb-1">
       <div className="flex items-center gap-1.5 px-2 pb-1.5 pt-1">
-        <IconLayoutColumns className="size-3 text-muted-foreground/60" />
-        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">Split Views</span>
+        <IconLayoutColumns className="size-3 text-violet-400/60" />
+        <span className="text-[11px] font-medium uppercase tracking-wider text-violet-400/60">Side by Side</span>
       </div>
       <ul className="flex flex-col gap-0.5">
         {splitViews.map((sv) => {
@@ -105,13 +105,13 @@ const SplitViewsList = memo(function SplitViewsList() {
                 className={cn(
                   'flex min-w-0 h-7 w-full items-center gap-1.5 rounded-lg px-2 text-[12px] select-none transition-colors',
                   isActive
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                    ? 'bg-violet-500/10 text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-violet-500/5 hover:text-foreground',
                 )}
               >
-                <IconLayoutColumns className="size-3 shrink-0" />
+                <IconLayoutColumns className={cn('size-3 shrink-0', isActive ? 'text-violet-400' : 'text-violet-400/50')} />
                 <span className="min-w-0 truncate">{leftName}</span>
-                <span className="shrink-0 text-muted-foreground/40">·</span>
+                <span className="shrink-0 text-violet-400/30">⋮</span>
                 <span className="min-w-0 truncate">{rightName}</span>
               </button>
               <button
@@ -156,7 +156,7 @@ const PinnedThreadsList = memo(function PinnedThreadsList({ selectedTaskId, onSe
                 className={cn(
                   'flex min-w-0 h-7 w-full items-center gap-1.5 rounded-lg px-2 text-[12px] select-none transition-colors',
                   isActive
-                    ? 'bg-accent/85 dark:bg-accent/55 text-foreground font-medium'
+                    ? 'bg-muted/60 dark:bg-muted/40 text-foreground font-medium'
                     : 'text-muted-foreground hover:bg-accent hover:text-foreground',
                 )}
               >

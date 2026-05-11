@@ -30,7 +30,7 @@ function StepStatusIcon({ status }: { status: string }) {
   }
   if (status === 'in_progress') {
     return (
-      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-blue-400">
+      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-brand/15 text-brand">
         <IconLoader2 className="size-3 animate-spin" />
       </span>
     )
@@ -99,7 +99,7 @@ export const PlanSidebar = memo(function PlanSidebar({ taskId, onClose }: PlanSi
       {/* Header */}
       <div className="flex h-10 shrink-0 items-center justify-between border-b border-border/60 px-3">
         <div className="flex items-center gap-2">
-          <span className="rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-400">
+          <span className="rounded-md bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand">
             Plan
           </span>
           {plan && (
@@ -149,7 +149,7 @@ export const PlanSidebar = memo(function PlanSidebar({ taskId, onClose }: PlanSi
                   key={`${idx}-${step.content}`}
                   className={cn(
                     'flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors',
-                    step.status === 'in_progress' && 'bg-blue-500/5',
+                    step.status === 'in_progress' && 'bg-brand/5',
                     step.status === 'completed' && 'bg-emerald-500/5',
                   )}
                 >

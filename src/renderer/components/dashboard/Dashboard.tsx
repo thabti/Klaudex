@@ -78,7 +78,7 @@ export const Dashboard = memo(function Dashboard() {
             </Badge>
             <Button size="sm" className="ml-auto gap-1.5" onClick={handleNewThread} data-testid="dashboard-new-thread-button">
               <IconPlus className="h-3.5 w-3.5" />
-              New Thread
+              New thread
             </Button>
           </div>
 

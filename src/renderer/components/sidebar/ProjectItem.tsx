@@ -65,13 +65,10 @@ export const ProjectItem = memo(function ProjectItem({
     <li
       className={cn(
         'group/menu-item relative min-w-0 rounded-md transition-colors',
-        isActiveProject && 'bg-accent/30',
+        isActiveProject && 'bg-muted/50',
       )}
     >
       <div className="relative flex items-center">
-        {isActiveProject && (
-          <div className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-primary" aria-hidden />
-        )}
         <button
           ref={buttonRef}
           type="button"
@@ -84,7 +81,7 @@ export const ProjectItem = memo(function ProjectItem({
           )}
         >
           <ProjectIcon icon={projectIcon} />
-          <span className={cn('flex-1 truncate text-[13px] text-foreground/85', isActiveProject ? 'font-semibold' : 'font-normal')}>{name}</span>
+          <span className={cn('flex-1 truncate text-[13px] text-foreground/85', isActiveProject ? 'font-medium' : 'font-normal')}>{name}</span>
           {jumpLabel && (
             <kbd className="pointer-events-none ml-auto mr-1 inline-flex h-4 shrink-0 items-center rounded-sm bg-muted px-1 font-mono text-[10px] font-medium text-muted-foreground select-none">
               {jumpLabel}

@@ -172,7 +172,7 @@ const ICON_MAP: Record<Provider, (props: IconProps) => JSX.Element> = {
   glm: GlmIcon,
   qwen: QwenIcon,
   minimax: MinimaxIcon,
-  claude: ClaudeIcon,
+  claude: AnthropicIcon,
   unknown: DefaultIcon,
 }
 

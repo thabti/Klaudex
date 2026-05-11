@@ -27,12 +27,12 @@ const THEME_COLORS: Record<'dark' | 'light', {
     primary: '#D97757',
   },
   light: {
-    bg: '#ffffff',
-    sidebar: '#f7f7f8',
-    card: '#fafafa',
-    fg: '#1a1a1a',
-    fgMuted: '#c0c0c0',
-    border: '#e5e5e5',
+    bg: '#fdfcfb',
+    sidebar: '#f2eeeb',
+    card: '#f8f6f4',
+    fg: '#1c1917',
+    fgMuted: '#a8a29e',
+    border: '#ddd6cf',
     primary: '#D97757',
   },
 }

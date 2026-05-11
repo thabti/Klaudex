@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { IconRefresh } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 import { fuzzyScore } from '@/lib/fuzzy-search'
+import { getModelIcon } from '@/lib/model-icons'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { usePanelResolvedTaskId } from './PanelContext'
@@ -10,7 +11,8 @@ import { PanelShell } from './PanelShell'
 
 export const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { onDismiss: () => void }) {
   const resolvedTaskId = usePanelResolvedTaskId()
-  const models = useSettingsStore((s) => s.availableModels)
+  const rawModels = useSettingsStore((s) => s.availableModels)
+  const models = Array.isArray(rawModels) ? rawModels : []
   const globalModelId = useSettingsStore((s) => s.currentModelId)
   const taskModelId = useTaskStore((s) => resolvedTaskId ? s.taskModels[resolvedTaskId] ?? null : null)
   const currentId = taskModelId ?? globalModelId
@@ -125,7 +127,7 @@ export const ModelPickerPanel = memo(function ModelPickerPanel({ onDismiss }: { 
                 isActive ? 'text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
               )}
             >
-              <span className={cn('size-1.5 shrink-0 rounded-full', isActive ? 'bg-primary' : 'bg-transparent')} />
+              <span className="shrink-0">{getModelIcon(m.modelId || m.name, { size: 14 })}</span>
               <span className={cn('flex-1 truncate', isActive && 'font-medium')}>{m.name}</span>
               {isActive && <span className="text-[10px] text-primary">active</span>}
             </li>

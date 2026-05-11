@@ -63,7 +63,7 @@ const SplitToggleButton = memo(function SplitToggleButton() {
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          {isSplit ? "Close split view" : "Split view · work on two threads at once"}
+          {isSplit ? "Close split view" : "Side by side"}
         </TooltipContent>
       </Tooltip>
       {pickerPos && selectedTaskId && (
@@ -94,8 +94,8 @@ const FileTreeToggleButton = memo(function FileTreeToggleButton() {
           className={cn(
             "inline-flex size-7 items-center justify-center text-xs transition-colors",
             isOpen
-              ? "bg-white/[0.08] text-foreground"
-              : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground",
+              ? "bg-foreground/[0.08] text-foreground"
+              : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
           )}
         >
           <IconFiles className="size-3.5" aria-hidden />
@@ -162,7 +162,7 @@ export const HeaderToolbar = memo(function HeaderToolbar({
 
         {selectedTaskId && (
           <>
-            <div className="h-4 w-px bg-white/[0.06]" />
+            <div className="h-4 w-px bg-foreground/[0.06]" />
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -174,8 +174,8 @@ export const HeaderToolbar = memo(function HeaderToolbar({
                   className={cn(
                     "inline-flex size-7 items-center justify-center text-xs transition-colors",
                     terminalOpen
-                      ? "bg-white/[0.08] text-foreground"
-                      : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground",
+                      ? "bg-foreground/[0.08] text-foreground"
+                      : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
                   )}
                 >
                   <IconTerminal2 className="size-3.5" aria-hidden />
@@ -186,10 +186,10 @@ export const HeaderToolbar = memo(function HeaderToolbar({
           </>
         )}
 
-        <div className="h-4 w-px bg-white/[0.06]" />
+        <div className="h-4 w-px bg-foreground/[0.06]" />
         <FileTreeToggleButton />
 
-        <div className="h-4 w-px bg-white/[0.06]" />
+        <div className="h-4 w-px bg-foreground/[0.06]" />
         <SplitToggleButton />
       </div>
 

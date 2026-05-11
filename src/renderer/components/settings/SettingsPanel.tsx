@@ -345,6 +345,7 @@ export const SettingsPanel = () => {
                   {section === 'appearance' && <AppearanceSection draft={draft} updateDraft={updateDraft} />}
                   {section === 'keymap' && <KeymapSection />}
                   {section === 'advanced' && <AdvancedSection draft={draft} updateDraft={updateDraft} onClose={handleClose} />}
+                  {section === 'hooks' && <HooksSection />}
                   {section === 'memory' && <MemorySection draft={draft} updateDraft={updateDraft} />}
                   {section === 'archives' && <ArchivesSection />}
                 </>

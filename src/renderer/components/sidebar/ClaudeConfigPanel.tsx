@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { IconRobot, IconBolt, IconCompass, IconChevronRight, IconSearch, IconPlug, IconEdit, IconHandFinger, IconPlus, IconAlignLeft, IconCommand } from '@tabler/icons-react'
+import { IconRobot, IconBolt, IconCompass, IconSearch, IconPlug, IconEdit, IconHandFinger, IconPlus, IconAlignLeft, IconCommand } from '@tabler/icons-react'
+import { ClaudeIcon } from '@/components/icons/ClaudeIcon'
 import { useClaudeConfigStore } from '@/stores/claudeConfigStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -41,6 +42,7 @@ export const ClaudeConfigPanel = memo(function ClaudeConfigPanel({
 
   const [agentsOpen, setAgentsOpen] = useState(false)
   const [skillsOpen, setSkillsOpen] = useState(false)
+  const [skillsSectionOpen, setSkillsSectionOpen] = useState(false)
   const [rulesOpen, setRulesOpen] = useState(false)
   const [mcpOpen, setMcpOpen] = useState(false)
   const [promptsOpen, setPromptsOpen] = useState(false)
@@ -86,14 +88,14 @@ export const ClaudeConfigPanel = memo(function ClaudeConfigPanel({
   if (!loaded) {
     return (
       <div className="flex flex-col gap-1.5 px-2 py-2">
-        {[1, 2, 3].map((i) => <div key={i} className="h-7 w-full rounded-lg skeleton" />)}
+        {[1, 2, 3].map((i) => <div key={`skel-${i}`} className="h-7 w-full rounded-lg skeleton" />)}
       </div>
     )
   }
 
   // Always render the panel once loaded — even with no items, the user needs
   // the "Add MCP server" button. The panel is hidden by the parent sidebar
-  // when the workspace has no .kiro directory at all.
+  // when the workspace has no .claude directory at all.
   if (agents.length === 0 && skills.length === 0 && steeringRules.length === 0 && mcpServers.length === 0 && prompts.length === 0) {
     // Nothing configured yet — show just the "Add MCP server" affordance
     // so a fresh install isn't a dead end.
@@ -102,8 +104,8 @@ export const ClaudeConfigPanel = memo(function ClaudeConfigPanel({
         <div className="flex w-full min-w-0 flex-col">
           <div className="mb-0.5 flex items-center justify-between pr-1.5">
             <button type="button" onClick={onToggleCollapse}
-              className="flex h-6 flex-1 items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors">
-              <IconChevronRight className={cn('size-3 shrink-0 transition-transform duration-150', !collapsed && 'rotate-90')} aria-hidden />
+              className="flex h-6 flex-1 cursor-pointer items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors">
+              <ClaudeIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
               Claude
             </button>
           </div>
@@ -131,9 +133,9 @@ export const ClaudeConfigPanel = memo(function ClaudeConfigPanel({
       <div className="flex w-full min-w-0 flex-col">
         <div className="mb-0.5 flex items-center justify-between pr-1.5">
           <button type="button" onClick={onToggleCollapse}
-            className="flex h-6 flex-1 items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors">
-            <IconChevronRight className={cn('size-3 shrink-0 transition-transform duration-150', !collapsed && 'rotate-90')} aria-hidden />
-            Claude
+            className="flex h-6 flex-1 cursor-pointer items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors">
+              <ClaudeIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+              Claude
           </button>
           {!collapsed && (
             <div className="flex items-center gap-0.5">
@@ -191,6 +193,15 @@ export const ClaudeConfigPanel = memo(function ClaudeConfigPanel({
               <p className="border-l mx-1 px-2 py-1.5 text-[10px] text-muted-foreground" style={{ borderColor: 'var(--border)' }}>
                 No slash commands
               </p>
+            )}
+
+            {skills.length > 0 && (filteredSkills.length > 0 || !search) && (
+              <SectionToggle icon={IconBolt} iconColor="text-amber-600 dark:text-amber-400" label="Skills" count={filteredSkills.length} expanded={skillsSectionOpen} onToggle={() => setSkillsSectionOpen((v) => !v)} />
+            )}
+            {skillsSectionOpen && filteredSkills.length > 0 && (
+              <ul className="flex min-w-0 flex-col gap-px border-l mx-1 px-1.5 py-px" style={{ borderColor: 'var(--border)' }}>
+                {filteredSkills.map((skill) => <SkillRow key={`${skill.source}-${skill.name}`} skill={skill} onOpen={openViewer} />)}
+              </ul>
             )}
 
             {agents.length > 0 && (totalAgents > 0 || !search) && (

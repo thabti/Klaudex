@@ -94,7 +94,7 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
   if (!task) return
   const shouldCreateNew = needsNewConnection(task)
   // Resumed-from-history: keep the original thread id and replay the prior
-  // transcript so the fresh kiro-cli subprocess has context.
+  // transcript so the fresh Claude CLI subprocess has context.
   const isResumed = shouldCreateNew && (task.isArchived === true || task.needsNewConnection === true) && task.messages.length > 0
 
   // Capture the dispatch snapshot BEFORE we mutate the task. The snapshot
@@ -180,14 +180,14 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
 const ArchivedBanner = memo(function ArchivedBanner() {
   return (
     <div className="relative flex items-center justify-center py-4 px-6 select-none" data-testid="chat-archived-banner">
-      <svg className="flex-1 h-3 text-blue-600/30 dark:text-blue-400/30" preserveAspectRatio="none" viewBox="0 0 120 12">
+      <svg className="flex-1 h-3 text-brand/30" preserveAspectRatio="none" viewBox="0 0 120 12">
         <path d="M0,6 L5,0 L10,6 L15,0 L20,6 L25,0 L30,6 L35,0 L40,6 L45,0 L50,6 L55,0 L60,6 L65,0 L70,6 L75,0 L80,6 L85,0 L90,6 L95,0 L100,6 L105,0 L110,6 L115,0 L120,6" fill="none" stroke="currentColor" strokeWidth="1" />
       </svg>
-      <div className="flex shrink-0 items-center gap-1.5 mx-3 rounded-full border border-blue-400/20 bg-card px-3 py-1">
-        <IconHistory className="size-3 text-blue-600/50 dark:text-blue-400/50" />
-        <span className="text-[11px] font-medium text-blue-500/60 dark:text-blue-300/50">Resumed from history — agent reconnects on next send</span>
+      <div className="flex shrink-0 items-center gap-1.5 mx-3 rounded-full border border-brand/20 bg-card px-3 py-1">
+        <IconHistory className="size-3 text-brand/50" />
+        <span className="text-[11px] font-medium text-brand/60">Resumed from history — agent reconnects on next send</span>
       </div>
-      <svg className="flex-1 h-3 text-blue-600/30 dark:text-blue-400/30" preserveAspectRatio="none" viewBox="0 0 120 12">
+      <svg className="flex-1 h-3 text-brand/30" preserveAspectRatio="none" viewBox="0 0 120 12">
         <path d="M0,6 L5,0 L10,6 L15,0 L20,6 L25,0 L30,6 L35,0 L40,6 L45,0 L50,6 L55,0 L60,6 L65,0 L70,6 L75,0 L80,6 L85,0 L90,6 L95,0 L100,6 L105,0 L110,6 L115,0 L120,6" fill="none" stroke="currentColor" strokeWidth="1" />
       </svg>
     </div>

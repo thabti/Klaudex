@@ -102,7 +102,7 @@ function LoginBanner() {
       <button
         type="button"
         onClick={openLogin}
-        className="shrink-0 rounded-lg bg-amber-500/20 px-3 py-1.5 text-[12px] font-medium text-amber-700 dark:text-amber-200 transition-colors hover:bg-amber-500/30"
+        className="shrink-0 rounded-lg bg-amber-500/20 px-4 py-2 text-[13px] font-medium text-amber-700 dark:text-amber-200 transition-colors hover:bg-amber-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
       >
         Sign in
       </button>
@@ -115,8 +115,8 @@ const SHOWCASE_FEATURES = [
     icon: IconLayoutColumns,
     label: "Split view",
     description: "Two threads side by side",
-    color: "text-blue-400",
-    bgColor: "bg-blue-500/10",
+    color: "text-brand",
+    bgColor: "bg-brand/10",
   },
   {
     icon: IconArrowsShuffle,
@@ -175,7 +175,7 @@ function EmptyState() {
         </div>
         <div className="text-center">
           <h2 className="text-lg font-semibold text-foreground">
-            {hasProjects ? "Start a new thread" : "Open a project to get started"}
+            {hasProjects ? "Start a new thread" : "Open a folder to get started"}
           </h2>
           <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
             {hasProjects
@@ -187,17 +187,17 @@ function EmptyState() {
         <button
           type="button"
           onClick={handleNew}
-          className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           {hasProjects ? (
             <>
               <IconPlus size={15} stroke={2} />
-              New Thread
+              New thread
             </>
           ) : (
             <>
               <IconFolderOpen size={15} stroke={1.5} />
-              Import Project
+              Open folder
             </>
           )}
         </button>

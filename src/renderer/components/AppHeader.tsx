@@ -66,7 +66,7 @@ const MODE_DISPLAY: Record<
   allowListed: {
     Icon: IconList,
     label: "Listed",
-    chipClassName: "text-blue-400 bg-blue-500/10 hover:bg-blue-500/20",
+    chipClassName: "text-brand bg-brand/10 hover:bg-brand/20",
     tooltip: "Auto-approve allow-listed tools — click to cycle (Listed → Bypass → Ask)",
   },
   bypass: {
