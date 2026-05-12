@@ -1,3 +1,11 @@
+## 2026-05-12 20:55 GST (Dubai)
+### Settings: Add unsaved changes confirmation dialog
+
+Ported upstream commit adding a confirmation dialog when closing settings with unsaved changes. Includes a sticky save bar at the bottom when draft differs from saved settings, with discard/save options. Close/Cancel/Escape now trigger the dialog instead of silently discarding.
+
+**Modified:**
+- src/renderer/components/settings/SettingsPanel.tsx
+
 ## 2026-05-12 20:53 GST (Dubai)
 ### UI: Refine split divider grip dots and panel header layout
 
