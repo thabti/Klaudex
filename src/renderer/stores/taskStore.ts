@@ -616,7 +616,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
             isTerminal && !tc.completedAt && !stamped.completedAt
               ? now
               : tc.completedAt ?? stamped.completedAt
+          // Merge: spread existing first so fields not present in the
+          // incoming update (e.g. `content` with diff stats) are preserved.
           return {
+            ...tc,
             ...stamped,
             createdAt: tc.createdAt ?? stamped.createdAt,
             ...(completedAt ? { completedAt } : {}),
