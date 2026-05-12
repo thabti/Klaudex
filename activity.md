@@ -1,3 +1,19 @@
+## 2026-05-13 00:20 GST (Dubai)
+
+### Release: v1.4.0
+
+Bumped version from 1.3.0 to 1.4.0 in `package.json` and `src-tauri/tauri.conf.json`.
+
+**Modified:** `package.json`, `src-tauri/tauri.conf.json`, `activity.md`
+
+## 2026-05-13 00:15 GST (Dubai)
+
+### Docs: Add four engineering learnings to CLAUDE.md
+
+Reviewed all uncommitted changes and added learnings for: ToolProgress forwarding as `tool_call_update` events, full token breakdown in `usage_update`, turn duration tracking via `turn_start_ms` in `handle_claude_message`, and MCP tool name humanisation in `tool_title_and_kind`.
+
+**Modified:** CLAUDE.md, activity.md
+
 ## 2026-05-12 23:45 GST (Dubai)
 
 ### ACP: Forward tool progress, fix token breakdown, add turn duration
