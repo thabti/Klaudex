@@ -43,6 +43,7 @@
     "@tauri-apps/plugin-updater": "^2.10.1",
     "diff": "^8.0.4",
     "ghostty-web": "^0.4.0",
+    "material-icon-theme": "^5.34.0",
     "posthog-js": "^1.367.0",
     "recharts": "2.15.3",
     "remark-gfm": "^4.0.1",

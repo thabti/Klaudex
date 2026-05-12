@@ -1,3 +1,13 @@
+## 2026-05-12 23:38 GST (Dubai)
+
+### CI: Fix material-icon-theme missing from package.json
+
+`material-icon-theme` was used in `file-icons.ts` but not declared in `package.json`, so CI's `bun install --frozen-lockfile` never installed it. Added it as a runtime dependency so the lockfile includes it.
+
+**Modified:** `package.json`, `bun.lock`
+
+---
+
 ## 2026-05-12 20:30 GST (Dubai)
 
 ### Release: v1.6.0
