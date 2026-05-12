@@ -103,24 +103,24 @@ const SplitViewsList = memo(function SplitViewsList() {
                 type="button"
                 onClick={() => setActiveSplit(sv.id)}
                 className={cn(
-                  'flex min-w-0 h-7 w-full items-center gap-1.5 rounded-lg px-2 text-[12px] select-none transition-colors',
+                  'flex min-w-0 h-8 w-full items-center gap-2 rounded-lg px-2 text-[12px] select-none transition-colors',
                   isActive
                     ? 'bg-violet-500/10 text-foreground font-medium'
                     : 'text-muted-foreground hover:bg-violet-500/5 hover:text-foreground',
                 )}
               >
-                <IconLayoutColumns className={cn('size-3 shrink-0', isActive ? 'text-violet-400' : 'text-violet-400/50')} />
+                <IconLayoutColumns className={cn('size-3.5 shrink-0', isActive ? 'text-violet-400' : 'text-violet-400/50')} />
                 <span className="min-w-0 truncate">{leftName}</span>
-                <span className="shrink-0 text-violet-400/30">⋮</span>
+                <span className="shrink-0 text-[10px] text-violet-400/30">⇄</span>
                 <span className="min-w-0 truncate">{rightName}</span>
               </button>
               <button
                 type="button"
-                aria-label="Remove split view"
+                aria-label="Remove side-by-side"
                 onClick={(e) => { e.stopPropagation(); removeSplitView(sv.id) }}
-                className="absolute right-1 top-1/2 -translate-y-1/2 hidden size-4 items-center justify-center rounded text-muted-foreground/50 hover:bg-accent hover:text-foreground group-hover/sv:flex"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 hidden size-5 items-center justify-center rounded-md text-muted-foreground/50 hover:bg-accent hover:text-foreground group-hover/sv:flex"
               >
-                <IconX className="size-2.5" />
+                <IconX className="size-3" />
               </button>
             </li>
           )
