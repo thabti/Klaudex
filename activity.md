@@ -1,3 +1,11 @@
+## 2026-05-12 21:05 GST (Dubai)
+### Chat: Render image preview overlay via portal
+
+Ported upstream fix to render the full-screen image preview using createPortal to document.body, preventing z-index and overflow clipping issues in nested scroll containers.
+
+**Modified:**
+- src/renderer/components/chat/UserMessageRow.tsx
+
 ## 2026-05-12 21:02 GST (Dubai)
 ### Chat: Add connection_lost system message variant
 
