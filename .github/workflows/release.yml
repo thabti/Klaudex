@@ -58,7 +58,7 @@ jobs:
           - platform: ubuntu-22.04
             args: ''
             name: Linux
-          - platform: windows-latest
+          - platform: windows-2022
             args: ''
             name: Windows
 
