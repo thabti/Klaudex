@@ -5,10 +5,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src/renderer'),
-      'material-icon-theme/dist/material-icons.json': path.resolve(
-        __dirname,
-        'node_modules/material-icon-theme/dist/material-icons.json'
-      ),
     },
   },
   test: {
@@ -16,6 +12,11 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['src/test-setup.ts'],
+    server: {
+      deps: {
+        inline: ['material-icon-theme'],
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
