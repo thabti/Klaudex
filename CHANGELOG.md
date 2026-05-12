@@ -1,5 +1,54 @@
 # Changelog
 
+## [v0.45.0] - 2026-05-12
+
+### Features
+
+- add 'Open File Tree' to project context menu ([`0fdc8a8`](https://github.com/thabti/kirodex/commit/0fdc8a80c1aba641971fe416b41ffcf0b4cf1ea9))
+- add persistUiState and auto-save UI state every 30s ([`c087dbb`](https://github.com/thabti/kirodex/commit/c087dbb36259d8c5bf637c8419b4b9b6773bd505))
+- show login errors and non-standard path hint ([`590f55d`](https://github.com/thabti/kirodex/commit/590f55d657095e5663ec32743f792c263a52ca96))
+- add connection_lost system message variant ([`68a2bb9`](https://github.com/thabti/kirodex/commit/68a2bb97a9feed8b5a005b49c935352c543a5cc0))
+- add delete button to memory section thread rows ([`8b3200d`](https://github.com/thabti/kirodex/commit/8b3200d0c617860021bd1a46b0f5a61ae143df8e))
+- add unsaved changes confirmation dialog ([`4c3fcc2`](https://github.com/thabti/kirodex/commit/4c3fcc2be40508cecaa58a77b20da1a5247ed10f))
+
+### Bug fixes
+
+- preserve existing tool call fields during merge ([`0aaa37f`](https://github.com/thabti/kirodex/commit/0aaa37f91c00bfe0c26f6bad405c08176e02fb48))
+- support full paths in terminal command allowlist ([`969e784`](https://github.com/thabti/kirodex/commit/969e78495a5b9cc4cedbd3be16d418c0ffe214d8))
+- render image preview overlay via portal ([`4be7410`](https://github.com/thabti/kirodex/commit/4be74106182843e8a59c86fb70025fe1cbc31361))
+- update SidebarFooter test for icon-only Debug button ([`51b5dd2`](https://github.com/thabti/kirodex/commit/51b5dd2978bd6893aa3c89081d7c69c3104bcc6a))
+
+### Styling
+
+- remove active thread highlight from ThreadItem ([`2fcafbc`](https://github.com/thabti/kirodex/commit/2fcafbce6fb5574b57256dec47fec16fc949d777))
+- refine divider grip dots and panel header layout ([`c9f12cd`](https://github.com/thabti/kirodex/commit/c9f12cd930888187d5791d996e4762a0b9a2a5a5))
+
+### Refactoring
+
+- extract ProjectGroup in deleted threads restore ([`8227978`](https://github.com/thabti/kirodex/commit/82279787f14b4c73b4e6dab4fa6733c61692783a))
+- rename 'split view' to 'side-by-side' across UI ([`42e412d`](https://github.com/thabti/kirodex/commit/42e412d93b2ec2b34b16137e81d785a8ceb95a09))
+
+### Documentation
+
+- update README with file tree, @mentions, MCP, and lint command ([`6ad164d`](https://github.com/thabti/kirodex/commit/6ad164dd889b527c8a1bc5765f18110d12c6276c))
+- update main screenshot with new splash screen ([`22a5e31`](https://github.com/thabti/kirodex/commit/22a5e310d0e59eab7016e4bf7f3c2dceab43a93b))
+- add v0.41–v0.43 to website and update CHANGELOG ([`67d9445`](https://github.com/thabti/kirodex/commit/67d9445f0682ed83108c218f989d859c41cf62bd))
+- update screenshots and simplify README to single image ([`a816cd1`](https://github.com/thabti/kirodex/commit/a816cd110d2c82685b2c04ab835e5145baafa3cc))
+- update main screenshot with new splash screen ([`9439f20`](https://github.com/thabti/kirodex/commit/9439f200d0172bdd989613f94cc79a1042f6c49a))
+
+### Chores
+
+- bump version to 0.44.0 and fix MCP dialog padding ([`4b7b880`](https://github.com/thabti/kirodex/commit/4b7b88024e94a1fdc3cc0d577b97dc8307ee6c90))
+- update activity log ([`4045b6a`](https://github.com/thabti/kirodex/commit/4045b6a690b173d4b9a9d9c1a30df58cbbb8cfe2))
+- replace material-icon-theme with seti-file-icons ([`ca9a17a`](https://github.com/thabti/kirodex/commit/ca9a17a9ab9a63023be77b1663cd24ad7ba42753))
+- rename screenshot from main.png to kirodex.png ([`bc11592`](https://github.com/thabti/kirodex/commit/bc115921d816a9ed8ee94c58fe6fa01a3ec49e2b))
+- update downloads.json ([`71de046`](https://github.com/thabti/kirodex/commit/71de04691d0c89787b4987fab199e136c7538529))
+- update downloads.json ([`4e1bbe4`](https://github.com/thabti/kirodex/commit/4e1bbe42e04b6856d26695f89b4b600a1cf887b9))
+
+### Other changes
+
+- Merge branch 'main' of github.com:thabti/kirodex ([`0059046`](https://github.com/thabti/kirodex/commit/00590466acb83fdc793c1b9d6c3fe1aa3792a55e))
+
 ## [v0.43.0] - 2026-05-10
 
 ### Features
