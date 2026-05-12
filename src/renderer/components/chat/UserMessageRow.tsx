@@ -1,4 +1,5 @@
 import { memo, useState, useRef, useCallback, useContext, useMemo, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { IconCopy, IconCheck, IconPhoto, IconFileText, IconFile, IconRobot, IconBolt, IconGitFork, IconX } from '@tabler/icons-react'
 import {
   Tooltip,
@@ -111,9 +112,9 @@ const AttachmentPill = memo(function AttachmentPill({ name, type, src }: { name:
             className="block h-auto max-h-[180px] w-full max-w-[240px] cursor-zoom-in object-cover transition-transform group-hover/img:scale-[1.02]"
           />
         </button>
-        {showPreview && (
+        {showPreview && createPortal(
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm"
             onClick={() => setShowPreview(false)}
             onKeyDown={(e) => e.key === 'Escape' && setShowPreview(false)}
             role="dialog"
@@ -121,7 +122,6 @@ const AttachmentPill = memo(function AttachmentPill({ name, type, src }: { name:
             aria-label="Image preview"
             tabIndex={-1}
             ref={(el) => el?.focus()}
-            style={{ overflow: 'hidden' }}
           >
             <button
               type="button"
@@ -134,9 +134,11 @@ const AttachmentPill = memo(function AttachmentPill({ name, type, src }: { name:
             <img
               src={src}
               alt={name}
-              className="max-h-[85vh] max-w-[90vw] rounded-lg border border-border/40 object-contain shadow-2xl"
+              className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
             />
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     )
