@@ -1,3 +1,11 @@
+## 2026-05-12 21:22 GST (Dubai)
+### Store: Preserve existing tool call fields during merge
+
+Ported upstream fix that spreads existing tool call properties before the incoming update so fields like diff stats content are not lost when the backend sends a partial update.
+
+**Modified:**
+- src/renderer/stores/taskStore.ts
+
 ## 2026-05-12 21:18 GST (Dubai)
 ### Deps: Replace material-icon-theme with seti-file-icons
 
