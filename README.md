@@ -20,7 +20,7 @@
   </p>
   <table>
     <tr>
-      <td><img src="screenshots/main.png" alt="Kirodex main view" width="100%" /></td>
+      <td><img src="screenshots/kirodex.png" alt="Kirodex main view" width="100%" /></td>
     </tr>
   </table>
 
@@ -97,6 +97,7 @@ chmod +x Kirodex_*.AppImage && ./Kirodex_*.AppImage
 - Slash commands (`/clear`, `/close`, `/model`, `/agent`, `/plan`, `/chat`, `/data`, `/branch`, `/worktree`, `/fork`, `/btw`, `/tangent`) with fuzzy search across all pickers
 - `/btw` side questions — ask a quick question in a floating overlay without polluting conversation history; `/tangent` is an alias. Press Escape to discard or Keep to preserve the exchange
 - `/fork` — fork the current thread into a new conversation, preserving context
+- `@mentions` — type `@` in the chat input to fuzzy-search and attach project files (with git status and relative timestamps), agents, skills, and prompts as context pills
 - Agent mention pills (`@agent`) with built-in agents, styled icons, and fuzzy matching
 - Plan mode with per-thread state and a handoff card to start building after planning
 - Mode dropdown — switch between plan and chat modes from the toolbar
@@ -107,6 +108,7 @@ chmod +x Kirodex_*.AppImage && ./Kirodex_*.AppImage
 - Question cards — agents can ask multi-choice questions; pick an option and reply inline
 - Subagent display — parallel agent pipelines render as expandable stage cards with dependency indicators
 - Kiro config sidebar — browse agents (grouped by stack), skills, steering rules, and MCP servers from `.kiro/`
+- MCP server management — add, remove, and configure MCP servers from the UI with stdio/HTTP transport, scope selection (global/workspace/agent), and live status indicators showing tool count and health
 - Emoji and project-file icon picker for customizing thread icons
 - Folder drag-and-drop — drag folders into the chat input to attach them as context pills
 - Image attachments sent as proper ACP `ContentBlock::Image` for multimodal agents
@@ -121,6 +123,14 @@ chmod +x Kirodex_*.AppImage && ./Kirodex_*.AppImage
 **Multi-window**
 - Open multiple Kirodex windows via `Cmd+N` (new window) from the native File menu
 - Each window has its own independent state, threads, and terminal sessions
+
+**File tree**
+- Collapsible file tree panel with real-time filesystem watching
+- Git status indicators (modified, added, deleted, renamed) per file
+- Inline rename, create file/folder, and context menu actions
+- Drag files from the tree into chat to attach as context
+- File preview modal with syntax highlighting
+- Toggle hidden files and collapse/expand all directories
 
 **Code and diffs**
 - Syntax-highlighted inline and side-by-side diff views ([Shiki](https://shiki.style))
@@ -154,6 +164,7 @@ chmod +x Kirodex_*.AppImage && ./Kirodex_*.AppImage
 
 **Terminal and settings**
 - Integrated PTY terminal ([xterm.js](https://xtermjs.org) + portable-pty)
+- Connection health monitoring — periodic IPC probes with exponential backoff, automatic reconnection, and a rich status indicator in the UI
 - `Cmd+L` shortcut to focus the chat input from anywhere
 - `Cmd+B` shortcut to open a `/btw` side question
 - Open in editor — launch files in VS Code, Cursor, Zed, or your preferred terminal emulator
@@ -198,6 +209,7 @@ The first build compiles ~430 crates and takes a few minutes. Subsequent builds 
 | `bun run build` | Production build (.app / .dmg / .exe / .deb) |
 | `bun run check:ts` | TypeScript type check |
 | `bun run check:rust` | Rust type check (`cargo check`) |
+| `bun run lint` | Lint frontend with [oxlint](https://oxc.rs/docs/guide/usage/linter) |
 | `bun run test` | Run all tests (frontend + Rust) |
 | `bun run bump:patch` | Bump version (patch) across all files |
 | `bun run clean` | Remove build artifacts |
@@ -236,7 +248,6 @@ See [docs/architecture.md](docs/architecture.md) for the system diagram, backend
 | Agent library | Browse and install agents from a curated registry |
 | Skills library | Browse and install skills from a curated registry |
 | Winget / Scoop | Windows package manager support |
-| MCP server management | Add, remove, and configure MCP servers from the UI |
 
 ## Contributing
 
