@@ -1,3 +1,10 @@
+## 2026-05-12 20:37 GST (Dubai)
+### Header: Restyle toolbar dividers and active states
+
+Ported upstream styling commit — replaced `bg-foreground/[0.06]` dividers and `bg-foreground/[0.08]` active states with `bg-white/[0.06]` and `bg-white/[0.08]` to match the connected button group design from kirodex.
+
+**Modified:** src/renderer/components/header-toolbar.tsx
+
 ## 2026-05-12 20:08 GST (Dubai)
 ### Scripts: Add --from-tag support to ralph-loop.sh
 
