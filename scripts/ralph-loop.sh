@@ -8,8 +8,9 @@
 # MAX_ATTEMPTS is hit.
 #
 # Usage:
-#   ralph-loop.sh <source-repo> <target-repo> [--from <sha>] [--branch <name>]
-#                 [--max-attempts N] [--validate "<cmd>"] [--dry-run]
+#   ralph-loop.sh <source-repo> <target-repo> [--from <sha>] [--from-tag <tag>]
+#                 [--branch <name>] [--max-attempts N] [--validate "<cmd>"]
+#                 [--dry-run]
 #
 # State lives in <target-repo>/.ralph/:
 #   last_sha       — last fully-processed source SHA
@@ -23,6 +24,7 @@ set -euo pipefail
 SOURCE_REPO=""
 TARGET_REPO=""
 FROM_SHA=""
+FROM_TAG=""
 BRANCH="main"
 MAX_ATTEMPTS=5
 VALIDATE_CMD=""
@@ -36,6 +38,7 @@ usage() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --from)         FROM_SHA="$2"; shift 2 ;;
+    --from-tag)     FROM_TAG="$2"; shift 2 ;;
     --branch)       BRANCH="$2"; shift 2 ;;
     --max-attempts) MAX_ATTEMPTS="$2"; shift 2 ;;
     --validate)     VALIDATE_CMD="$2"; shift 2 ;;
@@ -104,6 +107,14 @@ fi
 # -------- pick source SHAs --------
 cd "$SOURCE_REPO"
 git fetch --quiet origin "$BRANCH" 2>/dev/null || true
+git fetch --quiet origin --tags 2>/dev/null || true
+
+# resolve --from-tag to a SHA (takes precedence over --from if both given)
+if [[ -n "$FROM_TAG" ]]; then
+  FROM_SHA="$(git rev-list -1 "$FROM_TAG" 2>/dev/null)" \
+    || { echo "tag not found in source repo: $FROM_TAG" >&2; exit 1; }
+  echo "[ralph] resolved tag '$FROM_TAG' → $FROM_SHA"
+fi
 
 if [[ -z "$FROM_SHA" && -f "$LAST_SHA_FILE" ]]; then
   FROM_SHA="$(cat "$LAST_SHA_FILE")"
@@ -144,8 +155,12 @@ for SHA in "${SHAS[@]}"; do
       -e "s|{{DONE_PATH}}|$DONE_PATH|g" \
       "$PROMPT_FILE" > "$PROMPT_PATH.tmp"
 
-  # message body is multiline — append separately
-  awk -v msg="$MESSAGE" '{gsub(/\{\{MESSAGE\}\}/, msg); print}' "$PROMPT_PATH.tmp" > "$PROMPT_PATH"
+  # message body is multiline — write to file and use perl for safe substitution
+  printf '%s' "$MESSAGE" > "$CURRENT_DIR/message.txt"
+  MSG_FILE="$CURRENT_DIR/message.txt" perl -0777 -pe '
+    BEGIN { local $/; open F, $ENV{MSG_FILE}; $m = <F>; close F }
+    s/\{\{MESSAGE\}\}/$m/g
+  ' "$PROMPT_PATH.tmp" > "$PROMPT_PATH"
   rm -f "$PROMPT_PATH.tmp"
 
   echo ""

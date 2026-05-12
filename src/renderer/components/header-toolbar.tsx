@@ -4,7 +4,7 @@ import {
   IconTerminal2,
   IconGitBranch,
   IconLayoutColumns,
-  IconFiles,
+  IconListTree,
 } from "@tabler/icons-react"
 import { useTaskStore } from "@/stores/taskStore"
 import {
@@ -98,7 +98,7 @@ const FileTreeToggleButton = memo(function FileTreeToggleButton() {
               : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
           )}
         >
-          <IconFiles className="size-3.5" aria-hidden />
+          <IconListTree className="size-3.5" aria-hidden />
         </button>
       </TooltipTrigger>
       <TooltipContent side="bottom">File tree</TooltipContent>
