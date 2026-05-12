@@ -105,7 +105,7 @@ export const SplitThreadPicker = memo(function SplitThreadPicker({
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-        <span className="text-[13px] font-medium text-foreground">Choose a thread to split</span>
+        <span className="text-[13px] font-medium text-foreground">Pick a thread</span>
         <button
           type="button"
           aria-label="Close"

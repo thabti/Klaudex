@@ -177,7 +177,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
           </Tooltip>
         )}
         {isInSplit && (
-          <IconLayoutColumns className="size-3 shrink-0 text-primary/60" aria-label="In split view" />
+          <IconLayoutColumns className="size-3 shrink-0 text-primary/60" aria-label="In side-by-side" />
         )}
         {isPinned && !isInSplit && (
           <IconPin className="size-3 shrink-0 text-amber-500/70" aria-label="Pinned" />
@@ -305,7 +305,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
                       className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
                       onClick={handleUnsplit}
                     >
-                      <IconArrowsSplit className="size-3.5" /> Unsplit
+                      <IconArrowsSplit className="size-3.5" /> Remove side-by-side
                     </button>
                   ) : (
                     <button

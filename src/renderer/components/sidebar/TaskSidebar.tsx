@@ -90,7 +90,7 @@ const SplitViewsList = memo(function SplitViewsList() {
     <div className="px-2 pb-1">
       <div className="flex items-center gap-1.5 px-2 pb-1.5 pt-1">
         <IconLayoutColumns className="size-3 text-muted-foreground/60" />
-        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">Split Views</span>
+        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">Side by Side</span>
       </div>
       <ul className="flex flex-col gap-0.5">
         {splitViews.map((sv) => {
@@ -103,24 +103,24 @@ const SplitViewsList = memo(function SplitViewsList() {
                 type="button"
                 onClick={() => setActiveSplit(sv.id)}
                 className={cn(
-                  'flex min-w-0 h-7 w-full items-center gap-1.5 rounded-lg px-2 text-[12px] select-none transition-colors',
+                  'flex min-w-0 h-8 w-full items-center gap-2 rounded-lg px-2 text-[12px] select-none transition-colors',
                   isActive
                     ? 'bg-primary/10 text-primary font-medium'
                     : 'text-muted-foreground hover:bg-accent hover:text-foreground',
                 )}
               >
-                <IconLayoutColumns className="size-3 shrink-0" />
+                <IconLayoutColumns className={cn('size-3.5 shrink-0', isActive && 'text-primary/70')} />
                 <span className="min-w-0 truncate">{leftName}</span>
-                <span className="shrink-0 text-muted-foreground/40">·</span>
+                <span className="shrink-0 text-[10px] text-muted-foreground/30">⇄</span>
                 <span className="min-w-0 truncate">{rightName}</span>
               </button>
               <button
                 type="button"
-                aria-label="Remove split view"
+                aria-label="Remove side-by-side"
                 onClick={(e) => { e.stopPropagation(); removeSplitView(sv.id) }}
-                className="absolute right-1 top-1/2 -translate-y-1/2 hidden size-4 items-center justify-center rounded text-muted-foreground/50 hover:bg-accent hover:text-foreground group-hover/sv:flex"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 hidden size-5 items-center justify-center rounded-md text-muted-foreground/50 hover:bg-accent hover:text-foreground group-hover/sv:flex"
               >
-                <IconX className="size-2.5" />
+                <IconX className="size-3" />
               </button>
             </li>
           )

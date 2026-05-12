@@ -113,7 +113,7 @@ function LoginBanner() {
 const SHOWCASE_FEATURES = [
   {
     icon: IconLayoutColumns,
-    label: "Split view",
+    label: "Side-by-side",
     description: "Two threads side by side",
     color: "text-blue-400",
     bgColor: "bg-blue-500/10",
