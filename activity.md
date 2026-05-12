@@ -1,3 +1,11 @@
+## 2026-05-12 21:07 GST (Dubai)
+### Onboarding: Show login errors and non-standard path hint
+
+Ported upstream feature to display error messages when claude login fails and show a hint with the full command path and copy button when the detected binary is a full path (not on PATH).
+
+**Modified:**
+- src/renderer/components/OnboardingAuthSection.tsx
+
 ## 2026-05-12 21:05 GST (Dubai)
 ### Chat: Render image preview overlay via portal
 

@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect } from 'react'
 import {
   IconCircleCheck, IconLoader2, IconLogin,
-  IconUser,
+  IconUser, IconAlertTriangle,
 } from '@tabler/icons-react'
 import { ipc } from '@/lib/ipc'
 import { cn } from '@/lib/utils'
-import { type AuthState } from '@/components/onboarding-shared'
+import { type AuthState, CopyButton } from '@/components/onboarding-shared'
 
 interface OnboardingAuthSectionProps {
   bin: string
@@ -18,6 +18,9 @@ export const OnboardingAuthSection = ({ bin, isCliReady, onAuthChange }: Onboard
   const [authEmail, setAuthEmail] = useState('')
   const [authMethod, setAuthMethod] = useState('')
   const [subscriptionType, setSubscriptionType] = useState('')
+  const [loginError, setLoginError] = useState('')
+
+  const isNonStandardPath = bin !== 'claude' && bin.includes('/')
 
   const checkAuth = useCallback(async () => {
     setAuthState('checking')
@@ -42,6 +45,7 @@ export const OnboardingAuthSection = ({ bin, isCliReady, onAuthChange }: Onboard
   useEffect(() => { if (isCliReady) checkAuth() }, [isCliReady, checkAuth])
 
   const handleLogin = useCallback(async () => {
+    setLoginError('')
     setAuthState('checking')
     try {
       const result = await ipc.claudeLogin(bin)
@@ -54,7 +58,9 @@ export const OnboardingAuthSection = ({ bin, isCliReady, onAuthChange }: Onboard
       } else {
         setAuthState('not-authenticated')
       }
-    } catch {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      setLoginError(message)
       setAuthState('not-authenticated')
     }
   }, [bin, onAuthChange])
@@ -91,9 +97,27 @@ export const OnboardingAuthSection = ({ bin, isCliReady, onAuthChange }: Onboard
             className="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90">
             <IconLogin size={16} /> Sign in with Claude
           </button>
+          {loginError && (
+            <div className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2">
+              <IconAlertTriangle size={14} className="mt-0.5 shrink-0 text-destructive" />
+              <p className="text-[11px] text-destructive leading-relaxed">{loginError}</p>
+            </div>
+          )}
           <p className="text-[11px] text-muted-foreground leading-relaxed text-center">
             Opens your browser to authenticate with Claude. The app will detect when you're signed in.
           </p>
+          {isNonStandardPath && (
+            <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                <span className="font-medium text-foreground/80">claude isn't on your PATH.</span>{' '}
+                If the terminal can't find it, run the full path instead:
+              </p>
+              <div className="flex items-center gap-2 rounded-md bg-muted px-2.5 py-1.5">
+                <code className="flex-1 truncate font-mono text-[11px] text-muted-foreground">{bin} login</code>
+                <CopyButton text={`${bin} login`} />
+              </div>
+            </div>
+          )}
         </div>
       )}
       {authState === 'authenticated' && authMethod && (
