@@ -22,7 +22,7 @@ export interface UserMessageRow {
   questionAnswers?: { question: string; answer: string }[]
 }
 
-export type SystemMessageVariant = 'error' | 'info' | 'worktree'
+export type SystemMessageVariant = 'error' | 'info' | 'worktree' | 'connection_lost'
 
 export interface SystemMessageRow {
   kind: 'system-message'
@@ -335,13 +335,15 @@ export function deriveTimeline(
 
     if (msg.role === 'system') {
       const isWorktree = msg.content.startsWith('Working in worktree')
+      const isConnectionLost = msg.content.includes('Connection to the agent was lost')
       const isError = msg.content.startsWith('⚠️') || msg.content.toLowerCase().includes('failed')
+      const variant: SystemMessageVariant = isWorktree ? 'worktree' : isConnectionLost ? 'connection_lost' : isError ? 'error' : 'info'
       rows.push({
         kind: 'system-message',
         id: `msg-${i}-system`,
         content: msg.content,
         timestamp: msg.timestamp,
-        variant: isWorktree ? 'worktree' : isError ? 'error' : 'info',
+        variant,
       })
       continue
     }
