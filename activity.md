@@ -1,3 +1,12 @@
+## 2026-05-12 21:18 GST (Dubai)
+### Deps: Replace material-icon-theme with seti-file-icons
+
+Ported upstream commit that swaps the heavier `material-icon-theme` dependency for `seti-file-icons` (0.0.8) in package.json. Lockfile regenerated.
+
+**Modified:**
+- package.json
+- bun.lock
+
 ## 2026-05-12 21:15 GST (Dubai)
 ### Sidebar: Add 'Open File Tree' to project context menu
 
