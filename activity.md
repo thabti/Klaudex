@@ -1,3 +1,12 @@
+## 2026-05-12 20:53 GST (Dubai)
+### UI: Refine split divider grip dots and panel header layout
+
+Ported upstream style commit: replaced pill grip with three dot indicators on hover, restructured panel header to stack thread name over project name, simplified close button styling with IconX for both sides, and added subtle primary border tint for focused state.
+
+**Modified:**
+- src/renderer/components/chat/SplitDivider.tsx
+- src/renderer/components/chat/SplitPanelHeader.tsx
+
 ## 2026-05-12 20:49 GST (Dubai)
 ### UI: Rename 'split view' to 'side-by-side' across UI
 
