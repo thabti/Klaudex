@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.46.0] - 2026-05-12
+
+### Bug fixes
+
+- add material-icon-theme as devDependency for CI ([`e2f44d6`](https://github.com/thabti/kirodex/commit/e2f44d608904035f5b562e1e486d012b9facc3ee))
+
 ## [v0.45.0] - 2026-05-12
 
 ### Features
