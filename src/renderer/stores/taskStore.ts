@@ -953,11 +953,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   setTaskMode: (taskId, modeId) => {
     if (get().taskModes[taskId] === modeId) return
     set((s) => ({ taskModes: { ...s.taskModes, [taskId]: modeId } }))
+    get().persistUiState()
   },
 
   setTaskModel: (taskId, modelId) => {
     if (get().taskModels[taskId] === modelId) return
     set((s) => ({ taskModels: { ...s.taskModels, [taskId]: modelId } }))
+    get().persistUiState()
   },
 
   loadTasks: async () => {
@@ -1346,6 +1348,23 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       if (task.messages.length === 0) continue
       threadDb.saveThread(task).catch(() => {})
     }
+  },
+
+  persistUiState: () => {
+    const { selectedTaskId, view, splitViews, activeSplitId, pinnedThreadIds, taskModels, taskModes } = get()
+    historyStore.saveUiState({
+      selectedTaskId,
+      view,
+      sidePanelOpen: false,
+      sidebarCollapsed: false,
+      splitViews,
+      activeSplitId,
+      pinnedThreadIds,
+      taskModels,
+      taskModes,
+    }).catch((err) => {
+      console.warn('[persistUiState] failed:', err)
+    })
   },
 
   clearHistory: async () => {

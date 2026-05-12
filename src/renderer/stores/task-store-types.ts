@@ -158,6 +158,7 @@ export interface TaskStore {
   /** Atomically move a dispatch snapshot from one task id to another. */
   rekeyDispatchSnapshot: (fromTaskId: string, toTaskId: string) => void
   persistHistory: () => void
+  persistUiState: () => void
   clearHistory: () => Promise<void>
   resolveWorktreeCleanup: (remove: boolean) => void
   enterBtwMode: (taskId: string, question: string) => void

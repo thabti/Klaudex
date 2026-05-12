@@ -405,7 +405,7 @@ export function App() {
           if (ui.taskModels) {
             const validModels: Record<string, string> = {}
             for (const [tid, mid] of Object.entries(ui.taskModels)) {
-              if (tasks[tid]) validModels[tid] = mid
+              if (tasks[tid] || archivedMeta[tid]) validModels[tid] = mid
             }
             if (Object.keys(validModels).length > 0) {
               useTaskStore.setState({ taskModels: validModels })
@@ -414,7 +414,7 @@ export function App() {
           if (ui.taskModes) {
             const validModes: Record<string, string> = {}
             for (const [tid, m] of Object.entries(ui.taskModes)) {
-              if (tasks[tid]) validModes[tid] = m
+              if (tasks[tid] || archivedMeta[tid]) validModes[tid] = m
             }
             if (Object.keys(validModes).length > 0) {
               useTaskStore.setState({ taskModes: validModes })
@@ -441,6 +441,7 @@ export function App() {
     // Auto-save thread history every 30s as a safety net
     const autoSaveInterval = setInterval(() => {
       useTaskStore.getState().persistHistory()
+      useTaskStore.getState().persistUiState()
     }, 30_000);
     // Request notification permission so end_turn alerts work
     import("@tauri-apps/plugin-notification").then(({ isPermissionGranted, requestPermission, onAction }) => {
