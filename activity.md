@@ -1,3 +1,12 @@
+## 2026-05-12 21:15 GST (Dubai)
+### Sidebar: Add 'Open File Tree' to project context menu
+
+Ported upstream commit that adds an IconListTree "Open File Tree" menu item to the project context menu. Clicking it opens the file tree panel and loads the project root. Also updated the split view tooltip from "Close split view" to "Close side-by-side" for consistency.
+
+**Modified:**
+- src/renderer/components/sidebar/ProjectItem.tsx
+- src/renderer/components/header-toolbar.tsx
+
 ## 2026-05-12 21:12 GST (Dubai)
 ### Store: Add persistUiState and auto-save UI state every 30s
 
