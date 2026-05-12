@@ -1,5 +1,12 @@
 # Changelog
 
+## [v1.8.0] - 2026-05-12
+
+### Bug fixes
+
+- add material-icon-theme to package.json ([`6e7d6d4`](https://github.com/thabti/klaudex/commit/6e7d6d455fa46e2c55d0ef1572a7447e67e1a3aa))
+- inline material-icon-theme in vitest server deps ([`7079314`](https://github.com/thabti/klaudex/commit/70793144bed5a4779de149e1fb9b50def3c113e8))
+
 ## [v1.2.0] - 2026-05-12
 
 ### Features
