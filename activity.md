@@ -1,3 +1,11 @@
+## 2026-05-13 00:35 GST (Dubai)
+
+### Release: v1.5.0
+
+Bumped version from 1.4.0 to 1.5.0 in `package.json` and `src-tauri/tauri.conf.json`.
+
+**Modified:** `package.json`, `src-tauri/tauri.conf.json`, `activity.md`
+
 ## 2026-05-13 00:20 GST (Dubai)
 
 ### Release: v1.4.0
