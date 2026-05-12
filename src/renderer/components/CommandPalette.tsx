@@ -176,7 +176,7 @@ export const CommandPalette = memo(function CommandPalette({ open, onClose }: Co
       },
       {
         id: 'panel:toggle-split',
-        label: 'Toggle Split View',
+        label: 'Toggle Side-by-Side',
         shortcut: '⌘\\',
         icon: <IconLayoutColumns className="size-3.5" />,
         action: () => {

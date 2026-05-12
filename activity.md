@@ -1,3 +1,15 @@
+## 2026-05-12 20:49 GST (Dubai)
+### UI: Rename 'split view' to 'side-by-side' across UI
+
+Ported upstream commit renaming "Split view" / "Toggle Split View" / "Remove split view" / "Unsplit" terminology to "Side-by-side" / "Toggle Side-by-Side" / "Remove side-by-side" / "Remove side-by-side" across command palette, header toolbar, sidebar, and thread context menus. Also applied minor sizing tweaks to sidebar split view list items.
+
+**Modified:**
+- src/renderer/App.tsx
+- src/renderer/components/CommandPalette.tsx
+- src/renderer/components/header-toolbar.tsx
+- src/renderer/components/sidebar/TaskSidebar.tsx
+- src/renderer/components/sidebar/ThreadItem.tsx
+
 ## 2026-05-12 20:37 GST (Dubai)
 ### Header: Restyle toolbar dividers and active states
 
