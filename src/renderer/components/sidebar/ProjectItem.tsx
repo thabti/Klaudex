@@ -1,9 +1,10 @@
 import { memo, useState, useRef, useEffect } from 'react'
-import { IconEdit, IconTrash, IconArchive, IconMessagePlus, IconFolderOpen, IconPalette, IconMessage, IconCopy, IconArrowUp, IconArrowDown } from '@tabler/icons-react'
+import { IconEdit, IconTrash, IconArchive, IconMessagePlus, IconFolderOpen, IconPalette, IconMessage, IconCopy, IconArrowUp, IconArrowDown, IconListTree } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
 import { useTaskStore } from '@/stores/taskStore'
+import { useFileTreeStore } from '@/stores/fileTreeStore'
 import { ThreadItem } from './ThreadItem'
 import { ProjectIcon } from './ProjectIcon'
 import { useProjectIcon, setProjectIconOverride } from '@/hooks/useProjectIcon'
@@ -137,6 +138,10 @@ export const ProjectItem = memo(function ProjectItem({
           <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
             onClick={() => { ipc.openUrl(cwd); setCtxMenu(null) }}>
             <IconFolderOpen className="size-3.5" /> Open in Finder
+          </button>
+          <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+            onClick={() => { useFileTreeStore.getState().setOpen(true); void useFileTreeStore.getState().loadRoot(cwd); setCtxMenu(null) }}>
+            <IconListTree className="size-3.5" /> Open File Tree
           </button>
           <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
             onClick={() => { void navigator.clipboard.writeText(cwd); setCtxMenu(null) }}>
