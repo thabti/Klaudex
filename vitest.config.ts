@@ -5,6 +5,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src/renderer'),
+      'material-icon-theme/dist/material-icons.json': path.resolve(
+        __dirname,
+        'node_modules/material-icon-theme/dist/material-icons.json'
+      ),
     },
   },
   test: {

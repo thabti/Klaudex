@@ -1,3 +1,13 @@
+## 2026-05-12 20:15 GST (Dubai)
+
+### vitest.config: Fix material-icon-theme JSON resolution in tests
+
+Added alias in `vitest.config.ts` mapping `material-icon-theme/dist/material-icons.json` to its absolute path in `node_modules`. Vite's import analysis plugin failed to resolve the bare subpath import on CI because the package has no `exports` field.
+
+**Modified:** `vitest.config.ts`
+
+---
+
 ## 2026-05-13 00:35 GST (Dubai)
 
 ### Release: v1.5.0

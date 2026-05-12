@@ -264,6 +264,22 @@ Use `tauri-plugin-log` with `LogTarget::Webview` to forward Rust `log::info!()` 
 
 Block-level HTML elements (`<table>`, `<div>`, `<pre>`) nested inside `<p>` tags are invalid HTML. GitHub's Markdown renderer strips them, hiding the content. Always place block-level elements outside `<p>` tags in README and other GitHub-rendered Markdown files.
 
+### ToolProgress messages must be forwarded as tool_call_update events
+
+The Claude CLI emits `ToolProgress` ndjson messages carrying live tool output before the `tool_result` arrives. Previously these were silently dropped. Now `handle_claude_message` matches `ClaudeMessage::ToolProgress`, extracts `tool_use_id` and `content` from the `extra` map, and emits a `tool_call_update` Tauri event with `status: "in_progress"`. This lets the frontend render live tool output (e.g. bash stdout) as it streams rather than waiting for the final result.
+
+### usage_update must include the full token breakdown
+
+The `Result` message handler previously emitted only the aggregate `used` count. The `StatsPanel` token breakdown (input / output / cache read / cache creation) showed blank after a turn ended because those fields were absent from the final `usage_update`. Fix: extract all four token fields from `res.usage` and include them as `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheCreationTokens` in the emitted JSON. The `ipc.onUsageUpdate` type was updated to reflect these optional fields.
+
+### Turn duration tracking via turn_start_ms in handle_claude_message
+
+`handle_claude_message` takes a `turn_start_ms: &mut Option<u64>` parameter. On `MessageStart` it records the current epoch-millisecond timestamp (only if not already set, so only the first `MessageStart` of a turn counts). On `Result` it calls `.take()` on the option, computes `now - start` with `saturating_sub`, and includes `turnDurationMs` in the `turn_end` event. `applyTurnEnd` receives it as an optional parameter and stores it as `lastTurnDurationMs` on `AgentTask`. Using `take()` resets the option automatically so the next turn starts fresh.
+
+### MCP tool names are humanised in tool_title_and_kind
+
+Tools arriving as `mcp__server__tool_name` were previously displayed verbatim. The `tool_title_and_kind` fallback arm now strips the `mcp__` prefix, splits on the first `__` to separate server from tool name, replaces underscores with spaces in the tool portion, and formats as `"server: tool name"`. Non-MCP unknown tools also get underscore-to-space replacement. The first short string argument (≤ 120 chars) from the input JSON is appended as context. Empty tool names fall back to `"Tool"`.
+
 ## Activity log
 
 After completing any task, update `activity.md` at the project root before finishing.
