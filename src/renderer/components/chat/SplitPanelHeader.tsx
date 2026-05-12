@@ -1,5 +1,5 @@
 import { memo, useCallback } from 'react'
-import { IconTrash, IconX } from '@tabler/icons-react'
+import { IconX } from '@tabler/icons-react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useProjectIcon } from '@/hooks/useProjectIcon'
 import { ProjectIcon } from '@/components/sidebar/ProjectIcon'
@@ -48,43 +48,43 @@ export const SplitPanelHeader = memo(function SplitPanelHeader({
       onClick={handleClick}
       onKeyDown={(e) => { if (e.key === 'Enter') handleClick() }}
       className={cn(
-        'group/header relative flex h-9 shrink-0 items-center gap-1.5 border-b border-border px-3 select-none cursor-pointer transition-colors',
-        isFocused ? 'bg-background' : 'bg-card/50 hover:bg-card',
+        'group/header relative flex h-10 shrink-0 items-center gap-2 border-b px-3 select-none cursor-pointer transition-colors',
+        isFocused
+          ? 'border-primary/20 bg-primary/[0.03]'
+          : 'border-border bg-card/30 hover:bg-card/60',
       )}
     >
       <ProjectIcon icon={icon} />
-      <span className="min-w-0 max-w-[120px] truncate text-[12px] text-muted-foreground/70">
-        {projectName}
-      </span>
-      <span className="text-[11px] text-muted-foreground/30">/</span>
-      <span className={cn(
-        'min-w-0 flex-1 truncate text-[12px] pr-6 transition-colors group-hover/header:pr-8',
-        isFocused ? 'font-medium text-foreground' : 'text-muted-foreground',
-      )}>
-        {taskName}
-      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-0">
+        <span className={cn(
+          'min-w-0 truncate text-[12.5px] leading-tight transition-colors',
+          isFocused ? 'font-medium text-foreground' : 'text-muted-foreground',
+        )}>
+          {taskName}
+        </span>
+        <span className="min-w-0 max-w-[160px] truncate text-[10.5px] leading-tight text-muted-foreground/50">
+          {projectName}
+        </span>
+      </div>
       <Tooltip>
         <TooltipTrigger asChild>
           <button
             type="button"
-            aria-label="Close split panel"
+            aria-label="Close panel"
             onClick={handleClose}
             className={cn(
-              'absolute right-2 inline-flex size-6 shrink-0 items-center justify-center rounded-md transition-all',
-              side === 'right'
-                ? 'text-muted-foreground/60 hover:text-destructive hover:bg-accent'
-                : 'text-muted-foreground/50 opacity-0 group-hover/header:opacity-100 hover:!text-destructive',
-              isFocused ? 'bg-background hover:bg-accent' : 'bg-card/50 hover:bg-accent group-hover/header:bg-card',
+              'inline-flex size-6 shrink-0 items-center justify-center rounded-md transition-all',
+              'text-muted-foreground/40 hover:text-foreground hover:bg-accent',
+              side === 'left' && 'opacity-0 group-hover/header:opacity-100',
             )}
           >
-            {side === 'right' ? <IconX className="size-3.5" /> : <IconTrash className="size-3.5" />}
+            <IconX className="size-3.5" />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">Close split</TooltipContent>
+        <TooltipContent side="bottom">Close panel</TooltipContent>
       </Tooltip>
-      {/* Focused accent bar */}
       {isFocused && (
-        <div className="absolute inset-x-0 bottom-0 h-[2px] bg-primary" />
+        <div className="absolute inset-x-0 bottom-0 h-[1.5px] bg-primary/70" />
       )}
     </div>
   )
