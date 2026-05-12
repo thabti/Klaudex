@@ -1,3 +1,31 @@
+## 2026-05-12 20:08 GST (Dubai)
+### Scripts: Add --from-tag support to ralph-loop.sh
+
+Added `--from-tag <tag>` option that resolves a git tag (e.g., `v0.42.0`) to its SHA before building the commit range. Also fetches tags from origin. Takes precedence over `--from` if both are provided.
+
+**Modified:** scripts/ralph-loop.sh
+
+## 2026-05-12 20:02 GST (Dubai)
+### Sidebar: Remove dark border lines from footer
+
+Removed `border-b border-border` and `border-t border-border` from the `ClaudeConfigFooter` component in `SidebarFooter.tsx` to eliminate the harsh separator lines between the CLAUDE config section and the Settings row.
+
+**Modified:** src/renderer/components/sidebar/SidebarFooter.tsx
+
+## 2026-05-12 20:01 GST (Dubai)
+### Splash: Fix white flash in dark mode
+
+Added `background: #0D0D0D` to the splash div and set `r.style.background` on the `<html>` element in the head theme script so the page is dark from the first paint when the system or user preference is dark mode. Light mode gets `#ffffff`.
+
+**Modified:** index.html
+
+## 2026-05-12 19:51 GST (Dubai)
+### Sync: Apply kirodex v0.43.0 diff to klaudex
+
+Ported kirodex v0.43.0 changes: replaced ClaudeIcon with KlaudexGhostIcon in ClaudeConfigPanel header, darkened border color from #121212 to #090909. Most layout/styling/refactoring changes (full-height sidebar, connected toolbar, settings memo/tooltips, ProjectItem chevron removal, SidebarFooter inline buttons) were already applied.
+
+**Modified:** `src/tailwind.css`, `src/renderer/components/sidebar/ClaudeConfigPanel.tsx`, `CHANGELOG.md`
+
 ## 2026-05-11 17:01 GST (Dubai)
 ### Git: Split working tree into 15 focused conventional commits
 
@@ -1077,6 +1105,14 @@ Performed a structured code review of the new `token_store.rs` module and relate
 **Modified:** activity.md
 
 # Activity Log
+
+## 2026-05-12 20:05 GST (Dubai)
+
+### HeaderToolbar: Switch file tree icon to IconListTree
+
+Replaced `IconFiles` with `IconListTree` in the `FileTreeToggleButton` component for a more conventional file-tree/explorer representation matching VS Code's sidebar icon.
+
+**Modified:** `src/renderer/components/header-toolbar.tsx`
 
 ## 2026-04-20 14:01 (Dubai, GMT+4)
 

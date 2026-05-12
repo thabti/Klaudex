@@ -19,7 +19,7 @@ const COMMAND_DESCRIPTIONS: Record<string, string> = {
   data: 'Open the analytics dashboard with usage stats and charts',
   feedback: 'Submit feedback, request features, or report issues',
   fork: 'Fork current thread into a new conversation branch',
-  help: 'Get help with Kiro CLI features and commands',
+  help: 'Get help with CLI features and commands',
   knowledge: 'Add, search, or manage your knowledge base',
   model: 'Switch the active AI model',
   plan: 'Toggle plan mode on or off',

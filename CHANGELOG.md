@@ -1,5 +1,32 @@
 # Changelog
 
+## [v1.0.2] - 2026-05-12
+
+### Features
+
+- add KlaudexGhostIcon to ClaudeConfigPanel header
+
+### Bug fixes
+
+- fix clipped unmodified lines separator in diff viewer
+
+### Styling
+
+- restyle nav sidebar with full-height layout
+- restyle toolbar as connected button group with dividers
+- darken border color to near-invisible (#090909)
+
+### Refactoring
+
+- add memo, useCallback, and tooltips to all settings sections
+- make sidebar full height, move header into content column
+- remove chevron from ProjectItem
+- restyle footer with inline buttons and user menu
+
+### Performance
+
+- wrap SettingRow and SettingsCard in memo
+
 ## [v0.2.0] - 2026-04-21
 
 ### Features

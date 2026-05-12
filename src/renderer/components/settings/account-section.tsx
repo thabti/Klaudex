@@ -20,7 +20,7 @@ export const AccountSection = memo(function AccountSection() {
   return (
     <>
       <SectionHeader section="account" />
-      <SettingsGrid label="Authentication" description="Kiro account status">
+      <SettingsGrid label="Authentication" description="Claude account status">
         <SettingsCard>
           {claudeAuth ? (
             <SettingRow
@@ -32,7 +32,7 @@ export const AccountSection = memo(function AccountSection() {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    aria-label="Sign out of Kiro account"
+                    aria-label="Sign out of Claude account"
                     className="flex items-center gap-1.5 rounded-md border border-destructive/30 px-2.5 py-1 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive/10"
                   >
                     <IconLogout className="size-3" />
@@ -45,21 +45,21 @@ export const AccountSection = memo(function AccountSection() {
           ) : (
             <SettingRow
               label="Not signed in"
-              description="Sign in to access Kiro features."
+              description="Sign in to access Claude features."
             >
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
                     onClick={handleLogin}
-                    aria-label="Sign in to Kiro"
+                    aria-label="Sign in to Claude"
                     className="flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                   >
                     <IconLogin className="size-3" />
                     Sign in
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="top">Sign in to your Kiro account</TooltipContent>
+                <TooltipContent side="top">Sign in to your Claude account</TooltipContent>
               </Tooltip>
             </SettingRow>
           )}
