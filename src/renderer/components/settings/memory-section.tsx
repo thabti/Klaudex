@@ -109,6 +109,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 const ThreadRow = ({ thread, total }: { thread: ThreadMemoryBreakdown; total: number }) => {
   const setSelectedTask = useTaskStore((s) => s.setSelectedTask)
   const setSettingsOpen = useTaskStore((s) => s.setSettingsOpen)
+  const softDeleteTask = useTaskStore((s) => s.softDeleteTask)
   const pct = total > 0 ? Math.min(100, (thread.total / total) * 100) : 0
   const isHot = thread.total >= HOT_THREAD_BYTES
 
@@ -116,6 +117,11 @@ const ThreadRow = ({ thread, total }: { thread: ThreadMemoryBreakdown; total: nu
     setSettingsOpen(false)
     setSelectedTask(thread.taskId)
   }, [setSelectedTask, setSettingsOpen, thread.taskId])
+
+  const handleDelete = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    softDeleteTask(thread.taskId)
+  }, [softDeleteTask, thread.taskId])
 
   return (
     <button
@@ -155,6 +161,14 @@ const ThreadRow = ({ thread, total }: { thread: ThreadMemoryBreakdown; total: nu
         <span className="w-16 shrink-0 text-right font-mono text-[11.5px] font-medium tabular-nums text-foreground/80">
           {formatBytes(thread.total)}
         </span>
+        <button
+          type="button"
+          onClick={handleDelete}
+          className="size-6 shrink-0 flex items-center justify-center rounded-md text-muted-foreground/30 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+          aria-label={`Delete thread: ${thread.name || 'Untitled thread'}`}
+        >
+          <IconTrash className="size-3.5" />
+        </button>
         <IconChevronRight className="size-3 shrink-0 text-muted-foreground/30 transition-colors group-hover:text-muted-foreground" />
       </div>
     </button>
