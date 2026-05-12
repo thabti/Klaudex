@@ -1,3 +1,11 @@
+## 2026-05-12 20:59 GST (Dubai)
+### Settings: Add delete button to memory section thread rows
+
+Ported upstream commit adding a trash icon button to each thread row in the memory breakdown, allowing quick soft-delete without navigating away.
+
+**Modified:**
+- src/renderer/components/settings/memory-section.tsx
+
 ## 2026-05-12 20:55 GST (Dubai)
 ### Settings: Add unsaved changes confirmation dialog
 
