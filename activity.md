@@ -1,3 +1,13 @@
+## 2026-05-12 21:12 GST (Dubai)
+### Store: Add persistUiState and auto-save UI state every 30s
+
+Ported upstream commit that adds a `persistUiState` action to save selected task, view, splits, pins, and per-task model/mode to the history store. Called on `setTaskMode` and `setTaskModel` changes, and included in a new 30s auto-save interval. Also includes archived threads when validating restored UI state.
+
+**Modified:**
+- src/renderer/App.tsx
+- src/renderer/stores/task-store-types.ts
+- src/renderer/stores/taskStore.ts
+
 ## 2026-05-12 21:09 GST (Dubai)
 ### fs_ops: Support full paths in terminal command allowlist
 
