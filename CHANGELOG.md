@@ -1,5 +1,44 @@
 # Changelog
 
+## [v1.1.0] - 2026-05-12
+
+### Features
+
+- add 'Open File Tree' to project context menu ([`fb33c88`](https://github.com/thabti/klaudex/commit/fb33c8879327ea3c4fa692c3f69a41829f735b7e))
+- add persistUiState and auto-save UI state every 30s ([`9e0d2e6`](https://github.com/thabti/klaudex/commit/9e0d2e64f7b0b41cd081026105fc215008693878))
+- show login errors and non-standard path hint ([`51be652`](https://github.com/thabti/klaudex/commit/51be65241c7972edf494f456866a4dd182caae1f))
+- add connection_lost system message variant ([`5fcc282`](https://github.com/thabti/klaudex/commit/5fcc28227e99f5bf2167c1df2095c00ce0f988ab))
+- add delete button to memory section thread rows ([`9bdf38c`](https://github.com/thabti/klaudex/commit/9bdf38c5407da09d8f629b92c5bf641b06e38a1a))
+- add unsaved changes confirmation dialog ([`1e444dd`](https://github.com/thabti/klaudex/commit/1e444ddb7748e946127a9281798264920fe3fd79))
+
+### Bug fixes
+
+- preserve existing tool call fields during merge ([`8cf289d`](https://github.com/thabti/klaudex/commit/8cf289d7b8c4a9c08f81ecdf1f48d0d26b9a23f4))
+- support full paths in terminal command allowlist ([`d943aa1`](https://github.com/thabti/klaudex/commit/d943aa1d07d6ad540943267218a02c6f272666d1))
+- render image preview overlay via portal ([`a204146`](https://github.com/thabti/klaudex/commit/a204146f12de807d358a8b87186adeab0baad369))
+
+### Styling
+
+- refine divider grip dots and panel header layout ([`93a6c00`](https://github.com/thabti/klaudex/commit/93a6c0074f6837fc5bec635e7243c741cae54f84))
+- restyle toolbar as connected button group ([`a48cbc1`](https://github.com/thabti/klaudex/commit/a48cbc1da299197d79b1be9f5090ec22a74df4b3))
+- sync kirodex v0.43.0 polish and dark mode fixes ([`de778f6`](https://github.com/thabti/klaudex/commit/de778f6225a89745b892f081181a3d466981d590))
+
+### Refactoring
+
+- rename 'split view' to 'side-by-side' across UI ([`695844c`](https://github.com/thabti/klaudex/commit/695844cb40ff39f4f5703d6e1974268c189471ba))
+
+### Documentation
+
+- add button consistency and light mode theme reviews (#6) ([`1824063`](https://github.com/thabti/klaudex/commit/18240638ce8f9b96f12232239c3f2d3acd062fd9))
+
+### CI
+
+- use repository name for base href ([`3b36d03`](https://github.com/thabti/klaudex/commit/3b36d03f7e7972080585670040ddbedc028d3949))
+
+### Chores
+
+- replace material-icon-theme with seti-file-icons ([`2ed4e30`](https://github.com/thabti/klaudex/commit/2ed4e30d03f57517db50ec690bb94d57fc1bb443))
+
 ## [v1.0.2] - 2026-05-12
 
 ### Features
