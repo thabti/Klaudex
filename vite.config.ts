@@ -12,6 +12,7 @@ function materialIconsPlugin(): Plugin {
     name: "material-icons",
     configureServer(server) {
       server.middlewares.use("/material-icons", (req, res, next) => {
+        if (!fs.existsSync(iconsDir)) return next();
         const reqPath = decodeURIComponent(req.url ?? "").replace(/\.\./g, "");
         const filePath = path.resolve(iconsDir, reqPath.replace(/^\//, ""));
         // Prevent path traversal — resolved path must stay within iconsDir
@@ -24,6 +25,7 @@ function materialIconsPlugin(): Plugin {
       });
     },
     writeBundle(options) {
+      if (!fs.existsSync(iconsDir)) return;
       const outDir = options.dir ?? path.resolve(__dirname, "dist");
       const destDir = path.join(outDir, "material-icons");
       if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });

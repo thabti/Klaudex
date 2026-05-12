@@ -1,3 +1,11 @@
+## 2026-05-12 22:16 GST (Dubai)
+
+### Build: Fix material-icons plugin crash in CI
+
+Added existence guard (`fs.existsSync`) to the `writeBundle` and `configureServer` hooks in the `materialIconsPlugin`. The plugin was calling `readdirSync` on a path that doesn't exist in CI where `material-icon-theme` isn't installed.
+
+**Modified:** vite.config.ts
+
 ## 2026-05-12 22:04 GST (Dubai)
 
 ### Test: Fix settings-selectors.test.ts type error
