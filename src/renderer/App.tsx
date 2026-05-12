@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useRef, lazy, Suspense } from "react";
+import { useEffect, useCallback, useState, lazy, Suspense } from "react";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -45,7 +45,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useDebugStore } from "@/stores/debugStore";
 import { useDiffStore } from "@/stores/diffStore";
 import { useFileTreeStore } from "@/stores/fileTreeStore";
-import { useClaudeConfigStore, initClaudeConfigListeners } from "@/stores/claudeConfigStore";
+import { initClaudeConfigListeners } from "@/stores/claudeConfigStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useSessionTracker } from "@/hooks/useSessionTracker";
 import { useZoomLimit } from "@/hooks/useZoomLimit";
@@ -341,14 +341,14 @@ export function App() {
   useEffect(() => {
     if (diffIsOpen && !sidePanelOpen) setSidePanelOpen(true);
     if (diffIsOpen) useFileTreeStore.getState().setOpen(false);
-  }, [diffIsOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [diffIsOpen]);
 
   // Sync fileTreeStore.isOpen → sidePanelOpen
   // Note: sidePanelOpen intentionally excluded from deps — we only react to fileTreeIsOpen changes
   const fileTreeIsOpen = useFileTreeStore((s) => s.isOpen);
   useEffect(() => {
     if (fileTreeIsOpen && !sidePanelOpen) setSidePanelOpen(true);
-  }, [fileTreeIsOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fileTreeIsOpen]);
 
   useEffect(() => {
     // Register event listeners FIRST so we don't miss early emissions

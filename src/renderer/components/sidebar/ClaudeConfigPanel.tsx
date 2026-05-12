@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { IconRobot, IconBolt, IconCompass, IconSearch, IconPlug, IconEdit, IconHandFinger, IconPlus, IconAlignLeft, IconCommand } from '@tabler/icons-react'
 import { KlaudexGhostIcon } from '@/components/icons/KlaudexGhostIcon'
 import { useClaudeConfigStore } from '@/stores/claudeConfigStore'

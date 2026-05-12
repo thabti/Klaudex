@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AgentTask, ActivityEntry, SoftDeletedThread, TaskMessage, ToolCall } from '@/types'
+import type { AgentTask, ActivityEntry, TaskMessage, ToolCall } from '@/types'
 import { ipc } from '@/lib/ipc'
 import { joinChunk } from '@/lib/utils'
 import * as historyStore from '@/lib/history-store'
@@ -677,7 +677,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       }
     }),
 
-  updateCompactionStatus: (taskId, status, summary) => {
+  updateCompactionStatus: (taskId, status, _summary) => {
     set((state) => {
       const task = state.tasks[taskId]
       if (!task) return state

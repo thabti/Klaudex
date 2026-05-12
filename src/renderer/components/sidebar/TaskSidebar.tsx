@@ -215,7 +215,7 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
   const isMetaHeld = useModifierKeys()
 
-  const { selectedTaskId, pendingWorkspace, lastAddedProject, setSelectedTask, setView, setNewProjectOpen, removeTask, removeProject, archiveThreads, renameTask, reorderProject, reorderThread, clearLastAddedProject } = useTaskStore(
+  const { selectedTaskId, pendingWorkspace, lastAddedProject, setSelectedTask, setView, setNewProjectOpen, removeTask, removeProject, archiveThreads, renameTask, reorderProject, reorderThread } = useTaskStore(
     useShallow((s) => ({
       selectedTaskId: s.selectedTaskId,
       pendingWorkspace: s.pendingWorkspace,
@@ -229,7 +229,6 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
       renameTask: s.renameTask,
       reorderProject: s.reorderProject,
       reorderThread: s.reorderThread,
-      clearLastAddedProject: s.clearLastAddedProject,
     }))
   )
 

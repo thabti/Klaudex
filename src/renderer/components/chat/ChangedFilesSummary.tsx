@@ -144,7 +144,11 @@ export const ChangedFilesSummary = memo(function ChangedFilesSummary({ row }: { 
   const toggleDir = useCallback((dir: string) => {
     setCollapsedDirs((prev) => {
       const next = new Set(prev)
-      next.has(dir) ? next.delete(dir) : next.add(dir)
+      if (next.has(dir)) {
+        next.delete(dir)
+      } else {
+        next.add(dir)
+      }
       return next
     })
   }, [])

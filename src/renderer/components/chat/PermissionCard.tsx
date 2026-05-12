@@ -1,6 +1,5 @@
 import { memo, useCallback } from 'react'
 import { IconShield, IconCheck, IconX } from '@tabler/icons-react'
-import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
 
 interface PermissionOption {

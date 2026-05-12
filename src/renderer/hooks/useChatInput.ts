@@ -163,7 +163,7 @@ export function useChatInput({ disabled, isRunning, isActive, taskId: taskIdProp
         return fuzzy.test(value)
       }),
     )
-  }, [value]) // eslint-disable-line react-hooks/exhaustive-deps -- intentionally only reacts to value
+  }, [value])
 
   // ── Draft save (debounced) ─────────────────────────────────────
   const onDraftChangeRef = useRef(onDraftChange)
@@ -180,7 +180,7 @@ export function useChatInput({ disabled, isRunning, isActive, taskId: taskIdProp
   // Flush draft on unmount so a fast navigate doesn't lose the last keystrokes
   useEffect(() => {
     return () => onDraftChangeRef.current?.(valueRef.current)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- intentional unmount-only effect
+  }, [])
 
   // ── Save attachments and pasted chunks to store on change ──────
   const onAttachmentsChangeRef = useRef(onAttachmentsChange)
@@ -495,7 +495,7 @@ export function useChatInput({ disabled, isRunning, isActive, taskId: taskIdProp
       requestAnimationFrame(resize)
     }
     prevAttachmentCountRef.current = images.length
-  }, [attachmentsBag.attachments]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [attachmentsBag.attachments])
 
   const canSend = !disabled && (value.trim().length > 0 || attachmentsBag.attachments.length > 0 || attachmentsBag.folderPaths.length > 0)
 

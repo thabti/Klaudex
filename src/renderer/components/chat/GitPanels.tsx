@@ -1,5 +1,4 @@
 import { memo, useCallback, useRef, useState } from 'react'
-import { cn } from '@/lib/utils'
 import { isValidWorktreeSlug, slugify } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTaskStore } from '@/stores/taskStore'

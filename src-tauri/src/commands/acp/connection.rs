@@ -192,10 +192,13 @@ pub(crate) fn spawn_connection(
 }
 
 /// Process a single Claude ndjson message and emit the appropriate Tauri events.
+/// `turn_start_ms` is set when the first `MessageStart` arrives and read on `Result`
+/// to compute `turnDurationMs`.
 fn handle_claude_message(
     msg: &ClaudeMessage,
     task_id: &str,
     app: &tauri::AppHandle,
+    turn_start_ms: &mut Option<u64>,
 ) {
     use tauri::Emitter;
     match msg {
@@ -292,6 +295,15 @@ fn handle_claude_message(
             },
 
             StreamEvent::MessageStart { message } => {
+                // Record when this turn started so we can compute turnDurationMs on Result
+                if turn_start_ms.is_none() {
+                    *turn_start_ms = Some(
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map(|d| d.as_millis() as u64)
+                            .unwrap_or(0),
+                    );
+                }
                 if let Some(usage) = &message.usage {
                     let input = usage.input_tokens.unwrap_or(0);
                     let output = usage.output_tokens.unwrap_or(0);
@@ -433,27 +445,64 @@ fn handle_claude_message(
                     .unwrap_or(0.0)
             };
             if let Some(usage) = &res.usage {
-                let total = usage.input_tokens
-                    + usage.output_tokens
-                    + usage.cache_read_input_tokens
-                    + usage.cache_creation_input_tokens;
+                let input = usage.input_tokens;
+                let output = usage.output_tokens;
+                let cache_read = usage.cache_read_input_tokens;
+                let cache_creation = usage.cache_creation_input_tokens;
+                let total = input + output + cache_read + cache_creation;
                 let _ = app.emit(
                     "usage_update",
                     serde_json::json!({
                         "taskId": task_id, "used": total, "size": 200000,
                         "cost": res.total_cost_usd,
                         "totalCost": cumulative_cost,
+                        "inputTokens": input,
+                        "outputTokens": output,
+                        "cacheReadTokens": cache_read,
+                        "cacheCreationTokens": cache_creation,
                     }),
                 );
             }
+            // Compute turn duration from the timestamp recorded on MessageStart
+            let turn_duration_ms = turn_start_ms.take().map(|start| {
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis() as u64)
+                    .unwrap_or(0)
+                    .saturating_sub(start)
+            });
             let _ = app.emit(
                 "turn_end",
-                serde_json::json!({"taskId": task_id, "stopReason": stop_reason}),
+                serde_json::json!({
+                    "taskId": task_id,
+                    "stopReason": stop_reason,
+                    "turnDurationMs": turn_duration_ms,
+                }),
             );
         }
 
-        ClaudeMessage::ToolProgress(_)
-        | ClaudeMessage::ToolUseSummary(_)
+        ClaudeMessage::ToolProgress(tp) => {
+            // Forward tool_progress as a tool_call_update with in_progress status
+            // so the frontend can show live output before the tool_result arrives.
+            if let Some(tool_use_id) = tp.extra.get("tool_use_id").and_then(|v| v.as_str()) {
+                if !tool_use_id.is_empty() {
+                    let content = tp.extra.get("content");
+                    let _ = app.emit(
+                        "tool_call_update",
+                        serde_json::json!({
+                            "taskId": task_id,
+                            "toolCall": {
+                                "sessionUpdate": "tool_call_update",
+                                "toolCallId": tool_use_id,
+                                "status": "in_progress",
+                                "rawOutput": content,
+                            }
+                        }),
+                    );
+                }
+            }
+        }
+        ClaudeMessage::ToolUseSummary(_)
         | ClaudeMessage::AuthStatus(_)
         | ClaudeMessage::PromptSuggestion(_)
         | ClaudeMessage::RateLimitEvent(_) => {}
@@ -796,6 +845,8 @@ pub(crate) async fn run_claude_connection(
     let mut stdout_reader = BufReader::new(stdout);
     let mut killed = false;
     let mut line_buf = String::new();
+    // Tracks when the current turn started (set on MessageStart, consumed on Result)
+    let mut turn_start_ms: Option<u64> = None;
 
     // Process the initial prompt's response stream
     loop {
@@ -811,7 +862,7 @@ pub(crate) async fn run_claude_connection(
                             Ok(msg) => {
                                 let is_result = matches!(&msg, ClaudeMessage::Result(_));
                                 let is_idle = matches!(&msg, ClaudeMessage::System(s) if s.subtype == "session_state_changed" && s.extra.get("state").and_then(|v| v.as_str()) == Some("idle"));
-                                handle_claude_message(&msg, &task_id, &app);
+                                handle_claude_message(&msg, &task_id, &app, &mut turn_start_ms);
                                 if let ClaudeMessage::ControlRequest(ref cr) = msg {
                                     handle_control_request(cr, &task_id, &auto_approve, &mut stdin_writer, &perm_tx).await;
                                 }
@@ -916,7 +967,7 @@ pub(crate) async fn run_claude_connection(
                                         Ok(msg) => {
                                             let is_result = matches!(&msg, ClaudeMessage::Result(_));
                                             let is_idle = matches!(&msg, ClaudeMessage::System(s) if s.subtype == "session_state_changed" && s.extra.get("state").and_then(|v| v.as_str()) == Some("idle"));
-                                            handle_claude_message(&msg, &task_id, &app);
+                                            handle_claude_message(&msg, &task_id, &app, &mut turn_start_ms);
                                             if let ClaudeMessage::ControlRequest(ref cr) = msg {
                                                 handle_control_request(cr, &task_id, &auto_approve, &mut stdin_writer, &perm_tx).await;
                                             }

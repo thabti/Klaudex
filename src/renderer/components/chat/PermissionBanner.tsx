@@ -39,7 +39,7 @@ const KIND_ICONS: Record<string, typeof IconCheck | null> = {
 }
 
 export const PermissionBanner = memo(function PermissionBanner({
-  toolName, description, options, onSelect,
+  toolName, description: _description, options, onSelect,
 }: PermissionBannerProps) {
   const displayName = formatToolName(toolName)
 

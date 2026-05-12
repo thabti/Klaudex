@@ -259,7 +259,7 @@ export function useAttachments(initialAttachments?: Attachment[], initialFolderP
       el.removeEventListener('drop', handleDrop)
       document.removeEventListener('dragend', handleDragEnd)
     }
-  }, [isActive]) // eslint-disable-line react-hooks/exhaustive-deps -- containerRef is a stable ref object; re-running on ref identity change is unnecessary
+  }, [isActive])
 
   return {
     attachments,

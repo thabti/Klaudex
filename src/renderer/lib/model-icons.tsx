@@ -145,14 +145,6 @@ const MinimaxIcon = ({ size = 14, className }: IconProps): JSX.Element => (
   </svg>
 )
 
-const ClaudeIcon = ({ size = 14, className }: IconProps): JSX.Element => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
-    <path d="M12 2L2 7v10l10 5 10-5V7L12 2Z" fill="#6366F1" />
-    <path d="M12 2L2 7l10 5 10-5L12 2Z" fill="#818CF8" />
-    <path d="M12 12v10l10-5V7l-10 5Z" fill="#4F46E5" />
-  </svg>
-)
-
 const DefaultIcon = ({ size = 14, className }: IconProps): JSX.Element => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
     <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />

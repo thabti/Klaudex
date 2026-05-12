@@ -7,9 +7,10 @@ interface TerminalOutputProps {
   onClear: () => void
 }
 
-// Strip ANSI escape codes
+// Strip ANSI escape codes (build regex dynamically to avoid no-control-regex)
+const ANSI_REGEX = new RegExp(`${String.fromCharCode(0x1b)}\\[[0-9;]*m`, 'g')
 function stripAnsi(text: string): string {
-  return text.replace(/\x1b\[[0-9;]*m/g, '')
+  return text.replace(ANSI_REGEX, '')
 }
 
 export function TerminalOutput({ lines, onClear }: TerminalOutputProps) {

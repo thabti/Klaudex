@@ -16,7 +16,7 @@ describe('bundle-budget.json', () => {
   })
 
   it('all budget values are positive numbers', () => {
-    for (const [name, size] of Object.entries(budget.budgets)) {
+    for (const [_name, size] of Object.entries(budget.budgets)) {
       expect(typeof size).toBe('number')
       expect(size as number).toBeGreaterThan(0)
     }

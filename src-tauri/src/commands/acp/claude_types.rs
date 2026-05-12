@@ -455,7 +455,35 @@ pub fn tool_title_and_kind(name: &str, input: &Value) -> (String, String) {
         }
         "TodoWrite" => ("Update TODOs".to_string(), "think".to_string()),
         "ExitPlanMode" => ("Ready to code?".to_string(), "switch_mode".to_string()),
-        _ => (name.to_string(), "other".to_string()),
+        _ => {
+            let label = if name.is_empty() {
+                "Tool".to_string()
+            } else {
+                // MCP tools arrive as "mcp__server__tool_name" — humanise to "server: tool name"
+                let readable = if let Some(rest) = name.strip_prefix("mcp__") {
+                    let parts: Vec<&str> = rest.splitn(2, "__").collect();
+                    if parts.len() == 2 {
+                        format!("{}: {}", parts[0], parts[1].replace('_', " "))
+                    } else {
+                        rest.replace('_', " ")
+                    }
+                } else {
+                    name.replace('_', " ")
+                };
+                // Append first short string arg from input as context
+                let arg = input.as_object().and_then(|obj| {
+                    obj.values()
+                        .filter_map(|v| v.as_str())
+                        .find(|s| !s.is_empty() && s.len() <= 120)
+                });
+                if let Some(a) = arg {
+                    format!("{readable} {a}")
+                } else {
+                    readable
+                }
+            };
+            (label, "other".to_string())
+        }
     }
 }
 

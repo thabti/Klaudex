@@ -18,21 +18,6 @@ const projectName = (workspace: string): string => {
   return parts[parts.length - 1] || workspace
 }
 
-// ── Throttled periodic backup ────────────────────────────────────
-
-const BACKUP_THROTTLE_MS = 5 * 60 * 1000 // 5 minutes
-let lastBackupTime = 0
-
-/** Best-effort backup, throttled to once per 5 minutes */
-const throttledBackup = (): void => {
-  const now = Date.now()
-  if (now - lastBackupTime < BACKUP_THROTTLE_MS) return
-  lastBackupTime = now
-  import('@/lib/history-store').then((hs) =>
-    hs.createBackup(useSettingsStore.getState().settings),
-  ).catch(() => {})
-}
-
 // ── Throttled mid-turn persist ───────────────────────────────────
 // Persist history periodically while a turn is in progress so that
 // a dev hot-reload or crash doesn't lose all streamed content.
@@ -56,6 +41,7 @@ export const applyTurnEnd = (
   taskId: string,
   stopReason?: string,
   refusalRetry?: boolean,
+  turnDurationMs?: number,
 ): Partial<TaskStore> => {
   const chunk = s.streamingChunks[taskId] ?? ''
   const thinking = s.thinkingChunks[taskId] ?? ''
@@ -119,6 +105,7 @@ export const applyTurnEnd = (
     status: fallbackStatus,
     messages: newMessages,
     pendingPermission: undefined,
+    ...(turnDurationMs !== undefined ? { lastTurnDurationMs: turnDurationMs } : {}),
   }
   return {
     tasks: { ...s.tasks, [taskId]: updatedTask },
@@ -347,7 +334,7 @@ export function initTaskListeners(): () => void {
   // Guard against duplicate title generation requests for the same task
   const titleGenerationInFlight = new Set<string>()
 
-  const unsub8 = ipc.onTurnEnd(({ taskId, stopReason }) => {
+  const unsub8 = ipc.onTurnEnd(({ taskId, stopReason, turnDurationMs }) => {
     // Flush any pending rAF-buffered task updates so the task exists in the store
     if (taskUpdateBuf[taskId] || Object.keys(taskUpdateBuf).length > 0) {
       if (taskUpdateRaf) { cancelAnimationFrame(taskUpdateRaf); taskUpdateRaf = null }
@@ -368,7 +355,7 @@ export function initTaskListeners(): () => void {
       const alreadyRetried = !!refusalRetried[taskId]
 
       // Apply turn end with retry flag so the system message is appropriate
-      useTaskStore.setState((s) => applyTurnEnd(s, taskId, stopReason, !alreadyRetried))
+      useTaskStore.setState((s) => applyTurnEnd(s, taskId, stopReason, !alreadyRetried, turnDurationMs))
       useTaskStore.getState().persistHistory()
 
       if (!alreadyRetried) {
@@ -413,7 +400,7 @@ export function initTaskListeners(): () => void {
     delete refusalRetried[taskId]
 
     // Use a single setState to avoid stale reads between getState() calls
-    useTaskStore.setState((s) => applyTurnEnd(s, taskId, stopReason))
+    useTaskStore.setState((s) => applyTurnEnd(s, taskId, stopReason, undefined, turnDurationMs))
 
     // Clear dispatch snapshot — turn is complete
     useTaskStore.getState().setDispatchSnapshot(taskId, null)
@@ -574,7 +561,6 @@ export function initTaskListeners(): () => void {
     console.log('[session_init] received', { taskId, sessionId, models, modes })
     // Store the claude CLI session ID for this task
     if (sessionId && taskId && taskId !== '__probe__') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const s = useTaskStore.getState() as any
       useTaskStore.setState({ sessionIds: { ...s.sessionIds, [taskId]: sessionId } } as any)
     }

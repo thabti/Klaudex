@@ -167,7 +167,7 @@ interface SlashCommandPickerProps {
 }
 
 export const SlashCommandPicker = memo(function SlashCommandPicker({
-  query, commands, onSelect, onDismiss, activeIndex,
+  query, commands, onSelect, onDismiss: _onDismiss, activeIndex,
 }: SlashCommandPickerProps) {
   const listRef = useRef<HTMLUListElement>(null)
   const filtered = query

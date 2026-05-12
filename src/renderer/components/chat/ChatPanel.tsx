@@ -6,7 +6,6 @@ import { applyTurnEnd } from '@/stores/task-store-listeners'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
-import { Statusline } from './Statusline'
 import { PermissionBanner } from './PermissionBanner'
 import { ExecutionPlan } from './ExecutionPlan'
 import { CompactSuggestBanner } from './CompactSuggestBanner'
@@ -20,7 +19,6 @@ import { StickyTaskList } from './StickyTaskList'
 
 import { useMessageSearch } from '@/hooks/useMessageSearch'
 import { ipc } from '@/lib/ipc'
-import { resolveModelId } from '@/lib/resolve-model'
 import { record } from '@/lib/analytics-collector'
 import * as threadDb from '@/lib/thread-db'
 import {
@@ -116,15 +114,13 @@ async function sendMessageDirect(targetTaskId: string, msg: string, attachments?
   record('message_sent', { project: proj, thread: task.id, value: msg.split(/\s+/).filter(Boolean).length })
 
   if (shouldCreateNew) {
-    const { settings, currentModeId, currentModelId } = useSettingsStore.getState()
+    const { settings, currentModeId } = useSettingsStore.getState()
     const taskState = useTaskStore.getState()
     const projectRoot = task.originalWorkspace ?? task.workspace
     const projectPrefs = projectRoot ? settings.projectPrefs?.[projectRoot] : undefined
     const autoApprove = projectPrefs?.autoApprove !== undefined ? projectPrefs.autoApprove : settings.autoApprove
     const modeId = taskState.taskModes[targetTaskId] ?? currentModeId
     const effectiveModeId = modeId && modeId !== 'kiro_default' ? modeId : undefined
-    const taskModelId = taskState.taskModels[targetTaskId]
-    const modelId = resolveModelId({ taskModelId, projectPrefs, settings, currentModelId })
     const created = await ipc.createTask({
       name: task.name,
       workspace: task.workspace,

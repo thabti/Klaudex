@@ -254,7 +254,7 @@ export const TerminalDrawer = memo(function TerminalDrawer({
       setInstances([])
       setActiveId(null)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   /* ---- PTY data — batched via rAF ---- */
   useEffect(() => {

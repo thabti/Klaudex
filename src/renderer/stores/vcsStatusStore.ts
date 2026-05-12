@@ -28,7 +28,7 @@ interface VcsStatusStore {
   clearStatus: (workspace: string) => void
 }
 
-export const useVcsStatusStore = create<VcsStatusStore>((set, get) => ({
+export const useVcsStatusStore = create<VcsStatusStore>((set, _get) => ({
   statuses: {},
 
   refreshStatus: async (workspace: string) => {

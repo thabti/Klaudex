@@ -292,7 +292,7 @@ export function deriveTimeline(
   // lookup that used to run inside the assistant-message branch into a
   // single O(N) backwards pass — meaningful on long threads where the
   // timeline is recomputed every streaming token.
-  const hasQuestionAnswerAfter: boolean[] = new Array(messages.length).fill(false)
+  const hasQuestionAnswerAfter: boolean[] = Array.from({ length: messages.length }).fill(false) as boolean[]
   {
     let seen = false
     for (let i = messages.length - 1; i >= 0; i--) {

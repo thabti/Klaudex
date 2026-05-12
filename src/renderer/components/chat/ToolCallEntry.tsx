@@ -197,7 +197,7 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall }: { toolCal
             'shrink-0 font-medium',
             isRunning ? 'text-foreground' : 'text-foreground/80',
           )}>
-            {toolCall.title}
+            {toolCall.title || 'Tool'}
           </span>
 
           {/* File badge */}

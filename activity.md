@@ -1,3 +1,35 @@
+## 2026-05-12 23:45 GST (Dubai)
+
+### ACP: Forward tool progress, fix token breakdown, add turn duration
+
+Three protocol improvements based on kirodex notification analysis. (1) `ToolProgress` messages from the Claude CLI are now forwarded as `tool_call_update` events with `status: "in_progress"` so the frontend can show live output before the tool result arrives. (2) The `Result` message handler now includes the full token breakdown (`inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheCreationTokens`) in the final `usage_update`, which was previously missing — fixes the `StatsPanel` token breakdown showing blank after turn end. (3) Turn duration is now tracked: `turn_start_ms` is recorded on `MessageStart`, consumed on `Result`, and emitted as `turnDurationMs` in `turn_end`; stored as `lastTurnDurationMs` on `AgentTask` and displayed in the StatsPanel "Last turn" row.
+
+**Modified:** `src-tauri/src/commands/acp/connection.rs`, `src/renderer/lib/ipc.ts`, `src/renderer/stores/task-store-listeners.ts`, `src/renderer/types/index.ts`, `src/renderer/components/chat/StatsPanel.tsx`
+
+## 2026-05-12 22:47 GST (Dubai)
+
+### Lint: Fix all 80 oxlint warnings across the renderer
+
+Cleaned up unused imports, variables, parameters, and eslint-disable directives flagged by oxlint. Removed dead code (`PermissionModeChip`, `BypassBanner`, `ClaudeIcon`, `throttledBackup`, `DEFAULT_PERMISSIONS` in `AutoApproveToggle`, the entire permission-mode block in `AppHeader`, `expandedOid` state and `handleStashDrop` in `GitHistoryPanel`, `openNewTask` in `Dashboard`, `setNewProjectOpen` in `Dashboard`, `clearLastAddedProject` destructure in `TaskSidebar`, `files`/`setFiles` in `FileMentionPicker`, `filteredCmds` in `ChatInput`, `modelId`/`currentModelId`/`resolveModelId` in `ChatPanel`). Renamed unused params to `_param` form for intentional non-use. Replaced `new Array(n).fill(...)` with `Array.from({ length: n }).fill(...) as boolean[]` in `timeline.ts`. Rebuilt the ANSI regex in `TerminalOutput` via `new RegExp(`${String.fromCharCode(0x1b)}\\[[0-9;]*m`, 'g')` to avoid `no-control-regex`. Converted the ternary side-effect in `ChangedFilesSummary` to `if/else`. Replaced `false && 'bar'` with a typed `boolean` variable in `utils.test.ts`. Confirmed `bun run lint` reports 0 warnings/0 errors and `bun run check:ts` is clean.
+
+**Modified:** src/renderer/App.tsx, src/renderer/components/AppHeader.tsx, src/renderer/components/CommandPalette.tsx, src/renderer/components/ErrorBoundary.test.tsx, src/renderer/components/MarkdownViewer.tsx, src/renderer/components/PlanSidebar.tsx, src/renderer/components/chat/AttachmentPreview.tsx, src/renderer/components/chat/AutoApproveToggle.tsx, src/renderer/components/chat/ChangedFilesSummary.tsx, src/renderer/components/chat/ChatInput.tsx, src/renderer/components/chat/ChatPanel.tsx, src/renderer/components/chat/FileMentionPicker.tsx, src/renderer/components/chat/GitPanels.tsx, src/renderer/components/chat/MessageItem.tsx, src/renderer/components/chat/ModelPicker.tsx, src/renderer/components/chat/PendingChat.tsx, src/renderer/components/chat/PermissionBanner.tsx, src/renderer/components/chat/PermissionCard.tsx, src/renderer/components/chat/PillsRow.tsx, src/renderer/components/chat/QuestionCards.tsx, src/renderer/components/chat/SlashCommandPicker.tsx, src/renderer/components/chat/SplitThreadPicker.tsx, src/renderer/components/chat/TerminalDrawer.tsx, src/renderer/components/code/TerminalOutput.tsx, src/renderer/components/dashboard/Dashboard.tsx, src/renderer/components/diff/CheckpointTimeline.tsx, src/renderer/components/diff/GitHistoryPanel.tsx, src/renderer/components/header-toolbar.tsx, src/renderer/components/settings/memory-section.tsx, src/renderer/components/sidebar/AddMcpServerDialog.tsx, src/renderer/components/sidebar/ClaudeConfigPanel.tsx, src/renderer/components/sidebar/RecentProjectsList.tsx, src/renderer/components/sidebar/TaskSidebar.tsx, src/renderer/components/sidebar/claude-config-helpers.tsx, src/renderer/hooks/useAttachments.ts, src/renderer/hooks/useChatInput.ts, src/renderer/hooks/useSidebarTasks.test.ts, src/renderer/hooks/useUpdateChecker.test.ts, src/renderer/lib/analytics-aggregators.ts, src/renderer/lib/bundle-budget.test.ts, src/renderer/lib/debug-logger.ts, src/renderer/lib/model-icons.tsx, src/renderer/lib/resolve-mentions.ts, src/renderer/lib/timeline.ts, src/renderer/lib/utils.test.ts, src/renderer/stores/debugStore.test.ts, src/renderer/stores/diffStore.ts, src/renderer/stores/fileTreeStore.ts, src/renderer/stores/task-store-listeners.ts, src/renderer/stores/taskStore.ts, src/renderer/stores/vcsStatusStore.ts
+
+## 2026-05-12 23:10 GST (Dubai)
+
+### ToolCallEntry: Show relevant info for unknown/MCP tool calls
+
+Unknown tool calls (kind=other) showed a bare wrench icon with no text. Now MCP tools (`mcp__server__tool_name`) are humanised to "server: tool name", underscores become spaces, and the first short input arg is appended as context. Empty names fall back to "Tool". Frontend gets `|| 'Tool'` guard too.
+
+**Modified:** src/renderer/components/chat/ToolCallEntry.tsx, src-tauri/src/commands/acp/claude_types.rs
+
+## 2026-05-12 22:45 GST (Dubai)
+
+### Build: Externalize material-icons JSON to fix Rolldown CI failure
+
+Rolldown (Vite's new bundler) treats unresolvable dynamic imports as hard errors even when wrapped in try/catch. Added `material-icon-theme/dist/material-icons.json` to `build.rollupOptions.external` so Rolldown skips resolution entirely. The existing try/catch in `file-icons.ts` handles the runtime no-op gracefully when the package isn't installed.
+
+**Modified:** vite.config.ts
+
 ## 2026-05-12 22:16 GST (Dubai)
 
 ### Build: Fix material-icons plugin crash in CI

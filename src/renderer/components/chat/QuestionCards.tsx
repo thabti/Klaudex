@@ -1,5 +1,5 @@
 import { memo, useState, useCallback, useEffect } from "react";
-import { IconChevronLeft, IconChevronRight, IconCornerDownLeft, IconMessageCircleQuestion, IconCircleCheckFilled, IconCircle } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconCornerDownLeft, IconMessageCircleQuestion, IconCircleCheckFilled } from "@tabler/icons-react";
 import { useTaskStore } from "@/stores/taskStore";
 import { ipc } from "@/lib/ipc";
 import { cn } from "@/lib/utils";

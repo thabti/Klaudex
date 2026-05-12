@@ -1,6 +1,6 @@
 import { useDebugStore } from '@/stores/debugStore'
 import { useTaskStore } from '@/stores/taskStore'
-import type { DebugCategory, DebugLogEntry } from '@/types'
+import type { DebugLogEntry } from '@/types'
 
 /** Resolve the active task ID for context tagging. */
 const getActiveTaskId = (): string | null =>

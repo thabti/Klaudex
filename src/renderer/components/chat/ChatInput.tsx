@@ -47,7 +47,7 @@ interface ChatInputProps {
 export const ChatInput = memo(function ChatInput({ disabled, disabledReason, contextUsage, messageCount = 0, isRunning, isActive, taskId, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, autoFocus, hasQueuedMessages, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange, workspace, isCollapsed, onToggleCollapse, isWorktree }: ChatInputProps) {
   const {
     value, setValue, textareaRef, containerRef, canSend,
-    slashIndex, slashQuery, commands, filteredCmds, showPicker,
+    slashIndex, slashQuery, commands, showPicker,
     panel, dismissPanel, handleSelectCommand,
     showFilePicker, mentionTrigger, mentionIndex, mentionedFiles,
     handleSelectFile, handleRemoveMention, detectMentionTrigger, dismissMention,

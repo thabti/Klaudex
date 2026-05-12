@@ -5,14 +5,13 @@
  * proposed plan markdown, and export options.
  */
 import { memo, useState, useCallback, useMemo } from 'react'
-import { IconCheck, IconLoader2, IconCircleDot, IconChevronDown, IconChevronRight, IconX, IconCopy, IconDownload, IconDeviceFloppy } from '@tabler/icons-react'
+import { IconCheck, IconLoader2, IconCircleDot, IconChevronDown, IconChevronRight, IconX, IconCopy, IconDownload } from '@tabler/icons-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTaskStore } from '@/stores/taskStore'
 import MarkdownViewer from '@/components/MarkdownViewer'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import type { PlanStep } from '@/types'
 import {
   proposedPlanTitle,
   stripDisplayedPlanMarkdown,

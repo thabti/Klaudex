@@ -142,6 +142,8 @@ export interface AgentTask {
   projectId?: string
   /** True for restored threads whose backend ACP connection was destroyed */
   needsNewConnection?: boolean
+  /** Duration of the last completed turn in milliseconds (set on turn_end) */
+  lastTurnDurationMs?: number
 }
 
 // ── Soft-deleted threads ──────────────────────────────────────────

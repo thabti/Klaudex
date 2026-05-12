@@ -360,8 +360,8 @@ export const ipc = {
     tauriListen<{ taskId: string; plan: PlanStep[] }>('plan_update', (data) => { logEvent('plan_update', { taskId: data.taskId, stepCount: data.plan.length }, data.taskId); cb(data) }),
   onUsageUpdate: (cb: (data: { taskId: string; used: number; size: number; cost?: number; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number }) => void): UnsubscribeFn =>
     tauriListen<{ taskId: string; used: number; size: number; cost?: number; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number }>('usage_update', (data) => { logEvent('usage_update', data, data.taskId); cb(data) }),
-  onTurnEnd: (cb: (data: { taskId: string; stopReason?: string }) => void): UnsubscribeFn =>
-    tauriListen<{ taskId: string; stopReason?: string }>('turn_end', (data) => { logEvent('turn_end', data, data.taskId); cb(data) }),
+  onTurnEnd: (cb: (data: { taskId: string; stopReason?: string; turnDurationMs?: number }) => void): UnsubscribeFn =>
+    tauriListen<{ taskId: string; stopReason?: string; turnDurationMs?: number }>('turn_end', (data) => { logEvent('turn_end', data, data.taskId); cb(data) }),
   onDebugLog: (cb: (entry: DebugLogEntry) => void): UnsubscribeFn =>
     tauriListen('debug_log', cb),
   onSessionInit: (cb: (data: { taskId: string; sessionId?: string; models: unknown; modes: unknown; configOptions: unknown }) => void): UnsubscribeFn =>

@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { memo, useEffect, useRef, useState, useMemo } from 'react'
 import { IconRobot, IconBolt, IconCode, IconListCheck, IconX, IconAlignLeft } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
@@ -244,7 +244,6 @@ export const FileMentionPicker = memo(function FileMentionPicker({
   query, workspace, onSelect, onDismiss, activeIndex,
 }: FileMentionPickerProps) {
   const listRef = useRef<HTMLUListElement>(null)
-  const [files, setFiles] = useState<ProjectFile[]>([])
   const [loading, setLoading] = useState(false)
   const filesRef = useRef<ProjectFile[]>([])
   const respectGitignore = useSettingsStore((s) => s.settings.respectGitignore ?? true)
@@ -267,7 +266,6 @@ export const FileMentionPicker = memo(function FileMentionPicker({
     ipc.listProjectFiles(workspace, respectGitignore).then((result) => {
       if (cancelled) return
       filesRef.current = result
-      setFiles(result)
       setLoading(false)
     }).catch(() => {
       if (!cancelled) setLoading(false)

@@ -1,5 +1,5 @@
 import { memo, useCallback, useState, useRef, useEffect } from 'react'
-import { IconX, IconFileText, IconFileCode, IconFile, IconPhoto, IconClipboard, IconExternalLink } from '@tabler/icons-react'
+import { IconFileText, IconFileCode, IconFile, IconPhoto, IconClipboard, IconExternalLink } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 import { ipc } from '@/lib/ipc'
 import type { Attachment } from '@/types'

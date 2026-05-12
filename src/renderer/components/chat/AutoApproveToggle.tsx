@@ -24,8 +24,6 @@ interface Permissions {
 type SettingsWithPermissions = AppSettings & { permissions?: Permissions }
 type ProjectPrefsWithPermissions = { permissions?: Permissions } & Record<string, unknown>
 
-const DEFAULT_PERMISSIONS: Permissions = { mode: 'ask', allow: [], deny: [] }
-
 /**
  * Resolve the effective permission mode for the current workspace, with
  * per-project override taking precedence over the global policy.

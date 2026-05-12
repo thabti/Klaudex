@@ -58,9 +58,11 @@ export default defineConfig({
     minify: true,
     cssMinify: true,
     rollupOptions: {
+      external: [
+        'material-icon-theme/dist/material-icons.json',
+      ],
       output: {
         manualChunks(id) {
-          if (id.includes("material-icons.json")) return "material-icons";
           if (id.includes("posthog-js")) return "vendor-analytics";
           if (id.includes("@pierre") || id.includes("node_modules/diff/")) return "vendor-diffs";
           if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/")) return "vendor-react";

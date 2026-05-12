@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { ipc } from '@/lib/ipc'
-import { logStoreAction, logError } from '@/lib/debug-logger'
+import { logStoreAction } from '@/lib/debug-logger'
 
 interface DiffStats {
   additions: number

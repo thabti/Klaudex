@@ -329,7 +329,7 @@ describe('useSidebarTasks render stability (useShallow)', () => {
       return useSidebarTasks('recent')
     })
     expect(result.current).toHaveLength(1)
-    const initialRenders = renderCount
+    const _initialRenders = renderCount
 
     // Mutate tasks — SHOULD trigger re-render
     useTaskStore.setState({

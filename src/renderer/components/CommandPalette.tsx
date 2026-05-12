@@ -13,11 +13,11 @@
  */
 import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import {
-  IconSearch, IconMessage, IconFolder, IconSettings, IconGitBranch,
-  IconPlus, IconHistory, IconTerminal2, IconCode, IconBug,
+  IconSearch, IconMessage, IconFolder, IconSettings,
+  IconPlus, IconHistory, IconTerminal2, IconCode,
   IconPlayerPause, IconPlayerStop, IconGitCommit, IconArrowUp,
   IconArrowDown, IconRefresh, IconArchive, IconCopy, IconBrain,
-  IconLayoutColumns, IconKeyboard, IconChartBar, IconDatabase,
+  IconLayoutColumns, IconKeyboard, IconChartBar,
 } from '@tabler/icons-react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'

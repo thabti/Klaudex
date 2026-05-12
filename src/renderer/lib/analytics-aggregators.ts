@@ -50,8 +50,6 @@ export interface PartitionedEvents {
   skill_used: AnalyticsEvent[]
 }
 
-const EMPTY: AnalyticsEvent[] = []
-
 export const partitionEvents = (events: AnalyticsEvent[]): PartitionedEvents => {
   const p: PartitionedEvents = {
     session: [], message_sent: [], message_received: [], token_usage: [],

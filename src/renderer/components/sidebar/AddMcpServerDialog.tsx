@@ -61,7 +61,6 @@ export function AddMcpServerDialog({ open, onOpenChange, workspace }: Props) {
     setArgsText('')
     setUrl('')
     setEnvText('')
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   // Args: one entry per line OR space-separated on a single line. We pick

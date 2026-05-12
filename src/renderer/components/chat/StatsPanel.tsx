@@ -178,6 +178,9 @@ export const StatsPanel = memo(function StatsPanel({ onDismiss }: { onDismiss: (
             <div className="mx-3 mb-2 rounded-lg bg-muted/30 px-3 py-2">
               <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70 mb-1.5">Conversation</div>
               <StatRow label="Duration" value={formatDuration(stats.duration)} />
+              {selectedTask.lastTurnDurationMs !== undefined && (
+                <StatRow label="Last turn" value={formatDuration(selectedTask.lastTurnDurationMs)} />
+              )}
               <StatRow label="Turns" value={String(stats.turns)} />
               <StatRow label="Messages" value={String(stats.userMessages + stats.assistantMessages + stats.systemMessages)} sub={`${stats.userMessages}u / ${stats.assistantMessages}a / ${stats.systemMessages}s`} />
               {stats.tokensPerTurn > 0 && <StatRow label="Tokens / turn" value={formatTokens(stats.tokensPerTurn)} />}

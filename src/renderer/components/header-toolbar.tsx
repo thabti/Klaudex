@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState, memo, useRef } from "react"
 import {
   IconGitCompare,
   IconTerminal2,
-  IconGitBranch,
   IconLayoutColumns,
   IconListTree,
 } from "@tabler/icons-react"

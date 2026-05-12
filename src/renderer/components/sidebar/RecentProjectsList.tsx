@@ -114,7 +114,6 @@ export const RecentProjectsList = memo(function RecentProjectsList({ compact = t
     if (row.isMissing) {
       // Offer to remove the stale entry. Confirm dialog keeps the affordance
       // discoverable without a separate context menu.
-      // eslint-disable-next-line no-alert
       const ok = window.confirm(
         `"${row.project.name || basenameOf(row.project.path)}" is missing on disk.\n\nRemove it from Recent Projects?`,
       )

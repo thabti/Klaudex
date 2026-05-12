@@ -6,7 +6,7 @@
 import { memo, useEffect, useState, useCallback } from 'react'
 import {
   IconCamera, IconRefresh, IconArrowBackUp, IconLoader2,
-  IconChevronRight, IconAlertTriangle,
+  IconAlertTriangle,
 } from '@tabler/icons-react'
 import { ipc } from '@/lib/ipc'
 import { cn } from '@/lib/utils'
