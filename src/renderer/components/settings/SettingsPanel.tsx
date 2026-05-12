@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { getVersion } from '@tauri-apps/api/app'
-import { IconX, IconArrowLeft, IconBrandGithub, IconSearch, IconRotate, IconShield, IconBolt, IconCircleFilled } from '@tabler/icons-react'
+import { IconX, IconArrowLeft, IconBrandGithub, IconSearch, IconRotate, IconShield, IconBolt, IconCircleFilled, IconAlertTriangle } from '@tabler/icons-react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { handleExternalLinkClick, handleExternalLinkKeyDown } from '@/lib/open-external'
 import { ipc } from '@/lib/ipc'
@@ -86,6 +87,7 @@ export const SettingsPanel = () => {
   const [appVersion, setAppVersion] = useState('')
   const [isAboutOpen, setIsAboutOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false)
 
   const hasDirtyState = useMemo(() => isDirty(draft, settings), [draft, settings])
 
@@ -100,7 +102,7 @@ export const SettingsPanel = () => {
   useEffect(() => {
     if (!open) return
     setSearchQuery('')
-    const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
+    const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') handleAttemptClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, setOpen])
@@ -122,6 +124,7 @@ export const SettingsPanel = () => {
     } else {
       ipc.resetDockIcon().catch(() => {})
     }
+    setIsUnsavedDialogOpen(false)
     setOpen(false)
   }, [draft, saveSettings, setOpen])
 
@@ -129,6 +132,22 @@ export const SettingsPanel = () => {
     applyTheme(settings.theme ?? 'dark')
     setOpen(false)
   }, [settings.theme, setOpen])
+
+  const handleAttemptClose = useCallback(() => {
+    if (isDirty(draft, settings)) {
+      setIsUnsavedDialogOpen(true)
+    } else {
+      applyTheme(settings.theme ?? 'dark')
+      setOpen(false)
+    }
+  }, [draft, settings, setOpen])
+
+  const handleDiscardAndClose = useCallback(() => {
+    setIsUnsavedDialogOpen(false)
+    applyTheme(settings.theme ?? 'dark')
+    setDraft(settings)
+    setOpen(false)
+  }, [settings, setOpen])
 
   const handleRestoreDefaults = useCallback(() => {
     setDraft(defaultSettings)
@@ -241,7 +260,7 @@ export const SettingsPanel = () => {
 
           <div className="mt-auto px-2 pt-3 border-t border-border space-y-1">
             <button
-              onClick={handleClose}
+              onClick={handleAttemptClose}
               className="flex w-full h-8 items-center gap-2 rounded-lg px-2 text-[14px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <IconArrowLeft className="size-4" />
@@ -280,7 +299,7 @@ export const SettingsPanel = () => {
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Restore all settings to defaults</TooltipContent>
               </Tooltip>
-              <button onClick={handleClose} className="rounded-lg border border-border/50 px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">Cancel</button>
+              <button onClick={handleAttemptClose} className="rounded-lg border border-border/50 px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">Cancel</button>
               <button
                 onClick={handleSave}
                 data-testid="settings-save-button"
@@ -298,7 +317,7 @@ export const SettingsPanel = () => {
               </button>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button onClick={handleClose} data-testid="settings-close-button" className="ml-1 flex size-7 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground">
+                  <button onClick={handleAttemptClose} data-testid="settings-close-button" className="ml-1 flex size-7 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground">
                     <IconX className="size-4" />
                   </button>
                 </TooltipTrigger>
@@ -352,8 +371,60 @@ export const SettingsPanel = () => {
               )}
             </div>
           </div>
+
+          {/* Sticky save bar */}
+          {hasDirtyState && (
+            <div className="shrink-0 border-t border-border/60 bg-card/95 backdrop-blur-sm px-6 py-3 flex items-center justify-between animate-in slide-in-from-bottom-2 duration-200">
+              <p className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                <IconCircleFilled className="size-2 text-amber-400" />
+                You have unsaved changes
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setDraft(settings)}
+                  className="rounded-lg border border-border/50 px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  Discard
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="rounded-lg bg-primary px-4 py-1.5 text-[12px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  Save changes
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      <Dialog open={isUnsavedDialogOpen} onOpenChange={setIsUnsavedDialogOpen}>
+        <DialogContent className="max-w-sm" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <IconAlertTriangle className="size-4 text-amber-400" />
+              Unsaved changes
+            </DialogTitle>
+            <DialogDescription>
+              You have unsaved settings changes. Do you want to save them before leaving?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              onClick={handleDiscardAndClose}
+              className="rounded-lg border border-border/50 px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
+            >
+              Discard
+            </button>
+            <button
+              onClick={handleSave}
+              className="rounded-lg bg-primary px-4 py-1.5 text-[12px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Save and close
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AboutDialog open={isAboutOpen} onOpenChange={setIsAboutOpen} />
     </div>
