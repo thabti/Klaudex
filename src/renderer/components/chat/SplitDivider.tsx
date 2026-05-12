@@ -40,7 +40,7 @@ export const SplitDivider = memo(function SplitDivider({
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize split panels"
+      aria-label="Resize panels"
       tabIndex={0}
       onMouseDown={onMouseDown}
       onDoubleClick={onReset}
@@ -50,27 +50,31 @@ export const SplitDivider = memo(function SplitDivider({
         if (e.key === 'Enter') { e.preventDefault(); onReset() }
       }}
       className={cn(
-        'group relative z-10 flex w-px shrink-0 cursor-col-resize items-center justify-center',
+        'group relative z-10 flex w-1 shrink-0 cursor-col-resize items-center justify-center',
         'before:absolute before:inset-y-0 before:-left-1 before:-right-1 before:content-[""]',
         'focus-visible:outline-none',
       )}
     >
-      {/* The visible 1px line */}
+      {/* The visible line */}
       <div
         className={cn(
-          'absolute inset-y-0 w-px transition-colors duration-100',
-          isDragging ? 'bg-primary/50' : 'bg-border group-hover:bg-muted-foreground/25',
+          'absolute inset-y-0 left-1/2 w-px -translate-x-1/2 transition-colors duration-100',
+          isDragging ? 'bg-primary/60' : 'bg-border/80 group-hover:bg-muted-foreground/30',
         )}
       />
-      {/* Tiny pill grip — appears on hover, centered */}
+      {/* Grip dots — appear on hover */}
       <div
         className={cn(
-          'relative z-10 rounded-full transition-all duration-150',
+          'relative z-10 flex flex-col items-center gap-1 transition-all duration-150',
           isDragging
-            ? 'h-8 w-1 bg-primary/60'
-            : 'h-6 w-0.5 bg-transparent group-hover:h-8 group-hover:w-1 group-hover:bg-muted-foreground/30',
+            ? 'opacity-100'
+            : 'opacity-0 group-hover:opacity-100',
         )}
-      />
+      >
+        <div className={cn('size-1 rounded-full', isDragging ? 'bg-primary/60' : 'bg-muted-foreground/30')} />
+        <div className={cn('size-1 rounded-full', isDragging ? 'bg-primary/60' : 'bg-muted-foreground/30')} />
+        <div className={cn('size-1 rounded-full', isDragging ? 'bg-primary/60' : 'bg-muted-foreground/30')} />
+      </div>
     </div>
   )
 })
