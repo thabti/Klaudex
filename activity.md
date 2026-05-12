@@ -1,3 +1,12 @@
+## 2026-05-12 21:02 GST (Dubai)
+### Chat: Add connection_lost system message variant
+
+Ported upstream commit adding 'connection_lost' to SystemMessageVariant type and rendering it as an amber card with IconPlugConnectedX and reconnection hint.
+
+**Modified:**
+- src/renderer/components/chat/SystemMessageRow.tsx
+- src/renderer/lib/timeline.ts
+
 ## 2026-05-12 20:59 GST (Dubai)
 ### Settings: Add delete button to memory section thread rows
 
