@@ -1,5 +1,11 @@
 # Activity Log
 
+## 2026-05-12 22:03 GST (Dubai)
+### CI: Fix material-icon-theme missing in build
+Added `material-icon-theme@5.34.0` as a pinned devDependency so CI installs it. Made the Vite `writeBundle` hook gracefully skip icon copying if the directory is missing (belt-and-suspenders). Build now passes with 1238 SVG icons copied to `dist/material-icons/`.
+
+**Modified:** `package.json`, `vite.config.ts`
+
 ## 2026-05-12 20:46 GST (Dubai)
 ### UI: Fix padding in Add MCP Server dialog
 The form body had no horizontal padding (`py-2` only), making fields flush against the dialog edges while header/footer had `px-6`. Added `px-6` to match, increased gap from `gap-3` to `gap-4`, and bumped vertical padding to `py-3` for better breathing room between fields.

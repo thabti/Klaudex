@@ -24,6 +24,10 @@ function materialIconsPlugin(): Plugin {
       });
     },
     writeBundle(options) {
+      if (!fs.existsSync(iconsDir)) {
+        console.warn("[material-icons] icons dir not found, skipping copy");
+        return;
+      }
       const outDir = options.dir ?? path.resolve(__dirname, "dist");
       const destDir = path.join(outDir, "material-icons");
       if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
