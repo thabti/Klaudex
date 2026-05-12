@@ -135,7 +135,7 @@ export function AddMcpServerDialog({ open, onOpenChange, workspace }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3 py-2">
+        <div className="flex flex-col gap-4 px-6 py-3">
           {/* Transport */}
           <div className="grid grid-cols-2 gap-2">
             <button

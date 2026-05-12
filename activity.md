@@ -1,5 +1,11 @@
 # Activity Log
 
+## 2026-05-12 20:46 GST (Dubai)
+### UI: Fix padding in Add MCP Server dialog
+The form body had no horizontal padding (`py-2` only), making fields flush against the dialog edges while header/footer had `px-6`. Added `px-6` to match, increased gap from `gap-3` to `gap-4`, and bumped vertical padding to `py-3` for better breathing room between fields.
+
+**Modified:** `src/renderer/components/sidebar/AddMcpServerDialog.tsx`
+
 ## 2026-05-12 19:22 GST (Dubai)
 ### Store: Fix diff stats always showing +0/-0 in ChangedFilesSummary
 `upsertToolCall` was replacing the entire tool call object with the incoming update, losing `content` (with `linesAdded`/`linesRemoved`) when a subsequent `tool_call_update` only changed `status`. Fixed by spreading the existing tool call first so fields absent from the update are preserved.
