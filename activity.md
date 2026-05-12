@@ -1,3 +1,13 @@
+## 2026-05-12 23:45 GST (Dubai)
+
+### Release: v1.7.0
+
+Bumped version from 1.6.0 to 1.7.0 in `package.json` and `src-tauri/tauri.conf.json`.
+
+**Modified:** `package.json`, `src-tauri/tauri.conf.json`, `activity.md`
+
+---
+
 ## 2026-05-12 23:38 GST (Dubai)
 
 ### CI: Fix material-icon-theme missing from package.json
