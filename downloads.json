@@ -1,10 +1,87 @@
 {
-  "updated_at": "2026-05-11T07:45:51Z",
-  "releases": [],
+  "updated_at": "2026-05-12T07:26:58Z",
+  "releases": [
+    {
+      "tag": "v1.0.1",
+      "published": "2026-05-12T04:12:01Z",
+      "total": 2,
+      "update_checks": 4,
+      "assets": [
+        {
+          "name": "Klaudex_1.0.1_aarch64.dmg",
+          "downloads": 2,
+          "platform": "macos"
+        },
+        {
+          "name": "Klaudex_1.0.1_amd64.AppImage",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.0.1_amd64.AppImage.tar.gz",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.0.1_amd64.deb",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.0.1_x64-setup.exe",
+          "downloads": 0,
+          "platform": "windows"
+        },
+        {
+          "name": "Klaudex_1.0.1_x64-setup.nsis.zip",
+          "downloads": 0,
+          "platform": "windows"
+        },
+        {
+          "name": "Klaudex_aarch64.app.tar.gz",
+          "downloads": 0,
+          "platform": "macos"
+        }
+      ]
+    },
+    {
+      "tag": "v1.0.0",
+      "published": "2026-05-11T18:53:14Z",
+      "total": 0,
+      "update_checks": 3,
+      "assets": [
+        {
+          "name": "Klaudex_1.0.0_aarch64.dmg",
+          "downloads": 0,
+          "platform": "macos"
+        },
+        {
+          "name": "Klaudex_1.0.0_amd64.AppImage",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.0.0_amd64.AppImage.tar.gz",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.0.0_amd64.deb",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_aarch64.app.tar.gz",
+          "downloads": 0,
+          "platform": "macos"
+        }
+      ]
+    }
+  ],
   "totals": {
-    "all": 0,
-    "update_checks": 0,
-    "macos": 0,
+    "all": 2,
+    "update_checks": 7,
+    "macos": 2,
     "windows": 0,
     "linux": 0
   },
