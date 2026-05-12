@@ -1,3 +1,11 @@
+## 2026-05-12 21:09 GST (Dubai)
+### fs_ops: Support full paths in terminal command allowlist
+
+Ported upstream fix so the terminal command allowlist extracts the binary file_name from a full path (e.g. `/opt/homebrew/bin/claude /login`) instead of only matching bare `claude` commands.
+
+**Modified:**
+- src-tauri/src/commands/fs_ops.rs
+
 ## 2026-05-12 21:07 GST (Dubai)
 ### Onboarding: Show login errors and non-standard path hint
 

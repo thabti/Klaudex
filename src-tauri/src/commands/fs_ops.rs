@@ -1007,11 +1007,17 @@ pub async fn claude_login(
 
 #[tauri::command]
 pub fn open_terminal_with_command(command: String) -> Result<(), AppError> {
-    // Only allow known safe commands to prevent arbitrary command injection
-    const ALLOWED_COMMANDS: &[&str] = &["claude /login", "claude /logout", "claude /status"];
-    let is_allowed = ALLOWED_COMMANDS.iter().any(|&allowed| {
-        command == allowed || command.starts_with(&format!("{} ", allowed))
-    });
+    // Only allow claude with known safe subcommands to prevent arbitrary command injection.
+    // The binary may be a bare name ("claude") or a full path ("/opt/homebrew/bin/claude").
+    const ALLOWED_SUBCOMMANDS: &[&str] = &["/login", "/logout", "/status"];
+    let parts: Vec<&str> = command.splitn(2, ' ').collect();
+    let is_allowed = if parts.len() == 2 {
+        let bin = std::path::Path::new(parts[0]);
+        let bin_name = bin.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        bin_name == "claude" && ALLOWED_SUBCOMMANDS.contains(&parts[1])
+    } else {
+        false
+    };
     if !is_allowed {
         return Err(AppError::Other(format!("Command not in allowlist: {}", command)));
     }
