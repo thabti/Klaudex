@@ -1,5 +1,46 @@
 # Changelog
 
+## [v1.2.0] - 2026-05-12
+
+### Features
+
+- add 'Open File Tree' to project context menu ([`59de4f5`](https://github.com/thabti/klaudex/commit/59de4f5d77fd83bc10fa04bc57b67e4624d46b46))
+- add persistUiState and auto-save UI state every 30s ([`86c063c`](https://github.com/thabti/klaudex/commit/86c063cb9e564eba3ac265e4051c682ab48dd643))
+- show login errors and non-standard path hint ([`9988210`](https://github.com/thabti/klaudex/commit/9988210cde99f4b9f3bc5d0d4f85aa45c6cb7a70))
+- add connection_lost system message variant ([`c5a2835`](https://github.com/thabti/klaudex/commit/c5a28356749ec52de80728fe59cfd9ce6554efe1))
+- add delete button to memory section thread rows ([`9629584`](https://github.com/thabti/klaudex/commit/962958430aec9bd3593782d0778b7b0fcb8aa956))
+- add unsaved changes confirmation dialog ([`1038b3a`](https://github.com/thabti/klaudex/commit/1038b3ae830d074f41b5c79362c746e26d6b7088))
+
+### Bug fixes
+
+- add missing required fields to settings-selectors test fixture ([`82c856b`](https://github.com/thabti/klaudex/commit/82c856bbdf0c75bfe744199d902e6c72b5f0ac95))
+- preserve existing tool call fields during merge ([`285e96a`](https://github.com/thabti/klaudex/commit/285e96a88ef028f2bac8432ebecd216d2a39a453))
+- support full paths in terminal command allowlist ([`0000f9e`](https://github.com/thabti/klaudex/commit/0000f9e1a81a5f41a33c804d2d1ccda9a6da45e7))
+- render image preview overlay via portal ([`255bc88`](https://github.com/thabti/klaudex/commit/255bc88f65351b2772582c778bb4fd4aec404fdb))
+
+### Styling
+
+- refine divider grip dots and panel header layout ([`c2642cc`](https://github.com/thabti/klaudex/commit/c2642cc18b092d3420ffe10ca53791a60f5f02ec))
+- restyle toolbar as connected button group ([`7f35507`](https://github.com/thabti/klaudex/commit/7f35507993fce96dc7adf488a3bcd789cb8776b8))
+- sync kirodex v0.43.0 polish and dark mode fixes ([`235454a`](https://github.com/thabti/klaudex/commit/235454a26ab79758bb5e3de360c67604f696154c))
+
+### Refactoring
+
+- rename 'split view' to 'side-by-side' across UI ([`534c8a8`](https://github.com/thabti/klaudex/commit/534c8a822e534a70a273841161840badf9140cbb))
+
+### Documentation
+
+- add button consistency and light mode theme reviews (#6) ([`1824063`](https://github.com/thabti/klaudex/commit/18240638ce8f9b96f12232239c3f2d3acd062fd9))
+
+### CI
+
+- use repository name for base href (#7) ([`390d709`](https://github.com/thabti/klaudex/commit/390d70974a7119e5c74357be024124df9d595e71))
+
+### Chores
+
+- replace material-icon-theme with seti-file-icons ([`d659333`](https://github.com/thabti/klaudex/commit/d659333afcf981b83cceb6464e73158401199e1a))
+- update downloads.json ([`a8a0903`](https://github.com/thabti/klaudex/commit/a8a09030f5da110a9aa4da0196c4e7912ddd095c))
+
 ## [v1.1.0] - 2026-05-12
 
 ### Features
