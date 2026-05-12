@@ -28,6 +28,8 @@ vi.mock('@/lib/history-store', () => ({
   saveSoftDeleted: vi.fn().mockResolvedValue(undefined),
   toArchivedTasks: vi.fn().mockReturnValue([]),
   clearHistory: vi.fn().mockResolvedValue(undefined),
+  saveUiState: vi.fn().mockResolvedValue(undefined),
+  loadUiState: vi.fn().mockResolvedValue(null),
 }))
 vi.mock('@/lib/thread-db', () => ({
   saveThread: vi.fn().mockResolvedValue(undefined),
