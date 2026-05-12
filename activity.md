@@ -1,5 +1,102 @@
 # Activity Log
 
+## 2026-05-12 19:22 GST (Dubai)
+### Store: Fix diff stats always showing +0/-0 in ChangedFilesSummary
+`upsertToolCall` was replacing the entire tool call object with the incoming update, losing `content` (with `linesAdded`/`linesRemoved`) when a subsequent `tool_call_update` only changed `status`. Fixed by spreading the existing tool call first so fields absent from the update are preserved.
+
+**Modified:** `src/renderer/stores/taskStore.ts`
+
+## 2026-05-12 19:15 GST (Dubai)
+### Chat: Fix image overlay clipping in thread view
+Used `createPortal` to render the image lightbox at `document.body` level, escaping all `overflow-hidden` ancestors. Bumped z-index to 9999, increased backdrop opacity to 80%, removed border from preview image, and added click-through prevention on the image itself.
+
+**Modified:** `src/renderer/components/chat/UserMessageRow.tsx`
+
+## 2026-05-12 19:08 GST (Dubai)
+### Settings/Memory: Add hover delete button to per-thread rows
+Added a trash icon button that appears on hover in the per-thread memory rows. Clicking it soft-deletes the thread without navigating to it (stopPropagation prevents the row's open action).
+
+**Modified:** `src/renderer/components/settings/memory-section.tsx`
+
+## 2026-05-12 19:06 GST (Dubai)
+### Sidebar: Add "Open File Tree" to project right-click menu
+Added an "Open File Tree" option to the project context menu that opens the file tree panel scoped to that project's directory.
+
+**Modified:** `src/renderer/components/sidebar/ProjectItem.tsx`
+
+## 2026-05-12 19:00 GST (Dubai)
+### TaskStore: Persist per-thread mode and model settings across restarts
+Fixed per-thread mode/model settings being lost on restart. `setTaskMode`/`setTaskModel` now persist immediately via `persistUiState()`. The 30s auto-save also saves UI state. The restore filter now includes archived threads so their settings survive.
+
+**Modified:** src/renderer/stores/taskStore.ts, src/renderer/stores/task-store-types.ts, src/renderer/App.tsx
+
+## 2026-05-12 19:00 GST (Dubai)
+### Settings: Sticky save bar and unsaved changes dialog
+Added a sticky save bar at the bottom of the settings content area that appears when there are unsaved changes (with Discard and Save buttons). Added an unsaved changes confirmation dialog when clicking Back, Cancel, Close (X), or pressing Escape with dirty state; offers Discard or Save and close.
+
+**Modified:** src/renderer/components/settings/SettingsPanel.tsx
+
+## 2026-05-12 18:59 GST (Dubai)
+### Header Toolbar: Replace file tree icon with IconFolderOpen
+Swapped `IconFiles` (stacked documents) for `IconFolderOpen` on the file tree toggle button to better communicate its purpose.
+
+**Modified:** `src/renderer/components/header-toolbar.tsx`
+
+## 2026-05-12 18:57 GST (Dubai)
+### Settings: Always-visible restore/delete buttons in archived threads
+Removed hover-only visibility (`opacity-0 group-hover:opacity-100`) from the restore and delete buttons in the deleted threads list so they are always visible by default.
+
+**Modified:** src/renderer/components/settings/deleted-threads-restore.tsx
+
+## 2026-05-11 21:28 GST (Dubai)
+### Chat: Prominent connection-lost card
+Upgraded the "Connection to the agent was lost" system message from a subtle centered line to a prominent amber card with an `IconPlugConnectedX` icon, bold title, and actionable subtitle. Added a `connection_lost` variant to `SystemMessageVariant` with detection logic in `timeline.ts`.
+
+**Modified:** `src/renderer/components/chat/SystemMessageRow.tsx`, `src/renderer/lib/timeline.ts`
+
+## 2026-05-11 18:07 GST (Dubai)
+### Onboarding: Fix sign-in button and add PATH warning
+Fixed the "Sign in with Kiro CLI" button failing silently when kiro-cli was detected at a full path (e.g., `/opt/homebrew/bin/kiro-cli`). The Rust allowlist now extracts the binary filename from the path instead of requiring an exact string match. Added error display on failure and a helpful PATH warning with a copyable full-path command when kiro-cli isn't on the system PATH.
+
+**Modified:** `src-tauri/src/commands/fs_ops.rs`, `src/renderer/components/OnboardingAuthSection.tsx`
+
+## 2026-05-11 16:06 GST (Dubai)
+### Side-by-Side: Rename and improve split panel look and feel
+Renamed all user-facing "Split View" text to "Side-by-Side" for consistency and clarity. Improved the panel header with a two-line layout (thread name + project name), softer focus state, and thinner accent bar. Upgraded the divider with a 3-dot grip indicator on hover. Sidebar list items now have larger hit targets and a ⇄ separator.
+
+**Modified:** SplitPanelHeader.tsx, SplitDivider.tsx, SplitThreadPicker.tsx, header-toolbar.tsx, TaskSidebar.tsx, ThreadItem.tsx, CommandPalette.tsx, App.tsx
+
+## 2026-05-11 16:05 GST (Dubai)
+### Sidebar: Remove active state styling from thread items
+Removed the distinct background/font-weight styling applied to the currently active thread in the sidebar. All threads now use the same base styling regardless of selection state.
+
+**Modified:** `src/renderer/components/sidebar/ThreadItem.tsx`
+
+## 2026-05-11 16:03 GST (Dubai)
+### Settings: Bulk delete all threads per project in archive list
+Added a "Delete all" button to each project group header in the deleted threads list. Clicking it permanently deletes all threads in that project without confirmation.
+
+**Modified:** `src/renderer/components/settings/deleted-threads-restore.tsx`
+
+## 2026-05-11 16:01 GST (Dubai)
+### Settings: Archive list delete without confirmation and project icons
+Removed the two-step confirmation flow for permanently deleting archived threads; the delete button now acts immediately. Extracted a `ProjectGroup` sub-component that uses `useProjectIcon` to display the detected project icon (favicon, framework, or emoji) next to each group header, falling back to a dot when no icon is available.
+
+**Modified:** `src/renderer/components/settings/deleted-threads-restore.tsx`
+
+## 2026-05-10 22:43 GST (Dubai)
+### Screenshots: Rename main.png to kirodex.png
+Renamed `screenshots/main.png` to `screenshots/kirodex.png` and updated the README reference.
+
+**Modified:** screenshots/kirodex.png (renamed from main.png), README.md
+
+## 2026-05-10 22:42 GST (Dubai)
+### Docs: Update README with new features and corrections
+
+Added file tree panel, MCP server management, and connection health monitoring to the Features section. Removed MCP server management from the Feature requests table (now implemented). Added `bun run lint` (oxlint) to the Commands table.
+
+**Modified:** `README.md`
+
 ## 2026-05-10 22:39 GST (Dubai)
 ### Docs: Update main screenshot
 
