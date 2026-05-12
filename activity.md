@@ -1,3 +1,11 @@
+## 2026-05-12 22:04 GST (Dubai)
+
+### Test: Fix settings-selectors.test.ts type error
+
+Added missing required `claudeBin` and `agentProfiles` fields to the test fixture in `settings-selectors.test.ts` to satisfy the `AppSettings` interface.
+
+**Modified:** src/renderer/stores/settings-selectors.test.ts
+
 ## 2026-05-12 21:22 GST (Dubai)
 ### Store: Preserve existing tool call fields during merge
 

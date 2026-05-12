@@ -5,6 +5,8 @@ describe('settingsStore selector granularity', () => {
   beforeEach(() => {
     useSettingsStore.setState({
       settings: {
+        claudeBin: '/usr/local/bin/claude',
+        agentProfiles: [],
         autoApprove: false,
         projectPrefs: { '/project': { autoApprove: true, symlinkDirectories: ['node_modules'] } },
         fontSize: 13,
