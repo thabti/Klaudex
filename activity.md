@@ -1,3 +1,13 @@
+## 2026-05-12 20:30 GST (Dubai)
+
+### Release: v1.6.0
+
+Bumped version from 1.5.0 to 1.6.0 in `package.json` and `src-tauri/tauri.conf.json`.
+
+**Modified:** `package.json`, `src-tauri/tauri.conf.json`, `activity.md`
+
+---
+
 ## 2026-05-12 20:15 GST (Dubai)
 
 ### vitest.config: Fix material-icon-theme JSON resolution in tests
