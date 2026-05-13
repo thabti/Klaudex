@@ -705,6 +705,19 @@ describe('applyTurnEnd', () => {
     expect(messages).toHaveLength(1)
     expect(messages[0].role).toBe('user')
   })
+
+  it('sets status to paused (not cancelled) when task has needsNewConnection (Escape/steering)', () => {
+    const state = baseState({
+      tasks: { 't1': makeTask({ id: 't1', status: 'running', needsNewConnection: true }) },
+    })
+    const result = applyTurnEnd(state, 't1', 'cancelled')
+    expect(result.tasks?.['t1'].status).toBe('paused')
+  })
+
+  it('still sets status to cancelled when turn_end cancelled arrives without user pause', () => {
+    const result = applyTurnEnd(baseState(), 't1', 'cancelled')
+    expect(result.tasks?.['t1'].status).toBe('cancelled')
+  })
 })
 
 describe('hydrateArchivedTask', () => {

@@ -49,7 +49,11 @@ export const applyTurnEnd = (
   const liveSplits = s.liveToolSplits[taskId] ?? []
   const task = s.tasks[taskId]
   if (!task) return {}
+  // When the user explicitly paused via Escape/steering, needsNewConnection is
+  // set synchronously before turn_end arrives. Don't clobber that with 'cancelled'.
+  const userPaused = stopReason === 'cancelled' && !!task.needsNewConnection
   const fallbackStatus = stopReason === 'refusal' ? 'error' as const
+    : userPaused ? 'paused' as const
     : stopReason === 'cancelled' ? 'cancelled' as const
     : 'completed' as const
   const toolFallbackStatus = stopReason === 'refusal' ? 'failed' as const

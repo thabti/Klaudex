@@ -42,6 +42,7 @@ describe('deriveInputState', () => {
     const task = makeTask({ status: 'running' })
     expect(deriveInputState(task)).toEqual({ disabled: false, disabledReason: undefined })
   })
+
 })
 
 describe('shouldQueueMessage', () => {

@@ -1,3 +1,53 @@
+## 2026-05-13 14:10 GST (Dubai)
+
+### model-icons: Replace ghost SVG with Claude logo mark
+
+Replaced the old Anthropic 4-petal/eye SVG (which appeared as a ghost at small sizes) in `AnthropicIcon` with the Claude logo swirl mark sourced from the official SVG on Wikimedia Commons. Removed the now-unused `useId` import. The icon uses `currentColor` and renders correctly at all sizes.
+
+**Modified:** `src/renderer/lib/model-icons.tsx`
+
+---
+
+## 2026-05-13 14:00 GST (Dubai)
+
+### CLAUDE.md: Full documentation refresh
+
+Updated project structure to reflect all current files (30+ Rust commands, new stores, hooks, lib modules, component directories). Corrected commands section to match actual `package.json` scripts. Updated build validation commands. Added 4 new engineering learnings: `pauseAndRedirect` consolidation, `applyTurnEnd`/`needsNewConnection` status clobbering fix, `TodoWrite` dual tool shape detection, local font bundling for Tauri CSP.
+
+**Modified:** `CLAUDE.md`
+
+---
+
+## 2026-05-13 13:09 GST (Dubai)
+
+### taskStore: Escape/steering pause never produces cancelled status
+
+Root cause: `AcpCommand::Cancel` (sent by `task_pause`) causes `connection.rs` to emit `turn_end` with `stopReason: "cancelled"`, which `applyTurnEnd` mapped to `status: 'cancelled'` — clobbering the `"paused"` status already set by the preceding `task_update`. Fix: `applyTurnEnd` checks `task.needsNewConnection` (set synchronously by `pauseAndRedirect` before any backend events arrive); when true, uses `'paused'` instead of `'cancelled'`. Also reverted the previous workaround in `deriveInputState` and `ChatPanel`.
+
+**Modified:** `src/renderer/stores/task-store-listeners.ts`, `src/renderer/stores/taskStore.test.ts`, `src/renderer/components/chat/ChatPanel.logic.ts`, `src/renderer/components/chat/ChatPanel.tsx`, `src/renderer/components/chat/ChatPanel.logic.test.ts`
+
+---
+
+## 2026-05-13 13:07 GST (Dubai)
+
+### ChatInput: re-enable input after Escape cancellation
+
+`deriveInputState` now checks `needsNewConnection` before checking `status === 'cancelled'`. Tasks paused via Escape or steering set `needsNewConnection: true`; the input stays enabled so the user can immediately type a new direction. `ChatPanel` subscribes to `needsNewConnection` and passes it to `deriveInputState`. Added a test case for the new path.
+
+**Modified:** `src/renderer/components/chat/ChatPanel.logic.ts`, `src/renderer/components/chat/ChatPanel.tsx`, `src/renderer/components/chat/ChatPanel.logic.test.ts`
+
+---
+
+## 2026-05-13 13:05 GST (Dubai)
+
+### CSP: Bundle JetBrains Mono font locally
+
+Removed Google Fonts external links from `index.html` (violated `style-src` CSP). Downloaded JetBrains Mono variable woff2 files (normal + italic, latin subset) to `public/fonts/`. Added `@font-face` declarations to `tailwind.css` pointing to local files.
+
+**Modified:** `index.html`, `src/tailwind.css`, `public/fonts/JetBrainsMono-variable.woff2` (new), `public/fonts/JetBrainsMono-italic-variable.woff2` (new)
+
+---
+
 ## 2026-05-14 00:10 GST (Dubai)
 
 ### Debug: Always-on debug panel, remove enable/disable flag
