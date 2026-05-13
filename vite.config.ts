@@ -58,9 +58,6 @@ export default defineConfig({
     minify: true,
     cssMinify: true,
     rollupOptions: {
-      external: [
-        'material-icon-theme/dist/material-icons.json',
-      ],
       output: {
         manualChunks(id) {
           if (id.includes("posthog-js")) return "vendor-analytics";
@@ -71,6 +68,7 @@ export default defineConfig({
           if (id.includes("ghostty-web")) return "vendor-terminal";
           if (id.includes("@tauri-apps")) return "vendor-tauri";
           if (id.includes("@tabler/icons") || id.includes("lucide")) return "vendor-icons";
+          if (id.includes("material-icons.json")) return "material-icons";
         },
       },
     },

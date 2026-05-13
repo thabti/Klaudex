@@ -57,8 +57,8 @@ export const DiffFileActionBar = ({
             <TooltipTrigger asChild>
               <button type="button" onClick={handleStageClick} aria-label={isStaged ? 'File staged' : 'Stage file'}
                 className={isStaged
-                  ? 'flex size-5 items-center justify-center rounded text-emerald-500 transition-colors'
-                  : 'flex size-5 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-emerald-500/10 hover:text-emerald-500'
+                  ? 'flex size-5 items-center justify-center rounded text-emerald-600 dark:text-emerald-400 transition-colors'
+                  : 'flex size-5 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400'
                 }>
                 {isStaged ? <IconCheck className="size-3" /> : <IconPlus className="size-3" />}
               </button>

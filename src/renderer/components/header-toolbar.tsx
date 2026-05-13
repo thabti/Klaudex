@@ -54,8 +54,8 @@ const SplitToggleButton = memo(function SplitToggleButton() {
             className={cn(
               "inline-flex size-7 items-center justify-center text-xs transition-colors",
               isSplit
-                ? "bg-violet-500/20 text-violet-300"
-                : "text-violet-400/70 hover:bg-violet-500/10 hover:text-violet-300",
+                ? "bg-violet-500/20 text-violet-600 dark:text-violet-300"
+                : "text-violet-500/70 dark:text-violet-400/70 hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-300",
             )}
           >
             <IconLayoutColumns className="size-3.5" aria-hidden />
@@ -93,8 +93,8 @@ const FileTreeToggleButton = memo(function FileTreeToggleButton() {
           className={cn(
             "inline-flex size-7 items-center justify-center text-xs transition-colors",
             isOpen
-              ? "bg-white/[0.08] text-foreground"
-              : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground",
+              ? "bg-accent/50 text-foreground"
+              : "text-muted-foreground hover:bg-accent/30 hover:text-foreground",
           )}
         >
           <IconListTree className="size-3.5" aria-hidden />
@@ -161,7 +161,7 @@ export const HeaderToolbar = memo(function HeaderToolbar({
 
         {selectedTaskId && (
           <>
-            <div className="h-4 w-px bg-white/[0.06]" />
+            <div className="h-4 w-px bg-border/60" />
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -185,10 +185,10 @@ export const HeaderToolbar = memo(function HeaderToolbar({
           </>
         )}
 
-        <div className="h-4 w-px bg-white/[0.06]" />
+        <div className="h-4 w-px bg-border/60" />
         <FileTreeToggleButton />
 
-        <div className="h-4 w-px bg-white/[0.06]" />
+        <div className="h-4 w-px bg-border/60" />
         <SplitToggleButton />
       </div>
 
@@ -205,8 +205,8 @@ export const HeaderToolbar = memo(function HeaderToolbar({
               className={cn(
                 "inline-flex h-7 items-center gap-1.5 rounded-l-lg px-2 text-xs transition-colors",
                 sidePanelOpen
-                  ? "bg-emerald-500/15 text-emerald-300"
-                  : "text-emerald-400 hover:bg-emerald-500/10",
+                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                  : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10",
               )}
             >
               <IconGitCompare className="size-3" aria-hidden />

@@ -120,7 +120,7 @@ export const CheckpointTimeline = memo(function CheckpointTimeline({ taskId, onV
                     className={cn(
                       'relative flex size-6 items-center justify-center rounded-full border transition-colors',
                       isLast
-                        ? 'border-blue-500/50 bg-blue-500/10 text-blue-500'
+                        ? 'border-blue-600/50 bg-blue-600/10 text-blue-600 dark:border-blue-400/50 dark:bg-blue-400/10 dark:text-blue-400'
                         : 'border-border/60 bg-muted/30 text-muted-foreground/60 hover:border-foreground/30 hover:text-foreground/80',
                       diffLoading === diffKey && 'animate-pulse',
                     )}
@@ -133,7 +133,7 @@ export const CheckpointTimeline = memo(function CheckpointTimeline({ taskId, onV
                     <div className="font-medium">Turn {cp.turn}</div>
                     <div className="text-muted-foreground">{cp.message || 'No commit message'}</div>
                     <div className="text-muted-foreground/60">{relativeTime(cp.timestamp)}</div>
-                    {idx > 0 && <div className="mt-1 text-blue-400">Click to view turn diff</div>}
+                    {idx > 0 && <div className="mt-1 text-blue-600 dark:text-blue-400">Click to view turn diff</div>}
                   </div>
                 </TooltipContent>
               </Tooltip>
@@ -155,7 +155,7 @@ export const CheckpointTimeline = memo(function CheckpointTimeline({ taskId, onV
                       className={cn(
                         'ml-0.5 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100',
                         revertConfirm === cp.turn
-                          ? 'text-orange-500 opacity-100'
+                          ? 'text-orange-600 dark:text-orange-400 opacity-100'
                           : 'text-muted-foreground/40 hover:text-foreground',
                       )}
                     >

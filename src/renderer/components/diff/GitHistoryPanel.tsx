@@ -149,7 +149,7 @@ export const GitHistoryPanel = memo(function GitHistoryPanel({ workspace, onView
                   <button
                     type="button"
                     onClick={() => void handleStashPop(stash.index)}
-                    className="rounded p-0.5 text-muted-foreground/50 hover:text-green-500"
+                    className="rounded p-0.5 text-muted-foreground/50 hover:text-emerald-600 dark:hover:text-emerald-400"
                   >
                     <IconArrowBackUp className="size-3" />
                   </button>
@@ -187,7 +187,7 @@ export const GitHistoryPanel = memo(function GitHistoryPanel({ workspace, onView
               <div className="mt-1.5 flex flex-col items-center">
                 <div className={cn(
                   'size-2 rounded-full',
-                  commit.isHead ? 'bg-blue-500' : 'bg-muted-foreground/30',
+                  commit.isHead ? 'bg-blue-600 dark:bg-blue-400' : 'bg-muted-foreground/30',
                 )} />
               </div>
 
@@ -198,7 +198,7 @@ export const GitHistoryPanel = memo(function GitHistoryPanel({ workspace, onView
                     {commit.subject}
                   </span>
                   {commit.isHead && (
-                    <span className="shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-medium text-blue-500">
+                    <span className="shrink-0 rounded bg-blue-600/10 px-1.5 py-0.5 text-[9px] font-medium text-blue-600 dark:bg-blue-400/10 dark:text-blue-400">
                       HEAD
                     </span>
                   )}
@@ -212,8 +212,8 @@ export const GitHistoryPanel = memo(function GitHistoryPanel({ workspace, onView
                   {commit.fileCount > 0 && (
                     <>
                       <span>·</span>
-                      <span className="text-green-500/70">+{commit.additions}</span>
-                      <span className="text-red-500/70">-{commit.deletions}</span>
+                      <span className="text-emerald-600/70 dark:text-emerald-400/70">+{commit.additions}</span>
+                      <span className="text-red-600/70 dark:text-red-400/70">-{commit.deletions}</span>
                       <span>({commit.fileCount} files)</span>
                     </>
                   )}

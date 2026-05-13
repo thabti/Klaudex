@@ -96,7 +96,7 @@ export const AcpSubagentDisplay = memo(function AcpSubagentDisplay() {
       {/* Progress bar */}
       <div className="px-3.5">
         <div
-          className="h-0.5 w-full overflow-hidden rounded-full bg-violet-600/20"
+          className="h-0.5 w-full overflow-hidden rounded-full bg-violet-400/20 dark:bg-violet-600/20"
           role="progressbar"
           aria-valuenow={completedCount}
           aria-valuemax={subagents.length}

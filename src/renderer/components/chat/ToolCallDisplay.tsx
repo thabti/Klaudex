@@ -107,7 +107,7 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls, inline
 
           {/* Status summary pills */}
           {runningCount > 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-medium text-purple-400">
+            <span className="flex items-center gap-1 rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-medium text-purple-600 dark:text-purple-400">
               <span className="relative flex size-3 items-center justify-center">
                 <svg viewBox="0 0 16 16" className="absolute inset-0 animate-spin" style={{ animationDuration: '1.2s' }} aria-hidden>
                   <circle cx="8" cy="8" r="6" fill="none" stroke="rgba(139,92,246,0.2)" strokeWidth="2" />
@@ -119,19 +119,19 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCalls, inline
             </span>
           )}
           {failedCount > 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-500">
+            <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-600 dark:text-red-500">
               <IconX className="size-2.5" />
               {failedCount} failed
             </span>
           )}
           {cancelledCount > 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-orange-500/10 px-2 py-0.5 text-[10px] font-medium text-orange-500">
+            <span className="flex items-center gap-1 rounded-full bg-orange-500/10 px-2 py-0.5 text-[10px] font-medium text-orange-600 dark:text-orange-500">
               <IconPlayerStop className="size-2.5" />
               {cancelledCount} cancelled
             </span>
           )}
           {completedCount > 0 && runningCount === 0 && failedCount === 0 && cancelledCount === 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
+            <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-500">
               <IconCheck className="size-2.5" strokeWidth={3} />
               Done
             </span>

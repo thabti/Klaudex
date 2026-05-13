@@ -167,7 +167,7 @@ export const ToolCallEntry = memo(function ToolCallEntry({ toolCall }: { toolCal
   return (
     <div data-testid="tool-call-entry" className={cn(
       'group/entry',
-      isRunning && 'rounded-lg border border-purple-500/20 bg-purple-500/[0.03]',
+      isRunning && 'rounded-lg border border-purple-500/30 dark:border-purple-500/20 bg-purple-500/[0.05] dark:bg-purple-500/[0.03]',
     )}>
       <button
         onClick={handleClick}

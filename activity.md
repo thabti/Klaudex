@@ -1,3 +1,33 @@
+## 2026-05-13 23:00 GST (Dubai)
+
+### light-mode: Full light mode support across all components
+
+Fixed remaining light mode issues. `DiffViewer` and `DiffPanel` now use reactive `useResolvedTheme()` so pierre diff themes switch correctly. `header-toolbar` violet/white tints replaced with semantic tokens. `ToolCallDisplay` status pills (purple/red/orange/emerald) got `dark:` variants. `ToolCallEntry` running-state border/bg got dark variants. `AcpSubagentDisplay` progress track got dark variant. Sonner toast CSS now has light-mode styles. File preview syntax token colors got proper light/dark variants.
+
+**Modified:** `src/renderer/components/code/DiffViewer.tsx`, `src/renderer/components/diff/DiffPanel.tsx`, `src/renderer/components/header-toolbar.tsx`, `src/renderer/components/chat/ToolCallDisplay.tsx`, `src/renderer/components/chat/ToolCallEntry.tsx`, `src/renderer/components/chat/AcpSubagentDisplay.tsx`, `src/tailwind.css`
+
+---
+
+## 2026-05-13 22:00 GST (Dubai)
+
+### vite-config: Fix material-icon-theme manifest bundling
+
+The `material-icon-theme/dist/material-icons.json` manifest was marked as `external` in Rollup config, causing the dynamic `import()` in `file-icons.ts` to fail silently in production. Icons fell back to generic `file`/`folder`. Fixed by removing the `external` entry and routing the JSON through `manualChunks` (as `"material-icons"` chunk), matching the kirodex approach.
+
+**Modified:** `vite.config.ts`
+
+---
+
+## 2026-05-13 21:00 GST (Dubai)
+
+### diff-components: Light mode support for Files Changed panel
+
+Fixed hardcoded dark-only color classes across three diff components. `GitHistoryPanel` HEAD badge/dot and commit stats now use `dark:` variants. `CheckpointTimeline` active dot, tooltip hint, and revert-confirm state now use proper light/dark pairs. `DiffFileActionBar` stage button staged/hover states use `emerald-600 dark:emerald-400` pattern matching the rest of the codebase.
+
+**Modified:** `src/renderer/components/diff/GitHistoryPanel.tsx`, `src/renderer/components/diff/CheckpointTimeline.tsx`, `src/renderer/components/code/DiffFileActionBar.tsx`
+
+---
+
 ## 2026-05-13 19:45 GST (Dubai)
 
 ### thread-title: Strip HTML image tags before title generation

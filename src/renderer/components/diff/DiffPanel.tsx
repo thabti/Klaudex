@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState, useMemo } from 'react'
+import { useResolvedTheme } from '@/hooks/useResolvedTheme'
 import { parsePatchFiles, type FileDiffMetadata } from '@pierre/diffs'
 import { FileDiff, Virtualizer } from '@pierre/diffs/react'
 import { IconX, IconGripHorizontal, IconColumns, IconLayoutRows, IconTextWrap, IconRefresh, IconPlus, IconCheck, IconArrowBackUp } from '@tabler/icons-react'
@@ -118,7 +119,8 @@ export const DiffPanel = memo(function DiffPanel() {
     return parsedFiles
   }, [parsedFiles, selectedFileIdx])
 
-  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  const resolvedTheme = useResolvedTheme()
+  const isDark = resolvedTheme === 'dark'
 
   const hasSelection = selectedFiles.size > 0
   const [isStaged, setIsStaged] = useState(false)

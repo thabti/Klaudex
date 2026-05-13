@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useResolvedTheme } from '@/hooks/useResolvedTheme'
 import { parsePatchFiles } from '@pierre/diffs'
 import { FileDiff, Virtualizer } from '@pierre/diffs/react'
 import { ipc } from '@/lib/ipc'
@@ -60,7 +61,8 @@ export function DiffViewer({ diff, taskId, workspace, onRefreshDiff }: DiffViewe
     return parsedFiles.map((_, i) => i)
   }, [parsedFiles, selectedFileIdx])
 
-  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  const resolvedTheme = useResolvedTheme()
+  const isDark = resolvedTheme === 'dark'
 
   const toggleCollapse = useCallback((idx: number) => {
     setCollapsedFiles((prev) => {
