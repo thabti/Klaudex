@@ -1,5 +1,9 @@
 # Changelog
 
+## [v1.10.0] - 2026-05-13
+
+No notable changes.
+
 ## [v1.8.1] - 2026-05-13
 
 ### Features
