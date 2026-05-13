@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { IconCornerDownLeft, IconTrash, IconChevronUp, IconChevronDown, IconPhoto, IconPencil } from '@tabler/icons-react'
+import { IconCornerDownLeft, IconBolt, IconTrash, IconChevronUp, IconChevronDown, IconPhoto, IconPencil } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { QueuedMessage } from '@/stores/task-store-types'
@@ -9,10 +9,11 @@ interface QueuedMessagesProps {
   onRemove: (index: number) => void
   onReorder?: (from: number, to: number) => void
   onSteer?: (index: number) => void
+  onInject?: (index: number) => void
   onEdit?: (index: number) => void
 }
 
-export const QueuedMessages = memo(function QueuedMessages({ messages, onRemove, onReorder, onSteer, onEdit }: QueuedMessagesProps) {
+export const QueuedMessages = memo(function QueuedMessages({ messages, onRemove, onReorder, onSteer, onInject, onEdit }: QueuedMessagesProps) {
   if (messages.length === 0) return null
 
   const canReorder = messages.length >= 2 && !!onReorder
@@ -84,6 +85,17 @@ export const QueuedMessages = memo(function QueuedMessages({ messages, onRemove,
                 </Tooltip>
               )}
               <span className="flex-1 truncate text-[13px] text-foreground/85">{msg.text || (hasAttachments ? 'Image attachment' : '')}</span>
+              {onInject && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" onClick={() => onInject(i)}
+                      className="flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium text-blue-400/80 transition-colors hover:bg-blue-500/10 hover:text-blue-400">
+                      <IconBolt className="size-3" /> Inject
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-[11px]">Inject into running turn (no restart)</TooltipContent>
+                </Tooltip>
+              )}
               {onSteer && (
                 <Tooltip>
                   <TooltipTrigger asChild>

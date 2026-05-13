@@ -291,6 +291,23 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
     await sendMessageDirect(id, queued.text, queued.attachments ? [...queued.attachments] : undefined)
   }, [resolvedTaskId])
 
+  const handleSteerInject = useCallback(async (index: number) => {
+    const state = useTaskStore.getState()
+    const id = resolvedTaskId
+    if (!id) return
+    const queued = state.queuedMessages[id]?.[index]
+    if (!queued) return
+    // Try hot-inject first (no process restart). If the connection is no
+    // longer alive, fall back to the full steer (cancel + resend) path.
+    const injected = await ipc.steerInject(id, queued.text, queued.attachments ? [...queued.attachments] : undefined).catch(() => false)
+    if (injected) {
+      state.removeQueuedMessage(id, index)
+    } else {
+      // Connection died between click and dispatch — fall back to steer
+      await handleSteer(index)
+    }
+  }, [resolvedTaskId, handleSteer])
+
   const handleReorderQueued = useCallback((from: number, to: number) => {
     if (resolvedTaskId) useTaskStore.getState().reorderQueuedMessage(resolvedTaskId, from, to)
   }, [resolvedTaskId])
@@ -387,7 +404,7 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
 
         <CompactSuggestBanner contextUsage={contextUsage} isPlanMode={isPlanMode} />
 
-        <QueuedMessages messages={queuedMessages} onRemove={handleRemoveQueued} onReorder={handleReorderQueued} onSteer={isRunning ? handleSteer : undefined} onEdit={handleEditQueued} />
+        <QueuedMessages messages={queuedMessages} onRemove={handleRemoveQueued} onReorder={handleReorderQueued} onSteer={isRunning ? handleSteer : undefined} onInject={isRunning ? handleSteerInject : undefined} onEdit={handleEditQueued} />
 
         <StickyTaskList taskId={resolvedTaskId} />
 

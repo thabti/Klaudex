@@ -551,6 +551,7 @@ pub fn run() {
             acp::task_create,
             acp::task_list,
             acp::task_send_message,
+            acp::task_steer_inject,
             acp::task_pause,
             acp::task_resume,
             acp::task_cancel,

@@ -901,6 +901,18 @@ pub(crate) async fn run_claude_connection(
                         let _ = stdin_writer.write_all(line.as_bytes()).await;
                         let _ = stdin_writer.flush().await;
                     }
+                    Some(AcpCommand::SteerInject(text, atts)) => {
+                        // Hot-inject: write user message to stdin while agent is mid-turn.
+                        let content = build_content_blocks(text, &atts);
+                        let input_msg = serde_json::json!({
+                            "type": "user",
+                            "message": { "role": "user", "content": content }
+                        });
+                        let mut line = serde_json::to_string(&input_msg).unwrap_or_default();
+                        line.push('\n');
+                        let _ = stdin_writer.write_all(line.as_bytes()).await;
+                        let _ = stdin_writer.flush().await;
+                    }
                     Some(_) => {} // ignore other commands during active prompt
                     None => {
                         killed = true;
@@ -919,7 +931,9 @@ pub(crate) async fn run_claude_connection(
     // Process follow-up commands (multi-turn)
     while let Some(cmd) = cmd_rx.recv().await {
         match cmd {
-            AcpCommand::Prompt(text, attachments) => {
+            // SteerInject arriving between turns is treated as a normal Prompt:
+            // the agent is idle so there is nothing to interrupt mid-generation.
+            AcpCommand::Prompt(text, attachments) | AcpCommand::SteerInject(text, attachments) => {
                 // Extract paths for sandbox
                 let external_paths = extract_paths_from_message(&text);
                 if !external_paths.is_empty() {
@@ -1002,6 +1016,17 @@ pub(crate) async fn run_claude_connection(
                                 }
                                 Some(AcpCommand::RespondUserInput(_req_id, response)) => {
                                     let mut line = serde_json::to_string(&response).unwrap_or_default();
+                                    line.push('\n');
+                                    let _ = stdin_writer.write_all(line.as_bytes()).await;
+                                    let _ = stdin_writer.flush().await;
+                                }
+                                Some(AcpCommand::SteerInject(text, atts)) => {
+                                    let content = build_content_blocks(text, &atts);
+                                    let input_msg = serde_json::json!({
+                                        "type": "user",
+                                        "message": { "role": "user", "content": content }
+                                    });
+                                    let mut line = serde_json::to_string(&input_msg).unwrap_or_default();
                                     line.push('\n');
                                     let _ = stdin_writer.write_all(line.as_bytes()).await;
                                     let _ = stdin_writer.flush().await;

@@ -132,6 +132,11 @@ pub enum AcpCommand {
     /// connection thread is responsible for invoking the ACP fork RPC and
     /// reporting the result.
     ForkSession(oneshot::Sender<Result<String, String>>),
+    /// Inject a steering message into the running turn via stdin without
+    /// killing the subprocess. The message is written as a stream-json user
+    /// message immediately; the model processes it as additional context for
+    /// the current generation.
+    SteerInject(String, Vec<AttachmentData>),
     Kill,
 }
 

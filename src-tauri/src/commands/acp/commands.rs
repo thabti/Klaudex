@@ -305,6 +305,31 @@ pub fn task_send_message(
     tasks.get(&task_id).cloned().ok_or_else(|| "Task not found".to_string())
 }
 
+/// Inject a steering message into the currently running turn without killing
+/// the subprocess. The message is written to stdin immediately; the agent
+/// processes it as additional context for the current generation.
+/// No-op when there is no live connection — callers should fall back to
+/// `task_send_message` if the agent is not running.
+#[tauri::command]
+pub fn task_steer_inject(
+    state: tauri::State<'_, AcpState>,
+    task_id: String,
+    message: String,
+    attachments: Option<Vec<AttachmentData>>,
+) -> Result<bool, String> {
+    let conns = state.connections.lock();
+    match conns.get(&task_id) {
+        Some(h) if h.alive.load(std::sync::atomic::Ordering::SeqCst) => {
+            let _ = h.cmd_tx.send(AcpCommand::SteerInject(
+                message,
+                attachments.unwrap_or_default(),
+            ));
+            Ok(true)
+        }
+        _ => Ok(false), // not running — caller decides what to do
+    }
+}
+
 #[tauri::command]
 pub fn task_pause(
     app: tauri::AppHandle,

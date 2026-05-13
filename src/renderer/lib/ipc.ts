@@ -122,6 +122,14 @@ export const ipc = {
     tracedInvoke('task_list'),
   sendMessage: (taskId: string, message: string, attachments?: IpcAttachment[]): Promise<void> =>
     tracedInvoke('task_send_message', { taskId, message, attachments }),
+  /**
+   * Inject a steering message into the currently running turn without killing
+   * the subprocess. Returns `true` when the message was dispatched to a live
+   * connection, `false` when the agent is not running (caller should fall back
+   * to `sendMessage` which will queue / reconnect as needed).
+   */
+  steerInject: (taskId: string, message: string, attachments?: IpcAttachment[]): Promise<boolean> =>
+    tracedInvoke('task_steer_inject', { taskId, message, attachments }),
   pauseTask: (taskId: string): Promise<void> =>
     tracedInvoke('task_pause', { taskId }),
   resumeTask: (taskId: string): Promise<void> =>

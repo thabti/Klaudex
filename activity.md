@@ -1,3 +1,49 @@
+## 2026-05-13 20:30 GST (Dubai)
+
+### Sidebar: Fix WCAG active state contrast violations
+
+`bg-primary/15` only achieved 1.24:1 contrast in dark mode (WCAG requires 3:1 for UI components). Bumped to `bg-primary/50` and added `border-l-2 border-primary` left-accent bar as a non-color indicator (WCAG 1.4.1). Inactive items carry `border-transparent` to prevent layout shift on activation. Split-view items use `bg-violet-500/40` + `border-violet-400`. Project group wrapper stays at `bg-primary/10` (parent container, threads inside carry the visible indicator).
+
+**Modified:** `src/renderer/components/sidebar/ThreadItem.tsx`, `src/renderer/components/sidebar/TaskSidebar.tsx`
+
+---
+
+## 2026-05-13 20:00 GST (Dubai)
+
+### Header: Fix git diff stats contrast in light mode
+
+`text-emerald-400` and `text-red-400` were too faded in light mode. Changed to `text-emerald-700 dark:text-emerald-400` and `text-red-600 dark:text-red-400` for accessible contrast on both themes. File count badge updated similarly.
+
+**Modified:** `src/renderer/components/header-toolbar.tsx`
+
+## 2026-05-13 19:15 GST (Dubai)
+
+### ACP: Dynamic steering injection into running turns
+
+Added `AcpCommand::SteerInject` — a new command variant that writes a user message to Claude's stdin while the agent is mid-turn, without killing or restarting the subprocess. Both active-turn `select!` loops in `connection.rs` handle it by writing the stream-json user message immediately; when arriving between turns it falls back to normal `Prompt` behaviour. A new `task_steer_inject` Tauri command returns `true` when dispatched to a live connection and `false` otherwise. The frontend adds an "Inject" button (⚡) to queued messages when the agent is running; `handleSteerInject` tries hot-inject first and falls back to the full steer (cancel + resend) path if the connection died.
+
+**Modified:** `src-tauri/src/commands/acp/types.rs`, `src-tauri/src/commands/acp/connection.rs`, `src-tauri/src/commands/acp/commands.rs`, `src-tauri/src/lib.rs`, `src/renderer/lib/ipc.ts`, `src/renderer/components/chat/QueuedMessages.tsx`, `src/renderer/components/chat/ChatPanel.tsx`
+
+## 2026-05-13 18:30 GST (Dubai)
+
+### Chat: Escape pauses agent and focuses input for new direction
+
+Escape key now sets `needsNewConnection: true` on the paused task (so the next message spawns a fresh subprocess instead of sending on the dead channel) and dispatches an `agent-paused` DOM event. `ChatInput` listens for this event and auto-focuses the textarea so the user can immediately type a new direction without clicking.
+
+**Modified:** `src/renderer/hooks/useKeyboardShortcuts.ts`, `src/renderer/components/chat/ChatInput.tsx`
+
+---
+
+## 2026-05-13 18:00 GST (Dubai)
+
+### Sidebar: Improve active item contrast in dark and light modes
+
+Active thread/project items used `bg-accent` which is nearly indistinguishable from the sidebar background in both themes. Changed to `bg-primary/15` (orange tint) for thread items and pinned threads, `bg-primary/10` for project rows, and `bg-violet-500/20` for split-view rows — all with matching hover states.
+
+**Modified:** `src/renderer/components/sidebar/ThreadItem.tsx`, `src/renderer/components/sidebar/TaskSidebar.tsx`, `src/renderer/components/sidebar/ProjectItem.tsx`
+
+---
+
 ## 2026-05-13 17:30 GST (Dubai)
 
 ### Chat: Fix steering message dropped on dying connection
