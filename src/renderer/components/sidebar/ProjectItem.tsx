@@ -189,7 +189,7 @@ export const ProjectItem = memo(function ProjectItem({
       />
 
       {expanded && tasks.length > 0 && (
-        <ul className="flex min-w-0 flex-col overflow-hidden border-l mx-1 my-0 gap-0 px-1.5 py-0" style={{ borderColor: 'var(--border)' }}>
+        <ul className="flex min-w-0 flex-col overflow-hidden mx-1 my-0 gap-0 px-1.5 py-0">
           {tasks.map((task, i) => {
             const threadJumpLabel = isMetaHeld && i < 9 ? `${i + 1}` : null
             return (

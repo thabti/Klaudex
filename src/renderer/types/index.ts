@@ -240,6 +240,8 @@ export interface AppSettings {
    * null or 0 = disabled. Default: null (disabled).
    */
   autoArchiveDays?: number | null
+  /** Enable the debug panel icon in the sidebar. Off by default to avoid memory overhead. */
+  debugPanelEnabled?: boolean
 }
 
 export interface ProjectFile {

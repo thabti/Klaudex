@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { DebugLogEntry, DebugCategory } from '@/types'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 const MAX_ENTRIES = 2000
 
@@ -51,6 +52,7 @@ export const useDebugStore = create<DebugStore>((set) => ({
   },
 
   addEntry: (raw) => {
+    if (!useSettingsStore.getState().settings.debugPanelEnabled) return
     const entry: DebugLogEntry = {
       ...raw,
       id: raw.id ?? Date.now() + Math.random(),

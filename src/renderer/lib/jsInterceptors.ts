@@ -1,5 +1,6 @@
 import { useJsDebugStore } from '@/stores/jsDebugStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import type { JsDebugCategory, JsDebugEntry } from '@/types'
 
 type ConsoleMethod = 'log' | 'warn' | 'error'
@@ -52,8 +53,31 @@ const addEntry = (entry: Omit<JsDebugEntry, 'id' | 'timestamp' | 'taskId' | 'thr
   } as JsDebugEntry)
 }
 
-/** Install all JS interceptors. Returns a cleanup function that restores originals. */
-export const installJsInterceptors = (): (() => void) => {
+let _cleanup: (() => void) | null = null
+
+/** Subscribe to settings changes and install/uninstall interceptors accordingly. */
+export const syncJsInterceptors = (): void => {
+  const enabled = useSettingsStore.getState().settings.debugPanelEnabled
+  if (enabled && !_cleanup) {
+    _cleanup = _installJsInterceptors()
+  } else if (!enabled && _cleanup) {
+    _cleanup()
+    _cleanup = null
+  }
+}
+
+// Subscribe once so toggling the setting in SettingsPanel takes effect immediately.
+useSettingsStore.subscribe((s) => {
+  const enabled = s.settings.debugPanelEnabled
+  if (enabled && !_cleanup) {
+    _cleanup = _installJsInterceptors()
+  } else if (!enabled && _cleanup) {
+    _cleanup()
+    _cleanup = null
+  }
+})
+
+const _installJsInterceptors = (): (() => void) => {
   const cleanups: Array<() => void> = []
 
   // ── Console interceptors ────────────────────────────────────────

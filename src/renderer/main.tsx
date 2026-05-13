@@ -139,9 +139,9 @@ window.addEventListener('keydown', (e) => {
   }
 })
 
-// Install JS debug interceptors (console, errors, fetch/XHR) before React renders
-import { installJsInterceptors } from './lib/jsInterceptors'
-installJsInterceptors()
+// Install JS debug interceptors only when debugPanelEnabled; subscribe handles toggling
+import { syncJsInterceptors } from './lib/jsInterceptors'
+syncJsInterceptors()
 
 // Safety net: persist thread history before the window closes (best-effort, synchronous)
 window.addEventListener('beforeunload', () => {

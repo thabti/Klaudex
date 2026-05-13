@@ -6,6 +6,7 @@ import { useTaskStore } from '@/stores/taskStore'
 import { useDebugStore } from '@/stores/debugStore'
 import { useJsDebugStore } from '@/stores/jsDebugStore'
 import { useUpdateStore, type UpdateStatus } from '@/stores/updateStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { useResizeHandle } from '@/hooks/useResizeHandle'
 import { useModifierKeys } from '@/hooks/useModifierKeys'
 import { measureMemory, formatBytes } from '@/lib/thread-memory'
@@ -50,6 +51,7 @@ const ClaudeConfigFooter = memo(function ClaudeConfigFooter() {
 
 export const SidebarFooter = memo(function SidebarFooter() {
   const setSettingsOpen = useTaskStore((s) => s.setSettingsOpen)
+  const debugPanelEnabled = useSettingsStore((s) => s.settings.debugPanelEnabled)
   const updateStatus = useUpdateStore((s) => s.status)
   const isUpdateAvailable = updateStatus === 'available'
   const triggerDownload = useUpdateStore((s) => s.triggerDownload)

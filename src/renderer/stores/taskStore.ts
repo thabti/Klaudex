@@ -258,6 +258,15 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       // Don't re-add tasks that were explicitly deleted
       if (state.deletedTaskIds.has(task.id)) return state
       const prev = state.tasks[task.id]
+      // Don't let a backend task_update(cancelled) override a task that already
+      // reached a terminal state via turn_end. This prevents the race where
+      // ipc.cancelTask() fires after the CLI already emitted its Result message:
+      // turn_end sets status=completed, then the task_update(cancelled) arrives
+      // and would incorrectly overwrite it.
+      const TERMINAL = new Set(['completed', 'error'])
+      if (prev && TERMINAL.has(prev.status) && task.status === 'cancelled' && task.messages.length === 0) {
+        return state
+      }
       // Always preserve existing messages when incoming has fewer.
       // Backend task_update events arrive with messages: [] (stripped at listener).
       // Only frontend callers (onTurnEnd, handleSendMessage) pass real messages.
@@ -1396,7 +1405,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     // Cancel all running tasks first
     const currentTasks = get().tasks
     for (const [id, task] of Object.entries(currentTasks)) {
-      if (task.status === 'running' || task.status === 'paused' || task.status === 'completed') {
+      if (task.status === 'running' || task.status === 'paused') {
         ipc.cancelTask(id).catch(() => {})
       }
     }
