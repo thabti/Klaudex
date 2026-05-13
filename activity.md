@@ -1,3 +1,34 @@
+## 2026-05-14 00:10 GST (Dubai)
+
+### Debug: Always-on debug panel, remove enable/disable flag
+
+Removed `debugPanelEnabled` guard from `debugStore` and `jsDebugStore` so entries are always captured. Changed default to `true` in `settingsStore`. Simplified `jsInterceptors` to always install on `syncJsInterceptors` with no settings subscription.
+
+**Modified:** `src/renderer/stores/debugStore.ts`, `src/renderer/stores/jsDebugStore.ts`, `src/renderer/stores/settingsStore.ts`, `src/renderer/lib/jsInterceptors.ts`
+
+---
+
+## 2026-05-13 23:55 GST (Dubai)
+
+### Icons: Remove KlaudexGhostIcon, use AnthropicIcon directly
+
+Deleted `KlaudexGhostIcon.tsx`. Exported `AnthropicIcon` from `model-icons.tsx` with a unique `useId`-based clipPath id. Updated `ClaudeConfigPanel.tsx` to import `AnthropicIcon` instead.
+
+**Modified:** `src/renderer/lib/model-icons.tsx`, `src/renderer/components/sidebar/ClaudeConfigPanel.tsx`
+**Deleted:** `src/renderer/components/icons/KlaudexGhostIcon.tsx`
+
+---
+
+## 2026-05-13 23:45 GST (Dubai)
+
+### Icons: Fix KlaudexGhostIcon eye paths to use currentColor
+
+The two eye paths in `KlaudexGhostIcon` had `fill="rgb(0,0,0)"` (hardcoded black), making them invisible in dark mode. Changed all 6 paths to `fill="currentColor"` so the Anthropic/Claude logo renders correctly in both light and dark themes.
+
+**Modified:** `src/renderer/components/icons/KlaudexGhostIcon.tsx`
+
+---
+
 ## 2026-05-13 23:30 GST (Dubai)
 
 ### Icons: Replace Anthropic lettermark with Claude face logo

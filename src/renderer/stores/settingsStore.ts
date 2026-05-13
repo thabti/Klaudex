@@ -65,7 +65,7 @@ const defaultSettings: AppSettings = {
   // Existing users who never explicitly set this will also get the new default.
   // The toggle checks `!== false` so only an explicit `false` disables it.
   inlineToolCalls: true,
-  debugPanelEnabled: false,
+  debugPanelEnabled: true,
 }
 
 const FALLBACK_MODELS: ModelOption[] = [

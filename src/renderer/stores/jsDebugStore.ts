@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import type { JsDebugEntry, JsDebugCategory } from '@/types'
-import { useSettingsStore } from '@/stores/settingsStore'
 
 const MAX_ENTRIES = 2000
 
@@ -52,7 +51,6 @@ export const useJsDebugStore = create<JsDebugStore>((set) => ({
   },
 
   addEntry: (raw) => {
-    if (!useSettingsStore.getState().settings.debugPanelEnabled) return
     const entry: JsDebugEntry = {
       ...raw,
       id: nextId++,
