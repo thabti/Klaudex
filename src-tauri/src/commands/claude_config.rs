@@ -92,7 +92,7 @@ pub struct ClaudeMcpServer {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disabled_tools: Option<Vec<String>>,
     pub file_path: String,
-    /// "global" (~/.claude/settings/mcp.json) or "local" (<project>/.claude/settings/mcp.json).
+    /// "global" (~/.claude/mcp.json) or "local" (<project>/.claude/mcp.json).
     /// When the same server name appears in both, the local entry wins.
     pub source: String,
 }
@@ -435,7 +435,15 @@ pub fn get_claude_config(project_path: Option<String>) -> ClaudeConfig {
         config.skills.extend(scan_skills(&global_claude, true));
         config.steering_rules.extend(scan_steering(&global_claude, true));
         config.prompts.extend(scan_prompts(&global_claude, true));
-        load_mcp_file(&global_claude.join("settings").join("mcp.json"), true, &mut config.mcp_servers);
+        // Try ~/.claude/mcp.json (current Claude CLI location) then the legacy
+        // ~/.claude/settings/mcp.json path so both layouts are covered.
+        let primary = global_claude.join("mcp.json");
+        let legacy = global_claude.join("settings").join("mcp.json");
+        if primary.exists() {
+            load_mcp_file(&primary, true, &mut config.mcp_servers);
+        } else {
+            load_mcp_file(&legacy, true, &mut config.mcp_servers);
+        }
     }
 
     if let Some(ref project) = project_path {
@@ -455,7 +463,13 @@ pub fn get_claude_config(project_path: Option<String>) -> ClaudeConfig {
                 config.prompts.push(lp);
             }
         }
-        load_mcp_file(&local_claude.join("settings").join("mcp.json"), false, &mut config.mcp_servers);
+        let local_primary = local_claude.join("mcp.json");
+        let local_legacy = local_claude.join("settings").join("mcp.json");
+        if local_primary.exists() {
+            load_mcp_file(&local_primary, false, &mut config.mcp_servers);
+        } else {
+            load_mcp_file(&local_legacy, false, &mut config.mcp_servers);
+        }
     }
 
     // Populate memory_files from steering rules that have alwaysApply: true
@@ -478,14 +492,21 @@ pub struct McpServerPatch {
 pub fn save_mcp_server_config(file_path: String, server_name: String, patch: McpServerPatch) -> Result<(), AppError> {
     let path = Path::new(&file_path);
 
-    // Validate that the file path is within a .claude/settings directory and is an mcp.json file
+    // Validate that the path is an mcp.json inside a .claude directory.
+    // Accepted layouts:
+    //   ~/.claude/mcp.json            (current Claude CLI global location)
+    //   ~/.claude/settings/mcp.json   (legacy global location)
+    //   <project>/.claude/mcp.json    (current project-local location)
+    //   <project>/.claude/settings/mcp.json  (legacy project-local location)
     let canonical = path.canonicalize().map_err(|e| AppError::Other(format!("Invalid path '{}': {}", file_path, e)))?;
     let file_name = canonical.file_name().and_then(|n| n.to_str()).unwrap_or("");
     let parent = canonical.parent().and_then(|p| p.file_name()).and_then(|n| n.to_str()).unwrap_or("");
     let grandparent = canonical.parent().and_then(|p| p.parent()).and_then(|p| p.file_name()).and_then(|n| n.to_str()).unwrap_or("");
-    if file_name != "mcp.json" || parent != "settings" || grandparent != ".claude" {
+    let valid = file_name == "mcp.json"
+        && (parent == ".claude" || (parent == "settings" && grandparent == ".claude"));
+    if !valid {
         return Err(AppError::Other(format!(
-            "Refusing to write '{}': path must be a .claude/settings/mcp.json file", file_path
+            "Refusing to write '{}': path must be a .claude/mcp.json or .claude/settings/mcp.json file", file_path
         )));
     }
 
@@ -539,7 +560,7 @@ pub fn save_mcp_server_config(file_path: String, server_name: String, patch: Mcp
 pub struct McpAddRequest {
     /// Server name as referenced in mcp.json's `mcpServers` map.
     pub name: String,
-    /// "global" → ~/.claude/settings/mcp.json, "workspace" → <project>/.claude/settings/mcp.json,
+    /// "global" → ~/.claude/mcp.json, "workspace" → <project>/.claude/mcp.json,
     /// or "agent:<name>" to attach to a specific custom agent definition.
     pub scope: String,
     /// stdio command (e.g. "uvx") OR remote URL (https://…). Exactly one of
@@ -1154,5 +1175,136 @@ mod tests {
         let result = super::scan_prompts(tmp.path(), true);
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].source, "global");
+    }
+
+    // ── MCP path layout tests (primary vs legacy) ─────────────────────────────
+
+    /// save_mcp_server_config must accept the current layout: .claude/mcp.json
+    /// (parent == ".claude", no "settings" in between).
+    #[test]
+    fn save_mcp_accepts_root_claude_mcp_json() {
+        let tmp = tempfile::tempdir().unwrap();
+        let claude_dir = tmp.path().join(".claude");
+        std::fs::create_dir_all(&claude_dir).unwrap();
+        let f = claude_dir.join("mcp.json");
+        std::fs::write(&f, r#"{"mcpServers": {"ctx": {"command": "npx"}}}"#).unwrap();
+        let patch = super::McpServerPatch { disabled: Some(true), disabled_tools: None };
+        super::save_mcp_server_config(f.to_string_lossy().to_string(), "ctx".to_string(), patch)
+            .expect("root .claude/mcp.json must be accepted");
+        let content: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&f).unwrap()).unwrap();
+        assert_eq!(content["mcpServers"]["ctx"]["disabled"], true);
+    }
+
+    /// save_mcp_server_config must still accept the legacy layout: .claude/settings/mcp.json.
+    #[test]
+    fn save_mcp_accepts_legacy_settings_mcp_json() {
+        let tmp = tempfile::tempdir().unwrap();
+        let settings_dir = tmp.path().join(".claude").join("settings");
+        std::fs::create_dir_all(&settings_dir).unwrap();
+        let f = settings_dir.join("mcp.json");
+        std::fs::write(&f, r#"{"mcpServers": {"ctx": {"command": "npx"}}}"#).unwrap();
+        let patch = super::McpServerPatch { disabled: Some(false), disabled_tools: None };
+        super::save_mcp_server_config(f.to_string_lossy().to_string(), "ctx".to_string(), patch)
+            .expect("legacy .claude/settings/mcp.json must be accepted");
+    }
+
+    /// Wrong filename (not mcp.json) must be rejected.
+    #[test]
+    fn save_mcp_rejects_wrong_filename() {
+        let tmp = tempfile::tempdir().unwrap();
+        let claude_dir = tmp.path().join(".claude");
+        std::fs::create_dir_all(&claude_dir).unwrap();
+        let f = claude_dir.join("servers.json");
+        std::fs::write(&f, r#"{"mcpServers": {"x": {"command": "c"}}}"#).unwrap();
+        let patch = super::McpServerPatch { disabled: Some(true), disabled_tools: None };
+        let err = super::save_mcp_server_config(
+            f.to_string_lossy().to_string(),
+            "x".to_string(),
+            patch,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("Refusing to write"));
+    }
+
+    /// A file named mcp.json but not inside a .claude directory must be rejected.
+    #[test]
+    fn save_mcp_rejects_mcp_json_outside_claude_dir() {
+        let tmp = tempfile::tempdir().unwrap();
+        let other_dir = tmp.path().join("config");
+        std::fs::create_dir_all(&other_dir).unwrap();
+        let f = other_dir.join("mcp.json");
+        std::fs::write(&f, r#"{"mcpServers": {"x": {"command": "c"}}}"#).unwrap();
+        let patch = super::McpServerPatch { disabled: Some(true), disabled_tools: None };
+        let err = super::save_mcp_server_config(
+            f.to_string_lossy().to_string(),
+            "x".to_string(),
+            patch,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("Refusing to write"));
+    }
+
+    /// get_claude_config reads the primary path (.claude/mcp.json) when it exists,
+    /// ignoring the legacy settings/mcp.json even if that also exists.
+    #[test]
+    fn get_claude_config_prefers_primary_mcp_path() {
+        let tmp = tempfile::tempdir().unwrap();
+        let project_dir = tmp.path().to_string_lossy().to_string();
+
+        // Write primary path with server "primary-server"
+        let claude_dir = tmp.path().join(".claude");
+        std::fs::create_dir_all(&claude_dir).unwrap();
+        std::fs::write(
+            claude_dir.join("mcp.json"),
+            r#"{"mcpServers": {"primary-server": {"command": "primary-cmd"}}}"#,
+        )
+        .unwrap();
+
+        // Write legacy path with a different server "legacy-server"
+        let settings_dir = claude_dir.join("settings");
+        std::fs::create_dir_all(&settings_dir).unwrap();
+        std::fs::write(
+            settings_dir.join("mcp.json"),
+            r#"{"mcpServers": {"legacy-server": {"command": "legacy-cmd"}}}"#,
+        )
+        .unwrap();
+
+        let config = super::get_claude_config(Some(project_dir));
+        let names: Vec<&str> = config.mcp_servers.iter().map(|s| s.name.as_str()).collect();
+        assert!(names.contains(&"primary-server"), "primary path must be loaded");
+        assert!(!names.contains(&"legacy-server"), "legacy path must be skipped when primary exists");
+    }
+
+    /// get_claude_config falls back to legacy settings/mcp.json when primary path is absent.
+    #[test]
+    fn get_claude_config_falls_back_to_legacy_mcp_path() {
+        let tmp = tempfile::tempdir().unwrap();
+        let project_dir = tmp.path().to_string_lossy().to_string();
+
+        // Only legacy path — no primary .claude/mcp.json
+        let settings_dir = tmp.path().join(".claude").join("settings");
+        std::fs::create_dir_all(&settings_dir).unwrap();
+        std::fs::write(
+            settings_dir.join("mcp.json"),
+            r#"{"mcpServers": {"legacy-only": {"command": "leg-cmd"}}}"#,
+        )
+        .unwrap();
+
+        let config = super::get_claude_config(Some(project_dir));
+        let names: Vec<&str> = config.mcp_servers.iter().map(|s| s.name.as_str()).collect();
+        assert!(names.contains(&"legacy-only"), "legacy path must be loaded when primary absent");
+    }
+
+    /// get_claude_config with no project-local mcp files returns no local-source servers.
+    /// (Global servers from ~/.claude/mcp.json may still appear; we only assert local.)
+    #[test]
+    fn get_claude_config_no_mcp_file_returns_no_local_servers() {
+        let tmp = tempfile::tempdir().unwrap();
+        let claude_dir = tmp.path().join(".claude");
+        std::fs::create_dir_all(&claude_dir).unwrap();
+        let config = super::get_claude_config(Some(tmp.path().to_string_lossy().to_string()));
+        let local: Vec<_> = config.mcp_servers.iter().filter(|s| s.source == "local").collect();
+        assert!(local.is_empty(), "no local mcp files should produce no local-source servers");
     }
 }

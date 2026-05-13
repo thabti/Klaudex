@@ -1,3 +1,19 @@
+## 2026-05-13 17:00 GST (Dubai)
+
+### claude_config tests: Cover MCP path layout changes
+
+Added 8 unit tests for the MCP path fix: `save_mcp_accepts_root_claude_mcp_json`, `save_mcp_accepts_legacy_settings_mcp_json`, `save_mcp_rejects_wrong_filename`, `save_mcp_rejects_mcp_json_outside_claude_dir`, `get_claude_config_prefers_primary_mcp_path`, `get_claude_config_falls_back_to_legacy_mcp_path`, `get_claude_config_no_mcp_file_returns_no_local_servers`. All 431 Rust tests pass.
+
+**Modified:** `src-tauri/src/commands/claude_config.rs`, `activity.md`
+
+## 2026-05-13 16:30 GST (Dubai)
+
+### claude_config: Fix MCP server path — read from ~/.claude/mcp.json
+
+Claude CLI stores global MCP servers at `~/.claude/mcp.json`, not `~/.claude/settings/mcp.json`. The Rust `get_claude_config` was reading the wrong path so no MCP servers appeared in the sidebar. Fixed: now tries the primary path first and falls back to the legacy `settings/mcp.json` for both global and project-local configs. Also updated `save_mcp_server_config` path validation to accept both layouts.
+
+**Modified:** `src-tauri/src/commands/claude_config.rs`
+
 ## 2026-05-13 14:10 GST (Dubai)
 
 ### ContextRing: Remove inaccurate message-count fallback
