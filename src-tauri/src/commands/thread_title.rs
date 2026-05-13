@@ -59,7 +59,27 @@ pub async fn generate_thread_title(
 
 // ── Prompt ───────────────────────────────────────────────────────────────
 
+fn strip_image_tags(message: &str) -> String {
+    let mut out = String::with_capacity(message.len());
+    let mut rest = message;
+    while !rest.is_empty() {
+        let lower = rest.to_ascii_lowercase();
+        if lower.starts_with("<image") || lower.starts_with("<img") {
+            if let Some(end) = rest.find('>') {
+                rest = &rest[end + 1..];
+                continue;
+            }
+        }
+        let ch = rest.chars().next().unwrap();
+        out.push(ch);
+        rest = &rest[ch.len_utf8()..];
+    }
+    out
+}
+
 fn build_title_prompt(message: &str, custom_instructions: Option<&str>) -> String {
+    let message = strip_image_tags(message);
+    let message = message.trim();
     // Cap the message to avoid blowing up the context for very long prompts
     let truncated = if message.len() > 2000 {
         // Find a char boundary at or before 2000 bytes

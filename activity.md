@@ -1,3 +1,13 @@
+## 2026-05-13 19:45 GST (Dubai)
+
+### thread-title: Strip HTML image tags before title generation
+
+Messages with image attachments (`<image src="data:...">`) were leaking into the thread title prompt, producing names like `<image src="data:image/png...`. Fixed in two layers: frontend strips `<image>` and `<img>` data-URI tags before calling `generateThreadTitle`; Rust `strip_image_tags()` does the same in `build_title_prompt` as a backstop. If the stripped message is empty, title generation is skipped and the default name is kept.
+
+**Modified:** `src/renderer/stores/task-store-listeners.ts`, `src-tauri/src/commands/thread_title.rs`
+
+---
+
 ## 2026-05-13 19:35 GST (Dubai)
 
 ### ProjectItem: Hide action buttons until hover

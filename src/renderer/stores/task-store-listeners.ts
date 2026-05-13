@@ -422,6 +422,8 @@ export function initTaskListeners(): () => void {
           const firstMsg = rawMsg
             .replace(/\[Image [^\]]+\]/g, '')
             .replace(/!\[.*?\]\(data:[^)]+\)/g, '')
+            .replace(/<image[^>]+src="data:[^"]*"[^>]*\/?>/gi, '')
+            .replace(/<img[^>]+src="data:[^"]*"[^>]*\/?>/gi, '')
             .trim()
           if (firstMsg) {
             titleGenerationInFlight.add(taskId)
