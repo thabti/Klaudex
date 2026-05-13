@@ -1,5 +1,21 @@
 # Changelog
 
+## [v0.48.0] - 2026-05-13
+
+### Bug fixes
+
+- strip base64 image data from title/branch prompts ([`49585da`](https://github.com/thabti/kirodex/commit/49585daa4805011a874768c1b2830339abcbe5ab))
+- add missing saveUiState mock to taskStore test ([`96d03fd`](https://github.com/thabti/kirodex/commit/96d03fd414f77d0bdaa16c501745bbd4b8aef720))
+
+### Styling
+
+- highlight active thread item ([`77265f1`](https://github.com/thabti/kirodex/commit/77265f1f25910f6290be573a33050dab36354758))
+- darken diff stats colors for light mode contrast ([`2f230b8`](https://github.com/thabti/kirodex/commit/2f230b8ad47963dba90446f80af8a2f62e84896a))
+
+### Chores
+
+- add diff/ to gitignore ([`24e8218`](https://github.com/thabti/kirodex/commit/24e8218fb4f953ba663912eda95afa5dc78aa476))
+
 ## [v0.47.0] - 2026-05-13
 
 ### Features
