@@ -1,3 +1,77 @@
+## 2026-05-14 08:20 GST (Dubai)
+
+### Chat: Unit tests and diff patch for steering queue-edit feature
+
+Added 18 tests across two files: `QueuedMessages.test.tsx` (onEdit prop: button renders/hides, index correctness, multi-message count; plus reorder and steer coverage) and `useChatInput.test.ts` (ArrowUp dispatches `queue-edit-message`, no-op when input has text, no-op when queue empty, removes only first item). Created `diff/steering-queue-edit.patch` capturing all four steering-change files.
+
+**Modified:** `src/renderer/components/chat/QueuedMessages.test.tsx`, `src/renderer/hooks/useChatInput.test.ts` (new), `diff/steering-queue-edit.patch` (new)
+
+## 2026-05-14 08:18 GST (Dubai)
+
+### ProjectItem: Unit tests for favicon name-hide logic
+
+Added `ProjectItem.test.tsx` with 9 tests covering: name hidden for favicon icon, name shown for null/emoji/framework/material icons, jumpLabel rendering, and thread list rendering. Updated `diff/hide-project-name-on-favicon.patch` to include both the component change and the new test file.
+
+**Modified:** `src/renderer/components/sidebar/ProjectItem.test.tsx`, `diff/hide-project-name-on-favicon.patch`
+
+---
+
+## 2026-05-13 23:30 GST (Dubai)
+
+### ProjectIcon: Use material-icon-theme folder icon as default fallback
+
+When `detectProjectIcon` returns null (no favicon, no framework detected), project icons now show the material-icon-theme folder SVG instead of nothing. Named folders get their specific folder icon from the manifest; others get the generic folder icon.
+
+**Modified:** `src/renderer/hooks/useProjectIcon.ts`, `src/renderer/components/sidebar/ProjectIcon.tsx`
+
+---
+
+## 2026-05-13 23:15 GST (Dubai)
+
+### TaskSidebar: Convert import button to dropdown with quick-start actions
+
+Replaced the single "Import project folder" `+` button (and the empty-state "Import Project" button) with an `AddProjectDropdown` component. Dropdown offers "Import folder" (existing behavior) and "Clone repository" (coming soon stub). Also added `*.diff` to `.gitignore` and generated `changes.diff` patch file.
+
+**Modified:** `src/renderer/components/sidebar/TaskSidebar.tsx`, `.gitignore`
+
+---
+
+## 2026-05-13 22:00 GST (Dubai)
+
+### ProjectItem: Hide project name text when favicon image is shown
+
+When a project has a favicon icon (image), the name text is now hidden — only the image renders. For emoji and framework SVG icons, the name still shows as before.
+
+**Modified:** `src/renderer/components/sidebar/ProjectItem.tsx`
+
+---
+
+## 2026-05-13 21:10 GST (Dubai)
+
+### IconPickerDialog: Expand emoji set with search + lazy rendering
+
+Replaced the 96-emoji set with ~500+ emojis across 12 categories (Dev & Tech, Symbols & UI, Objects & Tools, Fun & Creative, Nature & Weather, Animals, Food & Drinks, Travel & Places, Faces & People, Hand Gestures, Hearts & Love, Sport & Activity). Added keyword map for all new emojis. Each category shows at most 32 emojis by default with a "Show more" toggle; search mode reveals all matches across all categories without rendering the full set.
+
+**Modified:** `src/renderer/components/sidebar/IconPickerDialog.tsx`
+
+---
+
+## 2026-05-13 20:15 GST (Dubai)
+
+### Dependencies: Remove seti-file-icons, keep material-icon-theme
+
+Removed unused `seti-file-icons` package from `package.json` and uninstalled it. The file tree already uses `material-icon-theme` exclusively — no source files imported seti.
+
+**Modified:** `package.json`, `bun.lock`
+
+## 2026-05-13 19:30 GST (Dubai)
+
+### QueuedMessages: Edit icon on hover + ArrowUp to edit top queued message
+
+Added `onEdit` prop to `QueuedMessages` with a pencil icon that appears on row hover; clicking it removes the message from the queue and loads its text into the chat input for editing. Also wired `ArrowUp` in `useChatInput` to pull the top queued message into the input when the input is empty and no history cycling is active. Both paths dispatch a `queue-edit-message` DOM event that `ChatInput` listens to and populates the textarea.
+
+**Modified:** `src/renderer/components/chat/QueuedMessages.tsx`, `src/renderer/components/chat/ChatPanel.tsx`, `src/renderer/components/chat/ChatInput.tsx`, `src/renderer/hooks/useChatInput.ts`
+
 ## 2026-05-13 17:00 GST (Dubai)
 
 ### claude_config tests: Cover MCP path layout changes
