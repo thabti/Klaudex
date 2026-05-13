@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { IconRobot, IconBolt, IconCompass, IconSearch, IconPlug, IconEdit, IconHandFinger, IconPlus, IconAlignLeft, IconCommand } from '@tabler/icons-react'
-import { KlaudexGhostIcon } from '@/components/icons/KlaudexGhostIcon'
+import { AnthropicIcon } from '@/lib/model-icons'
 import { useClaudeConfigStore } from '@/stores/claudeConfigStore'
 import { useTaskStore } from '@/stores/taskStore'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -105,7 +105,7 @@ export const ClaudeConfigPanel = memo(function ClaudeConfigPanel({
           <div className="mb-0.5 flex items-center justify-between pr-1.5">
             <button type="button" onClick={onToggleCollapse}
               className="flex h-6 flex-1 cursor-pointer items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors">
-              <KlaudexGhostIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+              <AnthropicIcon size={12} className="shrink-0 text-muted-foreground" />
               Claude
             </button>
           </div>
@@ -134,7 +134,7 @@ export const ClaudeConfigPanel = memo(function ClaudeConfigPanel({
         <div className="mb-0.5 flex items-center justify-between pr-1.5">
           <button type="button" onClick={onToggleCollapse}
             className="flex h-6 flex-1 cursor-pointer items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors">
-              <KlaudexGhostIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+              <AnthropicIcon size={12} className="shrink-0 text-muted-foreground" />
               Claude
           </button>
           {!collapsed && (
