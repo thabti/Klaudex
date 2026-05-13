@@ -1,5 +1,21 @@
 @import "tailwindcss";
 
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 100 800;
+    font-display: swap;
+    src: url('/fonts/JetBrainsMono-variable.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: italic;
+    font-weight: 100 800;
+    font-display: swap;
+    src: url('/fonts/JetBrainsMono-italic-variable.woff2') format('woff2');
+}
+
 @custom-variant dark (&:is(.dark, .dark *, .claude, .claude *));
 
 @theme inline {
