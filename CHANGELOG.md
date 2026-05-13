@@ -1,5 +1,16 @@
 # Changelog
 
+## [v1.8.1] - 2026-05-13
+
+### Features
+
+- gate debug panel and interceptors behind debugPanelEnabled setting ([`b3df3e8`](https://github.com/thabti/klaudex/commit/b3df3e883649a08e797eb16519bc61896c854e8a))
+
+### Bug fixes
+
+- read global MCP servers from ~/.claude/mcp.json ([`5fcdf6b`](https://github.com/thabti/klaudex/commit/5fcdf6bbc8b71b66908a1751230da07aef5360ba))
+- remove inaccurate message-count fallback from ContextRing ([`2732a1e`](https://github.com/thabti/klaudex/commit/2732a1e04fb0458502f6d787d9ea3d5d44c49f70))
+
 ## [v1.8.0] - 2026-05-12
 
 ### Bug fixes
