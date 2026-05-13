@@ -1,5 +1,19 @@
 # Activity Log
 
+## 2026-05-13 08:44 GST (Dubai)
+### UI: Expanded emoji picker, favicon name hiding, queue message editing
+
+Applied three feature patches: (1) Expanded the emoji picker from 6 categories/96 emojis to 12 categories/~700 emojis with keyword search and per-category show-more/less collapse UI. (2) Hide the project name label in the sidebar when the icon type is `favicon` since the favicon itself is sufficient identification. (3) Added an edit button (pencil icon) to queued messages that removes the message from the queue and populates the chat input, plus ArrowUp-on-empty-input shortcut to pull the top queued message into the editor. Added ProjectItem.test.tsx covering the favicon behavior.
+
+**Modified:**
+- src/renderer/components/sidebar/IconPickerDialog.tsx
+- src/renderer/components/sidebar/ProjectItem.tsx
+- src/renderer/components/sidebar/ProjectItem.test.tsx
+- src/renderer/components/chat/QueuedMessages.tsx
+- src/renderer/components/chat/ChatPanel.tsx
+- src/renderer/components/chat/ChatInput.tsx
+- src/renderer/hooks/useChatInput.ts
+
 ## 2026-05-12 22:03 GST (Dubai)
 ### CI: Fix material-icon-theme missing in build
 Added `material-icon-theme@5.34.0` as a pinned devDependency so CI installs it. Made the Vite `writeBundle` hook gracefully skip icon copying if the directory is missing (belt-and-suspenders). Build now passes with 1238 SVG icons copied to `dist/material-icons/`.

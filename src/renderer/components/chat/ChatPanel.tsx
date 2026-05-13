@@ -290,6 +290,16 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
     if (resolvedTaskId) useTaskStore.getState().reorderQueuedMessage(resolvedTaskId, from, to)
   }, [resolvedTaskId])
 
+  const handleEditQueued = useCallback((index: number) => {
+    const state = useTaskStore.getState()
+    const id = resolvedTaskId
+    if (!id) return
+    const queued = state.queuedMessages[id]?.[index]
+    if (!queued) return
+    state.removeQueuedMessage(id, index)
+    document.dispatchEvent(new CustomEvent('queue-edit-message', { detail: { text: queued.text } }))
+  }, [resolvedTaskId])
+
   const [isInputCollapsed, setIsInputCollapsed] = useState(false)
   const handleToggleCollapse = useCallback(() => setIsInputCollapsed((v) => !v), [])
 
@@ -372,7 +382,7 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
 
         <CompactSuggestBanner contextUsage={contextUsage} isPlanMode={isPlanMode} />
 
-        <QueuedMessages messages={queuedMessages} onRemove={handleRemoveQueued} onReorder={handleReorderQueued} onSteer={isRunning ? handleSteer : undefined} />
+        <QueuedMessages messages={queuedMessages} onRemove={handleRemoveQueued} onReorder={handleReorderQueued} onSteer={isRunning ? handleSteer : undefined} onEdit={handleEditQueued} />
 
         <StickyTaskList taskId={resolvedTaskId} />
 

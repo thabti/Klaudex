@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { IconCornerDownLeft, IconTrash, IconChevronUp, IconChevronDown, IconPhoto } from '@tabler/icons-react'
+import { IconCornerDownLeft, IconTrash, IconChevronUp, IconChevronDown, IconPhoto, IconPencil } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { QueuedMessage } from '@/stores/task-store-types'
@@ -9,9 +9,10 @@ interface QueuedMessagesProps {
   onRemove: (index: number) => void
   onReorder?: (from: number, to: number) => void
   onSteer?: (index: number) => void
+  onEdit?: (index: number) => void
 }
 
-export const QueuedMessages = memo(function QueuedMessages({ messages, onRemove, onReorder, onSteer }: QueuedMessagesProps) {
+export const QueuedMessages = memo(function QueuedMessages({ messages, onRemove, onReorder, onSteer, onEdit }: QueuedMessagesProps) {
   if (messages.length === 0) return null
 
   const canReorder = messages.length >= 2 && !!onReorder
@@ -92,6 +93,18 @@ export const QueuedMessages = memo(function QueuedMessages({ messages, onRemove,
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-[11px]">Pause agent and send this message</TooltipContent>
+                </Tooltip>
+              )}
+              {onEdit && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" onClick={() => onEdit(i)}
+                      aria-label={`Edit queued message ${i + 1}`}
+                      className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-all group-hover:opacity-100 hover:bg-accent hover:text-foreground">
+                      <IconPencil className="size-3" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-[11px]">Edit message</TooltipContent>
                 </Tooltip>
               )}
               <Tooltip>
