@@ -1,3 +1,33 @@
+## 2026-05-13 19:35 GST (Dubai)
+
+### ProjectItem: Hide action buttons until hover
+
+New thread and trash buttons now hidden by default (`opacity-0`) and revealed on `group-hover/menu-item`. Single gradient layer always fades to `--accent` (only visible on hover anyway). Buttons use `relative` to render above the absolute gradient.
+
+**Modified:** `src/renderer/components/sidebar/ProjectItem.tsx`
+
+---
+
+## 2026-05-13 19:30 GST (Dubai)
+
+### ProjectItem: Match gradient fade color to hover background
+
+The action button overlay gradient now fades to `--accent` on hover (matching the button's `hover:bg-accent`) instead of always fading to `--sidebar`. Two overlapping pointer-events-none gradient layers cross-fade via `group-hover/menu-item` opacity transition.
+
+**Modified:** `src/renderer/components/sidebar/ProjectItem.tsx`
+
+---
+
+## 2026-05-13 19:20 GST (Dubai)
+
+### ThreadItem: Invert active state to bg-primary
+
+Active thread items now use `bg-primary text-primary-foreground` instead of the subtle `bg-accent`. The relative timestamp also switches to `text-primary-foreground/60` when active for contrast on the new background.
+
+**Modified:** `src/renderer/components/sidebar/ThreadItem.tsx`
+
+---
+
 ## 2026-05-13 14:10 GST (Dubai)
 
 ### model-icons: Replace ghost SVG with Claude logo mark

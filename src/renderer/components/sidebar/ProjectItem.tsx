@@ -92,18 +92,16 @@ export const ProjectItem = memo(function ProjectItem({
           )}
         </button>
 
-        {/* Always-visible action buttons with gradient fade */}
-        <div
-          className="absolute inset-y-0 right-0 z-10 flex w-16 items-center justify-end gap-0.5 pr-1"
-          style={{ background: 'linear-gradient(to right, transparent 0%, var(--sidebar) 35%)' }}
-        >
+        {/* Action buttons — revealed on hover */}
+        <div className="absolute inset-y-0 right-0 z-10 flex w-16 items-center justify-end gap-0.5 pr-1 opacity-0 group-hover/menu-item:opacity-100 transition-opacity">
+          <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(to right, transparent 0%, var(--accent) 35%)' }} />
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 type="button"
                 aria-label={`New thread in ${name}`}
                 onClick={onNewThread}
-                className="flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground outline-none"
+                className="relative flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground outline-none"
               >
                 <IconEdit className="size-3.5" />
               </button>
@@ -117,7 +115,7 @@ export const ProjectItem = memo(function ProjectItem({
                 type="button"
                 aria-label={`Remove ${name}`}
                 onClick={onRemoveProject}
-                className="flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive outline-none"
+                className="relative flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive outline-none"
               >
                 <IconTrash className="size-3" />
               </button>

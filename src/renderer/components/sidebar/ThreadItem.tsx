@@ -148,7 +148,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
         className={cn(
           'flex min-w-0 h-8 w-full cursor-pointer items-center gap-1.5 overflow-hidden rounded-lg px-2 pr-1 text-[13px] select-none',
           'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring transition-colors',
-          isActive ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent hover:text-foreground',
+          isActive ? 'bg-primary text-primary-foreground' : 'text-foreground/80 hover:bg-accent hover:text-foreground',
         )}
       >
         {task.isDraft ? (
@@ -214,7 +214,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
                 aria-label="New activity"
               />
             )}
-            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground group-hover/thread:hidden">
+            <span className={cn('shrink-0 text-[10px] tabular-nums group-hover/thread:hidden', isActive ? 'text-primary-foreground/60' : 'text-muted-foreground')}>
               {relativeTime(task.lastActivityAt)}
             </span>
           </>
