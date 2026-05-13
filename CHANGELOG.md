@@ -1,5 +1,18 @@
 # Changelog
 
+## [v1.10.1] - 2026-05-13
+
+### Features
+
+- pauseAndRedirect action + TodoWrite tool display + UX polish ([`d7b734f`](https://github.com/thabti/klaudex/commit/d7b734fa70e10459e19e73d17eefd5ec30886869))
+- dynamic mid-turn steering injection ([`c2169c6`](https://github.com/thabti/klaudex/commit/c2169c6e56cf6560400f3814fb9d615a78a0f0d4))
+
+### Bug fixes
+
+- improve active item contrast for dark and light modes ([`ed11fd6`](https://github.com/thabti/klaudex/commit/ed11fd615f0121aac600fb56a1a6cb25bb688ff3))
+- prevent steering message dropped on dying connection ([`61371bf`](https://github.com/thabti/klaudex/commit/61371bf9999a9ac33a557b41c3c513270a545c09))
+- add missing SidebarTask fields to ProjectItem test mock ([`c8fc266`](https://github.com/thabti/klaudex/commit/c8fc266cf5407be6f0b5cb495c156ccbf6e51a1e))
+
 ## [v1.10.0] - 2026-05-13
 
 No notable changes.
