@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ipc } from '@/lib/ipc'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { getIconPath, getFolderIconName } from '@/lib/file-icons'
 import type { ProjectPrefs } from '@/types'
 
 interface FaviconIcon {
@@ -18,7 +19,12 @@ interface EmojiIcon {
   readonly emoji: string
 }
 
-export type ProjectIconResult = FaviconIcon | FrameworkIcon | EmojiIcon | null
+interface MaterialIcon {
+  readonly type: 'material'
+  readonly src: string
+}
+
+export type ProjectIconResult = FaviconIcon | FrameworkIcon | EmojiIcon | MaterialIcon | null
 
 /** Module-level cache so re-renders and remounts don't re-fetch. */
 const cache = new Map<string, ProjectIconResult>()
@@ -115,8 +121,10 @@ export const useProjectIcon = (cwd: string): ProjectIconResult => {
         const info = await ipc.detectProjectIcon(cwd)
         if (stale) return
         if (!info) {
-          cache.set(cwd, null)
-          setIcon(null)
+          const folderName = cwd.split('/').pop() ?? ''
+          const result: MaterialIcon = { type: 'material', src: getIconPath(getFolderIconName(folderName, false)) }
+          cache.set(cwd, result)
+          setIcon(result)
           return
         }
         if (info.iconType === 'framework') {
@@ -141,8 +149,10 @@ export const useProjectIcon = (cwd: string): ProjectIconResult => {
         }
       } catch {
         if (!stale) {
-          cache.set(cwd, null)
-          setIcon(null)
+          const folderName = cwd.split('/').pop() ?? ''
+          const result: MaterialIcon = { type: 'material', src: getIconPath(getFolderIconName(folderName, false)) }
+          cache.set(cwd, result)
+          setIcon(result)
         }
       }
     }

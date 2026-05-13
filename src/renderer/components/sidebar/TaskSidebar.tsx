@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react'
-import { IconPlus, IconArrowsUpDown, IconCheck, IconLayoutSidebarLeftCollapse, IconLayoutSidebarRightCollapse, IconFolderOpen, IconLayoutColumns, IconX, IconPin } from '@tabler/icons-react'
+import { IconPlus, IconArrowsUpDown, IconCheck, IconLayoutSidebarLeftCollapse, IconLayoutSidebarRightCollapse, IconFolderOpen, IconLayoutColumns, IconX, IconPin, IconGitBranch } from '@tabler/icons-react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useShallow } from 'zustand/react/shallow'
@@ -62,6 +62,70 @@ const SortDropdown = memo(function SortDropdown({ sort, onChange }: { sort: Sort
                 {opt.label}
               </button>
             ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+})
+
+const AddProjectDropdown = memo(function AddProjectDropdown({ variant = 'icon' }: { variant?: 'icon' | 'button' }) {
+  const [open, setOpen] = useState(false)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const setNewProjectOpen = useTaskStore((s) => s.setNewProjectOpen)
+
+  const handleOpen = useCallback(() => {
+    setOpen((v) => {
+      if (!v && btnRef.current) {
+        const r = btnRef.current.getBoundingClientRect()
+        setPos({ top: r.bottom + 4, left: r.left })
+      }
+      return !v
+    })
+  }, [])
+
+  return (
+    <div className="relative">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            ref={btnRef}
+            type="button"
+            aria-label="Add project"
+            data-testid="add-project-button"
+            onClick={handleOpen}
+            className={cn(
+              variant === 'icon'
+                ? 'inline-flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
+                : 'inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
+              open && 'bg-accent text-foreground',
+            )}
+          >
+            {variant === 'icon' ? <IconPlus className="size-3.5" /> : <><IconPlus size={12} /> Import Project</>}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Add project</TooltipContent>
+      </Tooltip>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-[199]" onClick={() => setOpen(false)} />
+          <div className="fixed z-[200] min-w-[180px] rounded-lg border border-border bg-popover py-1 shadow-lg" style={{ top: pos.top, left: pos.left }}>
+            <button
+              type="button"
+              onClick={() => { setNewProjectOpen(true); setOpen(false) }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground hover:bg-accent transition-colors"
+            >
+              <IconFolderOpen className="size-3.5" /> Import folder
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-muted-foreground hover:bg-accent transition-colors cursor-not-allowed"
+            >
+              <IconGitBranch className="size-3.5" /> Clone repository
+              <span className="ml-auto text-[10px] text-muted-foreground/50">Soon</span>
+            </button>
           </div>
         </>
       )}
@@ -215,14 +279,13 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
   const isMetaHeld = useModifierKeys()
 
-  const { selectedTaskId, pendingWorkspace, lastAddedProject, setSelectedTask, setView, setNewProjectOpen, removeTask, removeProject, archiveThreads, renameTask, reorderProject, reorderThread } = useTaskStore(
+  const { selectedTaskId, pendingWorkspace, lastAddedProject, setSelectedTask, setView, removeTask, removeProject, archiveThreads, renameTask, reorderProject, reorderThread } = useTaskStore(
     useShallow((s) => ({
       selectedTaskId: s.selectedTaskId,
       pendingWorkspace: s.pendingWorkspace,
       lastAddedProject: s.lastAddedProject,
       setSelectedTask: s.setSelectedTask,
       setView: s.setView,
-      setNewProjectOpen: s.setNewProjectOpen,
       removeTask: s.removeTask,
       removeProject: s.removeProject,
       archiveThreads: s.archiveThreads,
@@ -349,15 +412,7 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
         <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Projects</span>
         <div className="flex shrink-0 items-center gap-1">
           <SortDropdown sort={sort} onChange={handleSortChange} />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button type="button" aria-label="Add project" data-testid="add-project-button" onClick={() => setNewProjectOpen(true)}
-                className="inline-flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-                <IconPlus className="size-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top">Import project folder</TooltipContent>
-          </Tooltip>
+          <AddProjectDropdown />
         </div>
       </div>
       <SplitViewsList />
@@ -376,15 +431,7 @@ export const TaskSidebar = memo(function TaskSidebar({ width, onResize, position
                     <p className="text-[12px] font-medium text-muted-foreground">No projects yet</p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">Import a folder to start working with Claude</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setNewProjectOpen(true)}
-                    aria-label="Import project folder"
-                    tabIndex={0}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  >
-                    <IconPlus size={12} /> Import Project
-                  </button>
+                  <AddProjectDropdown variant="button" />
                 </li>
               )}
               {projectList.map((project, idx) => (

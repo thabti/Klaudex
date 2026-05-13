@@ -29,6 +29,17 @@ export const ProjectIcon = memo(function ProjectIcon({ icon }: ProjectIconProps)
     )
   }
 
+  if (icon.type === 'material') {
+    return (
+      <img
+        src={icon.src}
+        alt=""
+        aria-hidden
+        className="size-3.5 shrink-0"
+      />
+    )
+  }
+
   const FrameworkSvg = FRAMEWORK_ICONS[icon.id]
   if (!FrameworkSvg) return null
 
