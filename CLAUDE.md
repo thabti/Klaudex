@@ -19,7 +19,9 @@ Klaudex is a native macOS desktop app for managing AI coding agents via the Agen
 - **Code highlighting**: Shiki
 - **Build**: Vite (renderer), Cargo (Rust backend), bun as package manager
 - **Protocol**: agent-client-protocol crate for ACP subprocess management
-- **Rust crates**: git2 (libgit2 bindings), thiserror (error types), which (binary detection), serde_yaml (YAML parsing), confy (config persistence)
+- **Rust crates**: git2 (libgit2 bindings), thiserror (error types), which (binary detection), serde_yaml (YAML parsing), confy (config persistence), tauri-plugin-log (Rust→WebView log forwarding)
+- **Analytics**: recharts (chart rendering), custom analytics store + aggregators
+- **Testing**: Vitest + jsdom (frontend), cargo test (Rust), bunfig.toml redirects `bun test` to noop to avoid runner conflict
 
 ## Project structure
 
@@ -32,40 +34,112 @@ src/
 │   ├── lib/
 │   │   ├── ipc.ts           # Tauri invoke/listen wrappers
 │   │   ├── timeline.ts      # Timeline rendering logic
-│   │   └── utils.ts         # cn() helper
+│   │   ├── analytics.ts     # Analytics event tracking
+│   │   ├── connection-health.ts  # Connection health monitoring
+│   │   ├── connection-state.ts   # Connection state machine
+│   │   ├── diffRendering.ts      # Diff rendering utilities
+│   │   ├── fuzzy-search.ts       # Fuzzy search for command palette
+│   │   ├── history-store.ts      # Navigation history
+│   │   ├── thread-db.ts          # Thread persistence (IndexedDB)
+│   │   ├── tool-call-collapsing.ts # Tool call grouping logic
+│   │   ├── timeline-stability.ts # Timeline deduplication
+│   │   ├── proposed-plan.ts      # Plan mode utilities
+│   │   ├── question-parser.ts    # AskUserQuestion parsing
+│   │   ├── sounds.ts             # Notification sounds
+│   │   └── utils.ts              # cn() helper
 │   ├── hooks/
-│   │   └── useSlashAction.ts # Client-side slash command handler
+│   │   ├── useSlashAction.ts     # Client-side slash command handler
+│   │   ├── useChatInput.ts       # Chat input state + submission
+│   │   ├── useKeyboardShortcuts.ts # Global keyboard shortcuts
+│   │   ├── useAttachments.ts     # File attachment handling
+│   │   ├── useFileMention.ts     # @ file mention autocomplete
+│   │   ├── useMessageSearch.ts   # In-thread message search
+│   │   ├── useSidebarTasks.ts    # Sidebar task list logic
+│   │   ├── useUpdateChecker.ts   # App update polling
+│   │   ├── useSessionTracker.ts  # Session analytics tracking
+│   │   ├── useResizeHandle.ts    # Panel resize drag handle
+│   │   ├── useModifierKeys.ts    # Modifier key state
+│   │   ├── useResolvedTheme.ts   # Theme resolution (system/light/dark)
+│   │   ├── useProjectIcon.ts     # Project favicon/icon
+│   │   ├── useCopyToClipboard.ts # Clipboard utility
+│   │   ├── useCommitOnBlur.ts    # Auto-commit on blur
+│   │   ├── useMediaQuery.ts      # CSS media query hook
+│   │   └── useZoomLimit.ts       # Window zoom constraints
 │   ├── stores/
-│   │   ├── taskStore.ts     # Tasks, streaming, connection state
-│   │   ├── settingsStore.ts # Agent profiles, models, appearance
-│   │   ├── kiroStore.ts     # .kiro/ config state
-│   │   ├── diffStore.ts     # Diff viewer state
-│   │   └── debugStore.ts    # Debug panel state
+│   │   ├── taskStore.ts          # Tasks, streaming, connection state
+│   │   ├── task-store-types.ts   # TaskStore type definitions
+│   │   ├── task-store-listeners.ts # ACP event → store updates
+│   │   ├── task-store-selectors.ts # Memoized task selectors
+│   │   ├── settingsStore.ts      # Agent profiles, models, appearance
+│   │   ├── analyticsStore.ts     # Usage analytics aggregation
+│   │   ├── claudeConfigStore.ts  # Claude CLI config (.claude/)
+│   │   ├── diffStore.ts          # Diff viewer state
+│   │   ├── debugStore.ts         # Debug panel state (Rust logs)
+│   │   ├── jsDebugStore.ts       # JS console intercept state
+│   │   ├── fileTreeStore.ts      # File tree expansion state
+│   │   ├── filePreviewStore.ts   # File preview modal state
+│   │   ├── updateStore.ts        # App update state
+│   │   └── vcsStatusStore.ts     # VCS dirty-file status
 │   └── components/
 │       ├── ui/              # Radix-based primitives (button, input, dialog, etc.)
 │       ├── chat/            # ChatPanel, MessageList, ChatInput, SlashPanels, etc.
-│       ├── sidebar/         # TaskSidebar, KiroConfigPanel
-│       ├── code/            # CodePanel, DiffViewer
+│       ├── sidebar/         # TaskSidebar, WorktreePanel, MemoryFileEditor
+│       ├── code/            # DiffViewer, DiffToolbar, DebugLog
 │       ├── dashboard/       # Dashboard, TaskCard
-│       ├── settings/        # SettingsPanel
+│       ├── settings/        # SettingsPanel, hooks-section, permissions-section
 │       ├── diff/            # DiffPanel
-│       ├── debug/           # DebugPanel
+│       ├── debug/           # DebugPanel, JsDebugTab
 │       ├── task/            # NewProjectSheet
+│       ├── analytics/       # Charts (CodingHours, DiffStats, Messages, etc.)
+│       ├── file-tree/       # File tree browser
+│       ├── unified-title-bar/ # Platform-specific title bars (macOS/Win/Linux)
+│       ├── icons/           # Custom SVG icon components
 │       ├── AppHeader.tsx
+│       ├── CommandPalette.tsx
 │       ├── ErrorBoundary.tsx
-│       └── Playground.tsx
+│       ├── Onboarding.tsx   # Multi-step onboarding flow
+│       ├── PlanSidebar.tsx  # Plan mode sidebar
+│       ├── WhatsNewDialog.tsx
+│       └── UpdateAvailableDialog.tsx
 src-tauri/
 ├── src/
 │   ├── main.rs              # Entry point
 │   ├── lib.rs               # Tauri app setup, command registration, window events
 │   └── commands/
-│       ├── acp.rs           # ACP protocol (kiro-cli subprocess, ~42KB)
+│       ├── transport.rs     # ACP transport layer (kiro-cli subprocess, !Send futures)
 │       ├── error.rs         # Shared AppError type (thiserror)
 │       ├── pty.rs           # Terminal emulation (portable-pty)
-│       ├── git.rs           # Git operations via git2 (libgit2)
+│       ├── git.rs           # Core git operations via git2
+│       ├── git_ai.rs        # AI-assisted git (commit message generation)
+│       ├── git_history.rs   # Git log / blame
+│       ├── git_pr.rs        # Pull request operations
+│       ├── git_stack.rs     # Stacked diff / branch stack
+│       ├── git_utils.rs     # Shared git helpers
+│       ├── branch_ai.rs     # AI branch name suggestion
+│       ├── pr_ai.rs         # AI PR description generation
 │       ├── settings.rs      # Config persistence via confy
 │       ├── fs_ops.rs        # File ops, kiro-cli detection (which crate)
-│       └── kiro_config.rs   # .kiro/ config discovery (serde_yaml for frontmatter)
+│       ├── claude_config.rs # .claude/ config read/write
+│       ├── claude_watcher.rs # .claude/ config file watcher
+│       ├── analytics.rs     # Usage analytics collection
+│       ├── thread_db.rs     # Thread persistence backend
+│       ├── thread_title.rs  # AI thread title generation
+│       ├── checkpoint.rs    # Checkpoint / snapshot management
+│       ├── diff_parse.rs    # Diff parsing utilities
+│       ├── diff_stats.rs    # Diff statistics
+│       ├── streaming_diff.rs # Streaming diff application
+│       ├── highlight.rs     # Syntax highlighting (Shiki bridge)
+│       ├── markdown.rs      # Markdown rendering utilities
+│       ├── fuzzy.rs         # Fuzzy search backend
+│       ├── pattern_extract.rs # Pattern extraction from diffs
+│       ├── permissions.rs   # Permission allowlist management
+│       ├── process_diagnostics.rs # Running process inspection
+│       ├── project_watcher.rs # File system project watcher
+│       ├── retry.rs         # Retry logic utilities
+│       ├── statusline.rs    # Status line data provider
+│       ├── tracing.rs       # Rust tracing / log forwarding
+│       ├── vcs_status.rs    # VCS dirty-file status
+│       └── serde_utils.rs   # Serde helpers
 ├── Cargo.toml
 ├── tauri.conf.json
 └── capabilities/            # Tauri v2 permission capabilities
@@ -74,19 +148,32 @@ src-tauri/
 ## Commands
 
 ```bash
-bun run dev           # Start dev (Vite + Tauri)
-bun run build         # Production build (.app + .dmg)
-bun run check:ts      # TypeScript type check
-bun run check:rust    # Rust type check
-bun run test:rust     # Run Rust tests
-bun run clean         # Remove build artifacts
+bun run dev             # Start dev (Vite + Tauri, uses tauri.dev.conf.json)
+bun run dev:renderer    # Start Vite only (no Tauri shell)
+bun run build           # Production build (.app + .dmg)
+bun run build:renderer  # Vite bundle only
+bun run check           # check:ts + check:rust
+bun run check:ts        # TypeScript type check (tsc --noEmit)
+bun run check:rust      # Rust type check (cargo check)
+bun run check:web       # tsc + vite build (bundle-safe TS check)
+bun run check:bundle    # Bundle size budget check
+bun run lint            # oxlint on src/
+bun run test            # vitest run + cargo test
+bun run test:ui         # Vitest (frontend unit tests, jsdom)
+bun run test:coverage   # Vitest with coverage report
+bun run test:rust       # cargo test
+bun run clean           # Remove dist/ + cargo clean
+bun run bump:patch      # Bump patch version
+bun run bump:minor      # Bump minor version
+bun run bump:major      # Bump major version
+bun run release         # Full release script
 ```
 
 ## Architecture decisions
 
 - **Tauri IPC**: All frontend↔backend communication uses `invoke()` for commands and `listen()` for events. No direct Node.js APIs.
-- **ACP on dedicated OS threads**: The ACP Rust SDK uses `!Send` futures, so each connection runs on a dedicated OS thread with a single-threaded tokio runtime + `LocalSet`. Communication with the Tauri async runtime happens via `mpsc` channels.
-- **Permission handling**: Permission requests from ACP go through a `oneshot` channel. The permission handler runs on the Tauri async runtime and accesses managed state via `app.try_state::<AcpState>()`, not a cloned copy.
+- **ACP on dedicated OS threads**: The ACP Rust SDK uses `!Send` futures, so each connection runs on a dedicated OS thread with a single-threaded tokio runtime + `LocalSet`. Communication with the Tauri async runtime happens via `mpsc` channels. Transport logic lives in `commands/transport.rs`.
+- **Permission handling**: Permission requests from ACP go through a `oneshot` channel. The permission handler runs on the Tauri async runtime and accesses managed state via `app.try_state::<AcpState>()`, not a cloned copy. Allowlist management is in `commands/permissions.rs`.
 - **State**: Zustand stores are the single source of truth. No Redux, no Context for global state.
 - **Styling**: Tailwind utility classes only. No custom CSS files for components. Theme tokens in `src/tailwind.css`.
 - **Components**: Radix UI primitives with `class-variance-authority` for variants, `clsx` + `tailwind-merge` via `cn()` helper.
@@ -110,8 +197,9 @@ bun run clean         # Remove build artifacts
 A task is not done until both pass with zero errors:
 
 ```bash
-bun run check:ts
-bun run build         # or: npx vite build
+bun run check:ts      # TypeScript (fast, no bundle)
+bun run check:web     # TypeScript + Vite bundle (catches import errors)
+bun run test:ui       # Frontend unit tests
 ```
 
 ## Critical rules
@@ -275,6 +363,22 @@ The `Result` message handler previously emitted only the aggregate `used` count.
 ### Turn duration tracking via turn_start_ms in handle_claude_message
 
 `handle_claude_message` takes a `turn_start_ms: &mut Option<u64>` parameter. On `MessageStart` it records the current epoch-millisecond timestamp (only if not already set, so only the first `MessageStart` of a turn counts). On `Result` it calls `.take()` on the option, computes `now - start` with `saturating_sub`, and includes `turnDurationMs` in the `turn_end` event. `applyTurnEnd` receives it as an optional parameter and stores it as `lastTurnDurationMs` on `AgentTask`. Using `take()` resets the option automatically so the next turn starts fresh.
+
+### pauseAndRedirect owns the full pause sequence
+
+Three places previously duplicated pause logic with subtle differences (pause button vs Escape vs keyboard shortcut). Consolidated into a single `pauseAndRedirect(taskId)` store action that calls `ipc.pauseTask()`, `clearTurn()`, sets `needsNewConnection: true`, and emits an `agent-paused` event. All callers use this action. Never split pause logic across call sites.
+
+### applyTurnEnd must check needsNewConnection to avoid status clobbering
+
+`AcpCommand::Cancel` (sent by `task_pause`) causes the backend to emit `turn_end` with `stopReason: "cancelled"`. `applyTurnEnd` would map this to `status: 'cancelled'`, clobbering the `"paused"` status already set by `pauseAndRedirect`. Fix: `applyTurnEnd` checks `task.needsNewConnection`; when true, uses `'paused'` regardless of `stopReason`. The `needsNewConnection` flag is set synchronously before any backend events arrive, so this check is always safe.
+
+### TodoWrite tool has different shape than custom todo_list tool
+
+Claude's built-in `TodoWrite` tool arrives with `rawInput.todos` (array of `{ id, content, status, priority }`), while the custom `todo_list` MCP tool uses `{ completed, task_description }`. `isTaskListToolCall` must match both: `title === 'Update TODOs'` or `rawInput.todos` array presence. `extractTasks` normalises both shapes to a common format. `aggregateLatestTasks` treats `TodoWrite` as a full replacement (clear + repopulate) since each call carries complete state.
+
+### Bundle local fonts to satisfy Tauri CSP
+
+Tauri's `style-src 'self'` CSP blocks external font URLs (Google Fonts, fonts.gstatic.com). Download font files to `public/fonts/` and declare `@font-face` in `tailwind.css` pointing to local paths. Never add external font `<link>` tags to `index.html` in a Tauri app.
 
 ### MCP tool names are humanised in tool_title_and_kind
 
