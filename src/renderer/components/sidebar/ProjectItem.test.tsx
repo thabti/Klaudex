@@ -130,8 +130,8 @@ describe('ProjectItem — thread list', () => {
 
   it('renders thread items when tasks present', () => {
     const tasks = [
-      { id: 't1', name: 'Thread 1', isDraft: false, status: 'idle' as const, createdAt: 0 },
-      { id: 't2', name: 'Thread 2', isDraft: false, status: 'idle' as const, createdAt: 1 },
+      { id: 't1', name: 'Thread 1', isDraft: false, status: 'idle' as const, createdAt: '0', workspace: '/ws', projectId: 'p1', lastActivityAt: '0', lastUserMessageAt: '0' },
+      { id: 't2', name: 'Thread 2', isDraft: false, status: 'idle' as const, createdAt: '1', workspace: '/ws', projectId: 'p1', lastActivityAt: '1', lastUserMessageAt: '1' },
     ]
     render(wrap(<ProjectItem {...defaultProps} tasks={tasks} />))
     expect(screen.getByTestId('thread-t1')).toBeInTheDocument()
