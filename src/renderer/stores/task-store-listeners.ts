@@ -414,29 +414,35 @@ export function initTaskListeners(): () => void {
         const isDefaultName = /^Thread \d{1,2}:\d{2}/.test(t.name)
         const userMessages = t.messages.filter((m) => m.role === 'user')
         if (isDefaultName && userMessages.length === 1) {
-          const firstMsg = userMessages[0].content
-          titleGenerationInFlight.add(taskId)
-          ipc.generateThreadTitle(firstMsg, t.workspace).then(({ title }) => {
-            if (title && title.trim()) {
-              // Re-check: user might have renamed while we were generating
-              const current = useTaskStore.getState().tasks[taskId]
-              if (current && /^Thread \d{1,2}:\d{2}/.test(current.name)) {
-                useTaskStore.getState().renameTask(taskId, title.trim())
+          const rawMsg = userMessages[0].content
+          const firstMsg = rawMsg
+            .replace(/\[Image [^\]]+\]/g, '')
+            .replace(/!\[.*?\]\(data:[^)]+\)/g, '')
+            .trim()
+          if (firstMsg) {
+            titleGenerationInFlight.add(taskId)
+            ipc.generateThreadTitle(firstMsg, t.workspace).then(({ title }) => {
+              if (title && title.trim()) {
+                // Re-check: user might have renamed while we were generating
+                const current = useTaskStore.getState().tasks[taskId]
+                if (current && /^Thread \d{1,2}:\d{2}/.test(current.name)) {
+                  useTaskStore.getState().renameTask(taskId, title.trim())
+                }
               }
-            }
-          }).catch((e) => {
-            if (import.meta.env.DEV) console.warn('[task-listeners] generateThreadTitle failed:', e)
-          }).finally(() => {
-            titleGenerationInFlight.delete(taskId)
-          })
+            }).catch((e) => {
+              if (import.meta.env.DEV) console.warn('[task-listeners] generateThreadTitle failed:', e)
+            }).finally(() => {
+              titleGenerationInFlight.delete(taskId)
+            })
 
-          // Generate a semantic branch name for worktree threads (fire-and-forget).
-          if (t.worktreePath) {
-            const currentBranch = t.worktreePath.split('/').pop() ?? ''
-            ipc.generateBranchName(firstMsg, t.worktreePath).then(({ branch }) => {
-              if (!branch || branch === currentBranch) return
-              ipc.renameWorktreeBranch(t.worktreePath!, currentBranch, branch).catch(() => {})
-            }).catch(() => {})
+            // Generate a semantic branch name for worktree threads (fire-and-forget).
+            if (t.worktreePath) {
+              const currentBranch = t.worktreePath.split('/').pop() ?? ''
+              ipc.generateBranchName(firstMsg, t.worktreePath).then(({ branch }) => {
+                if (!branch || branch === currentBranch) return
+                ipc.renameWorktreeBranch(t.worktreePath!, currentBranch, branch).catch(() => {})
+              }).catch(() => {})
+            }
           }
         }
       }
