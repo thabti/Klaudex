@@ -16,6 +16,9 @@ activity.md
 website/node_modules
 website/dist
 
+diff/
+*.diff
+
 # ralph cherry-pick loop — runtime state, not source of truth
 .ralph/current/
 .ralph/processed.log
