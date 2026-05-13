@@ -208,7 +208,6 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
   const isPlanMode = (taskModeId ?? globalModeId) === 'kiro_planner'
   const taskWorkspace = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.workspace : null)
   const isWorktree = useTaskStore((s) => resolvedTaskId ? !!s.tasks[resolvedTaskId]?.worktreePath : false)
-  const messageCount = useTaskStore((s) => resolvedTaskId ? s.tasks[resolvedTaskId]?.messages?.length ?? 0 : 0)
   const terminalOpen = useTaskStore((s) => resolvedTaskId ? s.terminalOpenTasks.has(resolvedTaskId) : false)
   const toggleTerminal = useTaskStore((s) => s.toggleTerminal)
   const queuedMessages = useTaskStore((s) => resolvedTaskId ? s.queuedMessages[resolvedTaskId] ?? EMPTY_QUEUE : EMPTY_QUEUE)
@@ -377,7 +376,6 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
           disabled={inputDisabled}
           disabledReason={disabledReason}
           contextUsage={contextUsage}
-          messageCount={messageCount}
           isRunning={isRunning}
           isActive={isFocusedPanel}
           taskId={resolvedTaskId}

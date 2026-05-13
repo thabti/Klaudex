@@ -20,7 +20,6 @@ interface ChatInputProps {
   disabled?: boolean
   disabledReason?: string
   contextUsage?: { used: number; size: number } | null
-  messageCount?: number
   isRunning?: boolean
   isActive?: boolean
   taskId?: string | null
@@ -44,7 +43,7 @@ interface ChatInputProps {
   isWorktree?: boolean
 }
 
-export const ChatInput = memo(function ChatInput({ disabled, disabledReason, contextUsage, messageCount = 0, isRunning, isActive, taskId, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, autoFocus, hasQueuedMessages, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange, workspace, isCollapsed, onToggleCollapse, isWorktree }: ChatInputProps) {
+export const ChatInput = memo(function ChatInput({ disabled, disabledReason, contextUsage, isRunning, isActive, taskId, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, autoFocus, hasQueuedMessages, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange, workspace, isCollapsed, onToggleCollapse, isWorktree }: ChatInputProps) {
   const {
     value, setValue, textareaRef, containerRef, canSend,
     slashIndex, slashQuery, commands, showPicker,
@@ -127,9 +126,7 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
 
   const contextRingNode = (contextUsage && contextUsage.size > 0)
     ? <ContextRing used={contextUsage.used} size={contextUsage.size} compactionStatus={compactionStatus} />
-    : messageCount > 0
-      ? <ContextRing used={Math.min(messageCount * 3, 95)} size={100} />
-      : null
+    : null
 
   const placeholderText = disabled
     ? (disabledReason ?? 'Task ended')

@@ -1,3 +1,33 @@
+## 2026-05-13 14:10 GST (Dubai)
+
+### ContextRing: Remove inaccurate message-count fallback
+
+Removed the `messageCount * 3` fake percentage shown in the context ring when no real token data was available from the backend. The ring now only renders when actual `contextUsage` data exists. Dropped the now-unused `messageCount` prop from `ChatInput` and its selector/pass-through in `ChatPanel`.
+
+**Modified:** `src/renderer/components/chat/ChatInput.tsx`, `src/renderer/components/chat/ChatPanel.tsx`
+
+---
+
+## 2026-05-13 07:41 GST (Dubai)
+
+### taskStore: Fix random thread cancellation race condition
+
+Threads randomly appeared as `cancelled` when `ipc.cancelTask()` (cleanup during delete/archive) fired after the agent had already completed a turn. The Rust `task_cancel` always sets `status: "cancelled"` and emits `task_update`, which would overwrite a `completed` status set by `turn_end`. Added a guard in `upsertTask` that blocks a backend `task_update(cancelled, messages=[])` from downgrading a task already in a terminal state (`completed` or `error`). Also removed the erroneous `clearHistory` cancel of already-completed tasks, which could cause cancelled ghost tasks to re-appear after a history clear.
+
+**Modified:** `src/renderer/stores/taskStore.ts`
+
+---
+
+## 2026-05-13 GST (Dubai)
+
+### ThreadItem: Active thread hover state
+
+Applied `bg-accent text-foreground` to the active thread list item and added `hover:bg-accent/80` so hovering an already-active thread still gives visual feedback. The `isActive` prop was previously declared but never consumed.
+
+**Modified:** `src/renderer/components/sidebar/ThreadItem.tsx`
+
+---
+
 ## 2026-05-13 GST (Dubai)
 
 ### Tests: Skip claude_cli_integration when CLI not installed
