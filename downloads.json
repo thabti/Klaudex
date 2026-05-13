@@ -1,11 +1,269 @@
 {
-  "updated_at": "2026-05-12T07:26:58Z",
+  "updated_at": "2026-05-13T07:33:29Z",
   "releases": [
+    {
+      "tag": "v1.8.0",
+      "published": "2026-05-12T19:57:39Z",
+      "total": 1,
+      "update_checks": 0,
+      "assets": [
+        {
+          "name": "Klaudex_1.8.0_aarch64.dmg",
+          "downloads": 1,
+          "platform": "macos"
+        },
+        {
+          "name": "Klaudex_1.8.0_amd64.AppImage",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.8.0_amd64.AppImage.tar.gz",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.8.0_amd64.deb",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.8.0_x64-setup.exe",
+          "downloads": 0,
+          "platform": "windows"
+        },
+        {
+          "name": "Klaudex_1.8.0_x64-setup.nsis.zip",
+          "downloads": 0,
+          "platform": "windows"
+        },
+        {
+          "name": "Klaudex_aarch64.app.tar.gz",
+          "downloads": 0,
+          "platform": "macos"
+        }
+      ]
+    },
+    {
+      "tag": "v1.10.0",
+      "published": "2026-05-13T06:04:40Z",
+      "total": 2,
+      "update_checks": 2,
+      "assets": [
+        {
+          "name": "Klaudex_1.10.0_aarch64.dmg",
+          "downloads": 1,
+          "platform": "macos"
+        },
+        {
+          "name": "Klaudex_1.10.0_amd64.AppImage",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.10.0_amd64.AppImage.tar.gz",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.10.0_amd64.deb",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.10.0_x64-setup.exe",
+          "downloads": 0,
+          "platform": "windows"
+        },
+        {
+          "name": "Klaudex_1.10.0_x64-setup.nsis.zip",
+          "downloads": 0,
+          "platform": "windows"
+        },
+        {
+          "name": "Klaudex_aarch64.app.tar.gz",
+          "downloads": 1,
+          "platform": "macos"
+        }
+      ]
+    },
+    {
+      "tag": "v1.9.0",
+      "published": "2026-05-13T06:00:51Z",
+      "total": 2,
+      "update_checks": 0,
+      "assets": [
+        {
+          "name": "Klaudex_1.9.0_aarch64.dmg",
+          "downloads": 1,
+          "platform": "macos"
+        },
+        {
+          "name": "Klaudex_1.9.0_amd64.AppImage",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.9.0_amd64.AppImage.tar.gz",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.9.0_amd64.deb",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.9.0_x64-setup.exe",
+          "downloads": 0,
+          "platform": "windows"
+        },
+        {
+          "name": "Klaudex_1.9.0_x64-setup.nsis.zip",
+          "downloads": 0,
+          "platform": "windows"
+        },
+        {
+          "name": "Klaudex_aarch64.app.tar.gz",
+          "downloads": 1,
+          "platform": "macos"
+        }
+      ]
+    },
+    {
+      "tag": "v1.8.1",
+      "published": "2026-05-13T04:08:24Z",
+      "total": 2,
+      "update_checks": 9,
+      "assets": [
+        {
+          "name": "Klaudex_1.8.1_aarch64.dmg",
+          "downloads": 1,
+          "platform": "macos"
+        },
+        {
+          "name": "Klaudex_1.8.1_amd64.AppImage",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.8.1_amd64.AppImage.tar.gz",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.8.1_amd64.deb",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.8.1_x64-setup.exe",
+          "downloads": 0,
+          "platform": "windows"
+        },
+        {
+          "name": "Klaudex_1.8.1_x64-setup.nsis.zip",
+          "downloads": 0,
+          "platform": "windows"
+        },
+        {
+          "name": "Klaudex_aarch64.app.tar.gz",
+          "downloads": 1,
+          "platform": "macos"
+        }
+      ]
+    },
+    {
+      "tag": "v1.8.0",
+      "published": "2026-05-13T03:33:56Z",
+      "total": 4,
+      "update_checks": 0,
+      "assets": [
+        {
+          "name": "Klaudex_1.8.0_aarch64.dmg",
+          "downloads": 2,
+          "platform": "macos"
+        },
+        {
+          "name": "Klaudex_1.8.0_amd64.AppImage",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.8.0_amd64.AppImage.tar.gz",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.8.0_amd64.deb",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.8.0_x64-setup.exe",
+          "downloads": 0,
+          "platform": "windows"
+        },
+        {
+          "name": "Klaudex_1.8.0_x64-setup.nsis.zip",
+          "downloads": 0,
+          "platform": "windows"
+        },
+        {
+          "name": "Klaudex_aarch64.app.tar.gz",
+          "downloads": 2,
+          "platform": "macos"
+        }
+      ]
+    },
+    {
+      "tag": "v1.6.0",
+      "published": "2026-05-12T19:57:59Z",
+      "total": 1,
+      "update_checks": 1,
+      "assets": [
+        {
+          "name": "Klaudex_1.6.0_aarch64.dmg",
+          "downloads": 1,
+          "platform": "macos"
+        },
+        {
+          "name": "Klaudex_1.6.0_amd64.AppImage",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.6.0_amd64.AppImage.tar.gz",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.6.0_amd64.deb",
+          "downloads": 0,
+          "platform": "linux"
+        },
+        {
+          "name": "Klaudex_1.6.0_x64-setup.exe",
+          "downloads": 0,
+          "platform": "windows"
+        },
+        {
+          "name": "Klaudex_1.6.0_x64-setup.nsis.zip",
+          "downloads": 0,
+          "platform": "windows"
+        },
+        {
+          "name": "Klaudex_aarch64.app.tar.gz",
+          "downloads": 0,
+          "platform": "macos"
+        }
+      ]
+    },
     {
       "tag": "v1.0.1",
       "published": "2026-05-12T04:12:01Z",
       "total": 2,
-      "update_checks": 4,
+      "update_checks": 17,
       "assets": [
         {
           "name": "Klaudex_1.0.1_aarch64.dmg",
@@ -79,9 +337,9 @@
     }
   ],
   "totals": {
-    "all": 2,
-    "update_checks": 7,
-    "macos": 2,
+    "all": 14,
+    "update_checks": 32,
+    "macos": 14,
     "windows": 0,
     "linux": 0
   },
