@@ -1,3 +1,13 @@
+## 2026-05-13 17:30 GST (Dubai)
+
+### Chat: Fix steering message dropped on dying connection
+
+`handleSteer` called `ipc.pauseTask` (fire-and-forget channel send) then immediately called `sendMessageDirect`. Since the `alive` flag on the connection hadn't flipped yet, `task_send_message` saw the connection as live and queued the `Prompt` on a channel whose receiver was already exiting — silently dropping the steering message. Fix: set `needsNewConnection: true` after pause so `sendMessageDirect` always takes the `createTask` reconnect path for steering messages.
+
+**Modified:** `src/renderer/components/chat/ChatPanel.tsx`
+
+---
+
 ## 2026-05-13 14:45 GST (Dubai)
 
 ### Tests: Fix 3 failing tests in debugStore and taskStore

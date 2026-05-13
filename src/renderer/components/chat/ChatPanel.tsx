@@ -279,6 +279,15 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
     state.removeQueuedMessage(id, index)
     await ipc.pauseTask(id)
     useTaskStore.setState((s) => applyTurnEnd(s, id))
+    // Mark needsNewConnection so sendMessageDirect takes the createTask path
+    // instead of ipc.sendMessage. pauseTask sends AcpCommand::Cancel which
+    // kills the subprocess asynchronously; the alive flag may not have flipped
+    // yet when sendMessageDirect runs, causing the Prompt to be queued on a
+    // dying channel and silently dropped.
+    const task = useTaskStore.getState().tasks[id]
+    if (task) {
+      useTaskStore.getState().upsertTask({ ...task, needsNewConnection: true })
+    }
     await sendMessageDirect(id, queued.text, queued.attachments ? [...queued.attachments] : undefined)
   }, [resolvedTaskId])
 
