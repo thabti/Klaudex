@@ -149,6 +149,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
           'flex min-w-0 h-8 w-full cursor-pointer items-center gap-1.5 overflow-hidden rounded-lg px-2 pr-1 text-[13px] select-none',
           'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring transition-colors',
           'text-foreground/80 hover:bg-accent hover:text-foreground',
+          isActive && 'bg-accent text-foreground',
         )}
       >
         {task.isDraft ? (
