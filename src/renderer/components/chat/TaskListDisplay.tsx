@@ -17,6 +17,14 @@ function extractTasks(rawOutput: unknown): TaskItem[] | null {
   const out = rawOutput as Record<string, unknown>
   // Direct shape: { tasks: [...] }
   if (Array.isArray(out.tasks)) return out.tasks as TaskItem[]
+  // TodoWrite shape: { todos: [{ id, content, status, priority }] }
+  if (Array.isArray(out.todos)) {
+    return (out.todos as Record<string, unknown>[]).map((t) => ({
+      id: String(t.id ?? ''),
+      completed: t.status === 'completed',
+      task_description: String(t.content ?? t.task_description ?? ''),
+    }))
+  }
   // Nested shape: { items: [{ Json: { tasks: [...] } }] }
   if (Array.isArray(out.items)) {
     const first = out.items[0] as Record<string, unknown> | undefined
@@ -44,9 +52,15 @@ function extractDescription(rawOutput: unknown): string | null {
 
 /** Check if a tool call is a task list operation */
 export function isTaskListToolCall(tc: ToolCall): boolean {
+  // Claude's native TodoWrite tool — rawInput has a todos array
+  if (tc.title === 'Update TODOs') return true
   if (!tc.rawInput || typeof tc.rawInput !== 'object') return false
   const input = tc.rawInput as Record<string, unknown>
-  return input.command === 'create' || input.command === 'complete' || input.command === 'add' || input.command === 'list'
+  // Custom todo_list MCP tool — command-based API
+  if (input.command === 'create' || input.command === 'complete' || input.command === 'add' || input.command === 'list') return true
+  // TodoWrite fallback — detect by todos array in rawInput
+  if (Array.isArray(input.todos)) return true
+  return false
 }
 
 /** Extract completed_task_ids from a tool call's rawInput or rawOutput */
@@ -75,6 +89,20 @@ export function aggregateLatestTasks(allToolCalls: ToolCall[]): { tasks: TaskIte
 
   for (const tc of allToolCalls) {
     if (!isTaskListToolCall(tc)) continue
+    // TodoWrite sends the full list in rawInput.todos — use that as the authoritative snapshot.
+    // Each call replaces the entire list so we clear and repopulate rather than merging by id.
+    if (tc.rawInput && typeof tc.rawInput === 'object' && Array.isArray((tc.rawInput as Record<string, unknown>).todos)) {
+      taskMap.clear()
+      const tasks = extractTasks(tc.rawInput)
+      if (tasks) for (const t of tasks) taskMap.set(t.id, t)
+      // Also check rawOutput for the confirmed post-write state (may differ if partially applied)
+      const outputTasks = extractTasks(tc.rawOutput)
+      if (outputTasks && outputTasks.length > 0) {
+        taskMap.clear()
+        for (const t of outputTasks) taskMap.set(t.id, t)
+      }
+      continue
+    }
     const tasks = extractTasks(tc.rawOutput)
     const desc = extractDescription(tc.rawOutput)
     if (desc) description = desc

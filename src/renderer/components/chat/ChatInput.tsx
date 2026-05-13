@@ -92,6 +92,20 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
     return () => document.removeEventListener('queue-edit-message', h)
   }, [setValue, textareaRef])
 
+  // Focus input after Escape-pause so user can type new direction immediately
+  useEffect(() => {
+    const h = () => {
+      const el = textareaRef.current
+      if (!el) return
+      requestAnimationFrame(() => {
+        el.focus()
+        el.setSelectionRange(el.value.length, el.value.length)
+      })
+    }
+    document.addEventListener('agent-paused', h)
+    return () => document.removeEventListener('agent-paused', h)
+  }, [textareaRef])
+
   // Listen for Cmd+B btw shortcut — prefill /btw in the input
   useEffect(() => {
     const h = () => {

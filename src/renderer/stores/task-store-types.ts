@@ -127,6 +127,7 @@ export interface TaskStore {
   updateUsage: (taskId: string, used: number, size: number, cost?: number, tokenBreakdown?: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number }) => void
   updateCompactionStatus: (taskId: string, status: CompactionStatus, summary?: string) => void
   clearTurn: (taskId: string) => void
+  pauseAndRedirect: (taskId: string) => void
   enqueueMessage: (taskId: string, message: string, attachments?: IpcAttachment[]) => void
   dequeueMessages: (taskId: string) => QueuedMessage[]
   removeQueuedMessage: (taskId: string, index: number) => void

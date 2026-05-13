@@ -181,3 +181,33 @@ describe('useChatInput ArrowUp queue-edit behaviour', () => {
     expect(remaining[0].text).toBe('second')
   })
 })
+
+describe('useChatInput Escape pause behaviour', () => {
+  it('prevents default when Escape pressed while running', () => {
+    const onSendMessage = vi.fn()
+    const { result } = renderHook(() =>
+      useChatInput({ taskId: 't1', onSendMessage, isRunning: true }),
+    )
+
+    const preventDefault = vi.fn()
+    act(() => {
+      result.current.handleKeyDown({ key: 'Escape', preventDefault, shiftKey: false } as unknown as React.KeyboardEvent)
+    })
+
+    expect(preventDefault).toHaveBeenCalled()
+  })
+
+  it('does not prevent default when task is not running', () => {
+    const onSendMessage = vi.fn()
+    const { result } = renderHook(() =>
+      useChatInput({ taskId: 't1', onSendMessage, isRunning: false }),
+    )
+
+    const preventDefault = vi.fn()
+    act(() => {
+      result.current.handleKeyDown({ key: 'Escape', preventDefault, shiftKey: false } as unknown as React.KeyboardEvent)
+    })
+
+    expect(preventDefault).not.toHaveBeenCalled()
+  })
+})
