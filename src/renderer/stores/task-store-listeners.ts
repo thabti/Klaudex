@@ -9,6 +9,7 @@ import { useDiffStore } from '@/stores/diffStore'
 import { useTaskStore } from './taskStore'
 import type { TaskStore } from './task-store-types'
 import { record } from '@/lib/analytics-collector'
+import { stripImageDataForTitleGen } from '@/lib/message-utils'
 import { getReceiptBus, createTurnQuiescedReceipt, createDiffReadyReceipt } from '@/lib/typed-receipts'
 import * as threadDb from '@/lib/thread-db'
 
@@ -403,7 +404,7 @@ export function initTaskListeners(): () => void {
         const isDefaultName = /^Thread \d{1,2}:\d{2}/.test(t.name)
         const userMessages = t.messages.filter((m) => m.role === 'user')
         if (isDefaultName && userMessages.length === 1) {
-          const firstMsg = userMessages[0].content
+          const firstMsg = stripImageDataForTitleGen(userMessages[0].content)
           titleGenerationInFlight.add(taskId)
           ipc.generateThreadTitle(firstMsg, t.workspace).then(({ title }) => {
             if (title && title.trim()) {

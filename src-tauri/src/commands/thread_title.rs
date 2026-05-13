@@ -59,7 +59,30 @@ pub async fn generate_thread_title(
 
 // ── Prompt ───────────────────────────────────────────────────────────────
 
+/// Strip `<image src="data:..." />` tags from a message. Preserves any
+/// `[Attached image: ...]` annotations so the model knows an image was present.
+fn strip_image_data(message: &str) -> String {
+    let mut result = String::with_capacity(message.len());
+    let mut rest = message;
+    while let Some(start) = rest.find("<image src=\"data:") {
+        result.push_str(&rest[..start]);
+        // Find the closing `/>` after the tag start
+        if let Some(end) = rest[start..].find("/>") {
+            rest = &rest[start + end + 2..];
+        } else {
+            // Malformed tag — skip the rest
+            break;
+        }
+    }
+    result.push_str(rest);
+    result.trim().to_string()
+}
+
 fn build_title_prompt(message: &str, custom_instructions: Option<&str>) -> String {
+    // Strip base64 image tags before truncation so they don't fill the budget
+    let cleaned = strip_image_data(message);
+    let message = if cleaned.is_empty() { "[Image attachment]" } else { &cleaned };
+
     // Cap the message to avoid blowing up the context for very long prompts
     let truncated = if message.len() > 2000 {
         // Find a char boundary at or before 2000 bytes
@@ -262,5 +285,42 @@ mod tests {
         };
         let out = sanitize_title(parsed);
         assert_eq!(out.title, "New thread");
+    }
+
+    #[test]
+    fn strip_image_data_removes_base64_tags() {
+        let input = "Fix bug\n<image src=\"data:image/png;base64,iVBORw0KGgo...\" />";
+        let actual = strip_image_data(input);
+        assert_eq!(actual, "Fix bug");
+    }
+
+    #[test]
+    fn strip_image_data_preserves_annotation() {
+        let input = "[Attached image: shot.png (image/png, 5000 bytes)]\n<image src=\"data:image/png;base64,abc\" />";
+        let actual = strip_image_data(input);
+        assert!(actual.contains("[Attached image:"));
+        assert!(!actual.contains("data:image"));
+    }
+
+    #[test]
+    fn strip_image_data_returns_empty_for_image_only() {
+        let input = "<image src=\"data:image/png;base64,abc123\" />";
+        let actual = strip_image_data(input);
+        assert!(actual.is_empty());
+    }
+
+    #[test]
+    fn build_title_prompt_strips_image_data() {
+        let msg = "Fix login\n<image src=\"data:image/png;base64,longdata\" />";
+        let prompt = build_title_prompt(msg, None);
+        assert!(prompt.contains("Fix login"));
+        assert!(!prompt.contains("data:image"));
+    }
+
+    #[test]
+    fn build_title_prompt_uses_fallback_for_image_only() {
+        let msg = "<image src=\"data:image/png;base64,abc\" />";
+        let prompt = build_title_prompt(msg, None);
+        assert!(prompt.contains("[Image attachment]"));
     }
 }

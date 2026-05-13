@@ -73,7 +73,26 @@ pub async fn rename_worktree_branch(
 
 // ── Prompt ───────────────────────────────────────────────────────────────
 
+/// Strip `<image src="data:..." />` tags from a message.
+fn strip_image_data(message: &str) -> String {
+    let mut result = String::with_capacity(message.len());
+    let mut rest = message;
+    while let Some(start) = rest.find("<image src=\"data:") {
+        result.push_str(&rest[..start]);
+        if let Some(end) = rest[start..].find("/>") {
+            rest = &rest[start + end + 2..];
+        } else {
+            break;
+        }
+    }
+    result.push_str(rest);
+    result.trim().to_string()
+}
+
 fn build_branch_prompt(message: &str, custom_instructions: Option<&str>) -> String {
+    let cleaned = strip_image_data(message);
+    let message = if cleaned.is_empty() { "[Image attachment]" } else { &cleaned };
+
     let truncated = if message.len() > 2000 {
         let mut end = 2000;
         while end > 0 && !message.is_char_boundary(end) {
@@ -274,5 +293,34 @@ mod tests {
         };
         let out = sanitize_branch(parsed);
         assert_eq!(out.branch, "feature-branch");
+    }
+
+    #[test]
+    fn strip_image_data_removes_base64_tags() {
+        let input = "Fix login\n<image src=\"data:image/png;base64,abc123\" />";
+        let actual = strip_image_data(input);
+        assert_eq!(actual, "Fix login");
+    }
+
+    #[test]
+    fn strip_image_data_returns_empty_for_image_only() {
+        let input = "<image src=\"data:image/png;base64,abc\" />";
+        let actual = strip_image_data(input);
+        assert!(actual.is_empty());
+    }
+
+    #[test]
+    fn build_branch_prompt_strips_image_data() {
+        let msg = "Add dark mode\n<image src=\"data:image/png;base64,longdata\" />";
+        let prompt = build_branch_prompt(msg, None);
+        assert!(prompt.contains("Add dark mode"));
+        assert!(!prompt.contains("data:image"));
+    }
+
+    #[test]
+    fn build_branch_prompt_uses_fallback_for_image_only() {
+        let msg = "<image src=\"data:image/png;base64,abc\" />";
+        let prompt = build_branch_prompt(msg, None);
+        assert!(prompt.contains("[Image attachment]"));
     }
 }
