@@ -1,3 +1,11 @@
+## 2026-05-13 12:30 GST (Dubai)
+
+### Chat: Strip image content before thread title generation
+
+`task-store-listeners.ts` now strips `[Image filename]` tags and inline base64 image markdown before passing the first user message to `generateThreadTitle`. Image-only threads no longer skip title generation silently — they fall through the `if (firstMsg)` guard and keep the default name. Branch name generation uses the same cleaned text.
+
+**Modified:** `src/renderer/stores/task-store-listeners.ts`
+
 ## 2026-05-14 08:20 GST (Dubai)
 
 ### Chat: Unit tests and diff patch for steering queue-edit feature
