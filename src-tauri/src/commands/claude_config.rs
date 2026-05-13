@@ -63,6 +63,10 @@ pub struct ClaudeSkill {
     pub name: String,
     pub source: String,
     pub file_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body_excerpt: Option<String>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -257,6 +261,55 @@ fn parse_agent_md(content: &str, file_name: &str, fp: &Path, source: &str) -> Op
     })
 }
 
+/// Split a SKILL.md file's contents into `(frontmatter_yaml, body)`.
+///
+/// Returns `(None, full_content)` if the file does not start with a `---` fence
+/// or the closing `\n---` is missing. Matches the same `---` framing used by
+/// `parse_agent_md` and `parse_steering_frontmatter`, but returns the body so
+/// callers can derive an excerpt independently of the frontmatter parsing.
+fn split_frontmatter(content: &str) -> (Option<&str>, &str) {
+    if !content.starts_with("---") {
+        return (None, content);
+    }
+    let Some(end_idx) = content[3..].find("\n---") else {
+        return (None, content);
+    };
+    let fm = &content[3..3 + end_idx];
+    // Skip past `\n---` (4 chars). The body may then begin with a newline; that's fine —
+    // the excerpt logic trims/filters lines.
+    let body = &content[3 + end_idx + 4..];
+    (Some(fm), body)
+}
+
+/// Produce a short excerpt of a SKILL.md body, skipping heading lines and
+/// truncating to ~200 chars on a UTF-8 char boundary. Matches the spirit of
+/// `parse_steering_frontmatter`'s excerpt logic but with a longer cap so the
+/// Skills Palette can show a meaningful preview.
+fn skill_body_excerpt(body: &str) -> Option<String> {
+    let collected: String = body
+        .lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .take(5)
+        .collect::<Vec<_>>()
+        .join(" ");
+    if collected.is_empty() {
+        return None;
+    }
+    // Char-boundary safe truncation. `floor_char_boundary` is unstable, so walk
+    // backward from the target index until we hit a char boundary.
+    const MAX: usize = 200;
+    if collected.len() <= MAX {
+        Some(collected)
+    } else {
+        let mut cut = MAX;
+        while cut > 0 && !collected.is_char_boundary(cut) {
+            cut -= 1;
+        }
+        Some(collected[..cut].to_string())
+    }
+}
+
 fn scan_skills(base: &Path, is_global: bool) -> Vec<ClaudeSkill> {
     let dir = base.join("skills");
     let Ok(entries) = fs::read_dir(&dir) else { return vec![] };
@@ -270,15 +323,48 @@ fn scan_skills(base: &Path, is_global: bool) -> Vec<ClaudeSkill> {
         })
         .map(|e| {
             let skill_md = e.path().join("SKILL.md");
-            let file_path = if skill_md.exists() {
+            let skill_md_exists = skill_md.exists();
+            let file_path = if skill_md_exists {
                 skill_md.to_string_lossy().to_string()
             } else {
                 e.path().to_string_lossy().to_string()
             };
+
+            // Best-effort frontmatter parse. Failures (missing file, malformed
+            // YAML, non-string description) collapse to `None` — the skill is
+            // still returned so the palette can list it.
+            let (description, body_excerpt) = if skill_md_exists {
+                match fs::read_to_string(&skill_md) {
+                    Ok(content) => {
+                        let (fm, body) = split_frontmatter(&content);
+                        let desc = fm.and_then(|fm_str| {
+                            serde_yaml::from_str::<std::collections::HashMap<String, serde_yaml::Value>>(fm_str)
+                                .ok()
+                                .and_then(|map| {
+                                    map.get("description").and_then(|v| match v {
+                                        // Only accept YAML string scalars. Arrays, maps, and null
+                                        // collapse to None so the frontend never sees junk.
+                                        serde_yaml::Value::String(s) => Some(s.trim().to_string()),
+                                        _ => None,
+                                    })
+                                })
+                                .filter(|s| !s.is_empty())
+                        });
+                        let excerpt = skill_body_excerpt(body);
+                        (desc, excerpt)
+                    }
+                    Err(_) => (None, None),
+                }
+            } else {
+                (None, None)
+            };
+
             ClaudeSkill {
                 name: e.file_name().to_string_lossy().to_string(),
                 source: source.to_string(),
                 file_path,
+                description,
+                body_excerpt,
             }
         })
         .collect()
@@ -1154,5 +1240,119 @@ mod tests {
         let result = super::scan_prompts(tmp.path(), true);
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].source, "global");
+    }
+
+    // ── Skill description + body_excerpt tests (TASK-014) ────────────────────
+
+    #[test]
+    fn scan_skills_extracts_description_from_frontmatter() {
+        let tmp = tempfile::tempdir().unwrap();
+        let skill_dir = tmp.path().join("skills").join("example");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\ndescription: Foo bar\n---\n\nBody paragraph one.\n",
+        )
+        .unwrap();
+        let result = super::scan_skills(tmp.path(), true);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].description, Some("Foo bar".to_string()));
+    }
+
+    #[test]
+    fn scan_skills_returns_none_when_description_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let skill_dir = tmp.path().join("skills").join("example");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\nname: example\n---\n\nBody.\n",
+        )
+        .unwrap();
+        let result = super::scan_skills(tmp.path(), false);
+        assert_eq!(result.len(), 1);
+        assert!(result[0].description.is_none());
+    }
+
+    #[test]
+    fn scan_skills_body_excerpt_truncates_long_body() {
+        let tmp = tempfile::tempdir().unwrap();
+        let skill_dir = tmp.path().join("skills").join("example");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        let long_body = "x".repeat(500);
+        let content = format!("---\ndescription: Long\n---\n\n{}\n", long_body);
+        std::fs::write(skill_dir.join("SKILL.md"), content).unwrap();
+        let result = super::scan_skills(tmp.path(), true);
+        assert_eq!(result.len(), 1);
+        let excerpt = result[0]
+            .body_excerpt
+            .as_ref()
+            .expect("body_excerpt should be Some for non-empty body");
+        // skill_body_excerpt caps at MAX = 200 bytes on a UTF-8 char boundary.
+        assert!(
+            excerpt.len() <= 200,
+            "excerpt length {} exceeded 200-byte cap",
+            excerpt.len()
+        );
+    }
+
+    #[test]
+    fn scan_skills_body_excerpt_skips_headings() {
+        let tmp = tempfile::tempdir().unwrap();
+        let skill_dir = tmp.path().join("skills").join("example");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\ndescription: Test\n---\n\n# Heading 1\n## Heading 2\nReal body line.\nMore body.\n",
+        )
+        .unwrap();
+        let result = super::scan_skills(tmp.path(), true);
+        assert_eq!(result.len(), 1);
+        let excerpt = result[0]
+            .body_excerpt
+            .as_ref()
+            .expect("body_excerpt should be Some");
+        assert!(
+            !excerpt.contains("Heading 1"),
+            "excerpt should not contain heading line: {excerpt:?}"
+        );
+        assert!(
+            !excerpt.contains("Heading 2"),
+            "excerpt should not contain heading line: {excerpt:?}"
+        );
+        assert!(excerpt.contains("Real body line."));
+    }
+
+    #[test]
+    fn scan_skills_single_character_description() {
+        let tmp = tempfile::tempdir().unwrap();
+        let skill_dir = tmp.path().join("skills").join("example");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\ndescription: x\n---\n\nBody.\n",
+        )
+        .unwrap();
+        let result = super::scan_skills(tmp.path(), true);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].description, Some("x".to_string()));
+    }
+
+    #[test]
+    fn scan_skills_malformed_yaml_returns_skill_with_none_description() {
+        let tmp = tempfile::tempdir().unwrap();
+        let skill_dir = tmp.path().join("skills").join("example");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\ndescription: [this: is, malformed: yaml\n---\n\nBody.\n",
+        )
+        .unwrap();
+        let result = super::scan_skills(tmp.path(), true);
+        assert_eq!(result.len(), 1, "skill must still be listed even with malformed YAML");
+        assert!(
+            result[0].description.is_none(),
+            "malformed YAML must collapse to None, not panic or be skipped"
+        );
     }
 }

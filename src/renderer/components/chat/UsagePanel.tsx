@@ -12,7 +12,7 @@ export const formatTokens = (n: number): string => {
 }
 
 /** Format cost as USD with appropriate decimal places */
-const formatCost = (cost: number): string => {
+export const formatCost = (cost: number): string => {
   if (cost < 0.01) return `$${cost.toFixed(4)}`
   if (cost < 1) return `$${cost.toFixed(3)}`
   return `$${cost.toFixed(2)}`

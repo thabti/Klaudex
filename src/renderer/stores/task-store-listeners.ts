@@ -135,6 +135,7 @@ export const parseSubagents = (raw: unknown[]): SubagentInfo[] =>
       dependsOn: Array.isArray(item.depends_on) ? item.depends_on.filter((d): d is string => typeof d === 'string') : undefined,
       currentToolCall: typeof item.currentToolCall === 'string' ? item.currentToolCall : undefined,
       isThinking: typeof item.isThinking === 'boolean' ? item.isThinking : undefined,
+      parent: typeof item.parent === 'string' ? item.parent : undefined,
       raw: item,
     }
   })

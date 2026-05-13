@@ -15,6 +15,7 @@ const SplitChatLayout = lazy(() =>
   import("@/components/chat/SplitChatLayout").then((m) => ({ default: m.SplitChatLayout })),
 );
 import { PendingChat } from "@/components/chat/PendingChat";
+import { SkillsPalette } from "@/components/chat/SkillsPalette";
 import { NewProjectSheet } from "@/components/task/NewProjectSheet";
 import { ipc } from "@/lib/ipc";
 const SettingsPanel = lazy(() =>
@@ -760,6 +761,9 @@ export function App() {
       <UpdateAvailableDialog />
       <WorktreeCleanupDialog />
       <CloneRepoDialog open={isCloneDialogOpen} onOpenChange={setIsCloneDialogOpen} />
+      <ErrorBoundary>
+        <SkillsPalette />
+      </ErrorBoundary>
       <ErrorBoundary>
         <GlobalFilePreviewModal />
       </ErrorBoundary>

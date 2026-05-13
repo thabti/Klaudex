@@ -15,6 +15,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { OpenInEditorGroup } from "@/components/OpenInEditorGroup"
 import { GitActionsGroup } from "@/components/GitActionsGroup"
 import { SplitThreadPicker } from "@/components/chat/SplitThreadPicker"
+import { ContextRing } from "@/components/chat/ContextRing"
 import { ipc } from "@/lib/ipc"
 import { cn } from "@/lib/utils"
 import { useFileTreeStore } from "@/stores/fileTreeStore"
@@ -124,6 +125,12 @@ export const HeaderToolbar = memo(function HeaderToolbar({
     selectedTaskId ? s.terminalOpenTasks.has(selectedTaskId) : false,
   )
   const toggleTerminal = useTaskStore((s) => s.toggleTerminal)
+  const contextUsage = useTaskStore((s) =>
+    selectedTaskId ? s.tasks[selectedTaskId]?.contextUsage : null,
+  )
+  const compactionStatus = useTaskStore((s) =>
+    selectedTaskId ? s.tasks[selectedTaskId]?.compactionStatus : undefined,
+  )
 
   const [diffStats, setDiffStats] = useState({
     additions: 0,
@@ -191,6 +198,14 @@ export const HeaderToolbar = memo(function HeaderToolbar({
         <div className="h-4 w-px bg-white/[0.06]" />
         <SplitToggleButton />
       </div>
+
+      {contextUsage && contextUsage.size > 0 && (
+        <ContextRing
+          used={contextUsage.used}
+          size={contextUsage.size}
+          compactionStatus={compactionStatus}
+        />
+      )}
 
       {/* Git section — far right with accent */}
       <div className="flex items-center rounded-lg bg-emerald-500/[0.06]">

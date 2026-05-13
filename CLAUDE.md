@@ -280,6 +280,14 @@ The `Result` message handler previously emitted only the aggregate `used` count.
 
 Tools arriving as `mcp__server__tool_name` were previously displayed verbatim. The `tool_title_and_kind` fallback arm now strips the `mcp__` prefix, splits on the first `__` to separate server from tool name, replaces underscores with spaces in the tool portion, and formats as `"server: tool name"`. Non-MCP unknown tools also get underscore-to-space replacement. The first short string argument (≤ 120 chars) from the input JSON is appended as context. Empty tool names fall back to `"Tool"`.
 
+### Skills palette command pattern
+
+Cmd+K-style palettes follow the established pattern: reuse the `splash-insert` CustomEvent (dispatched from the `EmptyThreadSplash.tsx` listener in `ChatInput.tsx:87-102`), reuse the `fuzzy-search` lib (`lib/fuzzy-search.ts::fuzzyScore`, lower is better, exact-prefix returns 1), and Radix `Dialog` for the modal. Always close the palette via `getState().close()` from inside the invoke handler — not via the modal's `onOpenChange` — to avoid stale state when invocation needs to fire side effects. Reactively-subscribed `useStore(...)` selectors inside an invoke handler cause re-renders during a one-shot dispatch and should be avoided in favour of `getState()` reads.
+
+### Subagent nested tree rendering
+
+When walking parent-pointer trees from arbitrary external data (e.g., ACP subagent payloads), detect circular references before rendering via a per-walk visited-set; emit `console.warn` and fall back to a flat layout if a cycle is found. Elapsed-time clocks must tick from the first `running` transition only — never from `pending` (which would falsely tick during queue time) and never from `completed`/`failed`. Always clean up `setInterval` via the `useEffect` cleanup return — both on unmount AND on each dependency change away from `running`.
+
 ## Activity log
 
 After completing any task, update `activity.md` at the project root before finishing.

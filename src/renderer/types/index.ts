@@ -326,6 +326,8 @@ export interface ClaudeSkill {
   name: string
   source: 'global' | 'local'
   filePath: string
+  description?: string
+  bodyExcerpt?: string
 }
 
 export interface ClaudeSteeringRule {
@@ -384,6 +386,7 @@ export interface SubagentInfo {
   readonly dependsOn?: readonly string[]
   readonly currentToolCall?: string
   readonly isThinking?: boolean
+  readonly parent?: string
   readonly raw: unknown
 }
 

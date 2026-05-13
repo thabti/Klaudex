@@ -1,6 +1,8 @@
 import { memo, useId } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { useTaskStore } from '@/stores/taskStore'
+import { formatTokens, formatCost } from './UsagePanel'
 import type { CompactionStatus } from '@/types'
 
 type ColorTier = {
@@ -28,6 +30,12 @@ export const ContextRing = memo(function ContextRing({ used, size, compactionSta
   const isCompacting = compactionStatus === 'compacting'
   const gradId = useId()
 
+  // Narrow selectors for tooltip extras (breakdown, cost, message count)
+  const taskId = useTaskStore((s) => s.selectedTaskId)
+  const breakdown = useTaskStore((s) => (taskId ? s.tasks[taskId]?.contextUsage ?? null : null))
+  const cost = useTaskStore((s) => (taskId ? s.tasks[taskId]?.totalCost ?? 0 : 0))
+  const messageCount = useTaskStore((s) => (taskId ? s.tasks[taskId]?.messages?.length ?? 0 : 0))
+
   const tier: ColorTier =
     isCompacting ? TIERS.compacting :
     pct < 50 ? TIERS.low :
@@ -36,11 +44,21 @@ export const ContextRing = memo(function ContextRing({ used, size, compactionSta
 
   const isHot = !isCompacting && pct >= 80
 
-  const tooltipText = isCompacting
-    ? 'Compacting context...'
-    : isPercentage
-      ? `Context window ${pct}% used`
-      : `Context: ${pct}% (${Math.round(used / 1000)}k / ${Math.round(size / 1000)}k tokens)`
+  // Auto-compact estimate using messages.length / 2 as a turn proxy.
+  const turnsSoFar = Math.max(1, Math.floor(messageCount / 2))
+  const avgPctPerTurn = pct / turnsSoFar
+  const turnsUntilCompact = avgPctPerTurn > 0
+    ? Math.max(0, Math.floor((100 - pct) / avgPctPerTurn))
+    : 5
+  const compactLabel = pct >= 95 || turnsUntilCompact === 0 ? 'soon' : `~${turnsUntilCompact} turns`
+
+  const hasBreakdown =
+    !!breakdown && (
+      breakdown.inputTokens != null ||
+      breakdown.outputTokens != null ||
+      breakdown.cacheReadTokens != null ||
+      breakdown.cacheCreationTokens != null
+    )
 
   return (
     <Tooltip>
@@ -76,7 +94,23 @@ export const ContextRing = memo(function ContextRing({ used, size, compactionSta
           </span>
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top" className="text-[11px]">{tooltipText}</TooltipContent>
+      <TooltipContent side="top" className="max-w-[280px] text-[11px] space-y-1">
+        <div className="font-medium">
+          {isCompacting
+            ? 'Compacting context…'
+            : `Context: ${pct}% used · ${Math.round(used / 1000)}k / ${Math.round(size / 1000)}k tokens`}
+        </div>
+        {hasBreakdown && breakdown && (
+          <div className="grid grid-cols-2 gap-x-3 text-muted-foreground">
+            {breakdown.inputTokens != null && <span>input: {formatTokens(breakdown.inputTokens)}</span>}
+            {breakdown.outputTokens != null && <span>output: {formatTokens(breakdown.outputTokens)}</span>}
+            {breakdown.cacheReadTokens != null && <span>cache read: {formatTokens(breakdown.cacheReadTokens)}</span>}
+            {breakdown.cacheCreationTokens != null && <span>cache write: {formatTokens(breakdown.cacheCreationTokens)}</span>}
+          </div>
+        )}
+        {cost > 0 && <div className="text-muted-foreground">cost: {formatCost(cost)}</div>}
+        {!isCompacting && <div className="text-muted-foreground">auto-compact in {compactLabel}</div>}
+      </TooltipContent>
     </Tooltip>
   )
 })

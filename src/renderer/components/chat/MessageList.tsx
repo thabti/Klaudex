@@ -260,6 +260,29 @@ export const MessageList = memo(function MessageList({
     }
   }, [activeMatchId, timelineRows, virtualizer])
 
+  // Cross-component scroll bridge: subagent cards (and other peers) dispatch a
+  // `chat-scroll-to` CustomEvent on `document` carrying `{ messageId }`. We
+  // resolve it against `timelineRows` and scroll the virtualizer to centre the
+  // matching row. The match is exact on `row.id`, with a `${id}-` prefix
+  // fallback so a caller dispatching the grouped row id (e.g. `msg-3-work`)
+  // still resolves when the message rendered inline (e.g. `msg-3-work-0`).
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const ce = e as CustomEvent<{ messageId: string }>
+      const id = ce.detail?.messageId
+      if (!id) return
+      let idx = timelineRows.findIndex((r) => r.id === id)
+      if (idx < 0) {
+        const prefix = `${id}-`
+        idx = timelineRows.findIndex((r) => r.id.startsWith(prefix))
+      }
+      if (idx < 0) return
+      virtualizer.scrollToIndex(idx, { align: 'center', behavior: 'smooth' })
+    }
+    document.addEventListener('chat-scroll-to', handler)
+    return () => document.removeEventListener('chat-scroll-to', handler)
+  }, [timelineRows, virtualizer])
+
   if (!timelineRows.length) {
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground">
