@@ -1,5 +1,19 @@
 # Changelog
 
+## [v1.12.0] - 2026-05-13
+
+### Features
+
+- full light mode support across UI components ([`2b57df1`](https://github.com/thabti/klaudex/commit/2b57df1a64f153a5ea40fb8070c0237c09c66ec7))
+
+### Bug fixes
+
+- strip HTML image tags before title generation ([`c0377cf`](https://github.com/thabti/klaudex/commit/c0377cf0a5429d0a27413755a6c8b637815b99b4))
+
+### Refactoring
+
+- invert thread active state and hide project actions until hover ([`e73f3f0`](https://github.com/thabti/klaudex/commit/e73f3f004559b51de7bae827661f624c942f5cd9))
+
 ## [v1.11.0] - 2026-05-13
 
 ### Features
