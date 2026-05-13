@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.47.0] - 2026-05-13
+
+### Features
+
+- expanded emoji picker, favicon name hiding, queue message editing ([`f8c9060`](https://github.com/thabti/kirodex/commit/f8c906006fc6f715d955484a444c9b4dc8e40122))
+
 ## [v0.46.0] - 2026-05-12
 
 ### Bug fixes
