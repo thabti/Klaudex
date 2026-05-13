@@ -108,8 +108,7 @@ export function useKeyboardShortcuts() {
         const task = id ? state.tasks[id] : null
         if (task?.status === 'running') {
           e.preventDefault()
-          ipc.pauseTask(task.id)
-          state.clearTurn(task.id)
+          useTaskStore.getState().pauseAndRedirect(task.id)
           return
         }
       }

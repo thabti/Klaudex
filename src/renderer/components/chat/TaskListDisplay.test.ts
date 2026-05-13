@@ -10,6 +10,14 @@ const makeToolCall = (overrides?: Partial<ToolCall>): ToolCall => ({
 })
 
 describe('isTaskListToolCall', () => {
+  it('returns true for TodoWrite title', () => {
+    expect(isTaskListToolCall(makeToolCall({ title: 'Update TODOs', rawInput: { todos: [] } }))).toBe(true)
+  })
+
+  it('returns true for rawInput with todos array', () => {
+    expect(isTaskListToolCall(makeToolCall({ rawInput: { todos: [{ id: '1', content: 'Task', status: 'pending', priority: 'medium' }] } }))).toBe(true)
+  })
+
   it('returns true for create command', () => {
     expect(isTaskListToolCall(makeToolCall({ rawInput: { command: 'create' } }))).toBe(true)
   })
@@ -141,6 +149,48 @@ describe('aggregateLatestTasks', () => {
     })
     const result = aggregateLatestTasks([tc1, tc2])
     expect(result.tasks[0].completed).toBe(true)
+  })
+
+  it('renders TodoWrite todos from rawInput', () => {
+    const tc = makeToolCall({
+      title: 'Update TODOs',
+      rawInput: {
+        todos: [
+          { id: '1', content: 'Write tests', status: 'pending', priority: 'high' },
+          { id: '2', content: 'Fix bug', status: 'completed', priority: 'medium' },
+        ],
+      },
+    })
+    const result = aggregateLatestTasks([tc])
+    expect(result.tasks).toHaveLength(2)
+    expect(result.tasks[0].task_description).toBe('Write tests')
+    expect(result.tasks[0].completed).toBe(false)
+    expect(result.tasks[1].task_description).toBe('Fix bug')
+    expect(result.tasks[1].completed).toBe(true)
+  })
+
+  it('TodoWrite later call replaces earlier list entirely', () => {
+    const tc1 = makeToolCall({
+      title: 'Update TODOs',
+      rawInput: {
+        todos: [
+          { id: '1', content: 'Old task', status: 'pending', priority: 'high' },
+        ],
+      },
+    })
+    const tc2 = makeToolCall({
+      title: 'Update TODOs',
+      rawInput: {
+        todos: [
+          { id: '1', content: 'Old task', status: 'completed', priority: 'high' },
+          { id: '2', content: 'New task', status: 'pending', priority: 'medium' },
+        ],
+      },
+    })
+    const result = aggregateLatestTasks([tc1, tc2])
+    expect(result.tasks).toHaveLength(2)
+    expect(result.tasks[0].completed).toBe(true)
+    expect(result.tasks[1].task_description).toBe('New task')
   })
 
   it('skips non-task-list tool calls', () => {

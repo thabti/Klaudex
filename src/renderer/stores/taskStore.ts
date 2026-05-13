@@ -287,6 +287,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         && prev.worktreePath === (task.worktreePath ?? prev.worktreePath)
         && prev.originalWorkspace === (task.originalWorkspace ?? prev.originalWorkspace)
         && prev.projectId === (task.projectId ?? prev.projectId)
+        && prev.needsNewConnection === task.needsNewConnection
       ) {
         return state
       }
@@ -299,6 +300,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         ...(prev?.worktreePath && !task.worktreePath ? { worktreePath: prev.worktreePath } : {}),
         ...(prev?.originalWorkspace && !task.originalWorkspace ? { originalWorkspace: prev.originalWorkspace } : {}),
         ...(prev?.projectId && !task.projectId ? { projectId: prev.projectId } : {}),
+        // needsNewConnection is frontend-only — backend events must never clobber it
+        ...(prev?.needsNewConnection && !task.needsNewConnection ? { needsNewConnection: prev.needsNewConnection } : {}),
       }
       const statusChanged = !prev || prev.status !== task.status
       if (statusChanged) {
@@ -743,6 +746,20 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         liveToolSplits: { ...state.liveToolSplits, [taskId]: [] },
       }
     }),
+
+  pauseAndRedirect: (taskId: string) => {
+    ipc.pauseTask(taskId).catch(() => {})
+    get().clearTurn(taskId)
+    // Set flag directly via setState to avoid upsertTask's bail-out guard and
+    // ensure no backend task_update event can clobber it between now and the
+    // next user message (preservation list in upsertTask covers that race).
+    set((state) => {
+      const task = state.tasks[taskId]
+      if (!task || task.needsNewConnection) return state
+      return { tasks: { ...state.tasks, [taskId]: { ...task, needsNewConnection: true } } }
+    })
+    document.dispatchEvent(new CustomEvent('agent-paused'))
+  },
 
   enqueueMessage: (taskId, message, attachments) =>
     set((state) => ({

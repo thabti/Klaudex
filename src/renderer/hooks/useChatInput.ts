@@ -50,7 +50,7 @@ interface UseChatInputOptions {
   onMentionedFilesChange?: (files: ProjectFile[]) => void
 }
 
-export function useChatInput({ disabled, isRunning, isActive, taskId: taskIdProp, workspace, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, onSendMessage, onPause, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange }: UseChatInputOptions) {
+export function useChatInput({ disabled, isRunning, isActive, taskId: taskIdProp, workspace, initialValue, initialAttachments, initialFolderPaths, initialPastedChunks, initialMentionedFiles, onSendMessage, onDraftChange, onAttachmentsChange, onFolderPathsChange, onPastedChunksChange, onMentionedFilesChange }: UseChatInputOptions) {
   const [value, setValue] = useState(initialValue ?? '')
   const [slashIndex, setSlashIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -476,12 +476,12 @@ export function useChatInput({ disabled, isRunning, isActive, taskId: taskIdProp
       }
     }
 
-    if (e.key === 'Escape' && isRunning && onPause) { e.preventDefault(); onPause(); return }
+    if (e.key === 'Escape' && isRunning) { e.preventDefault(); return }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
     }
-  }, [panel, dismissPanel, showFilePicker, mentionBag, showPicker, filteredCmds, slashIndex, handleSend, handleSelectCommand, isRunning, onPause, value, resize])
+  }, [panel, dismissPanel, showFilePicker, mentionBag, showPicker, filteredCmds, slashIndex, handleSend, handleSelectCommand, isRunning, value, resize])
 
   const handleSelect = useCallback(() => {
     if (showPicker || showFilePicker) return

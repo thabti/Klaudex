@@ -334,7 +334,7 @@ export const ChatPanel = memo(function ChatPanel({ taskId: taskIdProp }: ChatPan
   }, [resolvedTaskId])
 
   const handlePause = useCallback(() => {
-    if (resolvedTaskId) ipc.pauseTask(resolvedTaskId)
+    if (resolvedTaskId) useTaskStore.getState().pauseAndRedirect(resolvedTaskId)
   }, [resolvedTaskId])
 
   if (!taskStatus) {

@@ -1,3 +1,43 @@
+## 2026-05-13 23:30 GST (Dubai)
+
+### Icons: Replace Anthropic lettermark with Claude face logo
+
+Swapped the `AnthropicIcon` in `model-icons.tsx` from the orange "A" lettermark to the official Claude face/butterfly SVG logo. Used `clipPath` (JSX-correct) and `currentColor` throughout so the icon adapts to dark/light mode. Applies to both `anthropic` and `claude` provider entries in `ICON_MAP`.
+
+**Modified:** `src/renderer/lib/model-icons.tsx`
+
+---
+
+## 2026-05-13 23:00 GST (Dubai)
+
+### Fix: TaskListDisplay not rendering for Claude's native TodoWrite tool
+
+`isTaskListToolCall` only matched the custom `todo_list` MCP tool (command-based API). Claude's built-in `TodoWrite` has a different shape (`rawInput.todos` array, `status`/`content` fields instead of `completed`/`task_description`) and was silently skipped. Fixed: `isTaskListToolCall` now also matches `title === 'Update TODOs'` and `rawInput.todos` array presence. `extractTasks` normalises the `TodoWrite` output shape. `aggregateLatestTasks` treats `TodoWrite` calls as full list replacements (clear + repopulate) since each call sends the complete state. Added 4 new tests (21 total, all pass).
+
+**Modified:** `src/renderer/components/chat/TaskListDisplay.tsx`, `src/renderer/components/chat/TaskListDisplay.test.ts`
+
+---
+
+## 2026-05-13 22:30 GST (Dubai)
+
+### Security: Full Rust backend security audit
+
+Ran a full security audit of all Rust backend modules in `src-tauri/src/`, mirroring the kirodex `SECURITY_AUDIT.md` format. Found 3 Critical (sandbox unwired C2, renderer-spawnable stdio MCP subprocess C3, root-path sandbox bypass C1), 5 High (osascript injection in `project_watcher.rs`, unrestricted file reads, git shell-out, `claude_bin` missing allowlist), 9 Medium, and 10 Low findings. Updated `SECURITY_AUDIT.md` with detailed findings, code locations, and a 20-item prioritized fix table.
+
+**Modified:** `SECURITY_AUDIT.md`
+
+---
+
+## 2026-05-13 21:30 GST (Dubai)
+
+### Refactor: consolidate pause logic into pauseAndRedirect store action
+
+Architecture review found three problems: pause button vs Escape had divergent behavior (pause button didn't set needsNewConnection), backend task_update events could clobber needsNewConnection (not in upsertTask preservation list), and upsertTask was wrong mechanism for a frontend-only flag. Fix: added `pauseAndRedirect(taskId)` store action that owns the full sequence (ipc.pauseTask + clearTurn + needsNewConnection + agent-paused event). Both useKeyboardShortcuts Escape and ChatPanel.handlePause now call the same action. Removed redundant onPause call from useChatInput Escape handler.
+
+**Modified:** `src/renderer/stores/taskStore.ts`, `src/renderer/stores/task-store-types.ts`, `src/renderer/hooks/useKeyboardShortcuts.ts`, `src/renderer/components/chat/ChatPanel.tsx`, `src/renderer/hooks/useChatInput.ts`, `src/renderer/hooks/useKeyboardShortcuts.test.ts`, `src/renderer/hooks/useChatInput.test.ts`
+
+---
+
 ## 2026-05-13 21:00 GST (Dubai)
 
 ### Tests: unit tests for Escape-pause + redirect feature
