@@ -66,7 +66,7 @@ export const ProjectItem = memo(function ProjectItem({
     <li
       className={cn(
         'group/menu-item relative min-w-0 rounded-md transition-colors',
-        isActiveProject && 'bg-muted/50',
+        isActiveProject && 'bg-primary/8 dark:bg-primary/10',
       )}
     >
       <div className="relative flex items-center">

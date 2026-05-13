@@ -168,9 +168,10 @@ const SplitViewsList = memo(function SplitViewsList() {
                 onClick={() => setActiveSplit(sv.id)}
                 className={cn(
                   'flex min-w-0 h-8 w-full items-center gap-2 rounded-lg px-2 text-[12px] select-none transition-colors',
+                  'border-l-2',
                   isActive
-                    ? 'bg-violet-500/10 text-foreground font-medium'
-                    : 'text-muted-foreground hover:bg-violet-500/5 hover:text-foreground',
+                    ? 'bg-violet-500/15 dark:bg-violet-500/40 text-foreground font-medium border-violet-500/60 dark:border-violet-400'
+                    : 'text-muted-foreground hover:bg-violet-500/10 hover:text-foreground border-transparent',
                 )}
               >
                 <IconLayoutColumns className={cn('size-3.5 shrink-0', isActive ? 'text-violet-400' : 'text-violet-400/50')} />
@@ -219,9 +220,10 @@ const PinnedThreadsList = memo(function PinnedThreadsList({ selectedTaskId, onSe
                 onClick={() => onSelect(task.id)}
                 className={cn(
                   'flex min-w-0 h-7 w-full items-center gap-1.5 rounded-lg px-2 text-[12px] select-none transition-colors',
+                  'border-l-2',
                   isActive
-                    ? 'bg-muted/60 dark:bg-muted/40 text-foreground font-medium'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                    ? 'bg-primary/20 dark:bg-primary/50 text-foreground font-medium hover:bg-primary/25 dark:hover:bg-primary/55 border-primary/70 dark:border-primary'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground border-transparent',
                 )}
               >
                 <span className="min-w-0 truncate">{task.name}</span>

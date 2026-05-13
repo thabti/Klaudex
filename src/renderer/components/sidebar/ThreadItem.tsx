@@ -148,7 +148,8 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
         className={cn(
           'flex min-w-0 h-8 w-full cursor-pointer items-center gap-1.5 overflow-hidden rounded-lg px-2 pr-1 text-[13px] select-none',
           'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring transition-colors',
-          isActive ? 'bg-accent text-foreground hover:bg-accent/80' : 'text-foreground/80 hover:bg-accent hover:text-foreground',
+          'border-l-2',
+          isActive ? 'bg-primary/20 dark:bg-primary/50 text-foreground font-medium hover:bg-primary/25 dark:hover:bg-primary/55 border-primary/70 dark:border-primary' : 'text-foreground/80 hover:bg-accent hover:text-foreground border-transparent',
         )}
       >
         {task.isDraft ? (

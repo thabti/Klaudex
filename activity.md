@@ -1,3 +1,23 @@
+## 2026-05-13 21:00 GST (Dubai)
+
+### Tests: unit tests for Escape-pause + redirect feature
+
+Added 7 tests to `useKeyboardShortcuts.test.ts` (new file) covering the Escape → pause flow: `ipc.pauseTask` called, `needsNewConnection` set, `agent-paused` event fired, streaming cleared, and three no-op cases. Added 3 tests to `useChatInput.test.ts` covering `onPause` call via Escape key. Fixed a bug in `upsertTask`'s bail-out guard that silently dropped `needsNewConnection` changes since it wasn't in the equality check.
+
+**Modified:** `src/renderer/hooks/useKeyboardShortcuts.test.ts` (new), `src/renderer/hooks/useChatInput.test.ts`, `src/renderer/stores/taskStore.ts`
+
+---
+
+## 2026-05-13 20:45 GST (Dubai)
+
+### Sidebar: Tune active state for light and dark modes separately
+
+`bg-primary/50` was too heavy/garish on the warm cream light sidebar. Split into per-theme values: light uses `bg-primary/20` + `border-primary/70`, dark keeps `bg-primary/50` + `border-primary`. Split-view uses `bg-violet-500/15 dark:bg-violet-500/40` with matching border variants. Project wrapper uses `bg-primary/8 dark:bg-primary/10`.
+
+**Modified:** `src/renderer/components/sidebar/ThreadItem.tsx`, `src/renderer/components/sidebar/TaskSidebar.tsx`, `src/renderer/components/sidebar/ProjectItem.tsx`
+
+---
+
 ## 2026-05-13 20:30 GST (Dubai)
 
 ### Sidebar: Fix WCAG active state contrast violations
