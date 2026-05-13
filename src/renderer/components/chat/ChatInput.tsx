@@ -73,6 +73,25 @@ export const ChatInput = memo(function ChatInput({ disabled, disabledReason, con
     return () => document.removeEventListener('slash-upload', h)
   }, [fileInputRef])
 
+  // Listen for queue-edit-message (edit icon or ArrowUp from queue)
+  useEffect(() => {
+    const h = (e: Event) => {
+      const text = (e as CustomEvent<{ text: string }>).detail?.text
+      if (!text) return
+      setValue(text)
+      requestAnimationFrame(() => {
+        const el = textareaRef.current
+        if (!el) return
+        el.focus()
+        el.setSelectionRange(text.length, text.length)
+        el.style.height = 'auto'
+        el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+      })
+    }
+    document.addEventListener('queue-edit-message', h)
+    return () => document.removeEventListener('queue-edit-message', h)
+  }, [setValue, textareaRef])
+
   // Listen for Cmd+B btw shortcut — prefill /btw in the input
   useEffect(() => {
     const h = () => {

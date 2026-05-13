@@ -435,6 +435,19 @@ export function useChatInput({ disabled, isRunning, isActive, taskId: taskIdProp
       const s = useTaskStore.getState()
       const resolvedId = taskIdProp ?? s.selectedTaskId
       const task = resolvedId ? s.tasks[resolvedId] : null
+
+      // ArrowUp on empty input → pull top queued message into editor
+      if (e.key === 'ArrowUp' && !value.trim() && historyIndexRef.current === -1) {
+        const queue = resolvedId ? (s.queuedMessages[resolvedId] ?? []) : []
+        if (queue.length > 0) {
+          e.preventDefault()
+          const top = queue[0]
+          s.removeQueuedMessage(resolvedId!, 0)
+          document.dispatchEvent(new CustomEvent('queue-edit-message', { detail: { text: top.text } }))
+          return
+        }
+      }
+
       const msgs = task ? task.messages.filter((m) => m.role === 'user').map((m) => m.content) : []
       if (msgs.length > 0) {
         const el = textareaRef.current

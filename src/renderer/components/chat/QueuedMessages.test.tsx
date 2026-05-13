@@ -43,4 +43,66 @@ describe('QueuedMessages', () => {
     render(wrap(<QueuedMessages messages={messages} onRemove={vi.fn()} />))
     expect(screen.getByText('Image attachment')).toBeInTheDocument()
   })
+
+  describe('onEdit', () => {
+    it('renders edit button when onEdit is provided', () => {
+      render(wrap(<QueuedMessages messages={[{ text: 'hello' }]} onRemove={vi.fn()} onEdit={vi.fn()} />))
+      expect(screen.getByLabelText('Edit queued message 1')).toBeInTheDocument()
+    })
+
+    it('does not render edit button when onEdit is omitted', () => {
+      render(wrap(<QueuedMessages messages={[{ text: 'hello' }]} onRemove={vi.fn()} />))
+      expect(screen.queryByLabelText('Edit queued message 1')).toBeNull()
+    })
+
+    it('calls onEdit with correct index when clicked', () => {
+      const onEdit = vi.fn()
+      const messages: QueuedMessage[] = [{ text: 'first' }, { text: 'second' }]
+      render(wrap(<QueuedMessages messages={messages} onRemove={vi.fn()} onEdit={onEdit} />))
+      fireEvent.click(screen.getByLabelText('Edit queued message 2'))
+      expect(onEdit).toHaveBeenCalledWith(1)
+    })
+
+    it('renders one edit button per queued message', () => {
+      const messages: QueuedMessage[] = [{ text: 'a' }, { text: 'b' }, { text: 'c' }]
+      render(wrap(<QueuedMessages messages={messages} onRemove={vi.fn()} onEdit={vi.fn()} />))
+      expect(screen.getAllByRole('button', { name: /Edit queued message/ })).toHaveLength(3)
+    })
+  })
+
+  describe('reorder buttons', () => {
+    it('renders reorder buttons when 2+ messages and onReorder provided', () => {
+      const messages: QueuedMessage[] = [{ text: 'a' }, { text: 'b' }]
+      render(wrap(<QueuedMessages messages={messages} onRemove={vi.fn()} onReorder={vi.fn()} />))
+      expect(screen.getByLabelText('Move "a" up')).toBeInTheDocument()
+      expect(screen.getByLabelText('Move "a" down')).toBeInTheDocument()
+    })
+
+    it('does not render reorder buttons for single message', () => {
+      render(wrap(<QueuedMessages messages={[{ text: 'only' }]} onRemove={vi.fn()} onReorder={vi.fn()} />))
+      expect(screen.queryByLabelText(/Move/)).toBeNull()
+    })
+
+    it('calls onReorder with correct indices', () => {
+      const onReorder = vi.fn()
+      const messages: QueuedMessage[] = [{ text: 'first' }, { text: 'second' }]
+      render(wrap(<QueuedMessages messages={messages} onRemove={vi.fn()} onReorder={onReorder} />))
+      fireEvent.click(screen.getByLabelText('Move "second" up'))
+      expect(onReorder).toHaveBeenCalledWith(1, 0)
+    })
+  })
+
+  describe('steer button', () => {
+    it('renders steer button when onSteer provided', () => {
+      render(wrap(<QueuedMessages messages={[{ text: 'steer me' }]} onRemove={vi.fn()} onSteer={vi.fn()} />))
+      expect(screen.getByText('Steer')).toBeInTheDocument()
+    })
+
+    it('calls onSteer with correct index', () => {
+      const onSteer = vi.fn()
+      render(wrap(<QueuedMessages messages={[{ text: 'msg' }]} onRemove={vi.fn()} onSteer={onSteer} />))
+      fireEvent.click(screen.getByText('Steer'))
+      expect(onSteer).toHaveBeenCalledWith(0)
+    })
+  })
 })
