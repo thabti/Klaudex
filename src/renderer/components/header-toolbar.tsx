@@ -270,14 +270,14 @@ export const HeaderToolbar = memo(function HeaderToolbar({
                     )}
                   >
                     {diffStats.fileCount > 0 && (
-                      <span className="text-[10px] text-emerald-400/60">
+                      <span className="text-[10px] text-emerald-700/70 dark:text-emerald-400/60">
                         {diffStats.fileCount}
                       </span>
                     )}
-                    <span className="text-[10px] font-semibold text-emerald-400">
+                    <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
                       +{diffStats.additions.toLocaleString()}
                     </span>
-                    <span className="text-[10px] font-semibold text-red-400">
+                    <span className="text-[10px] font-semibold text-red-700 dark:text-red-400">
                       -{diffStats.deletions.toLocaleString()}
                     </span>
                   </span>

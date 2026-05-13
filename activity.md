@@ -1,5 +1,21 @@
 # Activity Log
 
+## 2026-05-13 10:46 GST (Dubai)
+
+### Header Toolbar: Darken diff stats colors in light mode
+
+Changed the diff stats (+additions / -deletions / file count) in the app header to use `emerald-700` and `red-700` in light mode for better contrast, while preserving the existing `emerald-400` / `red-400` for dark mode via `dark:` variants.
+
+**Modified:** `src/renderer/components/header-toolbar.tsx`
+
+## 2026-05-13 10:31 GST (Dubai)
+
+### Rust Backend: Full audit of all modules
+
+Completed a comprehensive audit of every Rust module in `src-tauri/src/`. Reviewed main.rs, lib.rs, error.rs, acp/ (5 files), pty.rs, git.rs, settings.rs, fs_ops.rs, and kiro_config.rs for correctness, security, error handling, concurrency, and test coverage. Overall verdict: well-engineered with strong security practices. No critical issues found; identified 5 minor improvement opportunities (git_commit semantics, permission timeout configurability, ACP read_text_file error logging, fs_ops module size, list_models UX).
+
+**Modified:** activity.md
+
 ## 2026-05-13 09:57 GST (Dubai)
 
 ### Tests: Fix missing saveUiState mock in taskStore test
