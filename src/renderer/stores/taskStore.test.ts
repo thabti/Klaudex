@@ -26,6 +26,7 @@ vi.mock('@/lib/history-store', () => ({
   loadBackup: vi.fn().mockResolvedValue({ threads: [], projects: [], softDeleted: [] }),
   saveThreads: vi.fn().mockResolvedValue(undefined),
   saveSoftDeleted: vi.fn().mockResolvedValue(undefined),
+  saveUiState: vi.fn().mockResolvedValue(undefined),
   toArchivedTasks: vi.fn().mockReturnValue([]),
   clearHistory: vi.fn().mockResolvedValue(undefined),
 }))

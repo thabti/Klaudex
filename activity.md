@@ -1,5 +1,13 @@
 # Activity Log
 
+## 2026-05-13 09:57 GST (Dubai)
+
+### Tests: Fix missing saveUiState mock in taskStore test
+
+Added `saveUiState` to the `@/lib/history-store` mock in `taskStore.test.ts`. The test was failing because `persistUiState` calls `historyStore.saveUiState()` which wasn't defined in the mock.
+
+**Modified:** `src/renderer/stores/taskStore.test.ts`
+
 ## 2026-05-13 08:44 GST (Dubai)
 ### UI: Expanded emoji picker, favicon name hiding, queue message editing
 
