@@ -1,3 +1,13 @@
+## 2026-05-13 GST (Dubai)
+
+### Tests: Skip claude_cli_integration when CLI not installed
+
+Replaced `expect("claude not installed")` panics with early-return skips in all non-`#[ignore]` tests in `claude_cli_integration.rs`. CI on GitHub Actions no longer fails when `claude` binary is absent — tests print "SKIP" and pass.
+
+**Modified:** `src-tauri/tests/claude_cli_integration.rs`, `activity.md`
+
+---
+
 ## 2026-05-12 23:45 GST (Dubai)
 
 ### Release: v1.7.0
