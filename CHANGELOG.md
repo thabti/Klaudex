@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.49.0] - 2026-05-13
+
+### Chores
+
+- update downloads.json ([`e3ac6a9`](https://github.com/thabti/kirodex/commit/e3ac6a949e388b7ddccb82b7070966fd5f954ce2))
+
 ## [v0.48.0] - 2026-05-13
 
 ### Bug fixes
