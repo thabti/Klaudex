@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useDebugStore } from './debugStore'
+import { useSettingsStore } from './settingsStore'
 import type { DebugLogEntry } from '@/types'
 
 beforeEach(() => {
@@ -8,6 +9,9 @@ beforeEach(() => {
     isOpen: false,
     filter: { search: '', category: 'all', errorsOnly: false, threadName: '', projectName: '', mcpServerName: '' },
   })
+  useSettingsStore.setState((s) => ({
+    settings: { ...s.settings, debugPanelEnabled: true },
+  }))
 })
 
 const makeEntry = (overrides?: Partial<DebugLogEntry>): DebugLogEntry => ({

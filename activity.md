@@ -1,3 +1,13 @@
+## 2026-05-13 14:45 GST (Dubai)
+
+### Tests: Fix 3 failing tests in debugStore and taskStore
+
+`debugStore.test.ts` now enables `debugPanelEnabled` in `beforeEach` so `addEntry` doesn't bail out during rAF-batching tests. `taskStore.ts` `clearHistory` now cancels all tasks (not just `running`/`paused`) since completed tasks may still hold live ACP connections.
+
+**Modified:** `src/renderer/stores/debugStore.test.ts`, `src/renderer/stores/taskStore.ts`
+
+---
+
 ## 2026-05-13 12:30 GST (Dubai)
 
 ### Chat: Strip image content before thread title generation

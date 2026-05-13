@@ -1402,12 +1402,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   clearHistory: async () => {
     logStoreAction('taskStore', 'clearHistory')
-    // Cancel all running tasks first
+    // Cancel all tasks — completed tasks may still have live connections
     const currentTasks = get().tasks
-    for (const [id, task] of Object.entries(currentTasks)) {
-      if (task.status === 'running' || task.status === 'paused') {
-        ipc.cancelTask(id).catch(() => {})
-      }
+    for (const id of Object.keys(currentTasks)) {
+      ipc.cancelTask(id).catch(() => {})
     }
     // Clear the persisted thread/project store (includes uiState)
     await historyStore.clearHistory()
