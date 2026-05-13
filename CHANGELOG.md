@@ -1,5 +1,34 @@
 # Changelog
 
+## [v1.11.0] - 2026-05-13
+
+### Features
+
+- pauseAndRedirect action + TodoWrite tool display + UX polish ([`f2572a9`](https://github.com/thabti/klaudex/commit/f2572a9462c7b865201e342de6adee171b66be88))
+- dynamic mid-turn steering injection ([`c2169c6`](https://github.com/thabti/klaudex/commit/c2169c6e56cf6560400f3814fb9d615a78a0f0d4))
+
+### Bug fixes
+
+- bundle JetBrains Mono font locally ([`5be21de`](https://github.com/thabti/klaudex/commit/5be21dee2a5c34f9340b379a21a3b2ab8ddc74e0))
+- Escape/steering pause never produces cancelled status ([`afccb15`](https://github.com/thabti/klaudex/commit/afccb15d1f0cef7cc49b7537b937c0bc5bd3590f))
+- always capture debug entries, remove enable/disable flag ([`cdcc0f2`](https://github.com/thabti/klaudex/commit/cdcc0f2f2b7c8dd5c948dbeb25c33c04a7495999))
+- improve active item contrast for dark and light modes ([`ed11fd6`](https://github.com/thabti/klaudex/commit/ed11fd615f0121aac600fb56a1a6cb25bb688ff3))
+- prevent steering message dropped on dying connection ([`61371bf`](https://github.com/thabti/klaudex/commit/61371bf9999a9ac33a557b41c3c513270a545c09))
+- add missing SidebarTask fields to ProjectItem test mock ([`c8fc266`](https://github.com/thabti/klaudex/commit/c8fc266cf5407be6f0b5cb495c156ccbf6e51a1e))
+
+### Refactoring
+
+- replace ghost Anthropic SVG with Claude swirl logo ([`056b07b`](https://github.com/thabti/klaudex/commit/056b07bdfa2bfb8cd5dd9848341f4b2bceb11ef2))
+- replace KlaudexGhostIcon with AnthropicIcon ([`c1f9707`](https://github.com/thabti/klaudex/commit/c1f970734a4ab22c7c2707139096b78584d729a8))
+
+### Documentation
+
+- refresh CLAUDE.md project structure and engineering learnings ([`a3e88f5`](https://github.com/thabti/klaudex/commit/a3e88f5122e7c3f09a4c30e97edf083aa57bfb92))
+
+### Chores
+
+- update downloads.json ([`cc8f99e`](https://github.com/thabti/klaudex/commit/cc8f99e38d760394ef8fe3808709937293a0741b))
+
 ## [v1.10.1] - 2026-05-13
 
 ### Features
