@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useEffect, useCallback } from 'react'
-import { IconPencil, IconTrash, IconHistory, IconGitBranch, IconLayoutColumns, IconArrowsSplit, IconPin, IconPinnedOff, IconArrowUp, IconArrowDown, IconCopy } from '@tabler/icons-react'
+import { IconPencil, IconTrash, IconHistory, IconGitBranch, IconLayoutColumns, IconArrowsSplit, IconPin, IconPinnedOff, IconArrowUp, IconArrowDown, IconCopy, IconGitFork } from '@tabler/icons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTaskStore } from '@/stores/taskStore'
 import { SplitThreadPicker } from '@/components/chat/SplitThreadPicker'
@@ -136,6 +136,11 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
     setCtxMenu(null)
   }, [task.id])
 
+  const handleFork = useCallback(() => {
+    setCtxMenu(null)
+    void useTaskStore.getState().forkTask(task.id)
+  }, [task.id])
+
   return (
     <li className="group/thread relative min-w-0">
       <div
@@ -160,7 +165,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="inline-flex shrink-0">
-                <IconHistory className="size-3 text-muted-foreground/70" aria-label="Resumed from history" />
+                <IconHistory className={cn('size-3', isActive ? 'text-primary-foreground/70' : 'text-muted-foreground/70')} aria-label="Resumed from history" />
               </span>
             </TooltipTrigger>
             <TooltipContent side="right">From history — agent reconnects on next send</TooltipContent>
@@ -175,7 +180,7 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
           </Tooltip>
         )}
         {isInSplit && (
-          <IconLayoutColumns className="size-3 shrink-0 text-primary/60" aria-label="In side-by-side" />
+          <IconLayoutColumns className={cn('size-3 shrink-0', isActive ? 'text-primary-foreground/60' : 'text-primary/60')} aria-label="In side-by-side" />
         )}
         {isPinned && !isInSplit && (
           <IconPin className="size-3 shrink-0 text-amber-500/70" aria-label="Pinned" />
@@ -280,6 +285,13 @@ export const ThreadItem = memo(function ThreadItem({ task, isActive, jumpLabel, 
                   >
                     {isPinned ? <IconPinnedOff className="size-3.5" /> : <IconPin className="size-3.5" />}
                     {isPinned ? 'Unpin' : 'Pin thread'}
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent"
+                    onClick={handleFork}
+                  >
+                    <IconGitFork className="size-3.5" /> Fork thread
                   </button>
                   <div className="my-1 border-t border-border/50" />
                   <button

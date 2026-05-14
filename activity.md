@@ -1,3 +1,21 @@
+## 2026-05-14 13:45 GST (Dubai)
+
+### Port: upstream diff, sidebar, file-tree, and store changes
+
+Ported batch upstream changes: added `:host` background override to `UNSAFE_CSS` and deduplicated `DiffPanel.tsx` to import the shared constant. Fixed light-mode color classes across `CommitDialog`, `DiffStatsChart`, `GitPanels` (green-400/red-400 → emerald-600/red-600 dark variants). Rewrote `TreeContextMenu` to remove Cut/Copy/Paste/Duplicate/Delete/Open-in-Default-App and added "Mention in Chat" action with `setDraftMentionedFiles`; added try/catch to copy-path handlers. Added `pendingSplitReplace` state + `replaceSplitThread` action to the task store; wired pending-replace intercept in `setSelectedTask`. Upgraded `TaskSidebar` split-views list with a right-click context menu (Remove, Swap sides, Replace left/right), added `PendingReplaceHint` banner, removed "Side by Side" and "PINNED" headings, moved pin icon inline in pinned threads, added solid `bg-sidebar` on unpin button, added right-click context menu on pinned threads (Unpin, Open side-by-side). Added "Fork thread" menu item to `ThreadItem`.
+
+**Modified:** `src/renderer/components/code/diff-viewer-utils.ts`, `src/renderer/components/diff/DiffPanel.tsx`, `src/renderer/components/CommitDialog.tsx`, `src/renderer/components/analytics/DiffStatsChart.tsx`, `src/renderer/components/chat/GitPanels.tsx`, `src/renderer/components/file-tree/TreeContextMenu.tsx`, `src/renderer/stores/task-store-types.ts`, `src/renderer/stores/taskStore.ts`, `src/renderer/stores/task-store-selectors.test.ts`, `src/renderer/components/sidebar/TaskSidebar.tsx`, `src/renderer/components/sidebar/ThreadItem.tsx`
+
+## 2026-05-14 00:30 GST (Dubai)
+
+### sidebar: Fix icons staying grey on active thread item
+
+`IconHistory` and `IconLayoutColumns` in `ThreadItem` had hardcoded grey/primary colors that didn't adapt to the active state background. Both now switch to `text-primary-foreground` variants when `isActive` is true.
+
+**Modified:** `src/renderer/components/sidebar/ThreadItem.tsx`
+
+---
+
 ## 2026-05-13 23:00 GST (Dubai)
 
 ### light-mode: Full light mode support across all components
