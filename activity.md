@@ -431,6 +431,65 @@ Replaced `expect("claude not installed")` panics with early-return skips in all 
 
 ---
 
+## 2026-05-13 04:17 GST (Dubai)
+
+### AcpSubagentDisplay tests: tree + role colors + elapsed clock + click-to-focus (TASK-018)
+
+Extended `AcpSubagentDisplay.test.tsx` from 10 to 21 tests, covering the TASK-011/012/013 enrichments: nested tree indentation via depth-padded wrappers, two-sibling depth parity, flat fallback when no parent is set, circular-reference handling with a 3s timeout and console.warn assertion, distinct Tabler role icons for plan vs research, role-badge inline backgroundColor, elapsed clock lifecycle (no clock for pending agents, ticking while running, stopping on completed without overshoot below the 2s auto-collapse window), and click-to-focus dispatching `chat-scroll-to` CustomEvents (with messageId verification, no-match silent no-op, and Enter-key keyboard activation). All 21 tests pass alongside the preserved baseline; `bun run check:ts` is clean.
+
+**Modified:**
+- `src/renderer/components/chat/AcpSubagentDisplay.test.tsx`
+
+---
+
+## 2026-05-13 04:46 GST (Dubai)
+
+### Claude Code Superpowers: Skills Palette + Subagent UX upgrade + Header Context Meter
+
+Shipped a coordinated 20-task DAG covering three Claude Code parity features: a global Cmd+K Skills Palette that fuzzy-searches `.claude/skills/*/SKILL.md` and invokes them via the existing `splash-insert` CustomEvent; a subagent visualizer upgrade with nested-tree rendering, role-colored icons via `lib/subagent-style.ts`, per-card elapsed-time clocks, and click-to-focus dispatching `chat-scroll-to` events; and the `ContextRing` promoted into the `HeaderToolbar` with an extended tooltip showing the full token breakdown, $ cost, and an auto-compact estimate derived from message count. Also captured two new engineering-learnings bullets (Skills palette command pattern, Subagent nested tree rendering) in `CLAUDE.md`.
+
+**Modified:**
+- `src/renderer/types/index.ts`, `src-tauri/src/commands/claude_config.rs`
+- `src/renderer/App.tsx`, `src/renderer/components/header-toolbar.tsx`
+- `src/renderer/components/chat/AcpSubagentDisplay.tsx`, `src/renderer/components/chat/ContextRing.tsx`, `src/renderer/components/chat/MessageList.tsx`, `src/renderer/components/chat/UsagePanel.tsx`
+- `src/renderer/hooks/useKeyboardShortcuts.ts`, `src/renderer/stores/task-store-listeners.ts`
+- New: `src/renderer/components/chat/SkillsPalette.tsx`, `src/renderer/hooks/useSkillInvoke.ts`, `src/renderer/lib/subagent-style.ts`, `src/renderer/stores/skillsPaletteStore.ts`
+- Tests: `src/renderer/components/chat/ContextRing.test.tsx`, `src/renderer/stores/skillsPaletteStore.test.ts`
+- Docs: `docs/keyboard-shortcuts.md`, `CLAUDE.md`, `activity.md`
+- Plans: `plans/claude-code-superpowers.md`, `plans/claude-code-superpowers.json`
+
+---
+
+## 2026-05-13 03:46 GST (Dubai)
+
+### AcpSubagentDisplay: Enriched AgentCard with role icon, tinted badge, elapsed clock (TASK-012)
+
+Replaced the static `IconRobot` inside `AgentCard` with a role-aware Tabler icon resolved via `getSubagentRoleIcon(agent.role ?? 'default')`, tinted the role badge using `getSubagentRoleColor(...).bg` (as an inline `backgroundColor` since the helper returns an rgba string, not a Tailwind class) and `.text` Tailwind class, and added a per-card `useElapsedTime` hook that ticks once per second while `status === 'running'` and tears down its `setInterval` via the effect's cleanup return when status leaves `running` or the card unmounts. `startedAt` is tracked with a per-card `useRef<number>` set on the first `running` render only (never on `pending`), so queued agents show no clock element at all and agents that never run render no `00:00` placeholder. Narrowed `getSubagentRoleIcon`'s `ComponentType` return at the consumer boundary via a local `IconComponent` alias so the icon accepts `className`. Tree-rendering logic from TASK-011 left untouched. `bun run check:ts` passes with zero errors.
+
+**Modified:** `src/renderer/components/chat/AcpSubagentDisplay.tsx`, `activity.md`
+
+---
+
+## 2026-05-13 03:36 GST (Dubai)
+
+### claude_config: Added scan_skills frontmatter tests (TASK-014)
+
+Added six unit tests in `src-tauri/src/commands/claude_config.rs`'s `tests` module covering the new `description` + `body_excerpt` extraction landed by TASK-003: description extraction, missing description -> `None`, body excerpt 200-byte cap, heading-line filtering, single-character description (failure case), and graceful handling of malformed YAML frontmatter. Full Rust suite now reports 430 passing (up from 424), zero failures.
+
+**Modified:** `src-tauri/src/commands/claude_config.rs`, `activity.md`
+
+---
+
+## 2026-05-13 03:35 GST (Dubai)
+
+### skillsPaletteStore: Added Vitest unit tests
+
+Created `src/renderer/stores/skillsPaletteStore.test.ts` with 15 unit tests covering every action (`open`, `close`, `toggle`, `setQuery`, `setSelectedIndex`, `moveSelection`), the `setQuery` -> `selectedIndex` coupling, `moveSelection` clamping at both bounds and the empty-list edge case, and the bail-out guard semantics for `open`, `setQuery`, and `setSelectedIndex` via `subscribe` spies. All 15 tests pass under Vitest; `bun run check:ts` is clean.
+
+**Modified:** `src/renderer/stores/skillsPaletteStore.test.ts` (new), `activity.md`
+
+---
+
 ## 2026-05-12 23:45 GST (Dubai)
 
 ### Release: v1.7.0

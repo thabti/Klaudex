@@ -5,6 +5,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { useClaudeConfigStore } from '@/stores/claudeConfigStore'
 import { useDiffStore } from '@/stores/diffStore'
 import { useDebugStore } from '@/stores/debugStore'
+import { useSkillsPaletteStore } from '@/stores/skillsPaletteStore'
 import { ipc } from '@/lib/ipc'
 import type { AppSettings } from '@/types'
 
@@ -99,6 +100,17 @@ function getOrderedThreadIds(): string[] {
 export function useKeyboardShortcuts() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // ── Cmd/Ctrl+K → Toggle Skills Palette (top-level surface) ──
+      // Placed before any input-focus / terminal-focus guard so the palette
+      // can be opened from anywhere — including the chat textarea.
+      const isModK =
+        (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k'
+      if (isModK) {
+        e.preventDefault()
+        useSkillsPaletteStore.getState().toggle()
+        return
+      }
+
       // ── Escape → Stop running agent (skip when terminal has focus) ──
       if (e.key === 'Escape') {
         const isTerminalFocused = !!(e.target as HTMLElement)?.closest('[data-testid="terminal-drawer"]')

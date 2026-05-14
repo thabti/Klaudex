@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   IconAlertTriangle,
   IconClockHour4,
@@ -74,14 +74,23 @@ export const UpdateAvailableDialog = ({ open: controlledOpen, onOpenChange: cont
   const setError = useUpdateStore((s) => s.setError)
   const [isRestarting, setIsRestarting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
+  // Locally-tracked dismissal so snooze actually closes the dialog in
+  // self-contained mode. Without this, snoozeFor24h() writes to localStorage
+  // but the open computation has no reactive trigger to re-evaluate.
+  const [dismissed, setDismissed] = useState(false)
 
-  // Self-contained mode: auto-open when update available and not snoozed
-  const isAvailable = status === 'available' && updateInfo !== null && !isUpdateSnoozed()
+  // Reset dismissal when a new version is offered so the dialog can re-open.
+  const offeredVersion = updateInfo?.version ?? null
+  useEffect(() => { setDismissed(false) }, [offeredVersion])
+
+  // Self-contained mode: auto-open when update available and not snoozed/dismissed.
+  // Downloading/ready states ignore `dismissed` — you can't dismiss work in flight.
+  const isAvailable = status === 'available' && updateInfo !== null && !isUpdateSnoozed() && !dismissed
   const isDownloading = status === 'downloading'
   const isReady = status === 'ready'
   const selfOpen = isAvailable || isDownloading || isReady
   const open = controlledOpen ?? selfOpen
-  const onOpenChange = controlledOnOpenChange ?? (() => {})
+  const onOpenChange = controlledOnOpenChange ?? ((next: boolean) => { if (!next) setDismissed(true) })
   const downloadPercent = progress?.total
     ? Math.round((progress.downloaded / progress.total) * 100)
     : null
@@ -90,6 +99,7 @@ export const UpdateAvailableDialog = ({ open: controlledOpen, onOpenChange: cont
   const handleSnooze = useCallback(() => {
     if (isDownloading || isRestarting) return
     snoozeFor24h()
+    setDismissed(true)
     onOpenChange(false)
   }, [isDownloading, isRestarting, onOpenChange])
 

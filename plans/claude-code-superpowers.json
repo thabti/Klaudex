@@ -1,0 +1,426 @@
+{
+  "title": "Claude Code Superpowers — Skills Palette + Subagent Visual Upgrade + Context Window Meter",
+  "branch": "feat/claude-code-superpowers",
+  "mode": "EXPANSION",
+  "overview": "Ship three first-class desktop surfaces for Claude Code mechanics that today live invisibly in the terminal: a Cmd+K Skills Palette that fuzzy-searches .claude/skills/*/SKILL.md and invokes them inline, a richer Subagent visualizer with nested-tree rendering and role-colored cards with elapsed-time clocks and click-to-focus, and a Context Window Meter promoted into the AppHeader with an extended tooltip showing token breakdown, cost, and an auto-compact estimate.",
+  "scopeChallenge": "Significant scaffolding already exists. ContextRing component (src/renderer/components/chat/ContextRing.tsx) is built but rendered only inside ChatInput; relocation + tooltip extension is the work, not a build. AcpSubagentDisplay is a 182-line component with expand/collapse, status icons, role labels, and progress bar; the work is enhancement (nested tree, role color, elapsed clock, click-to-focus), not rewrite. Skills are parsed by claude_config.rs::scan_skills but ClaudeSkill lacks description and bodyExcerpt — parser extension plus a dedicated palette modal. Fuzzy search algorithm (lib/fuzzy-search.ts) and Radix Dialog primitive (components/ui/dialog.tsx) are reused as-is. Pre-existing plans/claude-code-features.md already shipped permissions, output styles, hooks viewer, statusline, slash-command browser, and CLAUDE.md memory editor — this plan deliberately avoids overlap. EXPANSION mode selected because three distinct features each have nontrivial edge cases that deserve dedicated test tasks plus polish and documentation tasks.",
+  "existingCodeLeverage": [
+    { "subProblem": "Skill data scanning", "existingCode": "src-tauri/src/commands/claude_config.rs::scan_skills (line 251)", "action": "extend" },
+    { "subProblem": "Skill state in renderer", "existingCode": "src/renderer/stores/claudeConfigStore.ts", "action": "reuse" },
+    { "subProblem": "Fuzzy search algorithm", "existingCode": "src/renderer/lib/fuzzy-search.ts::fuzzyScore", "action": "reuse" },
+    { "subProblem": "Modal primitive", "existingCode": "src/renderer/components/ui/dialog.tsx", "action": "reuse" },
+    { "subProblem": "Keyboard shortcut hook", "existingCode": "src/renderer/hooks/useKeyboardShortcuts.ts (line 38 handler)", "action": "extend" },
+    { "subProblem": "Inline insert protocol", "existingCode": "src/renderer/components/chat/EmptyThreadSplash.tsx splash-insert CustomEvent", "action": "reuse" },
+    { "subProblem": "Skill row visual reference", "existingCode": "src/renderer/components/sidebar/ClaudeSkillRow.tsx", "action": "reuse" },
+    { "subProblem": "Context ring component", "existingCode": "src/renderer/components/chat/ContextRing.tsx", "action": "reuse" },
+    { "subProblem": "Context usage type", "existingCode": "task.usage.contextUsage + CompactionStatus at src/renderer/types/index.ts:59", "action": "reuse" },
+    { "subProblem": "Token formatters", "existingCode": "src/renderer/components/chat/UsagePanel.tsx::formatTokens (line 8), formatCost (line 15)", "action": "reuse" },
+    { "subProblem": "Header toolbar slot", "existingCode": "src/renderer/components/AppHeader.tsx (line 94 HeaderToolbar mount)", "action": "extend" },
+    { "subProblem": "Subagent base component", "existingCode": "src/renderer/components/chat/AcpSubagentDisplay.tsx (182 lines)", "action": "extend" },
+    { "subProblem": "Subagent type", "existingCode": "SubagentInfo at src/renderer/types/index.ts:378", "action": "extend" },
+    { "subProblem": "Subagent listener", "existingCode": "src/renderer/stores/task-store-listeners.ts::parseSubagents (line 122)", "action": "extend" },
+    { "subProblem": "Compaction proximity", "existingCode": "src/renderer/components/chat/CompactSuggestBanner.tsx (COMPACT_SUGGEST_THRESHOLD = 30)", "action": "reuse" }
+  ],
+  "failureModes": [
+    { "risk": "Cmd+K conflicts with existing shortcut", "affectedTasks": ["TASK-006"], "mitigation": "Audit useKeyboardShortcuts.ts first; if claimed, fall back to Cmd+Shift+K and document in TASK-019" },
+    { "risk": "Two ContextRing instances drift (header vs chat input)", "affectedTasks": ["TASK-009", "TASK-010"], "mitigation": "Both read from same useTaskStore.tasks[id].usage source. Snapshot test in TASK-017 verifies parity" },
+    { "risk": "Skills with no description leave palette cards looking empty", "affectedTasks": ["TASK-007"], "mitigation": "Fall back to bodyExcerpt; if both missing, fall back to filePath. Truncate via Tailwind line-clamp-2" },
+    { "risk": "Skill body could be huge — palette UI explodes", "affectedTasks": ["TASK-003", "TASK-007"], "mitigation": "Body excerpt is server-side truncated by body_excerpt Rust helper; palette card additionally clamps via Tailwind line-clamp-2" },
+    { "risk": "ACP payload does not yet expose parent field on subagents", "affectedTasks": ["TASK-011"], "mitigation": "Tree builder falls back to flat list when no agent has parent — preserves today's behavior" },
+    { "risk": "Circular parent references in subagent payload", "affectedTasks": ["TASK-011", "TASK-018"], "mitigation": "Detect cycle via visited-set during tree build; emit console.warn and render flat" },
+    { "risk": "splash-insert CustomEvent not heard when no input is mounted", "affectedTasks": ["TASK-005"], "mitigation": "Hook copies skill body to clipboard as fallback and surfaces a warning toast" },
+    { "risk": "Elapsed clock leaks setInterval after card unmounts", "affectedTasks": ["TASK-012"], "mitigation": "Cleanup in useEffect return; verify in TASK-018 with vi.useFakeTimers()" },
+    { "risk": "Tooltip exceeds Radix max-width and clips", "affectedTasks": ["TASK-010"], "mitigation": "Apply className max-w-[280px] to TooltipContent; switch to Popover if rich content is needed" },
+    { "risk": "Auto-collapse fires before user can click an agent", "affectedTasks": ["TASK-013"], "mitigation": "Set userToggledRef.current = true on first card interaction" },
+    { "risk": "Description field with non-string YAML crashes Rust parser", "affectedTasks": ["TASK-003"], "mitigation": "Use serde_yaml::from_str into HashMap<String, Value> then coerce; non-string returns None" },
+    { "risk": "bun test (native runner) executes Vitest files", "affectedTasks": ["TASK-015", "TASK-016", "TASK-017", "TASK-018"], "mitigation": "Verify bunfig.toml still redirects bun test to .bun-test-noop before merging" },
+    { "risk": "User-installed skill name collides with built-in slash command (e.g., a skill named 'model' shadows /model)", "affectedTasks": ["TASK-005", "TASK-007"], "mitigation": "Detect collision at palette render time by intersecting config.skills[].name with SlashCommand[] from useSettingsStore. Show 'conflicts with built-in /name' badge on the card. Invocation still dispatches splash-insert with /skill-name; existing slash-command handler resolves built-ins first by design." },
+    { "risk": "task.contextUsage.turns does not exist — earlier plan iteration referenced it", "affectedTasks": ["TASK-010"], "mitigation": "Derive avgPctPerTurn from Math.floor(task.messages.length / 2) (assistant-message count proxy) with fallback of 5 when message count is zero. task.contextUsage at src/renderer/types/index.ts:120 carries no turn count." }
+  ],
+  "testCoverageMap": [
+    { "codepath": "scan_skills description extraction", "coveringTask": "TASK-014", "testType": "unit" },
+    { "codepath": "scan_skills body excerpt truncation", "coveringTask": "TASK-014", "testType": "unit" },
+    { "codepath": "skillsPaletteStore open/close/toggle/setQuery/moveSelection", "coveringTask": "TASK-015", "testType": "unit" },
+    { "codepath": "Bail-out guard in skillsPaletteStore.set", "coveringTask": "TASK-015", "testType": "unit" },
+    { "codepath": "SkillsPalette fuzzy filter ranking", "coveringTask": "TASK-016", "testType": "integration" },
+    { "codepath": "SkillsPalette keyboard navigation (up/down/enter/esc)", "coveringTask": "TASK-016", "testType": "integration" },
+    { "codepath": "SkillsPalette invocation dispatches splash-insert", "coveringTask": "TASK-016", "testType": "integration" },
+    { "codepath": "SkillsPalette empty state rendering", "coveringTask": "TASK-016", "testType": "integration" },
+    { "codepath": "Cmd+K opens palette globally", "coveringTask": "TASK-016", "testType": "integration" },
+    { "codepath": "ContextRing tooltip token breakdown", "coveringTask": "TASK-017", "testType": "unit" },
+    { "codepath": "ContextRing auto-compact estimate", "coveringTask": "TASK-017", "testType": "unit" },
+    { "codepath": "ContextRing cost formatting", "coveringTask": "TASK-017", "testType": "unit" },
+    { "codepath": "AcpSubagentDisplay nested tree rendering", "coveringTask": "TASK-018", "testType": "integration" },
+    { "codepath": "AcpSubagentDisplay circular parent fallback", "coveringTask": "TASK-018", "testType": "integration" },
+    { "codepath": "AcpSubagentDisplay click-to-focus dispatch", "coveringTask": "TASK-018", "testType": "integration" },
+    { "codepath": "AgentCard role color icon mapping", "coveringTask": "TASK-018", "testType": "integration" },
+    { "codepath": "AgentCard elapsed clock lifecycle", "coveringTask": "TASK-018", "testType": "integration" },
+    { "codepath": "getSubagentRoleColor and getSubagentRoleIcon mappings", "coveringTask": "TASK-018", "testType": "unit" }
+  ],
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "Extend ClaudeSkill TS interface with description and bodyExcerpt fields",
+      "description": "Add two optional fields to ClaudeSkill in src/renderer/types/index.ts:325 — description?: string parsed from SKILL.md frontmatter, and bodyExcerpt?: string from the first ~200 chars after frontmatter. Fields flow through serde camelCase from Rust. No Rust changes here; this task only ensures the TypeScript surface accepts the fields when TASK-003 emits them.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "ClaudeSkill has description?: string and bodyExcerpt?: string optional fields",
+        "All existing consumers (ClaudeSkillRow.tsx, claudeConfigStore.ts) compile without changes",
+        "bun run check:ts passes (failure case: extra fields must not break existing tests)"
+      ],
+      "filesToModify": ["src/renderer/types/index.ts"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-002",
+      "title": "Create subagent role-to-style mapping module",
+      "description": "New file src/renderer/lib/subagent-style.ts exporting getSubagentRoleColor(role) returning { from, to, bg, text } and getSubagentRoleIcon(role) returning a Tabler React component. Role taxonomy: default | plan | guide | research | builder plus kiro_* aliases from AcpSubagentDisplay.tsx:11-19. Pure module, no React hooks. Icons from @tabler/icons-react per CLAUDE.md rule (no lucide-react).",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Module exports two pure functions plus role taxonomy constant",
+        "Each known role returns distinct colors (no two roles share the same from gradient stop)",
+        "Unknown roles fall back to default without throwing (failure case: getSubagentRoleColor('garbage') returns default tier)"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/lib/subagent-style.ts"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-003",
+      "title": "Extend Rust ClaudeSkill struct and scan_skills to parse description and body excerpt",
+      "description": "Modify src-tauri/src/commands/claude_config.rs. Add description: Option<String> and body_excerpt: Option<String> to ClaudeSkill struct (line 24) keeping serde camelCase. In scan_skills (line 251), after locating each SKILL.md, call split_frontmatter (line 102) and body_excerpt helper (line 128) to populate fields. Missing description key yields None.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "scan_skills populates description from YAML frontmatter description key",
+        "body_excerpt is truncated to ~200 chars and excludes heading lines",
+        "Skills with malformed YAML frontmatter return ClaudeSkill with None description rather than panicking (failure case)",
+        "bun run check:rust and bun run test:rust both pass"
+      ],
+      "filesToModify": ["src-tauri/src/commands/claude_config.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-004",
+      "title": "Create skillsPaletteStore Zustand store",
+      "description": "New file src/renderer/stores/skillsPaletteStore.ts exporting useSkillsPaletteStore with state { isOpen, query, selectedIndex } and actions open, close, toggle, setQuery, setSelectedIndex, moveSelection. Apply bail-out guard pattern from CLAUDE.md (check value changed before set). setQuery resets selectedIndex to 0 on each query change.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P0",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "All actions update state via bail-out-guarded set calls",
+        "setQuery resets selectedIndex to 0 on each query change",
+        "moveSelection clamps to [0, listLength-1] given list-length parameter (failure case: must not go negative or overflow)"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/stores/skillsPaletteStore.ts"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-005",
+      "title": "Create useSkillInvoke hook to dispatch skill activation",
+      "description": "New file src/renderer/hooks/useSkillInvoke.ts exporting useSkillInvoke() that returns invoke(skill: ClaudeSkill). Dispatches splash-insert CustomEvent on document with detail=/${skill.name} (same protocol as EmptyThreadSplash.tsx:13). Fallback if no active task: copy skill.bodyExcerpt ?? skill.name to navigator.clipboard with toast/warn. Always closes palette via useSkillsPaletteStore.getState().close().",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "Dispatches splash-insert with the correct slash-prefixed skill name",
+        "Closes the palette after invocation",
+        "When document is in an unusual state (no active input listener), invocation does not throw — only warns (failure case)"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/hooks/useSkillInvoke.ts"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-006",
+      "title": "Add Cmd+K (Ctrl+K on non-mac) binding to toggle Skills Palette",
+      "description": "Extend src/renderer/hooks/useKeyboardShortcuts.ts handler at line 38-40. Detect (metaKey || ctrlKey) && key === 'k' && !shiftKey && !altKey, call useSkillsPaletteStore.getState().toggle(), preventDefault. Allow Cmd+K to fire even from textarea (palette is top-level). Audit current bindings; if Cmd+K is claimed, switch to Cmd+Shift+K and document in TASK-019.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-004"],
+      "acceptanceCriteria": [
+        "Cmd+K (Ctrl+K on Linux/Windows) toggles isOpen in useSkillsPaletteStore",
+        "Shortcut fires even when chat input is focused",
+        "Existing shortcuts (Cmd+L focus, Cmd+Shift+L split, Cmd+Shift+Y yolo) still work unchanged (failure case: regression test all three)"
+      ],
+      "filesToModify": ["src/renderer/hooks/useKeyboardShortcuts.ts"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-007",
+      "title": "Build SkillsPalette modal component",
+      "description": "New file src/renderer/components/chat/SkillsPalette.tsx — Radix Dialog-based palette. Reads useSkillsPaletteStore and useClaudeConfigStore((s) => s.config.skills). Filters via fuzzyScore(query, skill.name + ' ' + (skill.description ?? '')), sorts ascending, slices top 50. Renders fuzzy search input with ArrowUp/Down/Enter/Escape handlers. Each skill card: name, source badge (global/local), description (or bodyExcerpt fallback truncated 150 chars), filePath subtitle. Selected card has bg-accent highlight; click or Enter invokes useSkillInvoke. Empty state hints to install skills under ~/.claude/skills/. Match Dialog shell pattern from WhatsNewDialog.tsx.",
+      "type": "feature",
+      "effort": "L",
+      "priority": "P1",
+      "dependsOn": ["TASK-001", "TASK-004", "TASK-005"],
+      "acceptanceCriteria": [
+        "Fuzzy filter ranks exact-prefix matches highest (e.g., 'com' surfaces commit above cost-estimate)",
+        "ArrowDown beyond list length stays clamped to last item",
+        "Pressing Enter on an empty list does NOT crash and does NOT close palette (failure case)",
+        "Pressing Escape closes the palette without invoking any skill"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/chat/SkillsPalette.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-008",
+      "title": "Mount SkillsPalette as a global overlay in App.tsx",
+      "description": "Mount <SkillsPalette /> once in src/renderer/App.tsx, outside the main layout flex so it does not affect layout when closed. Verify the keyboard hook from TASK-006 is active at the App level (it already is).",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": ["TASK-007"],
+      "acceptanceCriteria": [
+        "SkillsPalette is mounted exactly once in the React tree",
+        "Closed palette adds zero DOM cost (Radix Dialog uses a portal)",
+        "Mounting works whether the user is on Dashboard, ChatPanel, or SettingsPanel views (failure case: verify no view crashes when palette open)"
+      ],
+      "filesToModify": ["src/renderer/App.tsx"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-009",
+      "title": "Render ContextRing inside HeaderToolbar",
+      "description": "Extend src/renderer/components/header-toolbar.tsx. Read useTaskStore for active task's usage.contextUsage and compactionStatus and render <ContextRing used={ctx.used} size={ctx.size} compactionStatus={status} /> when contextUsage exists. The existing ContextRing at src/renderer/components/chat/ContextRing.tsx is reused as-is. The duplicate inside ChatInput.tsx:129 stays; both read the same store value so they always agree.",
+      "type": "feature",
+      "effort": "S",
+      "priority": "P1",
+      "dependsOn": [],
+      "acceptanceCriteria": [
+        "AppHeader shows ContextRing when a task with usage is active",
+        "No ring shown when no task is active or contextUsage is null",
+        "Header ring and ChatInput ring always show same percentage (failure case: snapshot both, assert equality)"
+      ],
+      "filesToModify": ["src/renderer/components/header-toolbar.tsx"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-010",
+      "title": "Extend ContextRing tooltip with token breakdown and auto-compact estimate",
+      "description": "Modify src/renderer/components/chat/ContextRing.tsx. Replace single-line tooltipText (line 39-43) with structured tooltip body: row 1 total context %, row 2 input/output/cache-read/cache-creation token counts via formatTokens from UsagePanel.tsx:8, row 3 task cost via formatCost from UsagePanel.tsx:15, row 4 'Auto-compact in ~N turns' estimate computed as max(0, floor((100-pct)/avgPctPerTurn)) where avgPctPerTurn = pct / max(1, floor(task.messages.length / 2)) with fallback of 5 when message count is zero. task.contextUsage lives at src/renderer/types/index.ts:120 and has no turns field — derivation comes from message history. Apply max-w-[280px] to TooltipContent; switch to Popover if width insufficient.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-009"],
+      "acceptanceCriteria": [
+        "Tooltip displays four labelled rows when full usage data is present",
+        "When per-category breakdown is missing (older task), tooltip gracefully shows only totals (failure case)",
+        "Auto-compact estimate is 0 (rendered as 'soon') when pct >= 95"
+      ],
+      "filesToModify": ["src/renderer/components/chat/ContextRing.tsx"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-011",
+      "title": "Refactor AcpSubagentDisplay to nested-tree renderer",
+      "description": "Modify src/renderer/components/chat/AcpSubagentDisplay.tsx. Replace flat subagents.map at line 119 with tree-builder that groups by optional parent field (check task-store-listeners.ts::parseSubagents at line 122 for payload shape). Each level applies paddingLeft: depth * 12px and a tree-line guide. If ACP payload lacks parent field, add parent?: string to SubagentInfo in types/index.ts:378 and parse it in parseSubagents. Fall back to flat list when no agent has a parent. Detect cycles via visited-set.",
+      "type": "refactor",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-001", "TASK-002"],
+      "acceptanceCriteria": [
+        "Subagents with parent field render indented under their parent card",
+        "When no subagent has a parent field, layout is identical to today (regression preserved)",
+        "Circular parent references do not cause infinite recursion (failure case: detect and render flat with a warning)"
+      ],
+      "filesToModify": ["src/renderer/components/chat/AcpSubagentDisplay.tsx", "src/renderer/types/index.ts", "src/renderer/stores/task-store-listeners.ts"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-012",
+      "title": "Enrich AgentCard with role color, elapsed-time clock, and depth indent",
+      "description": "Modify AgentCard inside src/renderer/components/chat/AcpSubagentDisplay.tsx:133. Replace static IconRobot at line 144 with getSubagentRoleIcon(agent.role) from TASK-002. Tint the role badge using getSubagentRoleColor(agent.role).bg. Add elapsed-time clock next to status: track startedAt from first running transition, render MM:SS via setInterval (cleanup in useEffect return). Stop ticking when status is completed/failed. Accept depth prop for indent.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-002", "TASK-011"],
+      "acceptanceCriteria": [
+        "Each agent card shows role-specific icon and tinted role badge",
+        "Elapsed timer ticks once per second while status === 'running' and stops on terminal states",
+        "An agent that never transitions to running shows no clock at all (failure case: no '00:00' placeholder)"
+      ],
+      "filesToModify": ["src/renderer/components/chat/AcpSubagentDisplay.tsx"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-013",
+      "title": "Add click-to-focus interaction to subagent cards",
+      "description": "Modify both AcpSubagentDisplay.tsx and MessageList.tsx. No exported scroll helper exists today — MessageList only uses internal virtualizer.scrollToIndex at lines 175 and 259. (1) In MessageList.tsx, add a useEffect listener for the chat-scroll-to CustomEvent on document carrying detail: { messageId: string }. On receipt, locate the timeline row index for that messageId and call virtualizer.scrollToIndex(idx, { align: 'center', behavior: 'smooth' }); clean up listener on unmount. (2) In AcpSubagentDisplay.tsx, make each AgentCard clickable: find first tool call in active task's messages where tool_use_id or subagent_name matches agent.name, dispatch document.dispatchEvent(new CustomEvent('chat-scroll-to', { detail: { messageId } })) for the located message id, set userToggledRef.current = true to suppress auto-collapse, add role='button', tabIndex={0}, Enter/Space key handlers. No-op silently when no match — do NOT dispatch the event.",
+      "type": "feature",
+      "effort": "M",
+      "priority": "P1",
+      "dependsOn": ["TASK-012"],
+      "acceptanceCriteria": [
+        "Clicking an agent card scrolls the chat to the matching tool call",
+        "Cards have keyboard focus support (Tab and Enter work)",
+        "Clicking a card with no matching message does not crash, scroll, or close the panel (failure case)"
+      ],
+      "filesToModify": ["src/renderer/components/chat/AcpSubagentDisplay.tsx", "src/renderer/components/chat/MessageList.tsx"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-014",
+      "title": "Rust test — scan_skills extracts description and body excerpt",
+      "description": "Extend the tests module in src-tauri/src/commands/claude_config.rs starting at line 590. Add scan_skills_extracts_description_from_frontmatter (writes fake SKILL.md, asserts Some('Foo bar')), scan_skills_returns_none_when_description_missing, scan_skills_body_excerpt_truncates_long_body (asserts <= ~200 chars), scan_skills_body_excerpt_skips_headings. Use existing write_file helper at line 594 and tempfile pattern.",
+      "type": "test",
+      "effort": "S",
+      "priority": "P2",
+      "dependsOn": ["TASK-003"],
+      "acceptanceCriteria": [
+        "All four new test cases pass under bun run test:rust",
+        "Tests use the existing write_file helper and tempfile pattern",
+        "A SKILL.md with a single-character description (edge case) still parses correctly (failure case: 'description: x' yields Some('x'))"
+      ],
+      "filesToModify": ["src-tauri/src/commands/claude_config.rs"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-015",
+      "title": "Test skillsPaletteStore state transitions",
+      "description": "New file src/renderer/stores/skillsPaletteStore.test.ts. Cases: open sets isOpen=true; close resets isOpen/query/selectedIndex; setQuery resets selectedIndex to 0; moveSelection clamps within bounds; bail-out guard verified via subscribe spy that open() called twice does not trigger a second state change. Follow patterns in settingsStore.test.ts and diffStore.test.ts.",
+      "type": "test",
+      "effort": "S",
+      "priority": "P2",
+      "dependsOn": ["TASK-004"],
+      "acceptanceCriteria": [
+        "100% coverage of all actions exported by the store",
+        "At least one test verifies the bail-out guard does not double-fire set",
+        "Test runs under bun run test (Vitest), not bun test (failure case if mistakenly run with Bun's native runner per bunfig.toml redirect)"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/stores/skillsPaletteStore.test.ts"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-016",
+      "title": "Component test — SkillsPalette rendering, filtering, navigation, invocation",
+      "description": "New file src/renderer/components/chat/SkillsPalette.test.tsx. Cases: renders when isOpen=true and nothing when false; fuzzy filter ranks 'comm' surfacing commit ahead of cost-estimate; ArrowDown moves selection and clamps; Enter calls invocation handler once; Escape calls close; empty state renders 'No skills match'; Cmd+K keydown opens palette. Use @testing-library/react, mock useClaudeConfigStore with skills fixture, mock useSkillInvoke return spy.",
+      "type": "test",
+      "effort": "M",
+      "priority": "P2",
+      "dependsOn": ["TASK-008"],
+      "acceptanceCriteria": [
+        "All seven cases above pass",
+        "Mocking useSkillInvoke returns a spy that is called exactly once on Enter",
+        "Skills with description: undefined still render without throwing (failure case)"
+      ],
+      "filesToModify": [],
+      "filesToCreate": ["src/renderer/components/chat/SkillsPalette.test.tsx"],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-017",
+      "title": "Component test — ContextRing tooltip extension",
+      "description": "Extend src/renderer/components/chat/ContextRing.test.tsx. Add cases: tooltip shows breakdown rows when all four token fields present; falls back to single-line summary when breakdown missing; auto-compact estimate renders 'soon' at pct >= 95; cost row displays in $X.XX format using formatCost. Original tests at line 8 are the baseline.",
+      "type": "test",
+      "effort": "S",
+      "priority": "P2",
+      "dependsOn": ["TASK-010"],
+      "acceptanceCriteria": [
+        "All four new assertions pass alongside existing tests",
+        "When passed used=0, size=100, tooltip shows 0% and an estimate > 0 turns until auto-compact (failure case: must not show 'in -1 turns')",
+        "Cost formatting renders correctly for both penny-scale and dollar-scale values"
+      ],
+      "filesToModify": ["src/renderer/components/chat/ContextRing.test.tsx"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-018",
+      "title": "Component test — AcpSubagentDisplay nested tree, role colors, click-to-focus",
+      "description": "Extend src/renderer/components/chat/AcpSubagentDisplay.test.tsx. Cases: subagents with parent='agent-a' render indented under agent-a; two siblings render at same indent; circular parent references render flat without infinite loop; click on agent card dispatches chat-scroll-to or calls scroll helper with correct id; role-colored icons differ between plan and research; elapsed clock element appears only when running. Use SubagentInfo[] fixture; mock document.dispatchEvent. Use vi.useFakeTimers for elapsed clock.",
+      "type": "test",
+      "effort": "M",
+      "priority": "P2",
+      "dependsOn": ["TASK-013"],
+      "acceptanceCriteria": [
+        "All six new assertions pass alongside existing tests",
+        "Existing flat-list tests still pass (regression preserved)",
+        "Test for circular reference asserts within ~3 second timeout — no recursion stack overflow (failure case)"
+      ],
+      "filesToModify": ["src/renderer/components/chat/AcpSubagentDisplay.test.tsx"],
+      "filesToCreate": [],
+      "agent": "react-vite-tailwind-engineer"
+    },
+    {
+      "id": "TASK-019",
+      "title": "Update docs/keyboard-shortcuts.md with Cmd+K Skills Palette entry",
+      "description": "Append a new section to docs/keyboard-shortcuts.md: Cmd+K (macOS) / Ctrl+K (Linux/Windows) 'Open Skills Palette'. Inside palette: up/down navigate, enter invoke, esc close, type to fuzzy-filter. One-line note that skills come from ~/.claude/skills/ and .claude/skills/. Keep existing structure unchanged.",
+      "type": "docs",
+      "effort": "S",
+      "priority": "P3",
+      "dependsOn": ["TASK-008"],
+      "acceptanceCriteria": [
+        "New section is appended in the existing style (matching headers and table format)",
+        "Mentions both macOS and non-macOS modifiers",
+        "Existing shortcut documentation is unchanged byte-for-byte (failure case: diff must be additive only)"
+      ],
+      "filesToModify": ["docs/keyboard-shortcuts.md"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "TASK-020",
+      "title": "Update CLAUDE.md engineering learnings + append activity.md entry",
+      "description": "Add two bullets to ## Engineering learnings in CLAUDE.md: (1) Skills palette pattern — reuse splash-insert CustomEvent + fuzzy-search + Radix Dialog; always close palette via getState().close() from invoke handler not modal onOpenChange to avoid stale state on side-effect invocations. (2) Subagent nested tree — detect circular parent references before rendering; elapsed-time clocks tick from first running transition only. Then prepend a new entry to activity.md in existing format (Dubai GST timestamp, title, 1-3 sentence summary, **Modified:** line). Entry summarizes entire Claude Code Superpowers batch.",
+      "type": "docs",
+      "effort": "S",
+      "priority": "P3",
+      "dependsOn": ["TASK-008", "TASK-010", "TASK-013"],
+      "acceptanceCriteria": [
+        "CLAUDE.md has both new learning bullets in the Engineering learnings section",
+        "activity.md gets one new entry prepended (not appended)",
+        "Activity log entry timestamps use Dubai GST and follow the existing YYYY-MM-DD HH:MM GST (Dubai) format (failure case: any other timezone or format breaks the convention)"
+      ],
+      "filesToModify": ["CLAUDE.md", "activity.md"],
+      "filesToCreate": [],
+      "agent": "general-purpose"
+    }
+  ],
+  "dependencies": {
+    "TASK-001": [],
+    "TASK-002": [],
+    "TASK-003": [],
+    "TASK-004": [],
+    "TASK-005": [],
+    "TASK-006": ["TASK-004"],
+    "TASK-007": ["TASK-001", "TASK-004", "TASK-005"],
+    "TASK-008": ["TASK-007"],
+    "TASK-009": [],
+    "TASK-010": ["TASK-009"],
+    "TASK-011": ["TASK-001", "TASK-002"],
+    "TASK-012": ["TASK-002", "TASK-011"],
+    "TASK-013": ["TASK-012"],
+    "TASK-014": ["TASK-003"],
+    "TASK-015": ["TASK-004"],
+    "TASK-016": ["TASK-008"],
+    "TASK-017": ["TASK-010"],
+    "TASK-018": ["TASK-013"],
+    "TASK-019": ["TASK-008"],
+    "TASK-020": ["TASK-008", "TASK-010", "TASK-013"]
+  }
+}
