@@ -1,5 +1,25 @@
 # Changelog
 
+## [v1.13.0] - 2026-05-14
+
+### Features
+
+- split-view thread replacement, fork action, and light-mode color fixes ([`2da1e17`](https://github.com/thabti/klaudex/commit/2da1e17d6fec81131512e68c1c254d99fd94b207))
+- add Skills Palette, subagent UX upgrade, header context meter ([`6cd52ec`](https://github.com/thabti/klaudex/commit/6cd52ec2d3a631149a15ddff2b1fe7c17a62b870))
+
+### Bug fixes
+
+- dialog dismiss now actually closes in self-contained mode ([`8f15639`](https://github.com/thabti/klaudex/commit/8f15639946b64b3b4a1ce355c7a2a5092df697a8))
+
+### Chores
+
+- update downloads.json ([`75bc883`](https://github.com/thabti/klaudex/commit/75bc883d030d526bdf16d46fad1d6d42ee5b8ac9))
+- add claude-code-superpowers plan ([`5137c83`](https://github.com/thabti/klaudex/commit/5137c83c2b3568efc45552bf9a53f307bdc9a097))
+
+### Other changes
+
+- Merge feat/claude-code-superpowers: Skills Palette + subagent UX + header context meter ([`d78cdc5`](https://github.com/thabti/klaudex/commit/d78cdc5482b45621cd5e140b6c01acce6675ae0a))
+
 ## [v1.12.0] - 2026-05-13
 
 ### Features
