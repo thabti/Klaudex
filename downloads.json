@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-05-15T07:35:55Z",
+  "updated_at": "2026-05-16T07:16:23Z",
   "releases": [
     {
       "tag": "v1.8.0",
@@ -48,7 +48,7 @@
       "tag": "v1.13.0",
       "published": "2026-05-14T18:33:30Z",
       "total": 2,
-      "update_checks": 28,
+      "update_checks": 40,
       "assets": [
         {
           "name": "Klaudex_1.13.0_aarch64.dmg",
@@ -510,7 +510,7 @@
   ],
   "totals": {
     "all": 23,
-    "update_checks": 113,
+    "update_checks": 125,
     "macos": 23,
     "windows": 0,
     "linux": 0
